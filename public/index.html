@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eidoslab</title>
+    <meta name="description"
+        content="Generate professional presentations in seconds with AI. Fill in details, choose your style, download your PDF.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=2">
+</head>
+
+<body>
+    <!-- ======================== -->
+    <!-- CHAT INTERFACE           -->
+    <!-- ======================== -->
+    <section id="chat-screen">
+        <div class="chat-container">
+            <!-- App Header -->
+            <div class="app-header">
+                <div class="app-logo">
+                    <span class="logo-eidos">Eidos</span><span class="logo-lab">lab</span>
+                    <div class="dot"></div>
+                </div>
+                <h2 class="app-subtitle" id="t-app-subtitle">Generate a full presentation about...</h2>
+            </div>
+
+            <!-- Chat Input Area -->
+            <div class="chat-input-wrapper">
+                <div class="chat-input-container"
+                    style="position: relative; flex: 1; display: flex; align-items: center; overflow: hidden;">
+                    <span id="chat-placeholder"
+                        style="position: absolute; left: 1.2rem; right: 0.5rem; color: var(--muted); pointer-events: none; white-space: nowrap; user-select: none; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;">
+                        <span id="chat-typewriter-text" style="overflow: hidden; text-overflow: ellipsis;"></span><span
+                            id="chat-typewriter-cursor" class="typewriter-cursor">|</span>
+                    </span>
+                    <input type="text" id="w-tema" class="chat-input" autocomplete="off" autofocus>
+                </div>
+                <div class="chat-actions">
+
+                    <button class="btn-generate-chat" id="btn-generate" disabled>
+                        <svg id="btn-icon-send" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                        <svg id="btn-icon-loader" class="loader-icon hidden" viewBox="0 0 24 24" width="20" height="20"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <p class="app-microcopy" id="t-app-microcopy">8–12 slides &middot; Structured content &middot; Ready to
+                download as PDF</p>
+            <span class="error-msg" id="tema-error" style="margin-top: 5px; text-align: center;">Please enter a topic to
+                generate your presentation.</span>
+
+
+        </div>
+    </section>
+
+    <!-- ======================== -->
+    <!-- PREVIEW                  -->
+    <!-- ======================== -->
+    <section id="preview-container" class="hidden">
+        <!-- Unified Sleek Header -->
+        <div class="preview-unified-header">
+            <div class="preview-unified-left">
+                <button type="button" id="btn-back-to-chat" class="header-icon-btn" title="Back">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                </button>
+                <span class="preview-topic-label" id="preview-topic-label">Topic</span>
+            </div>
+
+            <div class="preview-unified-center">
+                <div class="nav-group">
+                    <div id="slide-dots" class="slide-dots"></div>
+                    <span id="slide-label" class="slide-label">1 / 1</span>
+                </div>
+            </div>
+
+            <div class="preview-unified-right">
+                <button type="button" id="btn-regenerate" class="action-btn icon-only" title="Regenerate">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                </button>
+
+                <div class="header-v-separator"></div>
+
+                <button type="button" id="preview-reset-btn" class="action-btn text-link">
+                    <span id="t-reset-text">New</span>
+                </button>
+
+                <button type="button" id="finalize-btn" class="action-btn bordered-primary">
+                    <div class="btn-progress-fill"></div>
+                    <div class="btn-content-wrap">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <span id="t-finalize-text">Download PDF</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+
+
+        <!-- Slide viewer -->
+        <div class="preview-stage">
+            <button type="button" id="prev-slide" class="stage-arrow left" aria-label="Previous slide">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
+
+            <div class="preview-wrapper">
+                <iframe id="preview-iframe" sandbox="allow-scripts allow-same-origin"></iframe>
+            </div>
+
+            <button type="button" id="next-slide" class="stage-arrow right" aria-label="Next slide">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+        </div>
+    </section>
+
+    <!-- ======================== -->
+    <!-- RESULT                   -->
+    <!-- ======================== -->
+    <section id="result-container" class="hidden">
+        <div class="success-card glass-panel">
+            <div class="success-glow"></div>
+            <div class="success-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+            </div>
+            <h2 id="t-result-title" class="success-title">Your presentation is ready!</h2>
+            <p id="result-subtitle" class="success-subtitle">Slides were generated about your topic.</p>
+            <div class="success-actions">
+                <a href="#" id="download-btn" class="btn-primary pulse-btn" target="_blank">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round" width="18" height="18">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span id="t-download-text">Download PDF</span>
+                </a>
+                <button type="button" id="reset-btn" class="btn-secondary">Generate another presentation</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================== -->
+    <!-- ERROR                    -->
+    <!-- ======================== -->
+    <section id="error-container" class="hidden">
+        <div class="error-card">
+            <div class="error-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" class="error-icon" stroke="currentColor" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h2 id="t-error-title">Something didn't go as planned</h2>
+            <p class="error-subtitle" id="t-error-subtitle">The AI service is temporarily unavailable. This is usually
+                resolved quickly.</p>
+            <details class="error-details">
+                <summary id="t-error-summary">Technical details</summary>
+                <p id="error-message"></p>
+            </details>
+            <button type="button" id="back-btn" class="btn-secondary">Try again</button>
+        </div>
+    </section>
+
+    <!-- ======================== -->
+    <!-- REFUSED CONTENT          -->
+    <!-- ======================== -->
+    <section id="refused-container" class="hidden">
+        <div class="refused-card">
+            <div class="refused-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" class="refused-icon" stroke="currentColor" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                </svg>
+            </div>
+            <h2 id="t-refused-title">This topic can't be generated</h2>
+            <p class="refused-subtitle" id="t-refused-subtitle">The AI declined to create this presentation for safety
+                reasons.</p>
+            <div class="refused-message" id="refused-message"></div>
+            <button type="button" id="refused-back-btn" class="btn-secondary">Try a different topic</button>
+        </div>
+    </section>
+
+    <!-- ======================== -->
+    <!-- LIQUID TRANSITION        -->
+    <!-- ======================== -->
+    <div id="liquid-transition" class="liquid-transition">
+        <div class="wave-container wave-1">
+            <div class="wave-shape"></div>
+        </div>
+        <div class="wave-container wave-2">
+            <div class="wave-shape"></div>
+        </div>
+        <div class="wave-container wave-3">
+            <div class="wave-shape"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
