@@ -25,7 +25,7 @@ if (!fs.existsSync(TMP_DIR)) {
 let model = null;
 if (process.env.GEMINI_API_KEY) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 }
 
 // Global Puppeteer Browser Instance
@@ -88,9 +88,7 @@ app.post('/generate', async (req, res) => {
         res.setHeader('Connection', 'keep-alive');
 
         const modelNames = [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-flash-latest"
+            "gemini-2.5-flash"
         ];
         let result = null;
         let lastError = null;
