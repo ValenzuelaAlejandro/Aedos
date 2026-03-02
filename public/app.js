@@ -256,18 +256,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const loaderIcon = document.getElementById('btn-icon-loader');
 
     function toggleGenerateLoading(isLoading) {
+        const previewBtns = [
+            document.getElementById('btn-back-to-chat'),
+            document.getElementById('btn-regenerate'),
+            document.getElementById('preview-reset-btn'),
+            document.getElementById('finalize-btn'),
+            document.getElementById('prev-slide'),
+            document.getElementById('next-slide')
+        ];
+
         if (isLoading) {
             temaInput.disabled = true;
             generateBtn.disabled = true;
             if (sendIcon) sendIcon.classList.add('hidden');
             if (loaderIcon) loaderIcon.classList.remove('hidden');
             stopTypewriter();
+
+            // Disable preview buttons during generation
+            previewBtns.forEach(btn => { if (btn) btn.disabled = true; });
         } else {
             temaInput.disabled = false;
             generateBtn.disabled = temaInput.value.trim().length < 4;
             if (sendIcon) sendIcon.classList.remove('hidden');
             if (loaderIcon) loaderIcon.classList.add('hidden');
             if (typewriterCursor) typewriterCursor.style.display = '';
+
+            // Enable preview buttons after generation (or error)
+            previewBtns.forEach(btn => { if (btn) btn.disabled = false; });
+
             if (temaInput.value.trim() && chatPlaceholderContainer) {
                 chatPlaceholderContainer.style.display = 'none';
             }
@@ -548,7 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
 
-                            if (previewLabel) previewLabel.textContent = `[ ${displayTitle} ]`;
+                            if (previewLabel) previewLabel.textContent = displayTitle;
                             currentTitle = displayTitle;
                         }
                     }
