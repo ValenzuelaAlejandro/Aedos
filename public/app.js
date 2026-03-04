@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let generatedHtml = '';
     let slideContainer = null; // The actual parent element of the slides (may be body or a wrapper)
     let currentTitle = 'Presentation';
+    let _refreshSlotOverlays = null; // assigned in injectImageReplacementSystem
 
     // Listen for messages from iframe during skeleton generation
     window.addEventListener('message', (e) => {
@@ -303,17 +304,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         temaError.classList.remove('visible');
 
+        // Everything the AI needs comes from the raw chat text.
+        // The prompt handles extraction of: slide count, metadata, style, colors, language, etc.
         const requestData = {
-            tema: tema,
-            subtitulo: '',
-            numSlides: 8,
-            densidad: 'Balanced',
-            colorPrimario: '#6366f1',
-            institution: '',
-            members: '',
-            teacher: '',
-            date: '',
-            contenidoUsuario: ''
+            tema: tema
         };
 
         toggleGenerateLoading(true);
@@ -748,6 +742,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Apply horizontal carousel layout to the real slide container
         slideContainer.style.cssText += '; display:flex !important; flex-direction:row !important; width:max-content !important; height:100%; transition:transform 0.6s cubic-bezier(0.25,1,0.5,1); margin:0; padding:0;';
 
+        // Update overlays when carrousel transition ends
+        slideContainer.removeEventListener('transitionend', _refreshSlotOverlays);
+        slideContainer.addEventListener('transitionend', () => {
+            if (_refreshSlotOverlays) _refreshSlotOverlays();
+        });
+
         // Ensure each slide fills the viewport
         slides.forEach(s => {
             s.style.flex = '0 0 100vw';
@@ -790,6 +790,8 @@ document.addEventListener('DOMContentLoaded', () => {
         previewIframe.style.transform = `scale(${scale})`;
         const iframeNativeHeight = 167 * 3.7795275591;
         wrapper.style.height = `${iframeNativeHeight * scale}px`;
+        // Keep slot overlays aligned after scale change
+        if (_refreshSlotOverlays) _refreshSlotOverlays();
     }
 
     function injectImageReplacementSystem(doc) {
@@ -808,7 +810,6 @@ document.addEventListener('DOMContentLoaded', () => {
             [data-image-slot] {
                 cursor: pointer;
                 transition: outline 0.2s ease;
-                position: relative;
             }
             [data-image-slot]::after {
                 content: '';
@@ -835,7 +836,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 0%, 100% { background-position: 200% 0; }
                 50% { background-position: -200% 0; }
             }
-            [data-image-slot]:hover {
+            [data-image-slot]:hover,
+            [data-image-slot].is-hovered {
                 outline: 2px dashed rgba(255,255,255,0.3);
                 outline-offset: -2px;
             }
@@ -858,7 +860,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 pointer-events: none;
                 white-space: nowrap;
             }
-            [data-image-slot]:hover .img-replace-overlay {
+            [data-image-slot]:hover .img-replace-overlay,
+            [data-image-slot].is-hovered .img-replace-overlay {
                 opacity: 1;
             }
             .img-replace-overlay svg {
@@ -873,21 +876,150 @@ document.addEventListener('DOMContentLoaded', () => {
                 outline: 3px solid #6366f1 !important;
                 outline-offset: -3px;
             }
+            /* Full-bleed cover slots: siblings are decorative overlays – make them
+               click-through so the slot itself receives hover events */
+            section.s > [data-image-slot][style*="position:absolute"] ~ * {
+                pointer-events: none;
+            }
         `;
         doc.head.appendChild(style);
 
+        // ── Persistent parent-side label overlays ─────────────────────────────
+        // WHY THIS APPROACH:
+        //   • Clicks inside an iframe go to the iframe's document — NOT to the
+        //     <iframe> element in the parent. So pointerdown on the iframe element
+        //     never fires for inner-iframe clicks.
+        //   • postMessage from iframe → parent is async → loses user activation →
+        //     _picker.click() gets blocked by the browser.
+        //   • SOLUTION: Place real <label>+<input type=file> elements in the PARENT
+        //     document, permanently positioned over each slot's visual area.
+        //     A click on the label (parent DOM) directly opens the picker — no
+        //     focus handshake, no async, works on first click on desktop & mobile.
+
+        // Remove any overlays from a previous generation
+        document.querySelectorAll('._slot-overlay-label').forEach(el => el.remove());
+        document.querySelectorAll('._slot-overlay-input').forEach(el => el.remove());
+
+        // Map: slotEl → { input, label }
+        const _overlayMap = new Map();
+
+        function _buildOverlayForSlot(slotEl) {
+            if (_overlayMap.has(slotEl)) return; // already built
+
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.className = '_slot-overlay-input';
+            input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;width:1px;height:1px;pointer-events:none;';
+            document.body.appendChild(input);
+
+            input.addEventListener('change', () => {
+                const file = input.files[0];
+                if (file) replaceSlotImage(slotEl, file);
+                input.value = '';
+            });
+
+            const label = document.createElement('label');
+            label.className = '_slot-overlay-label';
+            label.style.cssText = 'position:fixed;display:none;z-index:100000;cursor:pointer;background:transparent;';
+            label.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                input.click();
+            });
+
+            // Hover sync: tell the iframe slot to show its tooltip when the parent label is hovered
+            label.addEventListener('mouseenter', () => slotEl.classList.add('is-hovered'));
+            label.addEventListener('mouseleave', () => slotEl.classList.remove('is-hovered'));
+
+            document.body.appendChild(label);
+
+            _overlayMap.set(slotEl, { input, label });
+        }
+
+        // Build overlays for ALL slots in the document
+        const allSlots = doc.querySelectorAll('[data-image-slot]');
+        allSlots.forEach(s => _buildOverlayForSlot(s));
+
+        // Position overlays for the slots on the CURRENT slide, hide others
+        function _positionOverlays() {
+            const iDoc = previewIframe.contentDocument;
+            if (!iDoc || !iDoc.defaultView) return;
+            const matrix = new DOMMatrix(getComputedStyle(previewIframe).transform);
+            const scale = matrix.a || 1;
+            const fr = previewIframe.getBoundingClientRect();
+
+            // iDoc.defaultView.innerWidth is the "native" viewport width of the iframe
+            const viewW = iDoc.defaultView.innerWidth;
+            const viewH = iDoc.defaultView.innerHeight;
+
+            _overlayMap.forEach(({ label }, slotEl) => {
+                const r = slotEl.getBoundingClientRect(); // iframe-internal coords
+
+                // Resilience: Check if slot is actually visible in the iframe viewport
+                // We allow a small buffer for precision
+                const isVisible = r.width > 0 && r.height > 0 &&
+                    r.left < viewW - 1 &&
+                    r.right > 1 &&
+                    r.top < viewH - 1 &&
+                    r.bottom > 1;
+
+                if (!isVisible) {
+                    label.style.display = 'none';
+                    return;
+                }
+
+                // Show and position
+                label.style.display = 'block';
+                label.style.left = (fr.left + r.left * scale) + 'px';
+                label.style.top = (fr.top + r.top * scale) + 'px';
+                label.style.width = (r.width * scale) + 'px';
+                label.style.height = (r.height * scale) + 'px';
+            });
+        }
+
+        // Expose so scrollToSlide and scaleIframe can call it
+        _refreshSlotOverlays = _positionOverlays;
+
+        // Message handler is no longer needed since overlays handle everything directly
+        if (window._slotMsgHandler) {
+            window.removeEventListener('message', window._slotMsgHandler);
+            window._slotMsgHandler = null;
+        }
+        // ──────────────────────────────────────────────────────────────────────
+
+
         const slots = doc.querySelectorAll('[data-image-slot]');
         slots.forEach(slot => {
-            // Hide decorative shapes (circles, blobs) but keep gradient overlays
+            const slotId = slot.dataset.imageSlot;
+
+            // Hide decorative shapes (circles/blobs) — keep gradient overlays
             Array.from(slot.children).forEach(child => {
-                if (child.classList.contains('img-replace-overlay') || child.classList.contains('preview-file-input')) return;
                 const s = child.style;
-                // If it has explicit pixel dimensions (not inset:0), it's a shape — hide it
                 if (s.width && s.width !== '100%' && s.height && s.height !== '100%' && s.borderRadius === '50%') {
                     child.style.display = 'none';
                 }
             });
 
+            // For full-bleed slots (cover slides): the slot is a background layer.
+            // Siblings render ON TOP (z-index:2) and have pointer-events:none so
+            // the parent-side label overlay still shows above everything and
+            // the user can always click/tap to pick an image.
+            const computedPos = doc.defaultView.getComputedStyle(slot).position;
+            const isFullBleed = computedPos === 'absolute' &&
+                slot.parentElement && slot.parentElement.tagName === 'SECTION';
+            if (isFullBleed) {
+                Array.from(slot.parentElement.children).forEach(child => {
+                    if (child !== slot) {
+                        child.style.zIndex = '2'; // text renders above background image
+                    }
+                });
+                slot.style.zIndex = '0';
+            }
+            // Note: pointer-events on siblings are left as-is — the parent label
+            // overlay (z-index:200) handles all click routing.
+
+            // "Click or drop image" tooltip
             const overlay = doc.createElement('div');
             overlay.className = 'img-replace-overlay';
             overlay.innerHTML = `
@@ -900,37 +1032,16 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             slot.appendChild(overlay);
 
-            const fileInput = doc.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = 'image/*';
-            fileInput.className = 'preview-file-input';
-            fileInput.style.cssText = 'position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 20; border: none; padding: 0; margin: 0; display: block;';
-            slot.appendChild(fileInput);
-
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) replaceSlotImage(slot, file);
-                // Refocus parent window so keyboard arrows keep working
-                window.focus();
-            });
-
-            // Also refocus when file dialog is cancelled
-            fileInput.addEventListener('click', () => {
-                const refocus = () => { window.focus(); };
-                window.addEventListener('focus', refocus, { once: true });
-            });
-
+            // Drag & drop (works directly, no scaling issue)
             slot.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 slot.classList.add('drag-over');
             });
-
             slot.addEventListener('dragleave', (e) => {
                 e.preventDefault();
                 slot.classList.remove('drag-over');
             });
-
             slot.addEventListener('drop', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -943,14 +1054,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                 }
-
                 const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
                 if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
                     replaceSlotWithUrl(slot, imageUrl);
                 }
             });
         });
+
+        // Initial positioning after all slots are set up
+        // (done after multiple delays to account for carousel transition, font loading, etc.)
+        setTimeout(_positionOverlays, 100);
+        setTimeout(_positionOverlays, 500);
+        setTimeout(_positionOverlays, 1500);
     }
+
 
     function replaceSlotImage(slot, file) {
         const reader = new FileReader();
@@ -975,6 +1092,11 @@ document.addEventListener('DOMContentLoaded', () => {
         slot.style.backgroundPosition = 'center';
 
         slot.classList.add('has-custom-image');
+
+        // z-index and pointer-events for full-bleed slots are set once in
+        // injectImageReplacementSystem and never need to change on image apply.
+        // Siblings stay at z-index:2 / pointer-events:none permanently so text
+        // is always visible and clicks always reach the slot for re-picking.
     }
 
     // =========================================================
@@ -992,6 +1114,8 @@ document.addEventListener('DOMContentLoaded', () => {
             slides[index].classList.add('active');
             currentSlide = index;
             updateSlideCounter();
+            // Reposition overlays for the new active slide
+            if (_refreshSlotOverlays) setTimeout(_refreshSlotOverlays, 50);
         }
     }
 
@@ -1229,6 +1353,10 @@ document.addEventListener('DOMContentLoaded', () => {
         totalSlides = 0;
         generatedHtml = '';
         slideContainer = null;
+        _refreshSlotOverlays = null;
+        // Remove persistent slot overlays from previous presentation
+        document.querySelectorAll('._slot-overlay-label').forEach(el => el.remove());
+        document.querySelectorAll('._slot-overlay-input').forEach(el => el.remove());
         slideDots.innerHTML = '';
         progressBarEl.style.transition = 'none';
         progressBarEl.style.width = '0%';

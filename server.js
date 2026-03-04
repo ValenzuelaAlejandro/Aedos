@@ -58,28 +58,17 @@ app.post('/generate', async (req, res) => {
     try {
         const opciones = req.body;
 
-        // Normalize General Data fields
-        opciones.institution = opciones.institution || '';
-        opciones.members = opciones.members || '';
-        opciones.teacher = opciones.teacher || '';
-        opciones.date = opciones.date || '';
-
-        // 1. Validate "tema" is not empty
+        // Validate that the chat input is not empty
         if (!opciones.tema || String(opciones.tema).trim() === '') {
             return res.status(400).json({ error: 'The topic is required' });
-        }
-
-        // 2. Validate numSlides is between 5 and 15
-        const numSlides = parseInt(opciones.numSlides);
-        if (isNaN(numSlides) || numSlides < 5 || numSlides > 15) {
-            return res.status(400).json({ error: 'The number of slides must be between 5 and 15' });
         }
 
         if (!model) {
             return res.status(500).json({ error: 'Gemini API Key is not configured in .env' });
         }
 
-        // 4. Call buildPrompt to get the final prompt
+        // Build the prompt — the AI extracts all metadata, slide count,
+        // and style hints directly from the user's raw chat input.
         const prompt = buildPrompt(opciones);
 
         // 5. Call Gemini with fallback models
@@ -214,6 +203,18 @@ app.post('/generate', async (req, res) => {
         } else {
             // Trim off any conversational garbage Gemini put *before* the first real HTML tag
             let cleanedOutput = finalHtml.substring(finalHtml.indexOf('<', htmlStartIdx));
+
+            // Safety net: fix @import placed as raw text outside <style>
+            // The AI sometimes puts @import between <link> tags instead of inside <style>.
+            const looseImportRe = />[ \t\n]*(@import\s+url\([^)]+\);)[ \t\n]*</;
+            const looseImport = cleanedOutput.match(looseImportRe);
+            if (looseImport) {
+                const importLine = looseImport[1];
+                cleanedOutput = cleanedOutput.replace(/[ \t\n]*@import\s+url\([^)]+\);[ \t\n]*/gi, '\n');
+                cleanedOutput = cleanedOutput.replace(/<style>/i, '<style>\n    ' + importLine);
+                console.log('Sanitizer: moved loose @import into <style> block');
+            }
+
             res.write(`data: ${JSON.stringify({ done: true, html: cleanedOutput })}\n\n`);
         }
         res.end();
