@@ -737,6 +737,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Determine the container that holds the slides (could be body or a wrapper like <main>)
         slideContainer = (slides.length > 0) ? slides[0].parentElement : iframeDoc.body;
 
+        // ── CRITICAL: capture slide width in px BEFORE making body max-content ──
+        // Once body becomes max-content, vw units expand to fit ALL slides together,
+        // so 100vw no longer equals 1 slide width. We measure NOW while layout is correct.
+        const iframeWin2 = previewIframe.contentWindow;
+        const naturalSlideW = (slides[0] ? Math.round(slides[0].getBoundingClientRect().width) : 0)
+            || (iframeWin2 ? iframeWin2.innerWidth : 0)
+            || Math.round(297 * 3.7795275591); // fallback: 29.7cm in CSS px
+
         injectImageReplacementSystem(iframeDoc);
 
         // Apply horizontal carousel layout to the real slide container
@@ -748,15 +756,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (_refreshSlotOverlays) _refreshSlotOverlays();
         });
 
-        // Ensure each slide fills the viewport
+        // Fix each slide to the captured pixel width — NOT 100vw (broken after max-content)
         slides.forEach(s => {
-            s.style.flex = '0 0 100vw';
-            s.style.width = '100vw';
+            s.style.flex = `0 0 ${naturalSlideW}px`;
+            s.style.width = `${naturalSlideW}px`;
             s.style.height = '100vh';
             s.style.overflow = 'hidden';
             s.style.position = 'relative';
             s.style.boxSizing = 'border-box';
         });
+
+        // Store for scrollToSlide to use without re-measuring
+        previewIframe._slideWidthPx = naturalSlideW;
 
         // If slides are inside a wrapper (not direct body children), make sure body doesn't clip
         if (slideContainer !== iframeDoc.body) {
@@ -1109,7 +1120,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const slides = findSlides(iframeDoc);
         const container = slideContainer || iframeDoc.body;
         if (slides[index]) {
-            container.style.transform = `translateX(-${index * 100}vw)`;
+            const iframeWin = previewIframe.contentWindow;
+            const slideWidthPx = previewIframe._slideWidthPx
+                || (iframeWin && iframeWin.innerWidth > 0 ? iframeWin.innerWidth : 0)
+                || Math.round(297 * 3.7795275591);
+            container.style.transform = `translateX(-${index * slideWidthPx}px)`;
             slides.forEach(s => s.classList.remove('active'));
             slides[index].classList.add('active');
             currentSlide = index;
