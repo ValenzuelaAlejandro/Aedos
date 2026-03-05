@@ -39,7 +39,8 @@
                         <span id="chat-typewriter-text" style="overflow: hidden; text-overflow: ellipsis;"></span><span
                             id="chat-typewriter-cursor" class="typewriter-cursor">|</span>
                     </span>
-                    <input type="text" id="w-tema" class="chat-input" autocomplete="off" autofocus>
+                    <textarea id="w-tema" class="chat-input" autocomplete="off" autofocus rows="1" maxlength="600"
+                        style="resize: none; overflow: hidden; min-height: 1.5rem;"></textarea>
                 </div>
                 <div class="chat-actions">
 
@@ -56,6 +57,11 @@
                         </svg>
                     </button>
                 </div>
+            </div>
+            <div
+                style="display: flex; justify-content: flex-end; width: 100%; margin-top: -1rem; padding-right: 1.5rem; z-index: 2;">
+                <span id="char-counter"
+                    style="font-size: 0.75rem; color: var(--muted); transition: color 0.3s; font-family: var(--font-body);">0/600</span>
             </div>
             <p class="app-microcopy" id="t-app-microcopy">8–12 slides &middot; Structured content &middot; Ready to
                 download as PDF</p>

@@ -21,12 +21,43 @@ if (!fs.existsSync(TMP_DIR)) {
     fs.mkdirSync(TMP_DIR, { recursive: true });
 }
 
-// Gemini API Configuration
-let model = null;
-if (process.env.GEMINI_API_KEY) {
+// Models tried in order — each has its own independent free-tier quota
+const MODELS = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.5-pro"
+];
+
+const SAFETY = [
+    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+];
+
+async function tryModels(prompt) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    for (const modelName of MODELS) {
+        console.log(`[${new Date().toLocaleTimeString()}] Trying: ${modelName}`);
+        try {
+            const gemini = genAI.getGenerativeModel({ model: modelName, safetySettings: SAFETY });
+            const result = await gemini.generateContentStream(prompt);
+            if (result && result.response) result.response.catch(() => { });
+            console.log(`[${new Date().toLocaleTimeString()}] OK: ${modelName}`);
+            return result;
+        } catch (err) {
+            const msg = err.message || '';
+            const isQuota = msg.includes('429') || msg.toLowerCase().includes('quota');
+            const is404 = msg.includes('404');
+            if (isQuota) { console.warn(`   Quota exhausted for ${modelName}, trying next...`); continue; }
+            if (is404) { console.warn(`   Model unavailable: ${modelName}, trying next...`); continue; }
+            throw err;
+        }
+    }
+    throw new Error('QUOTA_EXHAUSTED');
 }
+
 
 // Global Puppeteer Browser Instance
 let browser;
@@ -63,101 +94,20 @@ app.post('/generate', async (req, res) => {
             return res.status(400).json({ error: 'The topic is required' });
         }
 
-        if (!model) {
+        if (!process.env.GEMINI_API_KEY) {
             return res.status(500).json({ error: 'Gemini API Key is not configured in .env' });
         }
 
-        // Build the prompt — the AI extracts all metadata, slide count,
-        // and style hints directly from the user's raw chat input.
         const prompt = buildPrompt(opciones);
 
-        // 5. Call Gemini with fallback models
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
-        const modelNames = [
-            "gemini-2.5-flash"
-        ];
-        let result = null;
-        let lastError = null;
-
-        let selectedModel = '';
-
-
-        for (const modelName of modelNames) {
-            const timestamp = new Date().toLocaleTimeString();
-            console.log(`[${timestamp}] Intentando generacion con: ${modelName}`);
-
-            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            const currentModel = genAI.getGenerativeModel({
-                model: modelName,
-                safetySettings: [
-                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-                ]
-            });
-
-
-            let retries = 2;
-            let success = false;
-
-            while (retries > 0) {
-                try {
-                    // Implementación de un timeout manual para la conexión inicial
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
-
-                    result = await currentModel.generateContentStream(prompt);
-                    clearTimeout(timeoutId);
-
-                    if (result && result.response) {
-                        result.response.catch(() => { });
-                    }
-                    success = true;
-                    selectedModel = modelName;
-                    break;
-                } catch (err) {
-                    lastError = err;
-                    const msg = err.message || '';
-                    const is429 = msg.includes('429') || msg.toLowerCase().includes('quota');
-                    const is503 = msg.includes('503') || msg.toLowerCase().includes('overloaded');
-                    const is404 = msg.includes('404');
-                    const isTimeout = err.name === 'AbortError' || msg.includes('deadline');
-
-                    console.error(`   Error en ${modelName}: [${err.name}] ${msg.substring(0, 100)}${msg.length > 100 ? '...' : ''}`);
-
-                    if (is429) console.warn(`   -> Razon: Limite de cuota excedido (Rate Limit).`);
-                    else if (is503) console.warn(`   -> Razon: Servidores de Google sobrecargados.`);
-                    else if (isTimeout) console.warn(`   -> Razon: Tiempo de espera agotado (Timeout).`);
-                    else if (is404) console.warn(`   -> Razon: Modelo no encontrado o no disponible.`);
-                    else console.warn(`   -> Razon: Error desconocido/critico.`);
-
-                    if (is429 || is503 || isTimeout) {
-                        retries--;
-                        if (retries > 0) {
-                            const wait = 3000;
-                            console.log(`   -> Reintentando en ${wait / 1000}s... (${retries} intentos restantes)`);
-                            await new Promise(r => setTimeout(r, wait));
-                        }
-                    } else {
-                        retries = 0; // Si es 404 o error de prompt, no reintentar
-                    }
-                }
-            }
-            if (success) {
-                console.log(`[${new Date().toLocaleTimeString()}] Exito con el modelo: ${selectedModel}`);
-                break;
-            }
-        }
-
-        if (!result) {
-            throw lastError || new Error('All models failed to generate content');
-        }
+        const result = await tryModels(prompt);
 
         let fullHtml = '';
+        let hasStartedValidContent = false;
         try {
             for await (const chunk of result.stream) {
                 let chunkText = "";
@@ -176,14 +126,43 @@ app.post('/generate', async (req, res) => {
                 fullHtml += chunkText;
 
                 let cleanChunk = chunkText.replace(/```html\n?/g, '').replace(/```\n?/g, '');
-                res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+
+                if (!hasStartedValidContent) {
+                    const matchIdx = fullHtml.indexOf('<!-- CONFIG');
+                    const htmlIdx = fullHtml.indexOf('<html');
+
+                    if (matchIdx !== -1) {
+                        hasStartedValidContent = true;
+                        const validContentStart = fullHtml.substring(matchIdx);
+                        cleanChunk = validContentStart.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                    } else if (htmlIdx !== -1) {
+                        hasStartedValidContent = true;
+                        const validContentStart = fullHtml.substring(htmlIdx);
+                        cleanChunk = validContentStart.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                    } else if (fullHtml.length > 500) {
+                        // Fallback just in case we never find CONFIG or html tag early on
+                        hasStartedValidContent = true;
+                        cleanChunk = fullHtml.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                    }
+                } else {
+                    res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                }
             }
 
         } catch (streamErr) {
-            console.error('Error streaming the presentation:', streamErr);
-            res.write(`data: ${JSON.stringify({ error: streamErr.message })}\n\n`);
-            res.end();
-            return;
+            const isParseError = streamErr.message && streamErr.message.includes('parse stream');
+            if (isParseError && fullHtml.length > 200) {
+                // Stream ended abruptly but we have usable content — treat as a clean finish
+                console.warn(`Stream parse error recovered — processing ${fullHtml.length} chars received so far`);
+            } else {
+                console.error('Error streaming the presentation:', streamErr);
+                res.write(`data: ${JSON.stringify({ error: streamErr.message })}\n\n`);
+                res.end();
+                return;
+            }
         }
 
         // 6. Clean the full response
@@ -204,6 +183,19 @@ app.post('/generate', async (req, res) => {
             // Trim off any conversational garbage Gemini put *before* the first real HTML tag
             let cleanedOutput = finalHtml.substring(finalHtml.indexOf('<', htmlStartIdx));
 
+            // Safety net: hard cap at 15 slides — strip any section.s beyond the 15th
+            const MAX_SLIDES = 15;
+            const slideTagRe = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
+            const slideMatches = [...cleanedOutput.matchAll(slideTagRe)];
+            if (slideMatches.length > MAX_SLIDES) {
+                const cutIndex = slideMatches[MAX_SLIDES].index;
+                // Find where the </body> starts so we can reattach it
+                const bodyClose = cleanedOutput.lastIndexOf('</body>');
+                const scripts = bodyClose !== -1 ? cleanedOutput.slice(bodyClose) : '</body></html>';
+                cleanedOutput = cleanedOutput.slice(0, cutIndex) + '\n' + scripts;
+                console.log(`Sanitizer: trimmed presentation from ${slideMatches.length} to ${MAX_SLIDES} slides`);
+            }
+
             // Safety net: fix @import placed as raw text outside <style>
             // The AI sometimes puts @import between <link> tags instead of inside <style>.
             const looseImportRe = />[ \t\n]*(@import\s+url\([^)]+\);)[ \t\n]*</;
@@ -215,6 +207,18 @@ app.post('/generate', async (req, res) => {
                 console.log('Sanitizer: moved loose @import into <style> block');
             }
 
+            // Safety net: if Lucide script loader is missing, inject it before </head>
+            const lucideSrc = 'https://unpkg.com/lucide@0.469.0/dist/umd/lucide.js';
+            if (!cleanedOutput.includes(lucideSrc)) {
+                cleanedOutput = cleanedOutput.replace(/<\/head>/i, `<script src="${lucideSrc}"></script>\n</head>`);
+                console.log('Sanitizer: injected missing Lucide script loader');
+            }
+            // Safety net: if lucide.createIcons() call is missing, inject it before </body>
+            if (!cleanedOutput.includes('lucide.createIcons')) {
+                cleanedOutput = cleanedOutput.replace(/<\/body>/i, `<script>lucide.createIcons();</script>\n</body>`);
+                console.log('Sanitizer: injected missing lucide.createIcons() call');
+            }
+
             res.write(`data: ${JSON.stringify({ done: true, html: cleanedOutput })}\n\n`);
         }
         res.end();
@@ -224,11 +228,18 @@ app.post('/generate', async (req, res) => {
         console.log('Debug: HTML saved to tmp/last_generated.html');
 
     } catch (error) {
+        const isQuotaError = error.message === 'QUOTA_EXHAUSTED';
+        const userMessage = isQuotaError
+            ? 'The AI service has reached its usage limit. Please try again in a few minutes.'
+            : 'Something went wrong. Please try again.';
+
+        if (isQuotaError) console.warn('All models quota exhausted.');
+        else console.error('Error generating the presentation:', error);
+
         if (!res.headersSent) {
-            console.error('Error generating the presentation:', error);
-            res.status(500).json({ error: 'Internal error generating the presentation: ' + (error.message || error) });
+            res.status(isQuotaError ? 429 : 500).json({ error: userMessage });
         } else {
-            res.write(`data: ${JSON.stringify({ error: error.message || error })}\n\n`);
+            res.write(`data: ${JSON.stringify({ error: userMessage })}\n\n`);
             res.end();
         }
     }

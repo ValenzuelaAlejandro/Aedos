@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Prevent accidental browser navigation when dragging files over the page
+    window.addEventListener('dragover', (e) => e.preventDefault(), false);
+    window.addEventListener('drop', (e) => e.preventDefault(), false);
+
     // =========================================================
     // DOM ELEMENTS
     // =========================================================
@@ -225,6 +229,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     temaInput.addEventListener('input', () => {
         const val = temaInput.value;
+
+        // Auto-resize vertical expansion
+        temaInput.style.height = 'auto';
+        temaInput.style.height = temaInput.scrollHeight + 'px';
+
+        // Update character count
+        const charCounter = document.getElementById('char-counter');
+        if (charCounter) {
+            const len = val.length;
+            charCounter.textContent = `${len}/600`;
+            if (len > 550) {
+                charCounter.style.color = '#ff5b5b'; // Red when approaching 600
+            } else {
+                charCounter.style.color = 'var(--muted)';
+            }
+        }
+
         if (val.length > 0) {
             temaError.classList.remove('visible');
             if (chatPlaceholderContainer) chatPlaceholderContainer.style.display = 'none';
@@ -943,6 +964,38 @@ document.addEventListener('DOMContentLoaded', () => {
             label.addEventListener('mouseenter', () => slotEl.classList.add('is-hovered'));
             label.addEventListener('mouseleave', () => slotEl.classList.remove('is-hovered'));
 
+            // Drag-and-drop on the PARENT overlay label (the label is on top of everything,
+            // so drops land here, not on the iframe slot).
+            label.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                slotEl.classList.add('drag-over');
+                label.style.outline = '2px dashed rgba(255,255,255,0.5)';
+                label.style.outlineOffset = '-3px';
+            });
+            label.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                slotEl.classList.remove('drag-over');
+                label.style.outline = '';
+            });
+            label.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                slotEl.classList.remove('drag-over');
+                label.style.outline = '';
+
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0 && files[0].type.startsWith('image/')) {
+                    replaceSlotImage(slotEl, files[0]);
+                    return;
+                }
+                // Fallback: URL drop (e.g. dragging image from browser)
+                const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+                if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+                    replaceSlotWithUrl(slotEl, imageUrl);
+                }
+            });
+
             document.body.appendChild(label);
 
             _overlayMap.set(slotEl, { input, label });
@@ -1071,6 +1124,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        // Prevent browser default drag-and-drop navigation inside the iframe.
+        // Without this, dropping a file anywhere on the iframe navigates it to the file URL.
+        doc.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
+        doc.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); });
 
         // Initial positioning after all slots are set up
         // (done after multiple delays to account for carousel transition, font loading, etc.)
