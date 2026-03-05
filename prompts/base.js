@@ -26,7 +26,7 @@ Extract EVERYTHING stated. Infer only what is truly absent.
 {
   "topic": "[Core subject in the same language as the input]",
   "language": "[ISO 639-1 code of the input language: es, en, fr, pt, de, it, zh, ja, ko, ar, ru…]",
-  "slide_count": [Explicitly requested number; default 8; hard max 15],
+  "slide_count": [Explicitly requested number. Default 8. ABSOLUTE MAX 15. If user asks for >15, output 15 exactly. Never output >15],
   "tone": "[Infer from context: academic | playful | corporate | inspirational | satirical | university | elementary | documentary | startup | luxury]",
   "audience": "[Infer: students | experts | children | general | investors | executives | mixed]",
   "text_density": "[Infer from intent: low (minimal, visual-first) | medium | high (detailed, text-heavy)]",
@@ -58,16 +58,16 @@ STEP 2 — HTML PRESENTATION (29.7cm × 16.7cm, 16:9)
 4. LIGHT MODE: When bg_mode=light, --bg is white/cream and ALL text is dark (never white-on-white).
 5. TEXT DENSITY: high → up to 50 words per <p>, smaller font vars. low/medium → max 20 words per <p>.
 6. GRID COUNTS: .grid-2 = exactly 2 children. .grid-3 = exactly 3 children. .flex-col = max 2 cards.
+7. MAXIMUM SLIDES: You MUST NEVER generate more than 15 slides ("<section class='s'>"), even if the user explicitly asks for more. Stop at 15.
+8. SOURCES & BIBLIOGRAPHY: If the user asks for sources, references, or a bibliography, you MUST dedicate a full slide exclusively for it using Layout J immediately before the Conclusion slide. NEVER just mention sources briefly in the CTA or conclusion; they require their own slide.
 
-━━━ LAYOUT ROTATION (MANDATORY) ━━━━━━━━━━━━━━━━━━━━━
+━━━ LAYOUT SELECTION (DYNAMIC & BASED ON INTENT) ━━━━
 Slide 1 → always Layout A (cover). Last slide → always Layout I (conclusion).
-Middle slides follow this sequence starting at layout_seed:
-  Seed 1: B D F H C E G …   Seed 2: C E G B D F H …   Seed 3: D F H C E G B …
-  Seed 4: E G B D F H C …   Seed 5: F H C E G B D …   Seed 6: G B D F H C E …
-  Seed 7: H C E G B D F …
-Follow your row exactly (slide 2 = first letter, slide 3 = second, etc.).
-Skip a letter only if that layout genuinely doesn't suit the slide's content — use the next one instead.
-A deck of 10 slides must show at least 6 distinct layouts among slides 2–9.
+For middle slides, YOU MUST CHOOSE the layout that BEST fits the content and the user's intent.
+DO NOT use a rigid sequence. Let the user's prompt dictate the structure.
+- If the user asks for a visual presentation, prioritize layouts with images appropriately.
+- If the user asks for a data-focused presentation, use statistics or multi-column layouts.
+- Always prioritize the content's logical flow and the user's explicit instructions over forced variety. Just make sure it looks like a cohesive deck.
 
 ━━━ LAYOUT INTENT GUIDE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Data/numbers-heavy → favor E (stats), C (3-col comparison)
@@ -76,6 +76,7 @@ Conceptual/academic → favor B (2-col), G (quote), C (3-col)
 Process/how-to → favor F (steps), D (image+cards)
 Persuasive/pitch → favor G (quote), E (stats), B (2-col)
 Visual/showcase → favor D (image+cards), C (3-col)
+References/Bibliography/Lists → favor J (text list)
 
 ━━━ CSS DESIGN SYSTEM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -112,39 +113,41 @@ html { font-size: 10px; }
 body { margin:0; font-family:'[body]',sans-serif; color:var(--white); background:var(--bg); }
 section.s { width:29.7cm; height:16.7cm; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; box-sizing:border-box; position:relative; }
 @media print { body{margin:0} @page{size:29.7cm 16.7cm;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
-h1,h2,h3,h4 { font-family:'[heading]',serif; margin:0; line-height:1.15; color:var(--white); }
+h1,h2,h3,h4 { font-family:'[heading]',serif; margin:0; line-height:1.15; color:var(--white); overflow-wrap:break-word; word-wrap:break-word; }
 h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; margin-bottom:2rem; }
 h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
 h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.5rem; }
-p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--white-dim); }
+p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--white-dim); overflow-wrap:break-word; word-wrap:break-word; }
 ul { margin:.8rem 0 0; padding-left:1.8rem; }
-ul li { font-size:var(--base-p); line-height:1.6; color:var(--white-dim); margin-bottom:.4rem; }
+ul li { font-size:var(--base-p); line-height:1.6; color:var(--white-dim); margin-bottom:.4rem; overflow-wrap:break-word; }
 .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
 .tag::before { content:''; width:2rem; height:2px; background:var(--accent); border-radius:2px; flex-shrink:0; }
-.subtitle { font-size:calc(var(--base-p)*1.25); font-weight:400; color:var(--white-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; }
-.big-number { font-size:8rem; font-weight:800; color:var(--accent); line-height:1; font-family:'[heading]',serif; }
-.big-label { font-size:1.4rem; color:var(--white-dim); margin-top:.5rem; }
-.quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+.subtitle { font-size:calc(var(--base-p)*1.25); font-weight:400; color:var(--white-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; overflow-wrap:break-word; }
+.big-number { font-size:min(8rem, 20cqi); font-weight:800; color:var(--accent); line-height:1; font-family:'[heading]',serif; overflow-wrap:break-word; word-wrap:break-word; word-break:break-word; max-width:100%; }
+.big-label { font-size:1.4rem; color:var(--white-dim); margin-top:.5rem; overflow-wrap:break-word; }
+.quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; overflow-wrap:break-word; }
 .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--white); margin:0 0 .8rem; line-height:1.4; }
 .quote-block cite { font-size:1.3rem; color:var(--accent); font-style:normal; }
 .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; }
-.step-item { display:flex; align-items:flex-start; gap:1.5rem; }
+.step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; }
 .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+.step-content { min-width:0; }
 .step-content h3 { font-size:var(--base-h3); margin-bottom:.3rem; }
 .step-content p { margin:0; }
 .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; }
-.stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); }
+.stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); min-width:0; container-type:inline-size; overflow:hidden; }
 .timeline-list { display:flex; flex-direction:column; gap:1.5rem; flex:1; }
-.timeline-item { display:flex; gap:2rem; align-items:flex-start; }
+.timeline-item { display:flex; gap:2rem; align-items:flex-start; min-width:0; }
 .timeline-year { font-size:1.4rem; font-weight:700; color:var(--accent); min-width:5rem; padding-top:.2rem; }
+.timeline-body { min-width:0; }
 .timeline-body h3 { font-size:1.8rem; margin-bottom:.3rem; }
 .timeline-body p { margin:0; }
 .flex-row { display:flex; gap:var(--base-gap); align-items:stretch; width:100%; flex:1; min-height:0; overflow:hidden; }
-.flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; overflow:hidden; }
+.flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; min-width:0; overflow:hidden; }
 .flex-col>.card { flex:1; min-height:0; }
-.grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; overflow:hidden; align-items:start; }
-.grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; overflow:hidden; align-items:start; }
-.card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; box-sizing:border-box; overflow:hidden; min-height:0; }
+.grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; min-width:0; overflow:hidden; align-items:start; }
+.grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; min-width:0; overflow:hidden; align-items:start; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; box-sizing:border-box; overflow:hidden; min-height:0; min-width:0; word-wrap:break-word; }
 .card.accent { background:var(--accent-dim); border-color:var(--accent); }
 .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
 .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; flex-shrink:0; }
@@ -204,15 +207,15 @@ ul li { font-size:var(--base-p); line-height:1.6; color:var(--white-dim); margin
   </div>
 </section>
 
-── E: STATISTICS / BIG NUMBERS ─────────────────────────
+── E: STATISTICS / BIG NUMBERS (SHORT TEXT ONLY) ───────
 <section class="s">
   <div class="tag">[NN · SECTION LABEL]</div>
   <h2>[Slide title]</h2>
   <p class="subtitle">[Context line]</p>
   <div class="stat-grid">
-    <div class="stat-box"><div class="big-number">[Value + unit]</div><div class="big-label">[What it represents]</div></div>
-    <div class="stat-box"><div class="big-number">[Value + unit]</div><div class="big-label">[What it represents]</div></div>
-    <div class="stat-box"><div class="big-number">[Value + unit]</div><div class="big-label">[What it represents]</div></div>
+    <div class="stat-box"><div class="big-number">[Max 6 chars, e.g. 99%, 10x]</div><div class="big-label">[What it represents]</div></div>
+    <div class="stat-box"><div class="big-number">[Max 6 chars, e.g. 99%, 10x]</div><div class="big-label">[What it represents]</div></div>
+    <div class="stat-box"><div class="big-number">[Max 6 chars, e.g. 99%, 10x]</div><div class="big-label">[What it represents]</div></div>
   </div>
 </section>
 
@@ -256,6 +259,20 @@ ul li { font-size:var(--base-p); line-height:1.6; color:var(--white-dim); margin
   <h2 style="max-width:70%;text-align:center;margin-bottom:2rem;">[Key takeaway headline]</h2>
   <p class="subtitle" style="text-align:center;margin:0 auto;">[Closing thought]</p>
   [If cta ≠ null: <p style="margin-top:2.5rem;font-weight:600;color:var(--accent);font-size:1.6rem;">[cta]</p>]
+</section>
+
+── J: TEXT / REFERENCES / BIBLIOGRAPHY ─────────────────
+<section class="s">
+  <div class="tag">[NN · SECTION LABEL]</div>
+  <h2>[Slide title]</h2>
+  <p class="subtitle">[Context line]</p>
+  <div class="card" style="width:100%; flex:1;">
+    <ul style="font-size:var(--base-p); color:var(--white-dim); line-height:1.7; display:flex; flex-direction:column; gap:1.5rem; margin:1rem 0 0 2rem; padding:0;">
+      <li>[Reference / Source / Point 1]</li>
+      <li>[Reference / Source / Point 2]</li>
+      <li>[Reference / Source / Point 3]</li>
+    </ul>
+  </div>
 </section>
 
 ━━━ IMAGE SLOT SYSTEM (no <img> ever) ━━━━━━━━━━━━━━━━━
