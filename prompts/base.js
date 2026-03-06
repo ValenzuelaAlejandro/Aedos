@@ -4,6 +4,15 @@ module.exports = function buildPrompt(opciones) {
   // Injected externally so the model cannot default to the same value
   const seed = (Date.now() % 7) + 1; // 1–7, changes every ~143ms
 
+  const structures = [
+    "explanatory (introduction, key concepts, explanation, example, conclusion)",
+    "problem_solution (problem, context, solution, example, conclusion)",
+    "historical (origin, development, key event, impact, conclusion)",
+    "comparison (criteria, case A, case B, comparison, conclusion)",
+    "educational_list (definition, characteristics, types, example, conclusion)"
+  ];
+  const chosenStructure = structures[Math.floor(Math.random() * structures.length)];
+
   return `You are a Presentation Generator API. Your only job is to produce HTML.
 
 ABSOLUTE RULE: Output ONLY valid HTML starting with "<!-- CONFIG". Zero conversational text, zero explanations, zero repetition of the input.
@@ -26,7 +35,7 @@ Extract EVERYTHING stated. Infer only what is truly absent.
 {
   "topic": "[Core subject in the same language as the input]",
   "language": "[ISO 639-1 code of the input language: es, en, fr, pt, de, it, zh, ja, ko, ar, ru…]",
-  "slide_count": [Explicitly requested number. Default 8. ABSOLUTE MAX 15. If user asks for >15, output 15 exactly. Never output >15],
+  "slide_count": [Explicit integer number of slides. If user asks for N, output N exactly. Default is 8. Absolutely NEVER exceed 15],
   "tone": "[Infer from context: academic | playful | corporate | inspirational | satirical | university | elementary | documentary | startup | luxury]",
   "audience": "[Infer: students | experts | children | general | investors | executives | mixed]",
   "text_density": "[Infer from intent: low (minimal, visual-first) | medium | high (detailed, text-heavy)]",
@@ -48,26 +57,29 @@ Extract EVERYTHING stated. Infer only what is truly absent.
 -->
 
 ════════════════════════════════════════════════════════
-STEP 2 — HTML PRESENTATION (29.7cm × 16.7cm, 16:9)
+STEP 2 — HTML PRESENTATION (1122px × 631px, 16:9)
 ════════════════════════════════════════════════════════
 
 ━━━ ABSOLUTE RULES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. LANGUAGE: Every word of output content must be in the detected language. No mixing.
 2. NAMES: Never invent authors, teachers, institutions. Only render what was extracted.
-3. NO <img> TAGS: All visuals use the Image Slot system (see below).
+3. NO <img> TAGS OR REAL URLs: All visuals MUST use the Image Slot placeholder system (see below). These are empty spaces for the user to upload their own images later.
 4. LIGHT MODE: When bg_mode=light, --bg is white/cream and ALL text is dark (never white-on-white).
 5. TEXT DENSITY: high → up to 50 words per <p>, smaller font vars. low/medium → max 20 words per <p>.
 6. GRID COUNTS: .grid-2 = exactly 2 children. .grid-3 = exactly 3 children. .flex-col = max 2 cards.
-7. MAXIMUM SLIDES: You MUST NEVER generate more than 15 slides ("<section class='s'>"), even if the user explicitly asks for more. Stop at 15.
+7. STOPPING AT N SLIDES: You MUST stop generating sections once you reach exactly the "slide_count" number. For example, if "slide_count" is 2, generate EXACTLY 2 <section> tags in total (Slide 1: Layout A, Slide 2: Layout I), then output </body> and STOP immediately. Do NOT output extra slides. If they don't specify, default is 8. NEVER exceed 15.
 8. SOURCES & BIBLIOGRAPHY: If the user asks for sources, references, or a bibliography, you MUST dedicate a full slide exclusively for it using Layout J immediately before the Conclusion slide. NEVER just mention sources briefly in the CTA or conclusion; they require their own slide.
 
 ━━━ LAYOUT SELECTION (DYNAMIC & BASED ON INTENT) ━━━━
 Slide 1 → always Layout A (cover). Last slide → always Layout I (conclusion).
-For middle slides, YOU MUST CHOOSE the layout that BEST fits the content and the user's intent.
-DO NOT use a rigid sequence. Let the user's prompt dictate the structure.
-- If the user asks for a visual presentation, prioritize layouts with images appropriately.
-- If the user asks for a data-focused presentation, use statistics or multi-column layouts.
-- Always prioritize the content's logical flow and the user's explicit instructions over forced variety. Just make sure it looks like a cohesive deck.
+For middle slides, YOU MUST CHOOSE and COMPOSE the layout that BEST fits the content and the user's intent.
+NARRATIVE STRUCTURE: Use the following narrative structure for the flow of the presentation: ${chosenStructure}.
+SLIDE TYPE VARIETY: Use a mix of slide types/layouts throughout the middle slides. Avoid repeating the same layout type more than twice consecutively!
+DO NOT use a rigid sequence. Let the user's prompt dictate the specific focus while matching the selected narrative.
+1. DYNAMIC IMAGE PLACEHOLDERS: If the user asks for images/photos on specific slides, on all slides, or a visual heavy presentation, YOU MUST inject an Image Slot placeholder ('<div class="img-slot" data-image-slot="...">...</div>') in those slides. These are empty slots for the user to upload images. Never output actual <img> tags or real image URLs!
+To add an image placeholder to any layout, wrap the content in a '<div class="flex-row">', put the '.img-slot' on one side and the rest (cards, steps, text) on the other. Do not let predefined templates stop you from adding image slots if the user requested them!
+2. If the user asks for a data-focused presentation, use statistics or multi-column layouts.
+3. Always prioritize the content's logical flow and the user's explicit instructions over forced variety. Just make sure it looks like a cohesive deck.
 
 ━━━ LAYOUT INTENT GUIDE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Data/numbers-heavy → favor E (stats), C (3-col comparison)
@@ -75,7 +87,7 @@ Historical/chronological → favor H (timeline), F (steps)
 Conceptual/academic → favor B (2-col), G (quote), C (3-col)
 Process/how-to → favor F (steps), D (image+cards)
 Persuasive/pitch → favor G (quote), E (stats), B (2-col)
-Visual/showcase → favor D (image+cards), C (3-col)
+Visual/Explicit Image Request → inject an '.img-slot' wrapped in a '.flex-row' into any layout!
 References/Bibliography/Lists → favor J (text list)
 
 ━━━ CSS DESIGN SYSTEM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -111,8 +123,8 @@ CSS BLOCK — place ALL of this inside a single <style> tag in <head>. The @impo
 </style>
 html { font-size: 10px; }
 body { margin:0; font-family:'[body]',sans-serif; color:var(--white); background:var(--bg); }
-section.s { width:29.7cm; height:16.7cm; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; box-sizing:border-box; position:relative; }
-@media print { body{margin:0} @page{size:29.7cm 16.7cm;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; box-sizing:border-box; position:relative; }
+@media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
 h1,h2,h3,h4 { font-family:'[heading]',serif; margin:0; line-height:1.15; color:var(--white); overflow-wrap:break-word; word-wrap:break-word; }
 h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; margin-bottom:2rem; }
 h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
@@ -159,7 +171,8 @@ ul li { font-size:var(--base-p); line-height:1.6; color:var(--white-dim); margin
 .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim) 0%,var(--bg) 60%,var(--accent-2-dim) 100%); }
 .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
 
-━━━ LAYOUT TEMPLATES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ LAYOUT TEMPLATES (MIX & MATCH AS NEEDED) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+(Remember: you can inject an '.img-slot' enclosed in a '.flex-row' into any of these templates if the user requested images for that slide!)
 
 ── A: COVER (always slide 1) ───────────────────────────
 <section class="s" style="justify-content:center;">

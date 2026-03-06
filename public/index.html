@@ -13,6 +13,8 @@
         href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=2">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
 <body>
@@ -43,7 +45,10 @@
                         style="resize: none; overflow: hidden; min-height: 1.5rem;"></textarea>
                 </div>
                 <div class="chat-actions">
-
+                    <button class="btn-generate-chat" id="btn-debug-canva" type="button" title="Debug Canva"
+                        style="background: transparent; color: var(--muted); border: 1px solid var(--border); margin-right: 10px; width: auto; padding: 0 10px; font-family: var(--font-body); font-size: 0.8rem; cursor: pointer;">
+                        Debug
+                    </button>
                     <button class="btn-generate-chat" id="btn-generate" disabled>
                         <svg id="btn-icon-send" viewBox="0 0 24 24" width="20" height="20" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -86,7 +91,8 @@
                         <polyline points="12 19 5 12 12 5"></polyline>
                     </svg>
                 </button>
-                <span class="preview-topic-label" id="preview-topic-label">Topic</span>
+                <input type="text" class="preview-topic-input" id="preview-topic-label" value="Borrador sin título"
+                    placeholder="Nombre de la presentación" />
             </div>
 
             <div class="preview-unified-center">
@@ -97,6 +103,39 @@
             </div>
 
             <div class="preview-unified-right">
+                <button type="button" id="btn-undo" class="action-btn icon-only" title="Deshacer (⌘Z)">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 7v6h6" />
+                        <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+                    </svg>
+                </button>
+                <button type="button" id="btn-redo" class="action-btn icon-only" title="Rehacer (⌘Y)">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 7v6h-6" />
+                        <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+                    </svg>
+                </button>
+
+                <select id="canvas-zoom-select" class="action-btn text-link"
+                    style="background:transparent; border:none; cursor:pointer; color:var(--text); font-family:var(--font-body); font-size:0.9rem;">
+                    <option value="fit" selected>Ajustar</option>
+                    <option value="0.5">50%</option>
+                    <option value="0.75">75%</option>
+                    <option value="1">100%</option>
+                </select>
+
+                <button type="button" id="btn-present" class="action-btn icon-only" title="Presentar">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                        <line x1="12" y1="17" x2="12" y2="21"></line>
+                    </svg>
+                </button>
+                <div class="header-v-separator"></div>
+
                 <button type="button" id="btn-regenerate" class="action-btn icon-only" title="Regenerate">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
@@ -128,25 +167,92 @@
 
 
 
-        <!-- Slide viewer -->
-        <div class="preview-stage">
-            <button type="button" id="prev-slide" class="stage-arrow left" aria-label="Previous slide">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="15 18 9 12 15 6"></polyline>
-                </svg>
-            </button>
-
-            <div class="preview-wrapper">
-                <iframe id="preview-iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+        <!-- Editor Layout -->
+        <div class="editor-main-layout">
+            <!-- Left Minimap -->
+            <div class="editor-minimap" id="editor-minimap">
+                <div class="minimap-list" id="minimap-list"></div>
+                <button type="button" class="add-slide-btn" id="btn-add-slide" title="Agregar diapositiva">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
             </div>
 
-            <button type="button" id="next-slide" class="stage-arrow right" aria-label="Next slide">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-            </button>
+            <!-- Slide viewer (Center) -->
+            <div class="preview-stage" id="preview-stage">
+                <button type="button" id="prev-slide" class="stage-arrow left" aria-label="Previous slide">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+
+                <div class="preview-wrapper-scrollable" id="preview-wrapper-scrollable">
+                    <div class="preview-wrapper" id="preview-wrapper">
+                        <iframe id="preview-iframe"
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+                    </div>
+                </div>
+
+                <button type="button" id="next-slide" class="stage-arrow right" aria-label="Next slide">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Right Tools -->
+            <div class="editor-tools-panel" id="editor-tools-panel">
+                <!-- Add Elements Top Bar within tools -->
+                <div class="tools-add-elements">
+                    <button type="button" id="btn-add-text" class="add-el-btn" title="Agregar Texto">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"
+                            stroke-width="2">
+                            <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                            <line x1="9" y1="20" x2="15" y2="20"></line>
+                            <line x1="12" y1="4" x2="12" y2="20"></line>
+                        </svg>
+                        <span>Texto</span>
+                    </button>
+                    <button type="button" id="btn-add-image" class="add-el-btn" title="Agregar Imagen">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        <span>Imagen</span>
+                    </button>
+                    <button type="button" id="btn-add-shape" class="add-el-btn" title="Agregar Forma">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"
+                            stroke-width="2">
+                            <rect x="3" y="5" width="18" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                        <span>Forma</span>
+                    </button>
+                    <button type="button" id="btn-add-icon" class="add-el-btn" title="Agregar Ícono">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"
+                            stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M12 16v-4"></path>
+                            <path d="M12 8h.01"></path>
+                        </svg>
+                        <span>Ícono</span>
+                    </button>
+                </div>
+
+                <div class="tools-divider"></div>
+
+                <div id="dynamic-tools-container" class="dynamic-tools-container">
+                    <div class="empty-tools-state"
+                        style="color:var(--muted); font-size: 0.85rem; text-align:center; padding: 2rem 1rem;">
+                        Selecciona un elemento en el lienzo, o haz clic en el fondo para cambiar ajustes globales.
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -240,6 +346,7 @@
         </div>
     </div>
 
+    <script src="editor-ui.js"></script>
     <script src="app.js"></script>
 </body>
 

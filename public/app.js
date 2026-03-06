@@ -274,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 5. GENERATE BUTTON
     // =========================================================
     const generateBtn = document.getElementById('btn-generate');
+    const btnDebugCanva = document.getElementById('btn-debug-canva');
     const sendIcon = document.getElementById('btn-icon-send');
     const loaderIcon = document.getElementById('btn-icon-loader');
 
@@ -290,6 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isLoading) {
             temaInput.disabled = true;
             generateBtn.disabled = true;
+            if (btnDebugCanva) btnDebugCanva.disabled = true;
             if (sendIcon) sendIcon.classList.add('hidden');
             if (loaderIcon) loaderIcon.classList.remove('hidden');
             stopTypewriter();
@@ -299,6 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             temaInput.disabled = false;
             generateBtn.disabled = temaInput.value.trim().length < 4;
+            if (btnDebugCanva) btnDebugCanva.disabled = false;
             if (sendIcon) sendIcon.classList.remove('hidden');
             if (loaderIcon) loaderIcon.classList.add('hidden');
             if (typewriterCursor) typewriterCursor.style.display = '';
@@ -382,6 +385,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="loader-spinner"></div>
             <div class="loader-text">${loadingMsg}</div>
         </div>
+        <link rel="stylesheet" href="editor.css">
+        <script src="editor.js"></script>
         `;
 
         // Wait for the AI's first chunk with a loading screen
@@ -389,7 +394,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Immediately update preview label
         const previewLabel = document.getElementById('preview-topic-label');
-        if (previewLabel) previewLabel.textContent = tema;
+        if (previewLabel) {
+            if (previewLabel.tagName === 'INPUT') previewLabel.value = tema;
+            else previewLabel.textContent = tema;
+        }
 
 
         slideLabel.textContent = "1 / 1";
@@ -579,8 +587,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
 
-                            if (previewLabel) previewLabel.textContent = displayTitle;
+                            if (previewLabel) {
+                                if (previewLabel.tagName === 'INPUT') previewLabel.value = displayTitle;
+                                else previewLabel.textContent = displayTitle;
+                            }
                             currentTitle = displayTitle;
+
+                            // Inject Editor Scripts at the end of the body
+                            if (generatedHtml.includes('</body>')) {
+                                generatedHtml = generatedHtml.replace('</body>', '<link rel="stylesheet" href="editor.css"><script src="editor.js"></script></body>');
+                            } else {
+                                generatedHtml += '<link rel="stylesheet" href="editor.css"><script src="editor.js"></script>';
+                            }
                         }
                     }
                 }
@@ -626,6 +644,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     generateBtn.addEventListener('click', () => handleGenerate(null));
+
+    if (btnDebugCanva) {
+        btnDebugCanva.addEventListener('click', async () => {
+            try {
+                toggleGenerateLoading(true);
+                const res = await fetch('/debug-last');
+                if (!res.ok) throw new Error('No last generated file found');
+                let html = await res.text();
+
+                let displayTitle = "Debug Mode";
+                const configMatch = html.match(/<!--\s*CONFIG\s*([\s\S]*?)\s*-->/i);
+                if (configMatch) {
+                    try {
+                        const configObj = JSON.parse(configMatch[1]);
+                        if (configObj.Clean_Topic) displayTitle = configObj.Clean_Topic;
+                    } catch (e) { }
+                }
+
+                if (html.includes('</body>')) {
+                    html = html.replace('</body>', '<link rel="stylesheet" href="editor.css"><script src="editor.js"></script></body>');
+                } else {
+                    html += '<link rel="stylesheet" href="editor.css"><script src="editor.js"></script>';
+                }
+
+                generatedHtml = html;
+                currentTitle = displayTitle;
+                const previewLabel = document.getElementById('preview-topic-label');
+                if (previewLabel) {
+                    if (previewLabel.tagName === 'INPUT') previewLabel.value = currentTitle;
+                    else previewLabel.textContent = currentTitle;
+                }
+
+                if (slideDots) slideDots.innerHTML = '';
+                slideLabel.textContent = "1 / 1";
+
+                chatScreen.classList.add('hidden');
+                previewHeader.classList.remove('slide-down');
+                previewContainer.classList.remove('hidden');
+
+                if (typeof scaleIframe === 'function') {
+                    scaleIframe();
+                    window.removeEventListener('resize', scaleIframe);
+                    window.addEventListener('resize', scaleIframe);
+                }
+
+                const rawIframe = previewIframe.cloneNode();
+                previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
+                previewIframe = rawIframe;
+
+                const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+                iframeDoc.open();
+                iframeDoc.write(generatedHtml);
+                iframeDoc.close();
+
+                initPreview(generatedHtml);
+            } catch (err) {
+                console.error(err);
+                alert('No previous HTML found to debug. Please generate once.');
+            } finally {
+                toggleGenerateLoading(false);
+            }
+        });
+    }
 
     // Preview actions (Edit / Regenerate / Back)
     const btnBackToChat = document.getElementById('btn-back-to-chat');
@@ -758,13 +839,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Determine the container that holds the slides (could be body or a wrapper like <main>)
         slideContainer = (slides.length > 0) ? slides[0].parentElement : iframeDoc.body;
 
-        // ── CRITICAL: capture slide width in px BEFORE making body max-content ──
-        // Once body becomes max-content, vw units expand to fit ALL slides together,
-        // so 100vw no longer equals 1 slide width. We measure NOW while layout is correct.
-        const iframeWin2 = previewIframe.contentWindow;
-        const naturalSlideW = (slides[0] ? Math.round(slides[0].getBoundingClientRect().width) : 0)
-            || (iframeWin2 ? iframeWin2.innerWidth : 0)
-            || Math.round(297 * 3.7795275591); // fallback: 29.7cm in CSS px
+        // ── CRITICAL: Lock slide dimensions to absolute CSS pixels ──
+        // (1122px x 631px) ensuring cross-os consistency regardless of host DPI.
+        const naturalSlideW = 1122;
 
         injectImageReplacementSystem(iframeDoc);
 
@@ -777,11 +854,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (_refreshSlotOverlays) _refreshSlotOverlays();
         });
 
-        // Fix each slide to the captured pixel width — NOT 100vw (broken after max-content)
+        // Fix each slide to the captured pixel width AND height
         slides.forEach(s => {
-            s.style.flex = `0 0 ${naturalSlideW}px`;
-            s.style.width = `${naturalSlideW}px`;
-            s.style.height = '100vh';
+            s.style.flex = `0 0 1122px`;
+            s.style.width = `1122px`;
+            s.style.height = '631px';
             s.style.overflow = 'hidden';
             s.style.position = 'relative';
             s.style.boxSizing = 'border-box';
@@ -811,17 +888,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (previewIframe.contentWindow) previewIframe.contentWindow.scrollTo(0, 0);
         if (iframeDoc.documentElement) iframeDoc.documentElement.scrollLeft = 0;
         if (iframeDoc.body) iframeDoc.body.scrollLeft = 0;
+
+        // Init React-like declarative UI binding for Editor Panels
+        if (typeof window.initEditorUI === 'function') {
+            window.initEditorUI(previewIframe);
+        }
     }
 
     function scaleIframe() {
+        // Measure from a static parent that doesn't collapse with scale to prevent loop
+        const stage = document.querySelector('.preview-stage');
         const wrapper = document.querySelector('.preview-wrapper');
-        if (!wrapper) return;
-        const wrapperWidth = wrapper.clientWidth;
-        const iframeNativeWidth = 297 * 3.7795275591;
-        const scale = wrapperWidth / iframeNativeWidth;
+        const select = document.getElementById('canvas-zoom-select');
+
+        if (!wrapper || !stage || !previewIframe) return;
+
+        const iframeNativeWidth = 1122;
+        const iframeNativeHeight = 631;
+
+        let scale = 1;
+        // If a dropdown exists and is NOT 'fit', use its explicit value, otherwise auto-fit
+        if (select && select.value !== 'fit') {
+            scale = parseFloat(select.value) || 1;
+        } else {
+            // Auto fit inside stage (it has 32px padding on all sides, but stage.clientWidth includes padding,
+            // so we subtract 64px to ensure it perfectly fits inside the inner rect).
+            const stageRect = stage.getBoundingClientRect();
+            const availableWidth = stageRect.width - 64;
+            const availableHeight = stageRect.height - 64;
+            const MathScaleX = availableWidth / iframeNativeWidth;
+            const MathScaleY = availableHeight / iframeNativeHeight;
+            scale = Math.min(MathScaleX, MathScaleY);
+            if (scale > 1) scale = 1; // Don't scale up past 100% by default
+        }
+
         previewIframe.style.transform = `scale(${scale})`;
-        const iframeNativeHeight = 167 * 3.7795275591;
         wrapper.style.height = `${iframeNativeHeight * scale}px`;
+        wrapper.style.width = `${iframeNativeWidth * scale}px`;
         // Keep slot overlays aligned after scale change
         if (_refreshSlotOverlays) _refreshSlotOverlays();
     }

@@ -1369,6 +1369,9 @@ body.no-scroll {
     height: 100vh;
     padding: 0;
     overflow: hidden;
+    position: fixed;
+    /* Bound to viewport strictly */
+    inset: 0;
 }
 
 .preview-unified-header {
@@ -1518,7 +1521,7 @@ body.no-scroll {
     top: 0;
     bottom: 0;
     width: 0%;
-    background: rgba(0, 0, 0, 0.2);
+    background: white;
     z-index: 0;
     transition: width 0.3s ease;
 }
@@ -1709,6 +1712,7 @@ body.no-scroll {
     border: none;
     transform-origin: top left;
     pointer-events: auto;
+    overflow: hidden;
 }
 
 /* ================================================================
@@ -2084,4 +2088,626 @@ body.no-scroll {
     .action-btn span {
         font-size: 0.75rem;
     }
+}
+
+.preview-topic-input {
+    background: transparent;
+    border: 1px dashed transparent;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: var(--font-display);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    width: 250px;
+    max-width: 100%;
+    outline: none;
+    transition: border 0.2s, background 0.2s;
+}
+
+.preview-topic-input:hover,
+.preview-topic-input:focus {
+    border-color: var(--border);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* ================================================================
+   EDITOR LAYOUT (Left, Center, Right)
+   ================================================================ */
+.editor-main-layout {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    width: 100%;
+    margin-top: 0;
+    background-color: var(--bg);
+    overflow: hidden;
+    /* PREVENT VERTICAL GROWTH */
+    height: 0;
+    /* Let flex-1 take over and stabilize height */
+}
+
+/* Left Minimap */
+.editor-minimap {
+    width: 120px;
+    min-width: 120px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    /* Hide scrollbar */
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE/Edge */
+}
+
+/* Hide scrollbar for Chrome/Safari */
+.editor-minimap::-webkit-scrollbar {
+    display: none;
+}
+
+.minimap-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    padding: 0 0.8rem;
+}
+
+.minimap-item {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #1a1b1e;
+    /* Darker bg for thumbs */
+    border-radius: var(--radius);
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.minimap-item.active {
+    border-color: var(--accent);
+    transform: scale(1.05);
+    z-index: 10;
+    box-shadow: 0 0 0 2px var(--accent), 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+.minimap-item iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    pointer-events: none;
+    border-radius: inherit;
+    transform-origin: top left;
+    background: transparent;
+}
+
+.minimap-item-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    z-index: 2;
+}
+
+.minimap-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.minimap-item.is-dragging {
+    opacity: 0.8;
+    z-index: 100;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6);
+    transform: scale(1.05);
+}
+
+
+
+.minimap-item-number {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.add-slide-btn {
+    margin: 1rem;
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    border-radius: var(--radius);
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.add-slide-btn:hover {
+    border-style: solid;
+    border-color: rgba(255, 255, 255, 0.4);
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Center Stage (Override existing) */
+.preview-stage {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: radial-gradient(circle at center, var(--surface) 0%, var(--bg) 100%);
+    overflow: hidden;
+    height: 100%;
+    padding: 0;
+    /* Removed padding to maximize canvas space */
+}
+
+.preview-wrapper-scrollable {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: auto;
+    display: flex;
+    padding: 0;
+    box-sizing: border-box;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.preview-wrapper-scrollable::-webkit-scrollbar {
+    display: none;
+}
+
+.preview-wrapper {
+    transition: transform 0.2s ease, width 0.2s ease, height 0.2s ease;
+    flex-shrink: 0;
+    margin: auto;
+    /* Centering trick for scrollable flex items */
+}
+
+/* Right Tools Panel */
+.editor-tools-panel {
+    width: 260px;
+    min-width: 260px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1), min-width 0.3s cubic-bezier(0.25, 1, 0.5, 1), padding 0.3s ease;
+    z-index: 100;
+    height: 100%;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.editor-tools-panel.is-empty {
+    width: 130px;
+    min-width: 130px;
+    padding: 0.8rem;
+    overflow-x: hidden;
+}
+
+.editor-tools-panel.is-empty:hover,
+.editor-tools-panel.is-fixed {
+    width: 260px;
+    min-width: 260px;
+    padding: 1rem;
+    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.3);
+}
+
+.tools-close-btn {
+    position: absolute;
+    top: 0.8rem;
+    right: 0.8rem;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+    z-index: 10;
+}
+
+.editor-tools-panel.is-fixed .tools-close-btn {
+    display: block;
+}
+
+.tools-close-btn:hover {
+    color: var(--text);
+}
+
+.tools-add-elements {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.is-empty:not(:hover) .tools-add-elements {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+}
+
+.add-el-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    border-radius: 4px;
+    padding: 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.65rem;
+    font-family: var(--font-body);
+}
+
+.add-el-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    transform: none;
+    /* No jump */
+}
+
+.tools-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.8rem 0;
+}
+
+/* Dynamic Tools Container */
+.dynamic-tools-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 2rem;
+    scrollbar-width: thin;
+}
+
+.dynamic-tools-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.dynamic-tools-container::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+.tool-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.tool-section-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.tool-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.tool-label {
+    font-size: 0.9rem;
+    color: var(--text);
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+
+/* Hide everything below simple add buttons when collapsed to avoid floating bits */
+.is-empty:not(:hover) .dynamic-tools-container,
+.is-empty:not(:hover) .tools-divider {
+    display: none;
+}
+
+/* Hide labels when the panel is collapsed to prevent layout breaks */
+.is-empty:not(:hover) .tool-label,
+.is-empty:not(:hover) .tool-section-title {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    /* Take out of flow to prevent width push */
+}
+
+.is-empty:not(:hover) .tool-row {
+    justify-content: center;
+}
+
+.tool-input {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    padding: 0.4rem 0.6rem !important;
+    border-radius: 4px !important;
+    font-family: var(--font-body) !important;
+    font-size: 0.9rem !important;
+    outline: none !important;
+    width: 60px !important;
+    text-align: center;
+}
+
+.color-picker-wrapper {
+    position: relative;
+    width: 34px;
+    /* Slightly larger for the border */
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    border-radius: 50%;
+    background: #111;
+    /* Dark background behind the picker */
+}
+
+/* RGB Animated Border Glow */
+.color-picker-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg,
+            #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
+    animation: rgbRotate 8s linear infinite, rgbPulse 4s ease-in-out infinite;
+    z-index: 0;
+    filter: blur(2px);
+    /* Softer edges */
+    opacity: 0.6;
+    /* More subtle */
+    pointer-events: none;
+    /* Crucial: clicks must pass through to the input */
+}
+
+/* Inner masking */
+.color-picker-wrapper::after {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    background: var(--surface);
+    border-radius: 50%;
+    z-index: 1;
+    pointer-events: none;
+    /* Crucial: clicks must pass through to the input */
+}
+
+@keyframes rgbRotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes rgbPulse {
+
+    0%,
+    100% {
+        opacity: 0.4;
+        filter: blur(2px);
+    }
+
+    50% {
+        opacity: 0.8;
+        filter: blur(4px);
+    }
+}
+
+.tool-input[type="color"] {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 250px !important;
+    /* Forces Chrome to open the popup far to the left */
+    height: 34px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: none !important;
+    cursor: pointer;
+    z-index: 10;
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+    /* Only allow clicks on the circle at the far right of this huge 250px box */
+    clip-path: circle(17px at calc(100% - 17.5px) 17px) !important;
+}
+
+.tool-input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0 !important;
+    background: none !important;
+}
+
+.tool-input[type="color"]::-webkit-color-swatch {
+    border: none !important;
+    border-radius: 16px !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15) !important;
+}
+
+.tool-input[type="color"]::-moz-color-swatch {
+    border: none !important;
+    border-radius: 16px !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15) !important;
+}
+
+.tool-input[type="text"] {
+    width: 100% !important;
+    text-align: left;
+}
+
+.tool-input:focus {
+    border-color: var(--accent) !important;
+}
+
+.tool-btn-group {
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    width: 100%;
+}
+
+.tool-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.4rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tool-btn:last-child {
+    border-right: none;
+}
+
+.tool-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+}
+
+.tool-btn.active {
+    background: var(--surface2);
+    color: var(--text);
+}
+
+.tool-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tool-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    outline: none;
+}
+
+.tool-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text);
+    cursor: pointer;
+}
+
+/* Library Pickers */
+.lib-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 8px;
+    padding: 10px 0;
+}
+
+.lib-item {
+    aspect-ratio: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--muted);
+}
+
+.lib-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent);
+    color: var(--text);
+    transform: translateY(-2px);
+}
+
+.shape-preview .card {
+    pointer-events: none;
+}
+
+/* Categorized Libraries */
+.lib-category {
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+}
+
+.lib-category:last-child {
+    border-bottom: none;
+}
+
+.lib-category-summary {
+    padding: 10px 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+}
+
+.lib-category-summary::-webkit-details-marker {
+    display: none;
+}
+
+.lib-category-summary::after {
+    content: '❯';
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+    color: var(--muted);
+}
+
+.lib-category[open] .lib-category-summary::after {
+    transform: rotate(90deg);
+}
+
+.lib-category .lib-grid {
+    padding-top: 5px;
+    padding-bottom: 15px;
 }
