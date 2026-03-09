@@ -12,9 +12,13 @@
     <link
         href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Motion Library (vanilla) -->
+    <script src="https://unpkg.com/motion@latest/dist/motion.js"></script>
+    <!-- i18n Translation System -->
+    <script src="i18n.js"></script>
 </head>
 
 <body>
@@ -29,7 +33,7 @@
                     <span class="logo-eidos">Eidos</span><span class="logo-lab">lab</span>
                     <div class="dot"></div>
                 </div>
-                <h2 class="app-subtitle" id="t-app-subtitle">Generate a full presentation about...</h2>
+                <h2 class="app-subtitle" id="t-app-subtitle" data-i18n="app_subtitle">Generate a full presentation about...</h2>
             </div>
 
             <!-- Chat Input Area -->
@@ -46,6 +50,7 @@
                 </div>
                 <div class="chat-actions">
                     <button class="btn-generate-chat" id="btn-debug-canva" type="button" title="Debug Canva"
+                        data-i18n-title="debug_canva" data-i18n="debug_canva"
                         style="background: transparent; color: var(--muted); border: 1px solid var(--border); margin-right: 10px; width: auto; padding: 0 10px; font-family: var(--font-body); font-size: 0.8rem; cursor: pointer;">
                         Debug
                     </button>
@@ -68,10 +73,8 @@
                 <span id="char-counter"
                     style="font-size: 0.75rem; color: var(--muted); transition: color 0.3s; font-family: var(--font-body);">0/600</span>
             </div>
-            <p class="app-microcopy" id="t-app-microcopy">8–12 slides &middot; Structured content &middot; Ready to
-                download as PDF</p>
-            <span class="error-msg" id="tema-error" style="margin-top: 5px; text-align: center;">Please enter a topic to
-                generate your presentation.</span>
+            <p class="app-microcopy" id="t-app-microcopy" data-i18n="app_microcopy">8–12 slides &middot; Structured content &middot; Ready to download as PDF</p>
+            <span class="error-msg" id="tema-error" style="margin-top: 5px; text-align: center;" data-i18n="tema_error">Please enter a topic to generate your presentation.</span>
 
 
         </div>
@@ -91,8 +94,8 @@
                         <polyline points="12 19 5 12 12 5"></polyline>
                     </svg>
                 </button>
-                <input type="text" class="preview-topic-input" id="preview-topic-label" value="Borrador sin título"
-                    placeholder="Nombre de la presentación" />
+                <input type="text" class="preview-topic-input" id="preview-topic-label" value="Untitled draft"
+                    placeholder="Presentation name" data-i18n-val="untitled_draft" data-i18n-placeholder="presentation_name" />
             </div>
 
             <div class="preview-unified-center">
@@ -103,14 +106,14 @@
             </div>
 
             <div class="preview-unified-right">
-                <button type="button" id="btn-undo" class="action-btn icon-only" title="Deshacer (⌘Z)">
+                <button type="button" id="btn-undo" class="action-btn icon-only" title="Undo (⌘Z)" data-i18n-title="undo">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 7v6h6" />
                         <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
                     </svg>
                 </button>
-                <button type="button" id="btn-redo" class="action-btn icon-only" title="Rehacer (⌘Y)">
+                <button type="button" id="btn-redo" class="action-btn icon-only" title="Redo (⌘Y)" data-i18n-title="redo">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 7v6h-6" />
@@ -120,13 +123,13 @@
 
                 <select id="canvas-zoom-select" class="action-btn text-link"
                     style="background:transparent; border:none; cursor:pointer; color:var(--text); font-family:var(--font-body); font-size:0.9rem;">
-                    <option value="fit" selected>Ajustar</option>
+                    <option value="fit" selected data-i18n="fit">Fit</option>
                     <option value="0.5">50%</option>
                     <option value="0.75">75%</option>
                     <option value="1">100%</option>
                 </select>
 
-                <button type="button" id="btn-present" class="action-btn icon-only" title="Presentar">
+                <button type="button" id="btn-present" class="action-btn icon-only" title="Present" data-i18n-title="present">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
@@ -136,7 +139,7 @@
                 </button>
                 <div class="header-v-separator"></div>
 
-                <button type="button" id="btn-regenerate" class="action-btn icon-only" title="Regenerate">
+                <button type="button" id="btn-regenerate" class="action-btn icon-only" title="Regenerate" data-i18n-title="regenerate">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="23 4 23 10 17 10"></polyline>
@@ -147,7 +150,7 @@
                 <div class="header-v-separator"></div>
 
                 <button type="button" id="preview-reset-btn" class="action-btn text-link">
-                    <span id="t-reset-text">New</span>
+                    <span id="t-reset-text" data-i18n="new_btn">New</span>
                 </button>
 
                 <button type="button" id="finalize-btn" class="action-btn bordered-primary">
@@ -159,7 +162,7 @@
                             <polyline points="7 10 12 15 17 10"></polyline>
                             <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>
-                        <span id="t-finalize-text">Download PDF</span>
+                        <span id="t-finalize-text" data-i18n="download_pdf">Download PDF</span>
                     </div>
                 </button>
             </div>
@@ -172,7 +175,7 @@
             <!-- Left Minimap -->
             <div class="editor-minimap" id="editor-minimap">
                 <div class="minimap-list" id="minimap-list"></div>
-                <button type="button" class="add-slide-btn" id="btn-add-slide" title="Agregar diapositiva">
+                <button type="button" class="add-slide-btn" id="btn-add-slide" title="Add slide" data-i18n-title="add_slide">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
                         <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -208,39 +211,37 @@
             <div class="editor-tools-panel" id="editor-tools-panel">
                 <!-- Add Elements Top Bar within tools -->
                 <div class="tools-add-elements">
-                    <button type="button" id="btn-add-text" class="add-el-btn" title="Agregar Texto">
+                    <button type="button" id="btn-add-text" class="add-el-btn" title="Add Text" data-i18n-title="add_text">
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"
                             stroke-width="2">
                             <polyline points="4 7 4 4 20 4 20 7"></polyline>
                             <line x1="9" y1="20" x2="15" y2="20"></line>
                             <line x1="12" y1="4" x2="12" y2="20"></line>
                         </svg>
-                        <span>Texto</span>
+                        <span data-i18n="text">Text</span>
                     </button>
-                    <button type="button" id="btn-add-image" class="add-el-btn" title="Agregar Imagen">
+                    <button type="button" id="btn-add-image" class="add-el-btn" title="Add Image" data-i18n-title="add_image">
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"
                             stroke-width="2">
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                             <circle cx="8.5" cy="8.5" r="1.5"></circle>
                             <polyline points="21 15 16 10 5 21"></polyline>
                         </svg>
-                        <span>Imagen</span>
+                        <span data-i18n="image">Image</span>
                     </button>
-                    <button type="button" id="btn-add-shape" class="add-el-btn" title="Agregar Forma">
+                    <button type="button" id="btn-add-shape" class="add-el-btn" title="Add Shape" data-i18n-title="add_shape">
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"
                             stroke-width="2">
                             <rect x="3" y="5" width="18" height="14" rx="2" ry="2"></rect>
                         </svg>
-                        <span>Forma</span>
+                        <span data-i18n="shape">Shape</span>
                     </button>
-                    <button type="button" id="btn-add-icon" class="add-el-btn" title="Agregar Ícono">
+                    <button type="button" id="btn-add-icon" class="add-el-btn" title="Add Icon" data-i18n-title="add_icon">
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"
-                            stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 16v-4"></path>
-                            <path d="M12 8h.01"></path>
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                         </svg>
-                        <span>Ícono</span>
+                        <span data-i18n="icon">Icon</span>
                     </button>
                 </div>
 
@@ -249,7 +250,7 @@
                 <div id="dynamic-tools-container" class="dynamic-tools-container">
                     <div class="empty-tools-state"
                         style="color:var(--muted); font-size: 0.85rem; text-align:center; padding: 2rem 1rem;">
-                        Selecciona un elemento en el lienzo, o haz clic en el fondo para cambiar ajustes globales.
+                        <span data-i18n="empty_tools">Select an element on the canvas, or click the background to change global settings.</span>
                     </div>
                 </div>
             </div>
@@ -269,8 +270,8 @@
                     <polyline points="22 4 12 14.01 9 11.01"></polyline>
                 </svg>
             </div>
-            <h2 id="t-result-title" class="success-title">Your presentation is ready!</h2>
-            <p id="result-subtitle" class="success-subtitle">Slides were generated about your topic.</p>
+            <h2 id="t-result-title" class="success-title" data-i18n="result_title">Your presentation is ready!</h2>
+            <p id="result-subtitle" class="success-subtitle" data-i18n="result_subtitle">Slides were generated about your topic.</p>
             <div class="success-actions">
                 <a href="#" id="download-btn" class="btn-primary pulse-btn" target="_blank">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
@@ -279,9 +280,9 @@
                         <polyline points="7 10 12 15 17 10"></polyline>
                         <line x1="12" y1="15" x2="12" y2="3"></line>
                     </svg>
-                    <span id="t-download-text">Download PDF</span>
+                    <span id="t-download-text" data-i18n="download_pdf">Download PDF</span>
                 </a>
-                <button type="button" id="reset-btn" class="btn-secondary">Generate another presentation</button>
+                <button type="button" id="reset-btn" class="btn-secondary" data-i18n="generate_another">Generate another presentation</button>
             </div>
         </div>
     </section>
@@ -299,14 +300,13 @@
                     <line x1="12" y1="16" x2="12.01" y2="16"></line>
                 </svg>
             </div>
-            <h2 id="t-error-title">Something didn't go as planned</h2>
-            <p class="error-subtitle" id="t-error-subtitle">The AI service is temporarily unavailable. This is usually
-                resolved quickly.</p>
+            <h2 id="t-error-title" data-i18n="error_title">Something didn't go as planned</h2>
+            <p class="error-subtitle" id="t-error-subtitle" data-i18n="error_subtitle">The AI service is temporarily unavailable. This is usually resolved quickly.</p>
             <details class="error-details">
-                <summary id="t-error-summary">Technical details</summary>
+                <summary id="t-error-summary" data-i18n="error_summary">Technical details</summary>
                 <p id="error-message"></p>
             </details>
-            <button type="button" id="back-btn" class="btn-secondary">Try again</button>
+            <button type="button" id="back-btn" class="btn-secondary" data-i18n="try_again">Try again</button>
         </div>
     </section>
 
@@ -323,11 +323,10 @@
                     <line x1="15" y1="9" x2="9" y2="15"></line>
                 </svg>
             </div>
-            <h2 id="t-refused-title">This topic can't be generated</h2>
-            <p class="refused-subtitle" id="t-refused-subtitle">The AI declined to create this presentation for safety
-                reasons.</p>
+            <h2 id="t-refused-title" data-i18n="refused_title">This topic can't be generated</h2>
+            <p class="refused-subtitle" id="t-refused-subtitle" data-i18n="refused_subtitle">The AI declined to create this presentation for safety reasons.</p>
             <div class="refused-message" id="refused-message"></div>
-            <button type="button" id="refused-back-btn" class="btn-secondary">Try a different topic</button>
+            <button type="button" id="refused-back-btn" class="btn-secondary" data-i18n="try_different">Try a different topic</button>
         </div>
     </section>
 
@@ -346,8 +345,8 @@
         </div>
     </div>
 
-    <script src="editor-ui.js"></script>
-    <script src="app.js"></script>
+    <script src="editor-ui.js?v=2"></script>
+    <script src="app.js?v=2"></script>
 </body>
 
 </html>

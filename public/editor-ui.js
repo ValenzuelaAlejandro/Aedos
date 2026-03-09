@@ -11,6 +11,65 @@ window.initEditorUI = function (iframe) {
     const addSlideBtn = document.getElementById('btn-add-slide');
     let draggedItem = null;
 
+    function centerActiveMinimapItem() {
+        if (!minimapList) return;
+
+        // Sync active state from iframe if needed (ensures functionality remains)
+        const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"], section'));
+        const iframeActiveIdx = slides.findIndex(s => s.classList.contains('active'));
+        const items = Array.from(minimapList.querySelectorAll('.minimap-item'));
+        
+        if (iframeActiveIdx !== -1 && items[iframeActiveIdx]) {
+            items.forEach(it => it.classList.remove('active'));
+            items[iframeActiveIdx].classList.add('active');
+        }
+
+        const activeIdx = items.findIndex(item => item.classList.contains('active'));
+        if (activeIdx === -1) return;
+
+        const minimapContainer = document.getElementById('editor-minimap');
+        const panelHeight = minimapContainer.clientHeight;
+
+        // Mide el item real incluyendo su margin
+        const activeItem = items[activeIdx];
+        const style = window.getComputedStyle(activeItem);
+        const marginTop = parseFloat(style.marginTop) || 0;
+        const marginBottom = parseFloat(style.marginBottom) || 0;
+        const ITEM_HEIGHT = activeItem.offsetHeight + marginTop + marginBottom;
+
+        // Offset exacto para centrar
+        const offset = (panelHeight / 2) - (activeIdx * ITEM_HEIGHT) - (ITEM_HEIGHT / 2);
+
+        minimapList.style.transform = `translateY(${offset}px)`;
+        minimapList.style.transition = 'transform 380ms cubic-bezier(0.4, 0, 0.2, 1)';
+    }
+
+    // Expose to window so app.js can trigger it if needed
+    window.syncMinimapActiveState = centerActiveMinimapItem;
+    
+    // Recenter on resize
+    window.addEventListener('resize', centerActiveMinimapItem);
+
+    // --- ANIMATED LIST OBSERVER ---
+    function observeMinimapItem(item) {
+        if (!window.motion || !window.motion.inView) {
+            // Fallback to IntersectionObserver if motion is not loaded
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) entry.target.classList.add('in-view');
+                    else entry.target.classList.remove('in-view');
+                });
+            }, { root: document.getElementById('editor-minimap'), threshold: 0.1 });
+            observer.observe(item);
+            return;
+        }
+
+        window.motion.inView(item, (info) => {
+            item.classList.add('in-view');
+            return () => item.classList.remove('in-view');
+        }, { margin: "0px 0px -10% 0px" });
+    }
+
     function buildMinimap() {
         if (!minimapList) return;
         minimapList.innerHTML = '';
@@ -18,6 +77,20 @@ window.initEditorUI = function (iframe) {
         if (slides.length === 0) {
             const sections = Array.from(iframeDoc.querySelectorAll('section'));
             if (sections.length > 0) slides.push(...sections);
+        }
+
+        // --- DETECT PRIMARY COLOR ---
+        // We pick the --accent variable from the first slide or the root of the iframe
+        const firstSection = slides[0];
+        if (firstSection) {
+            const iframeStyles = iframeWin.getComputedStyle(firstSection);
+            const accentColor = iframeStyles.getPropertyValue('--accent').trim();
+            if (accentColor) {
+                const minimapContainer = document.getElementById('editor-minimap');
+                if (minimapContainer) {
+                    minimapContainer.style.setProperty('--presentation-accent', accentColor);
+                }
+            }
         }
 
         const fullHtmlContent = `<!DOCTYPE html><html><head>${iframeDoc.head.innerHTML}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
@@ -59,6 +132,43 @@ window.initEditorUI = function (iframe) {
                 item.classList.add('active');
             }
 
+            const delBtn = document.createElement('button');
+            delBtn.className = 'minimap-delete-btn';
+            delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+            delBtn.title = 'Delete Slide';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (slides.length <= 1) return;
+                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                slide.remove();
+                buildMinimap();
+                setTimeout(() => {
+                    const dots = document.querySelectorAll('.slide-dot');
+                    const newIdx = Math.min(index, dots.length - 1);
+                    if (dots[newIdx]) dots[newIdx].click();
+                }, 50);
+            };
+
+            const dupBtn = document.createElement('button');
+            dupBtn.className = 'minimap-dup-btn';
+            dupBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+            dupBtn.title = 'Duplicate Slide';
+            dupBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                const newSlide = slide.cloneNode(true);
+                newSlide.classList.remove('active');
+                slide.after(newSlide);
+                buildMinimap();
+                setTimeout(() => {
+                    const dots = document.querySelectorAll('.slide-dot');
+                    if (dots.length > index + 1) dots[index + 1].click();
+                }, 50);
+            };
+
+            overlay.appendChild(delBtn);
+            overlay.appendChild(dupBtn);
+
             item.appendChild(thumbIframe);
             item.appendChild(overlay);
             item.appendChild(numberWrap);
@@ -99,6 +209,9 @@ window.initEditorUI = function (iframe) {
                 }
             });
 
+            // Trigger entrance animation via observer
+            observeMinimapItem(item);
+
             minimapList.appendChild(item);
         });
 
@@ -112,7 +225,17 @@ window.initEditorUI = function (iframe) {
                 ifr.style.transform = `scale(${scale})`;
             });
         }, 50);
+
+        if (window.regenerateDotsCount) window.regenerateDotsCount();
+        
+        // Initial centering - Ensuring layout is painted
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                centerActiveMinimapItem();
+            });
+        });
     }
+
 
     let minimapUpdateTimeout = null;
     function triggerMinimapUpdate() {
@@ -151,15 +274,37 @@ window.initEditorUI = function (iframe) {
     }
 
     // Observer to keep minimap in sync
-    const minimapObserver = new MutationObserver((mutations) => {
-        // Skip if mutations are only from editor UI (though they shouldn't trigger this if we are careful)
+    const minimapObserver = new MutationObserver((mutationsList) => {
         triggerMinimapUpdate();
     });
     minimapObserver.observe(iframeDoc.body, {
         attributes: true,
+        attributeFilter: ['class'],
         childList: true,
         subtree: true,
         characterData: true
+    });
+
+    // Special observer just for the 'active' class on sections to trigger re-centering
+    const activeSlideObserver = new MutationObserver((mutations) => {
+        let activeChanged = false;
+        for (const mutation of mutations) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                if (mutation.target.tagName === 'SECTION') {
+                    activeChanged = true;
+                    break;
+                }
+            }
+        }
+        if (activeChanged) {
+            centerActiveMinimapItem();
+        }
+    });
+
+    activeSlideObserver.observe(iframeDoc.body, {
+        attributes: true,
+        subtree: true,
+        attributeFilter: ['class']
     });
 
     function getDragAfterElement(container, y) {
@@ -192,6 +337,9 @@ window.initEditorUI = function (iframe) {
         // Rebuild minimap and nav
         if (window.regenerateDotsCount) window.regenerateDotsCount(); // We might need to hook into app.js or just refresh
         buildMinimap();
+        
+        // Ensure centering is updated after order sync
+        setTimeout(centerActiveMinimapItem, 50);
     }
 
     // Add Slide
@@ -218,7 +366,14 @@ window.initEditorUI = function (iframe) {
             activeSlide.after(newSlide);
 
             buildMinimap();
+
+            setTimeout(() => {
+                const nextIdx = slides.indexOf(activeSlide) + 1;
+                const dots = document.querySelectorAll('.slide-dot');
+                if (dots.length > nextIdx) dots[nextIdx].click();
+            }, 100);
         });
+
     }
 
 
@@ -230,6 +385,36 @@ window.initEditorUI = function (iframe) {
         const el = e.detail.element;
         renderTools(el);
     });
+
+    // Subscriptions for keyboard navigation and duplication
+    iframeWin.addEventListener('eidos-navigate-prev', () => {
+        document.getElementById('prev-slide')?.click();
+    });
+    iframeWin.addEventListener('eidos-navigate-next', () => {
+        document.getElementById('next-slide')?.click();
+    });
+    iframeWin.addEventListener('eidos-duplicate-slide', () => {
+        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+        const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
+        if (slides.length === 0) return;
+        const activeSlide = slides.find(s => s.classList.contains('active')) || slides[0];
+        
+        const newSlide = activeSlide.cloneNode(true);
+        newSlide.classList.remove('active');
+        activeSlide.after(newSlide);
+        buildMinimap();
+        
+        setTimeout(() => {
+            const nextIdx = slides.indexOf(activeSlide) + 1;
+            const dots = document.querySelectorAll('.slide-dot');
+            if (dots.length > nextIdx) dots[nextIdx].click();
+        }, 100);
+    });
+
+    iframeWin.addEventListener('eidos-state-restored', () => {
+        buildMinimap();
+    });
+
 
     // Helper to generate right panel tools based on selected element
     function renderTools(el) {
@@ -251,13 +436,23 @@ window.initEditorUI = function (iframe) {
             // Render Slide level tools
             dynamicContainer.innerHTML = `
                 <div class="tool-section">
-                    <div class="tool-section-title">Diapositiva</div>
+                    <div class="tool-section-title">${window.t('slide')}</div>
                     <div class="tool-row">
-                        <span class="tool-label">Color de fondo</span>
+                        <span class="tool-label">${window.t('background_color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-bg-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
+                </div>
+
+                <div class="tool-section" style="margin-top:0.5rem; border-top:1px solid var(--border); padding-top:1rem;">
+                    <button id="tool-add-slide-alt" class="add-el-btn" style="width:100%; padding:0.8rem; border:1px dashed var(--border); flex-direction:row; gap:0.8rem;">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span style="font-size: 0.85rem; font-weight:500;">${window.t('add_slide', 'Add Slide')}</span>
+                    </button>
                 </div>
             `;
 
@@ -292,6 +487,14 @@ window.initEditorUI = function (iframe) {
                         activeSlide.style.background = e.target.value;
                     });
                 }
+
+                const addSlideAlt = document.getElementById('tool-add-slide-alt');
+                if (addSlideAlt) {
+                    addSlideAlt.addEventListener('click', () => {
+                        const originalBtn = document.getElementById('btn-add-slide');
+                        if (originalBtn) originalBtn.click();
+                    });
+                }
             }
             return;
         }
@@ -303,27 +506,27 @@ window.initEditorUI = function (iframe) {
                 <div class="tool-section">
                     <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
                         <button id="lib-back-btn" class="tool-btn" style="width:32px; height:32px; border-radius:50%; flex:none;">←</button>
-                        <div class="tool-section-title" style="margin:0;">${isIcons ? 'Seleccionar Icono' : 'Seleccionar Forma'}</div>
+                        <div class="tool-section-title" style="margin:0;">${isIcons ? window.t('select_icon') : window.t('select_shape')}</div>
                     </div>
             `;
 
             if (isIcons) {
                 const iconCategories = {
-                    'Esenciales': ['star', 'heart', 'zap', 'smile', 'check-circle', 'alert-triangle', 'info', 'help-circle', 'home', 'settings', 'search', 'menu', 'plus', 'minus', 'x'],
-                    'Comunicación': ['mail', 'phone', 'message-square', 'send', 'share-2', 'globe', 'link', 'bell'],
-                    'Negocios': ['briefcase', 'credit-card', 'pie-chart', 'bar-chart-2', 'trending-up', 'calculator', 'dollar-sign', 'euro-sign', 'target', 'trophy'],
-                    'Multimedia': ['camera', 'image', 'video', 'music', 'clapperboard', 'play', 'pause', 'volume-2', 'headphones'],
-                    'Tecnología': ['clock', 'smartphone', 'laptop', 'tablet', 'monitor', 'hard-drive', 'cpu', 'database', 'wifi'],
-                    'Social': ['user', 'users', 'user-plus', 'user-check', 'thumbs-up', 'thumbs-down', 'laugh', 'ghost'],
-                    'Navegación': ['arrow-right', 'arrow-left', 'arrow-up', 'arrow-down', 'chevron-right', 'chevron-left', 'chevron-up', 'chevron-down', 'move', 'maximize', 'minimize'],
-                    'Naturaleza': ['sun', 'moon', 'cloud', 'cloud-rain', 'cloud-lightning', 'wind', 'leaf', 'tree-pine', 'flame', 'anchor', 'rocket', 'map-pin'],
-                    'Objetos': ['gift', 'shopping-cart', 'coffee', 'crown', 'flag', 'lock', 'unlock', 'key', 'pen-tool', 'pencil', 'trash-2', 'eye', 'eye-off', 'lightbulb']
+                    'essentials': ['star', 'heart', 'zap', 'smile', 'check-circle', 'alert-triangle', 'info', 'help-circle', 'home', 'settings', 'search', 'menu', 'plus', 'minus', 'x'],
+                    'communication': ['mail', 'phone', 'message-square', 'send', 'share-2', 'globe', 'link', 'bell'],
+                    'business': ['briefcase', 'credit-card', 'pie-chart', 'bar-chart-2', 'trending-up', 'calculator', 'dollar-sign', 'banknote', 'target', 'trophy'],
+                    'multimedia': ['camera', 'image', 'video', 'music', 'clapperboard', 'play', 'pause', 'volume-2', 'headphones'],
+                    'technology': ['clock', 'smartphone', 'laptop', 'tablet', 'monitor', 'hard-drive', 'cpu', 'database', 'wifi'],
+                    'social': ['user', 'users', 'user-plus', 'user-check', 'thumbs-up', 'thumbs-down', 'laugh', 'ghost'],
+                    'navigation': ['arrow-right', 'arrow-left', 'arrow-up', 'arrow-down', 'chevron-right', 'chevron-left', 'chevron-up', 'chevron-down', 'move', 'maximize', 'minimize'],
+                    'nature': ['sun', 'moon', 'cloud', 'cloud-rain', 'cloud-lightning', 'wind', 'leaf', 'tree-pine', 'flame', 'anchor', 'rocket', 'map-pin'],
+                    'objects': ['gift', 'shopping-cart', 'coffee', 'crown', 'flag', 'lock', 'unlock', 'key', 'pen-tool', 'pencil', 'trash-2', 'eye', 'eye-off', 'lightbulb']
                 };
 
                 Object.entries(iconCategories).forEach(([name, icons], idx) => {
                     html += `
                         <details class="lib-category" ${idx === 0 ? 'open' : ''}>
-                            <summary class="lib-category-summary">${name}</summary>
+                            <summary class="lib-category-summary">${window.t(name)}</summary>
                             <div class="lib-grid">
                     `;
                     icons.forEach(icon => {
@@ -334,17 +537,17 @@ window.initEditorUI = function (iframe) {
             } else {
                 html += `<div class="lib-grid">`;
                 const shapes = [
-                    { name: 'Cuadrado', class: 'card', styles: '' },
-                    { name: 'Círculo', class: 'card', styles: 'border-radius: 50%;' },
-                    { name: 'Diamante', class: 'card', styles: 'transform: translate(-50%, -50%) rotate(45deg); transform-origin: center;' },
-                    { name: 'Triángulo', class: 'card', styles: 'clip-path: polygon(50% 0%, 0% 100%, 100% 100%);' },
-                    { name: 'Hexágono', class: 'card', styles: 'clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);' },
-                    { name: 'Cápsula', class: 'card', styles: 'border-radius: 999px;' }
+                    { name: 'square', class: 'card', styles: '' },
+                    { name: 'circle', class: 'card', styles: 'border-radius: 50%;' },
+                    { name: 'diamond', class: 'card', styles: 'clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);' },
+                    { name: 'triangle', class: 'card', styles: 'clip-path: polygon(50% 0%, 0% 100%, 100% 100%);' },
+                    { name: 'hexagon', class: 'card', styles: 'clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);' },
+                    { name: 'capsule', class: 'card', styles: 'border-radius: 999px;' }
                 ];
                 shapes.forEach(shape => {
                     html += `
-                        <div class="lib-item shape-preview" data-type="shape" data-class="${shape.class}" data-styles="${shape.styles}">
-                            <div class="${shape.class}" style="width:24px; height:24px; border:1px solid currentColor; background:transparent; position:relative; ${shape.styles}"></div>
+                        <div class="lib-item shape-preview" style="overflow: visible;" data-type="shape" data-class="${shape.class}" data-styles="${shape.styles}">
+                            <div style="width:${shape.name === 'capsule' ? '36px' : '24px'}; height:24px; background:currentColor; border:none; ${shape.styles}"></div>
                         </div>`;
                 });
                 html += `</div>`;
@@ -395,7 +598,7 @@ window.initEditorUI = function (iframe) {
         if (isText) {
             html += `
                 <div class="tool-section">
-                    <div class="tool-section-title">Texto</div>
+                    <div class="tool-section-title">${window.t('text_tool')}</div>
                     <div class="tool-row">
                         <select id="tool-font" class="tool-input" style="width:100%; text-align:left;">
                             <option value="var(--font-display)">Syne (Display)</option>
@@ -405,7 +608,7 @@ window.initEditorUI = function (iframe) {
                         </select>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">Tamaño</span>
+                        <span class="tool-label">${window.t('size')}</span>
                         <div class="tool-btn-group" style="width: auto;">
                             <button id="tool-font-min" class="tool-btn">-</button>
                             <input type="number" id="tool-font-size" class="tool-input" value="16" style="border:none !important; border-radius:0 !important; width:40px !important;">
@@ -420,7 +623,7 @@ window.initEditorUI = function (iframe) {
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">Alineación</span>
+                        <span class="tool-label">${window.t('alignment')}</span>
                         <div class="tool-btn-group">
                             <button id="tool-align-l" class="tool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="15" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
                             <button id="tool-align-c" class="tool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
@@ -428,7 +631,7 @@ window.initEditorUI = function (iframe) {
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">Color</span>
+                        <span class="tool-label">${window.t('color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
@@ -440,18 +643,18 @@ window.initEditorUI = function (iframe) {
         if (isImage) {
             html += `
                 <div class="tool-section">
-                    <div class="tool-section-title">Imagen</div>
+                    <div class="tool-section-title">${window.t('image_tool')}</div>
                     <div class="tool-row">
-                        <button id="tool-replace-img" class="add-el-btn" style="width:100%; padding:0.5rem;">Reemplazar Imagen</button>
+                        <button id="tool-replace-img" class="add-el-btn" style="width:100%; padding:0.5rem;">${window.t('replace_image')}</button>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">Radio de Borde</span>
+                        <span class="tool-label">${window.t('border_radius')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
                             <input type="range" id="tool-radius" class="tool-slider" min="0" max="100" value="0">
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">Opacidad</span>
+                        <span class="tool-label">${window.t('opacity')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
                             <input type="range" id="tool-opacity" class="tool-slider" min="0" max="100" value="100">
                         </div>
@@ -468,15 +671,15 @@ window.initEditorUI = function (iframe) {
         if (isIcon) {
             html += `
                 <div class="tool-section">
-                    <div class="tool-section-title">Icono</div>
+                    <div class="tool-section-title">${window.t('icon_tool')}</div>
                     <div class="tool-row">
-                        <span class="tool-label">Color del Icono</span>
+                        <span class="tool-label">${window.t('icon_color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">Tamaño</span>
+                        <span class="tool-label">${window.t('size')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
                             <input type="range" id="tool-icon-size" class="tool-slider" min="12" max="256" value="${parseInt(el.style.width) || 48}">
                         </div>
@@ -488,21 +691,21 @@ window.initEditorUI = function (iframe) {
         if (isShape && !isIcon) {
             html += `
                 <div class="tool-section">
-                    <div class="tool-section-title">Forma</div>
+                    <div class="tool-section-title">${window.t('shape_tool')}</div>
                     <div class="tool-row">
-                        <span class="tool-label">Color de relleno</span>
+                        <span class="tool-label">${window.t('fill_color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-fill" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">Color de borde</span>
+                        <span class="tool-label">${window.t('border_color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-stroke" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">Opacidad</span>
+                        <span class="tool-label">${window.t('opacity')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
                             <input type="range" id="tool-opacity" class="tool-slider" min="0" max="100" value="100">
                         </div>
@@ -511,12 +714,20 @@ window.initEditorUI = function (iframe) {
             `;
         }
 
-        // Universal tools (Shadow, Delete)
+        // Universal tools (Shadow, Delete, Z-index)
         html += `
             <div class="tool-section" style="margin-top: 1rem;">
-                <div class="tool-section-title">Avanzado</div>
+                <div class="tool-section-title">${window.t('advanced')}</div>
+                <div class="tool-row" style="display:flex; gap:0.5rem; margin-bottom: 0.5rem;">
+                    <button id="tool-layer-up" class="add-el-btn" style="flex:1; padding:0.5rem;" title="To Front">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6H4zm10-10h6v6h-6zM9 9h6v6H9z"></path><path d="M9 15v2h-2"></path><path d="M15 9V7h2"></path></svg>
+                    </button>
+                    <button id="tool-layer-down" class="add-el-btn" style="flex:1; padding:0.5rem;" title="To Back">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><path d="M9 3v8h8"></path></svg>
+                    </button>
+                </div>
                 <div class="tool-row">
-                    <button id="tool-delete" class="add-el-btn" style="width:100%; padding:0.5rem; color:#ff5b5b; border-color:rgba(255,91,91,0.3);">Eliminar Elemento</button>
+                    <button id="tool-delete" class="add-el-btn" style="width:100%; padding:0.5rem; color:#ff5b5b; border-color:rgba(255,91,91,0.3);">${window.t('delete_element')}</button>
                 </div>
             </div>
         `;
@@ -732,6 +943,20 @@ window.initEditorUI = function (iframe) {
             });
         }
 
+        const layerUp = document.getElementById('tool-layer-up');
+        const layerDown = document.getElementById('tool-layer-down');
+        
+        if (layerUp) {
+            layerUp.addEventListener('click', () => {
+                if (iframeWin.eidosToFront) iframeWin.eidosToFront();
+            });
+        }
+        if (layerDown) {
+            layerDown.addEventListener('click', () => {
+                if (iframeWin.eidosToBack) iframeWin.eidosToBack();
+            });
+        }
+
         const deleteBtn = document.getElementById('tool-delete');
         if (deleteBtn) {
             deleteBtn.addEventListener('click', () => {
@@ -915,7 +1140,7 @@ window.initEditorUI = function (iframe) {
         shape.style.left = '50%';
         shape.style.top = '50%';
         shape.style.transform = styles.includes('rotate') ? styles : 'translate(-50%, -50%)';
-        shape.style.width = '150px';
+        shape.style.width = styles && styles.includes('999px') ? '240px' : '150px';
         shape.style.height = '150px';
         shape.style.backgroundColor = '#6366f1';
         shape.style.zIndex = '100';
@@ -924,8 +1149,12 @@ window.initEditorUI = function (iframe) {
         if (styles) {
             const custom = styles.split(';').filter(s => s.trim());
             custom.forEach(s => {
-                const [prop, val] = s.split(':');
-                if (prop && val) shape.style[prop.trim()] = val.trim();
+                const parts = s.split(':');
+                const prop = parts.shift();
+                const val = parts.join(':');
+                if (prop && val) {
+                    shape.style.setProperty(prop.trim(), val.trim());
+                }
             });
         }
 
@@ -960,59 +1189,66 @@ window.initEditorUI = function (iframe) {
 
     // Run minimap builder
     buildMinimap();
-
+    
     // Subscribe to internal slide active changes in app.js
-    // We can just poll or hook into the dot click. Polling active class is easy for now.
+    // Polling is a fallback for the MutationObserver to ensure smooth active state syncing
     let lastActiveSlideIndex = -1;
-    setInterval(() => {
-        const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
+    if (window._eidosMinimapInterval) clearInterval(window._eidosMinimapInterval);
+    window._eidosMinimapInterval = setInterval(() => {
+        const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"], section'));
         const activeIdx = slides.findIndex(s => s.classList.contains('active'));
         if (activeIdx !== -1 && activeIdx !== lastActiveSlideIndex) {
             lastActiveSlideIndex = activeIdx;
-            const items = document.querySelectorAll('.minimap-item');
-            items.forEach((item, i) => {
-                if (i === activeIdx) {
-                    item.classList.add('active');
-                    // Smoothly scroll the item to the center of the minimap
-                    // Smoothly scroll the item to the center of its container
-                    const container = document.querySelector('.editor-minimap');
-                    if (container) {
-                        const containerRect = container.getBoundingClientRect();
-                        const itemRect = item.getBoundingClientRect();
-                        const offset = itemRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (itemRect.height / 2);
-                        container.scrollTo({ top: offset, behavior: 'smooth' });
-                    }
-                } else {
-                    item.classList.remove('active');
-                }
-            });
+            centerActiveMinimapItem();
         }
     }, 200);
 
     // Global Key Listener for Parent Window Shortcuts (Ctrl+Z / Ctrl+Y)
-    if (!window._eidosKeydownHandler) {
-        window._eidosKeydownHandler = (e) => {
-            const container = document.getElementById('preview-container');
-            if (!container || container.classList.contains('hidden')) return;
+    const keydownHandler = (e) => {
+        const container = document.getElementById('preview-container');
+        if (!container || container.classList.contains('hidden')) return;
 
-            // Prevent if editing text field
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+        // Prevent if editing text field
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
 
-            if (e.ctrlKey || e.metaKey) {
-                const key = e.key.toLowerCase();
-                if (key === 'z') {
-                    if (e.shiftKey) {
-                        if (iframeWin.eidosRedo) iframeWin.eidosRedo();
-                    } else {
-                        if (iframeWin.eidosUndo) iframeWin.eidosUndo();
-                    }
-                    e.preventDefault();
-                } else if (key === 'y') {
+        if (e.ctrlKey || e.metaKey) {
+            const key = e.key.toLowerCase();
+            if (key === 'z') {
+                if (e.shiftKey) {
                     if (iframeWin.eidosRedo) iframeWin.eidosRedo();
+                } else {
+                    if (iframeWin.eidosUndo) iframeWin.eidosUndo();
+                }
+                e.preventDefault();
+            } else if (key === 'y') {
+                if (iframeWin.eidosRedo) iframeWin.eidosRedo();
+                e.preventDefault();
+            } else if (key === 'd') {
+                if (!e.target.isContentEditable) {
                     e.preventDefault();
+                    if (iframeWin.eidosDuplicateSelection && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
+                        iframeWin.eidosDuplicateSelection();
+                    } else {
+                        iframeWin.dispatchEvent(new CustomEvent('eidos-duplicate-slide'));
+                    }
                 }
             }
-        };
-        window.addEventListener('keydown', window._eidosKeydownHandler);
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (iframeWin.eidosDeleteSelection && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
+                iframeWin.eidosDeleteSelection();
+                e.preventDefault();
+            }
+        } else if (e.key.startsWith('Arrow')) {
+            if (iframeWin.eidosArrowMove && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
+                iframeWin.eidosArrowMove(e.key, e.shiftKey);
+                e.preventDefault();
+            }
+        }
+    };
+
+    if (window._eidosKeydownHandler) {
+        window.removeEventListener('keydown', window._eidosKeydownHandler);
     }
+    window._eidosKeydownHandler = keydownHandler;
+    window.addEventListener('keydown', window._eidosKeydownHandler);
 }

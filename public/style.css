@@ -36,25 +36,24 @@ body.no-scroll {
 
 
 /* ================================================================
-   SCROLLBAR
+   SCROLLBAR (Sleek and modern)
    ================================================================ */
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--surface);
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 5px;
-    border: 2px solid var(--surface);
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.4);
 }
 
 /* ================================================================
@@ -2128,21 +2127,38 @@ body.no-scroll {
 
 /* Left Minimap */
 .editor-minimap {
-    width: 120px;
-    min-width: 120px;
-    background: var(--surface);
+    width: 180px;
+    min-width: 180px;
+    background: #111111; /* Matching requested sidebar background */
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    padding: 1rem 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    padding: 0;
+    overflow: hidden; /* CRITICAL: No scrollbar */
+    position: relative; /* REQUIRED */
+    user-select: none;
+    height: 100%; /* REQUIRED: fixed/full height */
+}
 
-    /* Hide scrollbar */
-    scrollbar-width: none;
-    /* Firefox */
-    -ms-overflow-style: none;
-    /* IE/Edge */
+/* Gradiente superior */
+.editor-minimap::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 80px;
+  background: linear-gradient(to bottom, #111111, transparent);
+  pointer-events: none;
+  z-index: 20;
+}
+/* Gradiente inferior */
+.editor-minimap::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 80px;
+  background: linear-gradient(to top, #111111, transparent);
+  pointer-events: none;
+  z-index: 20;
 }
 
 /* Hide scrollbar for Chrome/Safari */
@@ -2151,32 +2167,65 @@ body.no-scroll {
 }
 
 .minimap-list {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
-    padding: 0 0.8rem;
+    gap: 0;
+    padding: 20px 0; /* Horizontal padding removed to use item margins instead */
+    position: relative;
+    /* Centering calculation transformation */
+    transition: transform 450ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+    width: 100%;
+    padding-bottom: 80px;
 }
 
 .minimap-item {
     position: relative;
-    width: 100%;
+    width: calc(100% - 16px); 
     aspect-ratio: 16 / 9;
-    background: #1a1b1e;
-    /* Darker bg for thumbs */
-    border-radius: var(--radius);
+    margin: 0 8px 6px 8px; 
+    background: transparent;
+    border-radius: 10px; 
     cursor: pointer;
     overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
-    border: 2px solid transparent;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    
+    /* Animation base state - Dramatized */
+    transform: scale(0.6) translateY(40px); 
+    opacity: 0;
+    filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.08);
+
+    transition: transform 500ms cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                opacity 400ms ease, 
+                filter 400ms ease,
+                border-color 0.2s ease, 
+                box-shadow 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
-.minimap-item.active {
-    border-color: var(--accent);
-    transform: scale(1.05);
+.minimap-item.in-view {
+    transform: scale(0.78) translateY(0);
+    opacity: 0.55;
+    filter: blur(0);
+}
+
+.minimap-item.in-view:hover {
+    opacity: 0.8;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.minimap-item.in-view.active {
+    transform: scale(1.0); /* Full size for focus */
+    opacity: 1;
     z-index: 10;
-    box-shadow: 0 0 0 2px var(--accent), 0 8px 16px rgba(0, 0, 0, 0.5);
+    border: 1.5px solid var(--presentation-accent, var(--accent)); 
+    box-shadow: 0 0 0 1px var(--presentation-accent, var(--accent)), 
+                0 4px 12px color-mix(in srgb, var(--presentation-accent, var(--accent)), transparent 80%);
+}
+
+/* Optimization for active hover */
+.minimap-item.in-view.active:hover {
+    transform: scale(1.02);
 }
 
 .minimap-item iframe {
@@ -2197,47 +2246,93 @@ body.no-scroll {
     inset: 0;
     background: transparent;
     z-index: 2;
+    transition: background 0.2s ease;
 }
 
-.minimap-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+.minimap-item:hover .minimap-item-overlay {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.minimap-dup-btn, .minimap-delete-btn {
+    position: absolute;
+    top: 6px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    width: 26px;
+    height: 26px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(4px);
+    z-index: 5;
+}
+
+.minimap-dup-btn {
+    right: 6px;
+}
+
+.minimap-delete-btn {
+    left: 6px;
+}
+
+.minimap-dup-btn:hover, .minimap-delete-btn:hover {
+    background: rgba(0, 0, 0, 0.85);
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.minimap-delete-btn:hover {
+    color: #ff4d4d; /* Subtle red hint for deletion */
+}
+
+.minimap-item:hover .minimap-dup-btn, .minimap-item:hover .minimap-delete-btn {
+    display: flex;
 }
 
 .minimap-item.is-dragging {
-    opacity: 0.8;
+    opacity: 0.5;
     z-index: 100;
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6);
-    transform: scale(1.05);
+    transform: scale(1.02);
 }
-
-
 
 .minimap-item-number {
     position: absolute;
-    bottom: 4px;
-    right: 4px;
-    background: rgba(0, 0, 0, 0.6);
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.6); /* Keynote Badge */
     color: #fff;
-    font-size: 0.7rem;
-    padding: 2px 6px;
-    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 5px;
     z-index: 3;
     pointer-events: none;
+    font-family: var(--font-body);
 }
 
 .add-slide-btn {
-    margin: 1rem;
-    background: transparent;
-    border: 1px dashed var(--border);
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    background: rgba(20, 20, 20, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--muted);
-    border-radius: var(--radius);
-    height: 48px;
+    border-radius: 12px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 40; /* Above gradients */
+    box-shadow: 0 -10px 20px rgba(0,0,0,0.2);
 }
 
 .add-slide-btn:hover {
@@ -2387,17 +2482,11 @@ body.no-scroll {
     gap: 1.5rem;
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding-bottom: 2rem;
+    padding-right: 8px;
     scrollbar-width: thin;
-}
-
-.dynamic-tools-container::-webkit-scrollbar {
-    width: 4px;
-}
-
-.dynamic-tools-container::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 4px;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
 .tool-section {
@@ -2642,7 +2731,7 @@ body.no-scroll {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
     gap: 8px;
-    padding: 10px 0;
+    padding: 10px 12px 10px 4px; /* More right padding so icons aren't glued to scrollbar */
 }
 
 .lib-item {

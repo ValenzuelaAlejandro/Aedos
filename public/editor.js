@@ -29,6 +29,8 @@ function initEditor() {
     const selectionBox = document.createElement('div');
     selectionBox.className = 'eidos-selection-box';
     selectionBox.style.display = 'none';
+    selectionBox.style.zIndex = '1000'; // Always on top
+
 
     // Resize handles
     const handles = ['nw', 'ne', 'sw', 'se', 'n', 'e', 's', 'w'];
@@ -45,6 +47,8 @@ function initEditor() {
     const toolbar = document.createElement('div');
     toolbar.className = 'eidos-toolbar';
     toolbar.style.display = 'none';
+    toolbar.style.zIndex = '1001'; // Above selection box
+
 
     // Snapping guides
     const guideH = document.createElement('div');
@@ -202,7 +206,6 @@ function initEditor() {
                 // Apply styles to lock it in place
                 target.style.position = 'absolute';
                 target.style.boxSizing = 'border-box'; // Ensure width includes padding/border
-                target.style.zIndex = '100';
                 target.style.margin = '0';
                 target.style.transform = 'none';
 
@@ -226,7 +229,7 @@ function initEditor() {
                     saveState();
                     target._stateSavedSinceMousedown = true;
                 }
-                target.style.zIndex = '100';
+
 
                 // Ensure dimensions are in pixels for resizing consistency
                 const rect = target.getBoundingClientRect();
@@ -269,6 +272,13 @@ function initEditor() {
                 snapLinesY.push({ val: sRect.height / 2 });
                 snapLinesY.push({ val: 0 });
                 snapLinesY.push({ val: sRect.height });
+
+                // Inner borders (padding 40px for precise aesthetics)
+                const padding = 40;
+                snapLinesX.push({ val: padding });
+                snapLinesX.push({ val: sRect.width - padding });
+                snapLinesY.push({ val: padding });
+                snapLinesY.push({ val: sRect.height - padding });
 
                 slide.appendChild(guideH);
                 slide.appendChild(guideV);
@@ -624,6 +634,13 @@ function initEditor() {
         const slide = el.closest('.s') || el.closest('section') || document.body;
         if (selectionBox.parentElement !== slide) slide.appendChild(selectionBox);
         if (toolbar.parentElement !== slide) slide.appendChild(toolbar);
+        
+        // Ensure tools are always above the selected element
+        const elStyle = window.getComputedStyle(el);
+        const elZ = parseInt(elStyle.zIndex) || 1;
+        selectionBox.style.zIndex = Math.max(1000, elZ + 1);
+        toolbar.style.zIndex = Math.max(1001, elZ + 2);
+
 
         updateSelectionBox();
         selectionBox.style.display = 'block';
@@ -631,15 +648,28 @@ function initEditor() {
         document.getElementById('eidos-color-picker').style.display = 'none';
 
         // Observe changes to the element (like style or classes) to update the selection box automatically
-        selectionObserver = new MutationObserver(() => {
+        selectionObserver = new MutationObserver((mutations) => {
             updateSelectionBox();
+            
+            // If the element's Z-index changed or it was moved in DOM, refresh tool z-index
+            const elStyle = window.getComputedStyle(el);
+            const elZ = parseInt(elStyle.zIndex) || 1;
+            selectionBox.style.zIndex = Math.max(1000, elZ + 1);
+            toolbar.style.zIndex = Math.max(1001, elZ + 2);
         });
         selectionObserver.observe(el, {
             attributes: true,
             attributeFilter: ['style', 'class'],
             characterData: true,
-            subtree: true
+            subtree: false
         });
+        
+        // Also observe the parent to catch physical moves (To Front/Back)
+        const parentObserver = new MutationObserver(() => updateSelectionBox());
+        parentObserver.observe(el.parentElement, { childList: true });
+        // Store it to disconnect later
+        selectionObserver._parentObs = parentObserver;
+
 
         // Notify parent UI
         window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: el } }));
@@ -651,6 +681,7 @@ function initEditor() {
 
     function deselectGroup() {
         if (selectionObserver) {
+            if (selectionObserver._parentObs) selectionObserver._parentObs.disconnect();
             selectionObserver.disconnect();
             selectionObserver = null;
         }
@@ -695,6 +726,9 @@ function initEditor() {
 
     function saveState() {
         const state = getCleanHTML();
+        // Don't save if it's the same state as current to avoid duplicate history points
+        if (historyIndex !== -1 && history[historyIndex] === state) return;
+
         // Truncate history forward if we are in the middle of it
         history.splice(historyIndex + 1);
         history.push(state);
@@ -704,14 +738,13 @@ function initEditor() {
     }
 
     function undo() {
+        const currentState = getCleanHTML();
+        // If we have unsaved changes at the end of history, save them so we can redo back to them
+        if (historyIndex === history.length - 1 && history[historyIndex] !== currentState) {
+            saveState();
+        }
+
         if (historyIndex > 0) {
-            if (historyIndex === history.length - 1) {
-                // Save current state so we can redo back to it
-                const currentState = getCleanHTML();
-                if (history[historyIndex] !== currentState) {
-                    history.push(currentState);
-                }
-            }
             historyIndex--;
             restoreState(history[historyIndex]);
         }
@@ -737,9 +770,32 @@ function initEditor() {
 
         // Re-init lucide icons just in case
         if (window.lucide) window.lucide.createIcons();
+        
+        // Notify parent that state changed significantly (slides might have been added/removed)
+        window.dispatchEvent(new CustomEvent('eidos-state-restored'));
+    }
+
+
+    function duplicateElement(el) {
+        saveState();
+        const clone = el.cloneNode(true);
+        // remove any tracking state inside clone if needed
+        delete clone._stateSavedSinceMousedown;
+        
+        const currentLeft = parseFloat(clone.style.left) || 0;
+        const currentTop = parseFloat(clone.style.top) || 0;
+        clone.style.left = (currentLeft + 20) + 'px';
+        clone.style.top = (currentTop + 20) + 'px';
+
+        el.parentNode.insertBefore(clone, el.nextSibling);
+        selectElement(clone);
     }
 
     document.addEventListener('keydown', (e) => {
+        // Ignore if native text editing
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        const isEditingText = activeTag === 'input' || activeTag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable);
+
         if (e.ctrlKey || e.metaKey) {
             if (e.key.toLowerCase() === 'z') {
                 if (e.shiftKey) {
@@ -751,6 +807,47 @@ function initEditor() {
             } else if (e.key.toLowerCase() === 'y') {
                 redo();
                 e.preventDefault();
+            } else if (e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                if (isEditingText) return;
+                
+                if (selectedElement) {
+                    duplicateElement(selectedElement);
+                } else {
+                    window.dispatchEvent(new CustomEvent('eidos-duplicate-slide'));
+                }
+            }
+        } else if (!isEditingText) {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedElement) {
+                    saveState();
+                    selectedElement.remove();
+                    deselectGroup();
+                    e.preventDefault();
+                }
+            } else if (e.key.startsWith('Arrow')) {
+                if (selectedElement) {
+                    e.preventDefault();
+                    if (!selectedElement._undoSavingArrow) {
+                        saveState();
+                        selectedElement._undoSavingArrow = true;
+                        setTimeout(() => selectedElement._undoSavingArrow = false, 500);
+                    }
+                    const amount = e.shiftKey ? 10 : 1;
+                    const currentLeft = parseFloat(selectedElement.style.left) || 0;
+                    const currentTop = parseFloat(selectedElement.style.top) || 0;
+
+                    if (e.key === 'ArrowUp') selectedElement.style.top = (currentTop - amount) + 'px';
+                    if (e.key === 'ArrowDown') selectedElement.style.top = (currentTop + amount) + 'px';
+                    if (e.key === 'ArrowLeft') selectedElement.style.left = (currentLeft - amount) + 'px';
+                    if (e.key === 'ArrowRight') selectedElement.style.left = (currentLeft + amount) + 'px';
+
+                    updateSelectionBox();
+                } else {
+                    // Navigate slides
+                    if (e.key === 'ArrowLeft') window.dispatchEvent(new CustomEvent('eidos-navigate-prev'));
+                    if (e.key === 'ArrowRight') window.dispatchEvent(new CustomEvent('eidos-navigate-next'));
+                }
             }
         }
     });
@@ -767,6 +864,45 @@ function initEditor() {
     window.eidosGetSelection = () => selectedElement;
     window.eidosIsJustSelected = () => _justSelected;
     window.eidosIsDragging = () => isDragging || isResizing;
+    window.eidosDuplicateSelection = () => { if (selectedElement) duplicateElement(selectedElement); };
+    window.eidosDeleteSelection = () => {
+        if (selectedElement) {
+            saveState();
+            selectedElement.remove();
+            deselectGroup();
+        }
+    };
+    window.eidosToFront = () => {
+        if (!selectedElement) return;
+        saveState();
+        const parent = selectedElement.parentElement;
+        parent.appendChild(selectedElement); // Physical move to end of DOM (front)
+        updateSelectionBox();
+    };
+    window.eidosToBack = () => {
+        if (!selectedElement) return;
+        saveState();
+        const parent = selectedElement.parentElement;
+        parent.prepend(selectedElement); // Physical move to start of DOM (back)
+        updateSelectionBox();
+    };
+    window.eidosArrowMove = (key, shift) => {
+
+        if (!selectedElement) return;
+        if (!selectedElement._undoSavingArrow) {
+            saveState();
+            selectedElement._undoSavingArrow = true;
+            setTimeout(() => selectedElement._undoSavingArrow = false, 500);
+        }
+        const amount = shift ? 10 : 1;
+        const currentLeft = parseFloat(selectedElement.style.left) || 0;
+        const currentTop = parseFloat(selectedElement.style.top) || 0;
+        if (key === 'ArrowUp') selectedElement.style.top = (currentTop - amount) + 'px';
+        if (key === 'ArrowDown') selectedElement.style.top = (currentTop + amount) + 'px';
+        if (key === 'ArrowLeft') selectedElement.style.left = (currentLeft - amount) + 'px';
+        if (key === 'ArrowRight') selectedElement.style.left = (currentLeft + amount) + 'px';
+        updateSelectionBox();
+    };
 }
 
 if (document.readyState === 'loading') {

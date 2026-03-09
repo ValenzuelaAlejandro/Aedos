@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
         iframeDoc.open();
-        const loadingMsg = isSpanish ? "Cargando estructura de la presentación..." : "Loading presentation structure...";
+        const loadingMsg = window.t ? window.t('loading-text', "Loading presentation structure...") : "Loading presentation structure...";
         const loadingHtml = `
         <style class="skeleton-injector">
             body { background: #121212; margin: 0; padding: 0; font-family: sans-serif; }
@@ -553,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (parsed.refused) {
                             chatScreen.classList.add('hidden');
-                            refusedMessage.textContent = parsed.message || (isSpanish ? "Este tema no puede ser generado." : "This topic cannot be generated.");
+                            refusedMessage.textContent = parsed.message || (window.t ? window.t('refused_msg', "This topic cannot be generated.") : "This topic cannot be generated.");
                             refusedContainer.classList.remove('hidden');
                             previewContainer.classList.add('hidden');
                             iframeDoc.close();
@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!generatedHtml || generatedHtml.trim().length < 50) {
                 // If it finished but we have no HTML, it's an error unless refused was already handled
-                throw new Error(isSpanish ? "Lo sentimos, no se pudo generar la presentación. El servicio podría estar saturado." : "Sorry, could not generate the presentation. The service might be saturated.");
+                throw new Error(window.t ? window.t('error_saturated', "Sorry, could not generate the presentation. The service might be saturated.") : "Sorry, could not generate the presentation. The service might be saturated.");
             }
 
             iframeDoc.close();
@@ -621,12 +621,12 @@ document.addEventListener('DOMContentLoaded', () => {
             let retryMsg = "";
             const retryMatch = error.message.match(/retry in ([\d\.]+s)/i);
             if (retryMatch) {
-                retryMsg = isSpanish ? `<br><br><strong>Podrás reintentar en: ${retryMatch[1]}</strong>` : `<br><br><strong>You can retry in: ${retryMatch[1]}</strong>`;
+                retryMsg = window.currentLang === 'es' ? `<br><br><strong>Podrás reintentar en: ${retryMatch[1]}</strong>` : `<br><br><strong>You can retry in: ${retryMatch[1]}</strong>`;
             }
 
             if (error.message.includes('429') || error.message.includes('503') || error.message.toLowerCase().includes('exhausted') || error.message.toLowerCase().includes('saturated')) {
                 if (errSubtitle) {
-                    errSubtitle.innerHTML = t('t-error-saturated', "El servicio está saturado en este momento debido a la alta demanda. Por favor, intenta de nuevo en unos minutos.") + retryMsg;
+                    errSubtitle.innerHTML = (window.t ? window.t('t-error-saturated', "The service is currently overloaded due to high demand. Please try again in a few minutes.") : "The service is currently overloaded due to high demand. Please try again in a few minutes.") + retryMsg;
                 }
             } else {
                 if (errSubtitle) {
@@ -785,37 +785,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Strategy 1: section.s (the expected format from our prompt)
         let slides = doc.querySelectorAll('section.s');
-        if (slides.length > 1) return slides;
+        if (slides.length >= 1) return Array.from(slides);
 
         // Strategy 2: sections with class containing "slide"
         slides = doc.querySelectorAll('section[class*="slide"]');
-        if (slides.length > 1) return slides;
+        if (slides.length >= 1) return Array.from(slides);
 
         // Strategy 3: leaf sections (sections that don't contain other sections)
         const allSections = Array.from(doc.querySelectorAll('section'));
         const leafSections = allSections.filter(s => !s.querySelector('section'));
-        if (leafSections.length > 1) return leafSections;
-        if (allSections.length > 1) return allSections;
+        if (leafSections.length >= 1) return leafSections;
+        if (allSections.length >= 1) return allSections;
 
         // Strategy 4: divs with slide-like classes
-        slides = doc.querySelectorAll('div.s, div.slide, div[class*="slide"]');
-        if (slides.length > 1) return slides;
+        let divSlides = doc.querySelectorAll('div.s, div.slide, div[class*="slide"]');
+        if (divSlides.length >= 1) return Array.from(divSlides);
 
-        // Strategy 5: direct body children (excluding script/style/link)
-        const bodyKids = Array.from(doc.body.children).filter(el =>
-            !['SCRIPT', 'STYLE', 'LINK', 'META'].includes(el.tagName)
-        );
-        if (bodyKids.length > 1) return bodyKids;
-
-        // Strategy 6: single wrapper — get ITS children
-        if (bodyKids.length === 1) {
-            const inner = Array.from(bodyKids[0].children).filter(el =>
-                !['SCRIPT', 'STYLE', 'LINK'].includes(el.tagName)
-            );
-            if (inner.length > 1) return inner;
+        // Strategy 5: direct body children (excluding script/style/link/meta AND editor UI)
+        const bodyKids = Array.from(doc.body.children).filter(el => {
+            const tag = el.tagName;
+            const isTool = el.classList.contains('eidos-selection-box') || 
+                           el.classList.contains('eidos-toolbar') || 
+                           el.classList.contains('eidos-guide') || 
+                           el.classList.contains('eidos-color-picker');
+            return !['SCRIPT', 'STYLE', 'LINK', 'META'].includes(tag) && !isTool;
+        });
+        if (bodyKids.length >= 1) {
+            // If there's only one kid and it contains slides, prefer its children (Strategy 6-like)
+            if (bodyKids.length === 1) {
+                const inner = Array.from(bodyKids[0].children).filter(el =>
+                    !['SCRIPT', 'STYLE', 'LINK'].includes(el.tagName)
+                );
+                if (inner.length >= 1) return inner;
+            }
+            return bodyKids;
         }
 
-        return slides; // fallback to whatever last matched
+        return Array.from(slides); // fallback to whatever last matched
     }
 
     function setupPreviewInteractions() {
@@ -828,8 +834,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Attach global nav listeners directly to the iframe document too!
         // This solves the issue where file input dialog steals focus to the iframe.
-        iframeDoc.addEventListener('keydown', handleSlideKeyboardNav);
+        // NOTE: we removed handleSlideKeyboardNav here because editor.js handles it and forwards to parent, 
+        // preventing double jump.
         iframeDoc.addEventListener('wheel', handleSlideWheelNav, { passive: true });
+
 
         // Problem 6: Touch events for mobile swipe
         iframeDoc.addEventListener('touchstart', handleTouchStart, { passive: true });
@@ -894,6 +902,60 @@ document.addEventListener('DOMContentLoaded', () => {
             window.initEditorUI(previewIframe);
         }
     }
+
+    window.regenerateDotsCount = function() {
+        const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+        if (!iframeDoc) return;
+        const slides = findSlides(iframeDoc);
+        totalSlides = slides.length || 1;
+        
+        // Refresh slideContainer reference (it might have been replaced during Undo/Redo)
+        slideContainer = (slides.length > 0) ? slides[0].parentElement : iframeDoc.body;
+        
+        if (slideContainer) {
+            slideContainer.style.cssText += '; display:flex !important; flex-direction:row !important; width:max-content !important; height:100%; transition:transform 0.6s cubic-bezier(0.25,1,0.5,1); margin:0; padding:0;';
+        }
+
+
+        
+        // Ensure new slides have the correct layout/scaling
+        slides.forEach(s => {
+            s.style.flex = `0 0 1122px`;
+            s.style.width = `1122px`;
+            s.style.height = '631px';
+            s.style.overflow = 'hidden';
+            s.style.position = 'relative';
+            s.style.boxSizing = 'border-box';
+        });
+        
+        buildDots();
+        
+        // Find which slide is currently active in the DOM
+        const activeIndex = slides.findIndex(s => s.classList.contains('active'));
+        if (activeIndex !== -1) {
+            currentSlide = activeIndex;
+        }
+
+        // Ensure currentSlide is within bounds
+        if (currentSlide >= totalSlides) {
+            currentSlide = totalSlides - 1;
+        }
+        if (currentSlide < 0) currentSlide = 0;
+
+        // If no slide was active, mark the current one
+        if (activeIndex === -1 && slides[currentSlide]) {
+            slides[currentSlide].classList.add('active');
+        }
+
+        scrollToSlide(currentSlide);
+        updateSlideCounter();
+
+
+        
+        // Refresh overlays because new slides might have slots
+        if (_refreshSlotOverlays) setTimeout(_refreshSlotOverlays, 50);
+    };
+
 
     function scaleIframe() {
         // Measure from a static parent that doesn't collapse with scale to prevent loop
@@ -1330,6 +1392,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (previewContainer.classList.contains('hidden')) return;
         // Don't capture arrows when user is typing in an input/textarea
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        // Skip if editor has a selected element
+        try {
+            const iframe = document.getElementById('preview-iframe');
+            const iframeWin = iframe.contentWindow;
+            if (iframeWin && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
+                return;
+            }
+        } catch (err) {}
 
         if (e.key === 'ArrowLeft') {
             e.preventDefault();
