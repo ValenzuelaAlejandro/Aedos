@@ -710,6 +710,13 @@ function initEditor() {
         selectionBox.style.width = `${rect.width}px`;
         selectionBox.style.height = `${rect.height}px`;
 
+        // Add class for small elements to hide side handles and avoid crowding
+        if (rect.width < 50 || rect.height < 50) {
+            selectionBox.classList.add('eidos-small-selection');
+        } else {
+            selectionBox.classList.remove('eidos-small-selection');
+        }
+
         toolbar.style.left = `${left}px`;
         // Position toolbar slightly above
         toolbar.style.top = `${top - 50}px`;

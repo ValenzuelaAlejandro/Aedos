@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let slideContainer = null; // The actual parent element of the slides (may be body or a wrapper)
     let currentTitle = 'Presentation';
     let _refreshSlotOverlays = null; // assigned in injectImageReplacementSystem
+    let _overlayMap = new Map(); // slotEl -> { input, label }
 
     // Listen for messages from iframe during skeleton generation
     window.addEventListener('message', (e) => {
@@ -754,10 +755,16 @@ document.addEventListener('DOMContentLoaded', () => {
             setupPreviewInteractions();
         };
 
+        // Try to detect if already loaded (sync srcdoc or manual write)
+        const doc = previewIframe.contentDocument;
+        if (doc && doc.readyState === 'complete' && findSlides(doc).length > 0) {
+            setTimeout(doSetup, 50);
+        }
+
         // Set onload BEFORE writing so we don't miss the event
         previewIframe.onload = () => setTimeout(doSetup, 50);
 
-        // Fallback: poll until slides appear in the DOM (handles slow CDN)
+        // Fallback: poll until slides appear in the DOM (handles slow CDN or missed onload)
         let attempts = 0;
         const poll = () => {
             if (setupDone) return;
@@ -765,7 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const doc = previewIframe.contentDocument;
             if (doc && doc.body) {
                 const found = findSlides(doc);
-                if (found.length > 1) {
+                if (found.length >= 1) {
                     doSetup();
                     return;
                 }
@@ -969,8 +976,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const iframeNativeHeight = 631;
 
         let scale = 1;
-        // If a dropdown exists and is NOT 'fit', use its explicit value, otherwise auto-fit
-        if (select && select.value !== 'fit') {
+        const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+        if (isFullscreen) {
+            // Use full window dimensions without padding
+            const availableWidth = window.innerWidth;
+            const availableHeight = window.innerHeight;
+            const MathScaleX = availableWidth / iframeNativeWidth;
+            const MathScaleY = availableHeight / iframeNativeHeight;
+            scale = Math.min(MathScaleX, MathScaleY);
+            // Allow scaling up past 100% in presentation mode
+        } else if (select && select.value !== 'fit') {
             scale = parseFloat(select.value) || 1;
         } else {
             // Auto fit inside stage (it has 32px padding on all sides, but stage.clientWidth includes padding,
@@ -1096,9 +1112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Remove any overlays from a previous generation
         document.querySelectorAll('._slot-overlay-label').forEach(el => el.remove());
         document.querySelectorAll('._slot-overlay-input').forEach(el => el.remove());
+        _overlayMap.clear();
 
-        // Map: slotEl → { input, label }
-        const _overlayMap = new Map();
 
         function _buildOverlayForSlot(slotEl) {
             if (_overlayMap.has(slotEl)) return; // already built
@@ -1118,7 +1133,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const label = document.createElement('label');
             label.className = '_slot-overlay-label';
-            label.style.cssText = 'position:fixed;display:none;z-index:100000;cursor:pointer;background:transparent;';
+            // Default to pointer-events none so first click goes to IFRAME for selection
+            label.style.cssText = 'position:fixed;display:none;z-index:100000;cursor:pointer;background:transparent;pointer-events:none;';
             label.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1169,6 +1185,28 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build overlays for ALL slots in the document
         const allSlots = doc.querySelectorAll('[data-image-slot]');
         allSlots.forEach(s => _buildOverlayForSlot(s));
+
+        // Global Selection Listener to toggle pointer-events on overlays
+        // This allows: 1st click -> select/drag slide, 2nd click -> open picker
+        if (doc.defaultView) {
+            doc.defaultView.addEventListener('eidos-selection-changed', (e) => {
+            const selectedEl = e.detail.element;
+            _overlayMap.forEach(({ label }) => {
+                label.style.pointerEvents = 'none';
+            });
+            if (selectedEl && selectedEl.dataset && selectedEl.dataset.imageSlot !== undefined) {
+                const entry = _overlayMap.get(selectedEl);
+                if (entry) entry.label.style.pointerEvents = 'auto';
+            }
+        });
+    }
+
+        // Ensure drag-and-drop always works by enabling pointer-events when a file is being dragged
+        window.addEventListener('dragenter', (e) => {
+            _overlayMap.forEach(({ label }) => {
+                label.style.pointerEvents = 'auto';
+            });
+        });
 
         // Position overlays for the slots on the CURRENT slide, hide others
         function _positionOverlays() {

@@ -93,7 +93,9 @@ window.initEditorUI = function (iframe) {
             }
         }
 
-        const fullHtmlContent = `<!DOCTYPE html><html><head>${iframeDoc.head.innerHTML}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
+        // --- 1. PRE-RENDER HEAD & BODY WRAPPER ---
+        const headWithViewport = iframeDoc.head.innerHTML + '<meta name="viewport" content="width=1122">';
+        const htmlTemplate = `<!DOCTYPE html><html><head>${headWithViewport}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
 
         slides.forEach((slide, index) => {
             const item = document.createElement('div');
@@ -102,10 +104,15 @@ window.initEditorUI = function (iframe) {
             item.draggable = true;
 
             const thumbIframe = document.createElement('iframe');
+            thumbIframe.style.width = '1122px';
+            thumbIframe.style.height = '631px';
+            thumbIframe.style.background = 'transparent';
+            thumbIframe.style.border = 'none';
 
             // Clean slide for thumbnail
             const clone = slide.cloneNode(true);
-            clone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker, .eidos-phantom').forEach(n => n.remove());
+            // DO NOT REMOVE phantoms as they hold the layout for absolute-positioned edited elements
+            clone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker').forEach(n => n.remove());
 
             clone.style.width = '1122px'; // Match original fixed width
             clone.style.height = '631px';
@@ -116,9 +123,7 @@ window.initEditorUI = function (iframe) {
             clone.style.left = '0';
             clone.style.transform = 'none';
 
-            thumbIframe.srcdoc = fullHtmlContent.replace('[CONTENT]', clone.outerHTML);
-            thumbIframe.style.background = 'transparent';
-            thumbIframe.style.border = 'none';
+            thumbIframe.srcdoc = htmlTemplate.split('[CONTENT]').join(clone.outerHTML);
 
             const overlay = document.createElement('div');
             overlay.className = 'minimap-item-overlay';
@@ -258,8 +263,11 @@ window.initEditorUI = function (iframe) {
 
         const fullHtmlContent = `<!DOCTYPE html><html><head>${iframeDoc.head.innerHTML}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
 
+        ifr.style.width = '1122px';
+        ifr.style.height = '631px';
+
         const clone = slide.cloneNode(true);
-        clone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker, .eidos-phantom').forEach(n => n.remove());
+        clone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker').forEach(n => n.remove());
 
         clone.style.width = '1122px';
         clone.style.height = '631px';
@@ -270,7 +278,10 @@ window.initEditorUI = function (iframe) {
         clone.style.left = '0';
         clone.style.transform = 'none';
 
-        ifr.srcdoc = fullHtmlContent.replace('[CONTENT]', clone.outerHTML);
+        const headWithViewport = iframeDoc.head.innerHTML + '<meta name="viewport" content="width=1122">';
+        const localizedHtml = `<!DOCTYPE html><html><head>${headWithViewport}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
+
+        ifr.srcdoc = localizedHtml.split('[CONTENT]').join(clone.outerHTML);
     }
 
     // Observer to keep minimap in sync

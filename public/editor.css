@@ -8,11 +8,10 @@ body {
 
 .eidos-selection-box {
     position: absolute;
-    border: 2px solid #5d5dff;
-    /* Indigo Blue */
-    background: rgba(93, 93, 255, 0.08);
-    /* Suble tint */
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3), inset 0 0 5px rgba(93, 93, 255, 0.2);
+    /* Use the darker version of the accent color: 25% black mix */
+    border: 1.5px solid color-mix(in srgb, var(--presentation-accent, var(--accent, #5d5dff)), black 25%);
+    background: transparent;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 2px 10px rgba(0, 0, 0, 0.3);
     pointer-events: auto;
     z-index: 10000;
     cursor: move;
@@ -20,16 +19,26 @@ body {
 
 .eidos-resize-handle {
     position: absolute;
-    width: 12px;
-    height: 12px;
+    width: 8px;
+    height: 8px;
     background: white;
-    border: 2px solid #5d5dff;
-    border-radius: 50%;
+    /* Use the darker version of the accent color */
+    border: 1.5px solid color-mix(in srgb, var(--presentation-accent, var(--accent, #5d5dff)), black 25%);
+    border-radius: 1px;
     pointer-events: auto;
     z-index: 10001;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
+/* Hide side handles when the element is too small to avoid amontonamiento */
+.eidos-small-selection .eidos-resize-n,
+.eidos-small-selection .eidos-resize-s,
+.eidos-small-selection .eidos-resize-e,
+.eidos-small-selection .eidos-resize-w {
+    display: none;
+}
+
+/* Position handles centered on corners/edges */
 .eidos-resize-nw {
     top: -5px;
     left: -5px;

@@ -1627,6 +1627,25 @@ body.no-scroll {
     background: #0d0d0d;
 }
 
+.preview-stage:fullscreen {
+    background: #000;
+    width: 100vw;
+    height: 100vh;
+}
+
+.preview-stage:fullscreen .preview-wrapper {
+    max-width: none !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+.preview-stage:fullscreen .stage-arrow {
+    z-index: 100;
+}
+
+
 
 /* Full-height hover panels for arrows */
 .stage-arrow {
