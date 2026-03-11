@@ -216,11 +216,30 @@ app.post('/generate', async (req, res) => {
                 console.log('Sanitizer: moved loose @import into <style> block');
             }
 
-            // Safety net: if Lucide script loader is missing, inject it before </head>
             const lucideSrc = 'https://unpkg.com/lucide@0.469.0/dist/umd/lucide.js';
+            const fontsLink = `
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+</style>`;
+            
             if (!cleanedOutput.includes(lucideSrc)) {
-                cleanedOutput = cleanedOutput.replace(/<\/head>/i, `<script src="${lucideSrc}"></script>\n</head>`);
-                console.log('Sanitizer: injected missing Lucide script loader');
+                cleanedOutput = cleanedOutput.replace(/<\/head>/i, `${fontsLink}\n<script src="${lucideSrc}"></script>\n</head>`);
+                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected fonts and Lucide`);
+            } else if (!cleanedOutput.includes('family=Archivo+Black')) {
+                if (cleanedOutput.includes('<head>')) {
+                    cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n${fontsLink}`);
+                } else if (cleanedOutput.includes('<html>')) {
+                    cleanedOutput = cleanedOutput.replace(/<html>/i, `<html><head>${fontsLink}</head>`);
+                } else {
+                    cleanedOutput = fontsLink + cleanedOutput;
+                }
+                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected fonts link (Archivo Black was missing)`);
             }
             // Safety net: if lucide.createIcons() call is missing, inject it before </body>
             if (!cleanedOutput.includes('lucide.createIcons')) {

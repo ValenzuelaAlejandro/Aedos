@@ -22,6 +22,9 @@ function initEditor() {
     const history = [];
     let historyIndex = -1;
 
+    // Clipboard for copy/paste
+    let _clipboard = null;
+
     // Selection Observer to update box on property changes
     let selectionObserver = null;
 
@@ -361,6 +364,20 @@ function initEditor() {
         e.stopPropagation();
         if (!selectedElement) return;
 
+        // If it's an image slot, trigger the picker in the parent
+        if (selectedElement.dataset.imageSlot !== undefined) {
+            if (window.parent && window.parent._eidosTriggerImagePicker) {
+                window.parent._eidosTriggerImagePicker(selectedElement);
+            } else {
+                // Fallback to event if direct call fails
+                document.dispatchEvent(new CustomEvent('eidos-trigger-image-picker', { 
+                    detail: { element: selectedElement },
+                    bubbles: true 
+                }));
+            }
+            return;
+        }
+
         // Find if the selected element is editable text or contains editable text
         const isEditable = (el) => el && el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
         let textTarget = isEditable(selectedElement) ? selectedElement : selectedElement.querySelector('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
@@ -410,8 +427,8 @@ function initEditor() {
             startLeft = parseFloat(selectedElement.style.left) || 0;
             startTop = parseFloat(selectedElement.style.top) || 0;
             e.preventDefault();
-        } else if (e.target === selectionBox) {
-            // Drag via selection box proxy
+        } else if (!e.target.classList.contains('eidos-resize-handle')) {
+            // Drag via selection box proxy (anywhere that isn't a handle)
             e.stopPropagation();
             if (!selectedElement) return;
 
@@ -779,7 +796,9 @@ function initEditor() {
         if (window.lucide) window.lucide.createIcons();
         
         // Notify parent that state changed significantly (slides might have been added/removed)
-        window.dispatchEvent(new CustomEvent('eidos-state-restored'));
+        // Pass 'needsOverlayRebuild' so app.js can re-inject image slot overlays
+        // (restoring innerHTML destroys the old DOM nodes the overlays were pointing to)
+        window.dispatchEvent(new CustomEvent('eidos-state-restored', { detail: { needsOverlayRebuild: true } }));
     }
 
 
@@ -814,6 +833,29 @@ function initEditor() {
             } else if (e.key.toLowerCase() === 'y') {
                 redo();
                 e.preventDefault();
+            } else if (e.key.toLowerCase() === 'c' && !isEditingText) {
+                if (selectedElement) {
+                    _clipboard = selectedElement.cloneNode(true);
+                    // Show brief visual feedback
+                    selectedElement.style.outline = '2px solid rgba(255,255,255,0.6)';
+                    setTimeout(() => { if (selectedElement) selectedElement.style.outline = ''; }, 300);
+                    e.preventDefault();
+                }
+            } else if (e.key.toLowerCase() === 'v' && !isEditingText) {
+                if (_clipboard) {
+                    saveState();
+                    const clone = _clipboard.cloneNode(true);
+                    // Offset slightly so it's visible
+                    const curLeft = parseFloat(clone.style.left) || 0;
+                    const curTop = parseFloat(clone.style.top) || 0;
+                    clone.style.left = (curLeft + 20) + 'px';
+                    clone.style.top = (curTop + 20) + 'px';
+                    // Paste into the current active slide
+                    const activeSlide = document.querySelector('section.active') || document.querySelector('section') || document.body;
+                    activeSlide.appendChild(clone);
+                    selectElement(clone);
+                    e.preventDefault();
+                }
             } else if (e.key.toLowerCase() === 'd') {
                 e.preventDefault();
                 if (isEditingText) return;

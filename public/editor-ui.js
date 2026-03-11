@@ -18,7 +18,7 @@ window.initEditorUI = function (iframe) {
         const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"], section'));
         const iframeActiveIdx = slides.findIndex(s => s.classList.contains('active'));
         const items = Array.from(minimapList.querySelectorAll('.minimap-item'));
-        
+
         if (iframeActiveIdx !== -1 && items[iframeActiveIdx]) {
             items.forEach(it => it.classList.remove('active'));
             items[iframeActiveIdx].classList.add('active');
@@ -46,7 +46,7 @@ window.initEditorUI = function (iframe) {
 
     // Expose to window so app.js can trigger it if needed
     window.syncMinimapActiveState = centerActiveMinimapItem;
-    
+
     // Recenter on resize
     window.addEventListener('resize', centerActiveMinimapItem);
 
@@ -94,7 +94,8 @@ window.initEditorUI = function (iframe) {
         }
 
         // --- 1. PRE-RENDER HEAD & BODY WRAPPER ---
-        const headWithViewport = iframeDoc.head.innerHTML + '<meta name="viewport" content="width=1122">';
+        const G_FONTS = '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">';
+        const headWithViewport = iframeDoc.head.innerHTML + G_FONTS + '<meta name="viewport" content="width=1122">';
         const htmlTemplate = `<!DOCTYPE html><html><head>${headWithViewport}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
 
         slides.forEach((slide, index) => {
@@ -232,7 +233,7 @@ window.initEditorUI = function (iframe) {
         }, 50);
 
         if (window.regenerateDotsCount) window.regenerateDotsCount();
-        
+
         // Initial centering - Ensuring layout is painted
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -278,7 +279,8 @@ window.initEditorUI = function (iframe) {
         clone.style.left = '0';
         clone.style.transform = 'none';
 
-        const headWithViewport = iframeDoc.head.innerHTML + '<meta name="viewport" content="width=1122">';
+        const G_FONTS = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet"><style>:root{--font-display:\'Syne\',sans-serif;--font-body:\'DM Sans\',sans-serif;}</style>';
+        const headWithViewport = iframeDoc.head.innerHTML + G_FONTS + '<meta name="viewport" content="width=1122">';
         const localizedHtml = `<!DOCTYPE html><html><head>${headWithViewport}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
 
         ifr.srcdoc = localizedHtml.split('[CONTENT]').join(clone.outerHTML);
@@ -348,7 +350,7 @@ window.initEditorUI = function (iframe) {
         // Rebuild minimap and nav
         if (window.regenerateDotsCount) window.regenerateDotsCount(); // We might need to hook into app.js or just refresh
         buildMinimap();
-        
+
         // Ensure centering is updated after order sync
         setTimeout(centerActiveMinimapItem, 50);
     }
@@ -409,12 +411,12 @@ window.initEditorUI = function (iframe) {
         const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
         if (slides.length === 0) return;
         const activeSlide = slides.find(s => s.classList.contains('active')) || slides[0];
-        
+
         const newSlide = activeSlide.cloneNode(true);
         newSlide.classList.remove('active');
         activeSlide.after(newSlide);
         buildMinimap();
-        
+
         setTimeout(() => {
             const nextIdx = slides.indexOf(activeSlide) + 1;
             const dots = document.querySelectorAll('.slide-dot');
@@ -606,23 +608,75 @@ window.initEditorUI = function (iframe) {
 
         let html = '';
 
+        const FONT_LIST = [
+            { label: 'Core', fonts: [
+                { name: 'Syne (Display)', value: "'Syne', sans-serif" },
+                { name: 'DM Sans (Body)',  value: "'DM Sans', sans-serif" },
+            ]},
+            { label: 'Sans Serif', fonts: [
+                { name: 'Inter',               value: "'Inter', sans-serif" },
+                { name: 'Montserrat',          value: "'Montserrat', sans-serif" },
+                { name: 'Outfit',              value: "'Outfit', sans-serif" },
+                { name: 'Plus Jakarta Sans',   value: "'Plus Jakarta Sans', sans-serif" },
+                { name: 'Sora',               value: "'Sora', sans-serif" },
+                { name: 'Space Grotesque',    value: "'Space Grotesque', sans-serif" },
+                { name: 'Lexend',             value: "'Lexend', sans-serif" },
+                { name: 'Prompt',             value: "'Prompt', sans-serif" },
+                { name: 'Ubuntu',             value: "'Ubuntu', sans-serif" },
+                { name: 'Bricolage Grotesque',value: "'Bricolage Grotesque', sans-serif" },
+            ]},
+            { label: 'Serif', fonts: [
+                { name: 'Playfair Display',   value: "'Playfair Display', serif" },
+                { name: 'Lora',              value: "'Lora', serif" },
+                { name: 'Fraunces',          value: "'Fraunces', serif" },
+                { name: 'Cormorant Garamond',value: "'Cormorant Garamond', serif" },
+                { name: 'Bitter',            value: "'Bitter', serif" },
+                { name: 'Cinzel',            value: "'Cinzel', serif" },
+            ]},
+            { label: 'Display & Mono', fonts: [
+                { name: 'Bebas Neue',        value: "'Bebas Neue', cursive" },
+                { name: 'Archivo Black',     value: "'Archivo Black', sans-serif" },
+                { name: 'Unbounded',         value: "'Unbounded', cursive" },
+                { name: 'JetBrains Mono',    value: "'JetBrains Mono', monospace" },
+            ]},
+            { label: 'System', fonts: [
+                { name: 'Arial',             value: 'Arial, sans-serif' },
+                { name: 'Times New Roman',   value: "'Times New Roman', serif" },
+                { name: 'Georgia',           value: 'Georgia, serif' },
+                { name: 'Verdana',           value: 'Verdana, sans-serif' },
+                { name: 'Trebuchet MS',      value: "'Trebuchet MS', sans-serif" },
+                { name: 'Courier New',       value: "'Courier New', monospace" },
+            ]},
+        ];
+
         if (isText) {
+            let fontPickerOptions = '';
+            FONT_LIST.forEach(group => {
+                fontPickerOptions += `<div class="fpicker-group-label">${group.label}</div>`;
+                group.fonts.forEach(f => {
+                    fontPickerOptions += `<div class="fpicker-option" data-value="${f.value}" style="font-family:${f.value}">${f.name}</div>`;
+                });
+            });
+
             html += `
                 <div class="tool-section">
                     <div class="tool-section-title">${window.t('text_tool')}</div>
                     <div class="tool-row">
-                        <select id="tool-font" class="tool-input" style="width:100%; text-align:left;">
-                            <option value="var(--font-display)">Syne (Display)</option>
-                            <option value="var(--font-body)">DM Sans (Body)</option>
-                            <option value="Arial">Arial</option>
-                            <option value="Times New Roman">Times New Roman</option>
-                        </select>
+                        <div class="fpicker" id="tool-font-picker">
+                            <div class="fpicker-trigger" id="tool-font-trigger">
+                                <span class="fpicker-current" id="tool-font-label">Select font</span>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                            <div class="fpicker-dropdown" id="tool-font-dropdown">
+                                ${fontPickerOptions}
+                            </div>
+                        </div>
                     </div>
                     <div class="tool-row">
                         <span class="tool-label">${window.t('size')}</span>
                         <div class="tool-btn-group" style="width: auto;">
                             <button id="tool-font-min" class="tool-btn">-</button>
-                            <input type="number" id="tool-font-size" class="tool-input" value="16" style="border:none !important; border-radius:0 !important; width:40px !important;">
+                            <input type="number" id="tool-font-size" class="tool-input" value="16" style="border:none !important; border-radius:0 !important; flex:1;">
                             <button id="tool-font-add" class="tool-btn">+</button>
                         </div>
                     </div>
@@ -730,11 +784,11 @@ window.initEditorUI = function (iframe) {
             <div class="tool-section" style="margin-top: 1rem;">
                 <div class="tool-section-title">${window.t('advanced')}</div>
                 <div class="tool-row" style="display:flex; gap:0.5rem; margin-bottom: 0.5rem;">
-                    <button id="tool-layer-up" class="add-el-btn" style="flex:1; padding:0.5rem;" title="To Front">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6H4zm10-10h6v6h-6zM9 9h6v6H9z"></path><path d="M9 15v2h-2"></path><path d="M15 9V7h2"></path></svg>
+                    <button id="tool-layer-up" class="add-el-btn" style="flex:1; padding:0.5rem; font-size: 0.75rem; font-weight: 600;">
+                        ${window.t('bring_to_front')}
                     </button>
-                    <button id="tool-layer-down" class="add-el-btn" style="flex:1; padding:0.5rem;" title="To Back">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><path d="M9 3v8h8"></path></svg>
+                    <button id="tool-layer-down" class="add-el-btn" style="flex:1; padding:0.5rem; font-size: 0.75rem; font-weight: 600;">
+                        ${window.t('send_to_back')}
                     </button>
                 </div>
                 <div class="tool-row">
@@ -747,7 +801,6 @@ window.initEditorUI = function (iframe) {
 
         // --- Bind Events ---
         if (isText) {
-            const fontSelect = document.getElementById('tool-font');
             const fontSize = document.getElementById('tool-font-size');
             const fontAdd = document.getElementById('tool-font-add');
             const fontMin = document.getElementById('tool-font-min');
@@ -766,10 +819,56 @@ window.initEditorUI = function (iframe) {
             if (comp.fontStyle === 'italic') italic.classList.add('active');
             if (comp.textDecoration.includes('underline')) under.classList.add('active');
 
-            fontSelect.addEventListener('change', (e) => {
-                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
-                el.style.fontFamily = e.target.value;
+            // --- Custom font picker logic ---
+            const picker     = document.getElementById('tool-font-picker');
+            const trigger    = document.getElementById('tool-font-trigger');
+            const dropdown   = document.getElementById('tool-font-dropdown');
+            const labelEl    = document.getElementById('tool-font-label');
+
+            // Inject slide accent color into the font picker
+            const activeSlide = Array.from(iframeDoc.querySelectorAll('section')).find(s => s.classList.contains('active'));
+            if (activeSlide) {
+                const accentColor = iframeWin.getComputedStyle(activeSlide).getPropertyValue('--accent').trim();
+                if (accentColor) picker.style.setProperty('--fpicker-accent', accentColor);
+            }
+
+            // Set initial label from computed font-family
+            const currentFF = comp.fontFamily;
+            FONT_LIST.forEach(g => g.fonts.forEach(f => {
+                if (currentFF.includes(f.value.split(',')[0].replace(/'/g, '').trim())) {
+                    labelEl.textContent = f.name;
+                    labelEl.style.fontFamily = f.value;
+                }
+            }));
+
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = picker.classList.toggle('open');
+                if (isOpen) {
+                    // Close on outside click
+                    const close = (ev) => {
+                        if (!picker.contains(ev.target)) {
+                            picker.classList.remove('open');
+                            document.removeEventListener('click', close);
+                        }
+                    };
+                    document.addEventListener('click', close);
+                }
             });
+
+            dropdown.querySelectorAll('.fpicker-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const val = opt.dataset.value;
+                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    el.style.setProperty('font-family', val, 'important');
+                    labelEl.textContent = opt.textContent;
+                    labelEl.style.fontFamily = val;
+                    picker.classList.remove('open');
+                });
+            });
+
+            // Prevent wheel scroll from bubbling up to the slides navigator
+            dropdown.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
 
             const updateSize = (val) => {
                 if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
@@ -956,7 +1055,7 @@ window.initEditorUI = function (iframe) {
 
         const layerUp = document.getElementById('tool-layer-up');
         const layerDown = document.getElementById('tool-layer-down');
-        
+
         if (layerUp) {
             layerUp.addEventListener('click', () => {
                 if (iframeWin.eidosToFront) iframeWin.eidosToFront();
@@ -1200,7 +1299,7 @@ window.initEditorUI = function (iframe) {
 
     // Run minimap builder
     buildMinimap();
-    
+
     // Subscribe to internal slide active changes in app.js
     // Polling is a fallback for the MutationObserver to ensure smooth active state syncing
     let lastActiveSlideIndex = -1;

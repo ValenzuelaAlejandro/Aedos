@@ -69,6 +69,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const isSpanish = userLang.toLowerCase().includes('es');
 
     const i18n = {
+        en: {
+            "click_drop": "Double-click or drag an image"
+        },
         es: {
             "t-app-subtitle": "Genera una presentación completa sobre...",
             "t-app-microcopy": "8–12 slides &middot; Contenido estructurado &middot; Listo para descargar en PDF",
@@ -94,14 +97,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Dynamic texts
             "generating": "Generando presentación...",
             "slide_label": "{current} / {total}",
-            "click_drop": "Haz clic o arrastra una imagen",
+            "click_drop": "Doble clic para subir imagen",
             "refused_msg": "Este tema no puede ser generado."
         }
     };
 
     function t(key, defaultText) {
-        if (!isSpanish) return defaultText;
-        return i18n.es[key] || defaultText;
+        if (isSpanish) return i18n.es[key] || defaultText;
+        return (i18n.en && i18n.en[key]) || defaultText;
     }
 
     if (isSpanish) {
@@ -364,7 +367,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
         iframeDoc.open();
         const loadingMsg = window.t ? window.t('loading-text', "Loading presentation structure...") : "Loading presentation structure...";
+        const G_FONTS = `
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">`;
         const loadingHtml = `
+        ${G_FONTS}
         <style class="skeleton-injector">
             body { background: #121212; margin: 0; padding: 0; font-family: sans-serif; }
             .loader-overlay {
@@ -503,6 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         100% { background-position: -200% 0; }
                                     }
                                 </style>
+                                ${G_FONTS}
                                 ${loadingHtml}
                                 <script class="skeleton-injector">
                                     document.documentElement.classList.add('skeleton-active');
@@ -600,6 +609,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else {
                                 generatedHtml += '<link rel="stylesheet" href="editor.css"><script src="editor.js"></script>';
                             }
+
+                            // Force font link injection if missing (last defense)
+                            if (!generatedHtml.includes('family=Archivo+Black')) {
+                                if (generatedHtml.includes('<head>')) {
+                                    generatedHtml = generatedHtml.replace('<head>', '<head>' + G_FONTS);
+                                } else {
+                                    generatedHtml = G_FONTS + generatedHtml;
+                                }
+                            }
                         }
                     }
                 }
@@ -611,7 +629,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             iframeDoc.close();
-            initPreview(generatedHtml);
+            
+            // Re-apply the final cleaned HTML which has the server-side fixes (like injected fonts and lucide)
+            setTimeout(() => {
+                initPreview(generatedHtml);
+            }, 100);
 
         } catch (error) {
             console.error(error);
@@ -749,6 +771,14 @@ document.addEventListener('DOMContentLoaded', () => {
         currentSlide = 0;
         let setupDone = false;
 
+        if (html) {
+            const doc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+            doc.open();
+            doc.write(html);
+            doc.close();
+            console.log('initPreview: updated iframe with final HTML');
+        }
+
         const doSetup = () => {
             if (setupDone) return;
             setupDone = true;
@@ -835,6 +865,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
         if (!iframeDoc || !iframeDoc.body) return;
 
+        // ── INJECT GOOGLE FONTS INTO LIVE PREVIEW IFRAME ──
+        // The AI-generated HTML only imports the theme fonts (e.g. Syne + DM Sans via @import).
+        // Font picker options like Playfair Display, Bebas Neue, etc. are NOT loaded in this document,
+        // so changing font-family has no visual effect even though the inline style is applied correctly.
+        // Fix: explicitly create <link> elements in the iframe's <head>.
+        if (iframeDoc.head && !iframeDoc.head.querySelector('link[data-eidos-fonts]')) {
+            const preconnect1 = iframeDoc.createElement('link');
+            preconnect1.rel = 'preconnect';
+            preconnect1.href = 'https://fonts.googleapis.com';
+            iframeDoc.head.appendChild(preconnect1);
+
+            const preconnect2 = iframeDoc.createElement('link');
+            preconnect2.rel = 'preconnect';
+            preconnect2.href = 'https://fonts.gstatic.com';
+            preconnect2.crossOrigin = 'anonymous';
+            iframeDoc.head.appendChild(preconnect2);
+
+            const fontLink = iframeDoc.createElement('link');
+            fontLink.rel = 'stylesheet';
+            fontLink.dataset.eidosFonts = '1';
+            fontLink.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap';
+            iframeDoc.head.appendChild(fontLink);
+            console.log('[Eidoslab] Google Fonts injected into live preview iframe');
+        }
+
         const slides = findSlides(iframeDoc);
         totalSlides = slides.length || 1;
         buildDots();
@@ -907,6 +962,63 @@ document.addEventListener('DOMContentLoaded', () => {
         // Init React-like declarative UI binding for Editor Panels
         if (typeof window.initEditorUI === 'function') {
             window.initEditorUI(previewIframe);
+        }
+
+        // Fix #4/#5/#6: After Ctrl+Z, restoreState replaces body.innerHTML, creating NEW
+        // DOM nodes. Parent labels are still valid but _overlayMap keys point to DEAD nodes.
+        // Strategy: re-key the map by matching data-image-slot IDs (stable across restores).
+        // This avoids duplicate listeners and the full rebuild/teardown cost.
+        const iframeWinRef = previewIframe.contentWindow;
+        if (iframeWinRef) {
+            iframeWinRef.addEventListener('eidos-state-restored', (ev) => {
+                // Rebuild if detail says so, OR if no detail is provided (fallback for older editor.js state)
+                const needsRebuild = ev.detail ? ev.detail.needsOverlayRebuild : true;
+                if (!needsRebuild) return;
+                const iDoc = previewIframe.contentDocument;
+                if (!iDoc) return;
+
+                // Snapshot by slot ID (string attribute — survives innerHTML replace)
+                const byId = new Map();
+                _overlayMap.forEach((entry, slotEl) => {
+                    const id = slotEl.dataset && slotEl.dataset.imageSlot;
+                    if (id !== undefined) byId.set(String(id), entry);
+                });
+
+                // Re-key with the NEW DOM nodes that replaced the old ones
+                _overlayMap.clear();
+                iDoc.querySelectorAll('[data-image-slot]').forEach(newSlot => {
+                    const id = String(newSlot.dataset.imageSlot);
+                    const entry = byId.get(id);
+                    if (entry) {
+                        entry.slotRef.current = newSlot; // update the mutable ref — all listeners auto-follow
+                        _overlayMap.set(newSlot, entry);
+                    } else {
+                        _buildOverlayForSlot(newSlot); // new slot (e.g. from redo)
+                    }
+                });
+
+                // Reposition labels to the new slot positions
+                if (_refreshSlotOverlays) {
+                    setTimeout(_refreshSlotOverlays, 50);
+                    setTimeout(_refreshSlotOverlays, 300);
+                }
+            });
+        }
+
+        // Warn user before leaving with unsaved work (bug #7)
+        window.onbeforeunload = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        };
+
+        // Fix #8: Recalculate iframe scale when the right tools panel changes width
+        const toolsPanel = document.getElementById('editor-tools-panel');
+        if (toolsPanel && window.ResizeObserver) {
+            const panelResizeObs = new ResizeObserver(() => {
+                requestAnimationFrame(() => scaleIframe());
+            });
+            panelResizeObs.observe(toolsPanel);
         }
     }
 
@@ -1007,6 +1119,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (_refreshSlotOverlays) _refreshSlotOverlays();
     }
 
+    let _buildOverlayForSlot = () => {}; // forward declaration, assigned inside injectImageReplacementSystem
+
     function injectImageReplacementSystem(doc) {
         const style = doc.createElement('style');
         style.className = 'preview-injected-style';
@@ -1018,6 +1132,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             body {
                 margin: 0; padding: 0;
+                overflow: hidden;
+            }
+            /* Fix #3: prevent long text from breaking slide layout */
+            section.s h1, section.s h2, section.s h3, section.s h4,
+            section.s p, section.s span, section.s li, section.s blockquote {
+                word-break: break-word;
+                overflow-wrap: break-word;
+                max-width: 100%;
                 overflow: hidden;
             }
             [data-image-slot] {
@@ -1088,12 +1210,6 @@ document.addEventListener('DOMContentLoaded', () => {
             [data-image-slot].drag-over {
                 outline: 3px solid #6366f1 !important;
                 outline-offset: -3px;
-            }
-            /* Full-bleed cover slots: siblings are decorative overlays – make them
-               click-through so the slot itself receives hover events */
-            section.s > [data-image-slot][style*="position:absolute"] ~ * {
-                pointer-events: none;
-            }
         `;
         doc.head.appendChild(style);
 
@@ -1115,8 +1231,12 @@ document.addEventListener('DOMContentLoaded', () => {
         _overlayMap.clear();
 
 
-        function _buildOverlayForSlot(slotEl) {
+        _buildOverlayForSlot = function(slotEl) {
             if (_overlayMap.has(slotEl)) return; // already built
+
+            // Mutable ref so re-keying after Ctrl+Z just updates .current
+            // instead of recreating all event listeners
+            const slotRef = { current: slotEl };
 
             const input = document.createElement('input');
             input.type = 'file';
@@ -1127,13 +1247,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             input.addEventListener('change', () => {
                 const file = input.files[0];
-                if (file) replaceSlotImage(slotEl, file);
+                if (file) {
+                    const iframeWin = previewIframe.contentWindow;
+                    if (iframeWin && iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    replaceSlotImage(slotRef.current, file); // uses live ref
+                }
                 input.value = '';
             });
 
             const label = document.createElement('label');
             label.className = '_slot-overlay-label';
-            // Default to pointer-events none so first click goes to IFRAME for selection
             label.style.cssText = 'position:fixed;display:none;z-index:100000;cursor:pointer;background:transparent;pointer-events:none;';
             label.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -1141,71 +1264,92 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.click();
             });
 
-            // Hover sync: tell the iframe slot to show its tooltip when the parent label is hovered
-            label.addEventListener('mouseenter', () => slotEl.classList.add('is-hovered'));
-            label.addEventListener('mouseleave', () => slotEl.classList.remove('is-hovered'));
+            // Hover sync via live ref
+            label.addEventListener('mouseenter', () => slotRef.current.classList.add('is-hovered'));
+            label.addEventListener('mouseleave', () => slotRef.current.classList.remove('is-hovered'));
 
-            // Drag-and-drop on the PARENT overlay label (the label is on top of everything,
-            // so drops land here, not on the iframe slot).
             label.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                slotEl.classList.add('drag-over');
+                slotRef.current.classList.add('drag-over');
                 label.style.outline = '2px dashed rgba(255,255,255,0.5)';
                 label.style.outlineOffset = '-3px';
             });
             label.addEventListener('dragleave', (e) => {
                 e.preventDefault();
-                slotEl.classList.remove('drag-over');
+                slotRef.current.classList.remove('drag-over');
                 label.style.outline = '';
             });
             label.addEventListener('drop', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                slotEl.classList.remove('drag-over');
+                slotRef.current.classList.remove('drag-over');
                 label.style.outline = '';
+                _overlayMap.forEach(({ label: l }) => { l.style.pointerEvents = 'none'; });
 
                 const files = e.dataTransfer.files;
                 if (files && files.length > 0 && files[0].type.startsWith('image/')) {
-                    replaceSlotImage(slotEl, files[0]);
+                    const iframeWin = previewIframe.contentWindow;
+                    if (iframeWin && iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    replaceSlotImage(slotRef.current, files[0]);
                     return;
                 }
-                // Fallback: URL drop (e.g. dragging image from browser)
                 const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
                 if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
-                    replaceSlotWithUrl(slotEl, imageUrl);
+                    const iframeWin = previewIframe.contentWindow;
+                    if (iframeWin && iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    replaceSlotWithUrl(slotRef.current, imageUrl);
                 }
             });
 
             document.body.appendChild(label);
 
-            _overlayMap.set(slotEl, { input, label });
+            _overlayMap.set(slotEl, { input, label, slotRef });
         }
 
         // Build overlays for ALL slots in the document
         const allSlots = doc.querySelectorAll('[data-image-slot]');
         allSlots.forEach(s => _buildOverlayForSlot(s));
 
-        // Global Selection Listener to toggle pointer-events on overlays
-        // This allows: 1st click -> select/drag slide, 2nd click -> open picker
-        if (doc.defaultView) {
-            doc.defaultView.addEventListener('eidos-selection-changed', (e) => {
-            const selectedEl = e.detail.element;
-            _overlayMap.forEach(({ label }) => {
-                label.style.pointerEvents = 'none';
-            });
-            if (selectedEl && selectedEl.dataset && selectedEl.dataset.imageSlot !== undefined) {
-                const entry = _overlayMap.get(selectedEl);
-                if (entry) entry.label.style.pointerEvents = 'auto';
+        // Double-click on a slot opens the file picker.
+        // We expose this as a global function so the editor can call it directly.
+        window._eidosTriggerImagePicker = (slot) => {
+            const entry = _overlayMap.get(slot);
+            if (entry) entry.input.click();
+        };
+
+        if (doc._eidosDblClickListener) doc.removeEventListener('dblclick', doc._eidosDblClickListener);
+        doc._eidosDblClickListener = (e) => {
+            const slot = e.target.closest('[data-image-slot]');
+            if (!slot) return;
+            e.preventDefault();
+            e.stopPropagation();
+            window._eidosTriggerImagePicker(slot);
+        };
+        doc.addEventListener('dblclick', doc._eidosDblClickListener);
+
+
+        // Remove old custom event listener to avoid confusion
+        // Remove old custom event listener to avoid confusion
+        if (doc._eidosTriggerListener) doc.removeEventListener('eidos-trigger-image-picker', doc._eidosTriggerListener);
+        doc._eidosTriggerListener = (e) => {
+            if (e.detail && e.detail.element) window._eidosTriggerImagePicker(e.detail.element);
+        };
+        doc.addEventListener('eidos-trigger-image-picker', doc._eidosTriggerListener);
+
+
+        // Enable labels only while a file is being dragged. Reset on drop/dragleave.
+        window.addEventListener('dragenter', () => {
+            _overlayMap.forEach(({ label }) => { label.style.pointerEvents = 'auto'; });
+        });
+        window.addEventListener('dragleave', (e) => {
+            // Only reset when leaving the window entirely
+            if (e.relatedTarget == null) {
+                _overlayMap.forEach(({ label }) => { label.style.pointerEvents = 'none'; });
             }
         });
-    }
-
-        // Ensure drag-and-drop always works by enabling pointer-events when a file is being dragged
-        window.addEventListener('dragenter', (e) => {
-            _overlayMap.forEach(({ label }) => {
-                label.style.pointerEvents = 'auto';
-            });
+        window.addEventListener('drop', () => {
+            _overlayMap.forEach(({ label }) => { label.style.pointerEvents = 'none'; });
         });
 
         // Position overlays for the slots on the CURRENT slide, hide others
@@ -1287,17 +1431,20 @@ document.addEventListener('DOMContentLoaded', () => {
             // overlay (z-index:200) handles all click routing.
 
             // "Click or drop image" tooltip
-            const overlay = doc.createElement('div');
-            overlay.className = 'img-replace-overlay';
+            let overlay = slot.querySelector('.img-replace-overlay');
+            if (!overlay) {
+                overlay = doc.createElement('div');
+                overlay.className = 'img-replace-overlay';
+                slot.appendChild(overlay);
+            }
             overlay.innerHTML = `
                 <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                     <circle cx="8.5" cy="8.5" r="1.5"></circle>
                     <polyline points="21 15 16 10 5 21"></polyline>
                 </svg>
-                <span>${t('click_drop', 'Click or drop image')}</span>
+                <span>${t('click_drop', 'Double-click to upload image')}</span>
             `;
-            slot.appendChild(overlay);
 
             // Drag & drop (works directly, no scaling issue)
             slot.addEventListener('dragover', (e) => {
