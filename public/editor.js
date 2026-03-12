@@ -66,69 +66,235 @@ function initEditor() {
     ensureUI();
 
     // Toolbar content
-    toolbar.innerHTML = `
-        <button class="eidos-tb-btn" id="eidos-btn-text-color" title="Text Color">T</button>
-        <button class="eidos-tb-btn" id="eidos-btn-bg-color" title="Background Color">B</button>
-        <div class="eidos-divider"></div>
-        <button class="eidos-tb-btn" id="eidos-btn-delete" title="Delete">🗑</button>
+    function getToolbarHTML() {
+        if (!selectedElement) return '';
         
-        <div id="eidos-color-picker" class="eidos-color-picker" style="display:none;">
-            <div class="eidos-color-swatch" style="background:var(--accent);" data-color="var(--accent)"></div>
-            <div class="eidos-color-swatch" style="background:var(--accent-2);" data-color="var(--accent-2)"></div>
-            <div class="eidos-color-swatch" style="background:var(--bg);" data-color="var(--bg)"></div>
-            <div class="eidos-color-swatch" style="background:var(--surface);" data-color="var(--surface)"></div>
-            <div class="eidos-color-swatch" style="background:var(--white);" data-color="var(--white)"></div>
-            <div class="eidos-color-swatch" style="background:var(--white-dim);" data-color="var(--white-dim)"></div>
-            <div class="eidos-color-swatch" style="background:transparent; border: 1px solid #ccc; width:18px; height:18px; border-radius:50%;" data-color="transparent"></div>
-        </div>
-    `;
+        const palette = getDynamicPalette().slice(0, 4);
+        const quickColorsHTML = palette.map(color => `
+            <div class="eidos-color-swatch" style="background:${color};" data-color="${color}"></div>
+        `).join('');
+
+        const isImage = selectedElement.matches('img, .img-slot') || selectedElement.dataset.imageSlot !== undefined;
+        const isText = selectedElement.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
+        
+        let toolsHTML = '';
+
+        if (isText) {
+            toolsHTML = `
+                <div class="eidos-color-swatches-mini">${quickColorsHTML}</div>
+                <div class="eidos-divider"></div>
+                <div class="eidos-tb-size-wrap">
+                    <button class="eidos-tb-btn" id="eidos-btn-size-down" title="Smaller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                    <div class="eidos-tb-size-val" id="eidos-tb-size-val">16</div>
+                    <button class="eidos-tb-btn" id="eidos-btn-size-up" title="Bigger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                </div>
+                <div class="eidos-divider"></div>
+                <button class="eidos-tb-btn" id="eidos-btn-text-color" title="Text Color"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16l6-12 6 12M8 12h8"></path></svg></button>
+            `;
+        } else if (isImage) {
+            toolsHTML = `
+                <button class="eidos-tb-btn" id="eidos-btn-replace-img" title="Replace Image" style="width: auto; padding: 0 10px; border-radius: 20px; gap: 6px; font-size: 12px; font-weight: 600;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    Replace
+                </button>
+            `;
+        } else {
+            // General shape / card
+            toolsHTML = `
+                <div class="eidos-color-swatches-mini">${quickColorsHTML}</div>
+                <div class="eidos-divider"></div>
+                <button class="eidos-tb-btn" id="eidos-btn-bg-color" title="Fill Color"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path></svg></button>
+            `;
+        }
+
+        return `
+            ${toolsHTML}
+            <div class="eidos-divider"></div>
+            <button class="eidos-tb-btn" id="eidos-btn-duplicate" title="Duplicate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg></button>
+            <button class="eidos-tb-btn" id="eidos-btn-delete" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></button>
+            <div id="eidos-color-picker" class="eidos-color-picker" style="display:none;"></div>
+        `;
+    }
 
     let activeColorAction = null; // 'text' or 'bg'
 
-    document.getElementById('eidos-btn-text-color').addEventListener('click', (e) => {
-        e.stopPropagation();
-        activeColorAction = 'text';
-        toggleColorPicker();
-    });
+    function bindToolbarEvents() {
+        const btnSizeDown = document.getElementById('eidos-btn-size-down');
+        const btnSizeUp = document.getElementById('eidos-btn-size-up');
+        const btnTextColor = document.getElementById('eidos-btn-text-color');
+        const btnBgColor = document.getElementById('eidos-btn-bg-color');
+        const btnDelete = document.getElementById('eidos-btn-delete');
+        const btnDuplicate = document.getElementById('eidos-btn-duplicate');
+        const btnReplaceImg = document.getElementById('eidos-btn-replace-img');
 
-    document.getElementById('eidos-btn-bg-color').addEventListener('click', (e) => {
-        e.stopPropagation();
-        activeColorAction = 'bg';
-        toggleColorPicker();
-    });
-
-    document.getElementById('eidos-btn-delete').addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (selectedElement) {
-            saveState();
-            selectedElement.remove();
-            deselectGroup();
+        if (btnSizeDown) {
+            btnSizeDown.addEventListener('click', (e) => {
+                e.stopPropagation();
+                changeFontSize(-2);
+            });
         }
-    });
 
-    // Setup color swatches
-    toolbar.querySelectorAll('.eidos-color-swatch').forEach(swatch => {
-        swatch.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (selectedElement && activeColorAction) {
-                saveState();
-                const color = swatch.dataset.color;
-                if (activeColorAction === 'text') {
-                    selectedElement.style.color = color;
-                    // also handle icon colors if any
-                    const icons = selectedElement.querySelectorAll('svg, [data-lucide]');
-                    if (icons) icons.forEach(i => i.style.color = color);
-                } else if (activeColorAction === 'bg') {
-                    selectedElement.style.background = color;
+        if (btnSizeUp) {
+            btnSizeUp.addEventListener('click', (e) => {
+                e.stopPropagation();
+                changeFontSize(2);
+            });
+        }
+
+        if (btnTextColor) {
+            btnTextColor.addEventListener('click', (e) => {
+                e.stopPropagation();
+                activeColorAction = 'text';
+                showColorPicker(e.currentTarget);
+            });
+        }
+
+        if (btnBgColor) {
+            btnBgColor.addEventListener('click', (e) => {
+                e.stopPropagation();
+                activeColorAction = 'bg';
+                showColorPicker(e.currentTarget);
+            });
+        }
+
+        if (btnReplaceImg) {
+            btnReplaceImg.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (selectedElement) {
+                    if (window.parent && window.parent._eidosTriggerImagePicker) {
+                        window.parent._eidosTriggerImagePicker(selectedElement);
+                    }
                 }
-                document.getElementById('eidos-color-picker').style.display = 'none';
-            }
-        });
-    });
+            });
+        }
 
-    function toggleColorPicker() {
+        if (btnDelete) {
+            btnDelete.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (selectedElement) {
+                    saveState();
+                    selectedElement.remove();
+                    deselectGroup();
+                }
+            });
+        }
+
+        if (btnDuplicate) {
+            btnDuplicate.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (selectedElement) duplicateElement(selectedElement);
+            });
+        }
+
+        // Quick colors binding if ellos existen
+        toolbar.querySelectorAll('.eidos-color-swatches-mini .eidos-color-swatch').forEach(swatch => {
+            swatch.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (selectedElement) {
+                    saveState();
+                    const color = swatch.dataset.color;
+                    if (selectedElement.matches('h1, h2, h3, h4, p, span, li, button, .tag, .big-number, .big-label')) {
+                        selectedElement.style.color = color;
+                        selectedElement.style.webkitTextFillColor = color;
+                    } else {
+                        selectedElement.style.backgroundColor = color;
+                    }
+                    window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: selectedElement } }));
+                }
+            });
+        });
+    }
+
+    bindToolbarEvents();
+
+    function changeFontSize(delta) {
+        if (!selectedElement) return;
+        saveState();
+        const style = window.getComputedStyle(selectedElement);
+        const currentSize = parseFloat(style.fontSize) || 16;
+        const newSize = Math.max(8, Math.min(200, currentSize + delta));
+        selectedElement.style.fontSize = newSize + 'px';
+        updateSizeDisplay();
+    }
+
+    function updateSizeDisplay() {
+        const valEl = document.getElementById('eidos-tb-size-val');
+        if (selectedElement && valEl) {
+            const style = window.getComputedStyle(selectedElement);
+            valEl.textContent = Math.round(parseFloat(style.fontSize)) || 16;
+        }
+    }
+
+    function showColorPicker(anchorEl) {
         const picker = document.getElementById('eidos-color-picker');
-        picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+        const isCurrentlyVisible = picker.style.display === 'grid';
+        
+        if (isCurrentlyVisible && picker.dataset.anchor === anchorEl.id) {
+            picker.style.display = 'none';
+            return;
+        }
+
+        // Generate dynamic palette
+        const palette = getDynamicPalette();
+        picker.innerHTML = palette.map(color => `
+            <div class="eidos-color-swatch" style="background:${color};" data-color="${color}"></div>
+        `).join('') + `
+            <div class="eidos-color-swatch" style="background:transparent; border: 1px dashed #ccc; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999;" data-color="transparent">✕</div>
+        `;
+
+        // Re-bind swatches
+        picker.querySelectorAll('.eidos-color-swatch').forEach(swatch => {
+            swatch.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (selectedElement && activeColorAction) {
+                    saveState();
+                    const color = swatch.dataset.color;
+                    if (activeColorAction === 'text') {
+                        selectedElement.style.color = color;
+                        selectedElement.style.webkitTextFillColor = color;
+                        const icons = selectedElement.querySelectorAll('svg, [data-lucide]');
+                        if (icons) icons.forEach(i => i.style.color = color);
+                    } else if (activeColorAction === 'bg') {
+                        selectedElement.style.background = color;
+                    }
+                    picker.style.display = 'none';
+                }
+            });
+        });
+
+        picker.style.display = 'grid';
+        picker.dataset.anchor = anchorEl.id;
+    }
+
+    function getDynamicPalette() {
+        const colors = new Set();
+        
+        // 1. Extract from presentation variables (Priority)
+        const rootStyle = window.getComputedStyle(document.documentElement);
+        const vars = ['--presentation-accent', '--accent', '--accent-2', '--bg', '--surface'];
+        vars.forEach(v => {
+            const val = rootStyle.getPropertyValue(v).trim();
+            if (val && val !== 'none' && val !== 'transparent') colors.add(val);
+        });
+
+        // 2. Extract from existing elements in the slide (to find actual theme colors used)
+        const slide = selectedElement?.closest('.s') || document.body;
+        const allInSlide = slide.querySelectorAll('*');
+        allInSlide.forEach(el => {
+            if (colors.size >= 8) return;
+            const style = window.getComputedStyle(el);
+            if (style.color && !style.color.includes('rgba(0, 0, 0, 0)') && style.color !== 'transparent') colors.add(style.color);
+            if (style.backgroundColor && !style.backgroundColor.includes('rgba(0, 0, 0, 0)') && style.backgroundColor !== 'transparent') colors.add(style.backgroundColor);
+        });
+
+        // 3. Essential fallbacks
+        colors.add('#FFFFFF');
+        colors.add('#000000');
+        colors.add('#5D5DFF');
+        colors.add('#FF5D5D');
+        colors.add('#5DFF5D');
+
+        return Array.from(colors).slice(0, 16);
     }
 
 
@@ -652,6 +818,10 @@ function initEditor() {
         if (selectionBox.parentElement !== slide) slide.appendChild(selectionBox);
         if (toolbar.parentElement !== slide) slide.appendChild(toolbar);
         
+        // Refresh toolbar content every select to update quick colors & bindings
+        toolbar.innerHTML = getToolbarHTML();
+        bindToolbarEvents();
+
         // Ensure tools are always above the selected element
         const elStyle = window.getComputedStyle(el);
         const elZ = parseInt(elStyle.zIndex) || 1;
@@ -660,8 +830,7 @@ function initEditor() {
 
 
         updateSelectionBox();
-        selectionBox.style.display = 'block';
-        toolbar.style.display = 'none';
+        updateSizeDisplay();
         document.getElementById('eidos-color-picker').style.display = 'none';
 
         // Observe changes to the element (like style or classes) to update the selection box automatically
@@ -734,9 +903,43 @@ function initEditor() {
             selectionBox.classList.remove('eidos-small-selection');
         }
 
-        toolbar.style.left = `${left}px`;
-        // Position toolbar slightly above
-        toolbar.style.top = `${top - 50}px`;
+        // Show toolbar only if NOT dragging/resizing (needed before offsetWidth check)
+        if (!isDragging && !isResizing) {
+            toolbar.style.display = 'flex';
+            selectionBox.style.display = 'block';
+        } else {
+            toolbar.style.display = 'none';
+        }
+
+        // SMART POSITIONING: Keep toolbar within slide boundaries
+        let toolbarTop = top - 56;
+        let toolbarLeft = left;
+
+        // 1. Vertical check: If too high, flip to bottom
+        if (toolbarTop < 10) {
+            toolbarTop = top + rect.height + 12;
+        }
+        
+        // 2. Vertical check: If too low (near bottom edge), flip back up (clamped)
+        if (toolbarTop + 46 > slideRect.height - 10) {
+            toolbarTop = top - 56;
+            if (toolbarTop < 0) toolbarTop = 10; // Extreme case: very tall element
+        }
+
+        // 3. Horizontal check: Ensure it doesn't overflow right/left
+        const tbWidth = toolbar.offsetWidth || 340;
+        if (toolbarLeft + tbWidth > slideRect.width - 12) {
+            toolbarLeft = slideRect.width - tbWidth - 12;
+        }
+        if (toolbarLeft < 12) toolbarLeft = 12;
+
+        toolbar.style.left = `${toolbarLeft}px`;
+        toolbar.style.top = `${toolbarTop}px`;
+        
+        if (!isDragging && !isResizing) {
+            toolbar.style.opacity = '1';
+            toolbar.style.transform = 'translateY(0)';
+        }
     }
 
     // --- UNDO / REDO LOGIC ---
@@ -925,6 +1128,18 @@ function initEditor() {
         if (!selectedElement) return;
         saveState();
         const parent = selectedElement.parentElement;
+        
+        // Strategy: Max z-index among siblings (excluding self) + 1
+        const siblings = Array.from(parent.children).filter(s => s !== selectedElement);
+        let maxZ = 1;
+        siblings.forEach(s => {
+            const style = window.getComputedStyle(s);
+            let z = parseInt(style.zIndex);
+            if (isNaN(z) && style.position !== 'static') z = 1;
+            if (!isNaN(z) && z > maxZ) maxZ = z;
+        });
+        selectedElement.style.zIndex = maxZ + 1;
+
         parent.appendChild(selectedElement); // Physical move to end of DOM (front)
         updateSelectionBox();
     };
@@ -932,6 +1147,25 @@ function initEditor() {
         if (!selectedElement) return;
         saveState();
         const parent = selectedElement.parentElement;
+        
+        // Strategy: Min z-index among siblings (excluding self) - 1
+        const siblings = Array.from(parent.children).filter(s => s !== selectedElement);
+        let minZ = 1000;
+        let foundAny = false;
+        siblings.forEach(s => {
+            const style = window.getComputedStyle(s);
+            let z = parseInt(style.zIndex);
+            if (isNaN(z) && style.position !== 'static') z = 1;
+            if (!isNaN(z)) {
+                if (z < minZ) minZ = z;
+                foundAny = true;
+            }
+        });
+        if (!foundAny) minZ = 1;
+
+        // Never go below 1 to avoid disappearing behind the section background
+        selectedElement.style.zIndex = Math.max(1, minZ - 1);
+        
         parent.prepend(selectedElement); // Physical move to start of DOM (back)
         updateSelectionBox();
     };

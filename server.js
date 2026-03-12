@@ -186,11 +186,12 @@ app.post('/generate', async (req, res) => {
 
         const looksLikeHtml = htmlStartIdx !== -1;
 
+        let cleanedOutput = finalHtml;
         if (!looksLikeHtml) {
             res.write(`data: ${JSON.stringify({ refused: true, message: finalHtml })}\n\n`);
         } else {
             // Trim off any conversational garbage Gemini put *before* the first real HTML tag
-            let cleanedOutput = finalHtml.substring(finalHtml.indexOf('<', htmlStartIdx));
+            cleanedOutput = finalHtml.substring(finalHtml.indexOf('<', htmlStartIdx));
 
             // Safety net: hard cap at 15 slides — strip any section.s beyond the 15th
             const MAX_SLIDES = 15;
@@ -226,34 +227,52 @@ app.post('/generate', async (req, res) => {
     --font-display: 'Syne', sans-serif;
     --font-body: 'DM Sans', sans-serif;
   }
+  /* Layering fix: Ensure all primary content elements are positioned so Z-INDEX works. */
+  section.s > *, .card, .flex-row, .grid-2, .grid-3, h1, h2, h3, p, .tag, .img-slot { 
+    position: relative; 
+    z-index: 1; 
+  }
 </style>`;
             
+            // 1. Ensure Lucide library is present
             if (!cleanedOutput.includes(lucideSrc)) {
-                cleanedOutput = cleanedOutput.replace(/<\/head>/i, `${fontsLink}\n<script src="${lucideSrc}"></script>\n</head>`);
+                if (cleanedOutput.includes('</head>')) {
+                    cleanedOutput = cleanedOutput.replace(/<\/head>/i, `${fontsLink}\n<script src="${lucideSrc}"></script>\n</head>`);
+                } else if (cleanedOutput.includes('<head>')) {
+                    cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n${fontsLink}\n<script src="${lucideSrc}"></script>`);
+                } else {
+                    // Prepend if no head found
+                    cleanedOutput = fontsLink + `\n<script src="${lucideSrc}"></script>\n` + cleanedOutput;
+                }
                 console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected fonts and Lucide`);
             } else if (!cleanedOutput.includes('family=Archivo+Black')) {
+                // Lucide present but fonts missing
                 if (cleanedOutput.includes('<head>')) {
                     cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n${fontsLink}`);
-                } else if (cleanedOutput.includes('<html>')) {
-                    cleanedOutput = cleanedOutput.replace(/<html>/i, `<html><head>${fontsLink}</head>`);
                 } else {
                     cleanedOutput = fontsLink + cleanedOutput;
                 }
-                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected fonts link (Archivo Black was missing)`);
+                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected fonts link`);
             }
-            // Safety net: if lucide.createIcons() call is missing, inject it before </body>
+
+            // 2. Ensure lucide.createIcons() call is present
             if (!cleanedOutput.includes('lucide.createIcons')) {
-                cleanedOutput = cleanedOutput.replace(/<\/body>/i, `<script>lucide.createIcons();</script>\n</body>`);
+                const call = `<script>if(window.lucide) lucide.createIcons();</script>`;
+                if (cleanedOutput.includes('</body>')) {
+                    cleanedOutput = cleanedOutput.replace(/<\/body>/i, `${call}\n</body>`);
+                } else {
+                    cleanedOutput = cleanedOutput + `\n${call}`;
+                }
                 console.log('Sanitizer: injected missing lucide.createIcons() call');
             }
 
             res.write(`data: ${JSON.stringify({ done: true, html: cleanedOutput })}\n\n`);
         }
-        res.end();
+        // 8. Save debug copy for HTML structure inspection (saving the cleaned version)
+        fs.writeFileSync(path.join(TMP_DIR, 'last_generated.html'), cleanedOutput);
+        console.log('Debug: Cleaned HTML saved to tmp/last_generated.html');
 
-        // 8. Save debug copy for HTML structure inspection
-        fs.writeFileSync(path.join(TMP_DIR, 'last_generated.html'), finalHtml);
-        console.log('Debug: HTML saved to tmp/last_generated.html');
+        res.end();
 
     } catch (error) {
         const isQuotaError = error.message === 'QUOTA_EXHAUSTED';

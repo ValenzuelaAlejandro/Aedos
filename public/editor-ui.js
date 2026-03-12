@@ -812,8 +812,22 @@ window.initEditorUI = function (iframe) {
             const alignC = document.getElementById('tool-align-c');
             const alignR = document.getElementById('tool-align-r');
 
+            const rgbToHex = (val) => {
+                if (!val || val === 'transparent' || val.includes('rgba(0, 0, 0, 0)')) return '#000000';
+                if (val.startsWith('#')) return val;
+                const match = val.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+(?:\.\d+)?))?\)$/);
+                if (match) {
+                    const r = parseInt(match[1]).toString(16).padStart(2, '0');
+                    const g = parseInt(match[2]).toString(16).padStart(2, '0');
+                    const b = parseInt(match[3]).toString(16).padStart(2, '0');
+                    return `#${r}${g}${b}`;
+                }
+                return '#000000';
+            };
+
             // Init values
             const comp = iframeWin.getComputedStyle(el);
+            if (color) color.value = rgbToHex(comp.color);
             fontSize.value = parseInt(comp.fontSize);
             if (comp.fontWeight > 400 || comp.fontWeight === 'bold') bold.classList.add('active');
             if (comp.fontStyle === 'italic') italic.classList.add('active');
@@ -993,8 +1007,23 @@ window.initEditorUI = function (iframe) {
             const stroke = document.getElementById('tool-stroke');
             const opacity = document.getElementById('tool-opacity');
 
+            const rgbToHex = (val) => {
+                if (!val || val === 'transparent' || val.includes('rgba(0, 0, 0, 0)')) return '#6366f1';
+                if (val.startsWith('#')) return val;
+                const match = val.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+(?:\.\d+)?))?\)$/);
+                if (match) {
+                    const r = parseInt(match[1]).toString(16).padStart(2, '0');
+                    const g = parseInt(match[2]).toString(16).padStart(2, '0');
+                    const b = parseInt(match[3]).toString(16).padStart(2, '0');
+                    return `#${r}${g}${b}`;
+                }
+                return '#6366f1';
+            };
+
+            const comp = iframeWin.getComputedStyle(el);
+
             if (fill) {
-                fill.value = el.style.backgroundColor || '#6366f1';
+                fill.value = rgbToHex(comp.backgroundColor);
                 fill.addEventListener('input', (e) => {
                     if (!el._undoSavingFill) {
                         if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
@@ -1005,6 +1034,7 @@ window.initEditorUI = function (iframe) {
                 });
             }
             if (stroke) {
+                stroke.value = rgbToHex(comp.borderColor);
                 stroke.addEventListener('input', (e) => {
                     if (!el._undoSavingStroke) {
                         if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
@@ -1030,7 +1060,21 @@ window.initEditorUI = function (iframe) {
             const iconColor = document.getElementById('tool-color');
             const iconSize = document.getElementById('tool-icon-size');
 
-            iconColor.value = el.style.color || '#eab308';
+            const rgbToHex = (val) => {
+                if (!val || val === 'transparent' || val.includes('rgba(0, 0, 0, 0)')) return '#eab308';
+                if (val.startsWith('#')) return val;
+                const match = val.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+(?:\.\d+)?))?\)$/);
+                if (match) {
+                    const r = parseInt(match[1]).toString(16).padStart(2, '0');
+                    const g = parseInt(match[2]).toString(16).padStart(2, '0');
+                    const b = parseInt(match[3]).toString(16).padStart(2, '0');
+                    return `#${r}${g}${b}`;
+                }
+                return '#eab308';
+            };
+
+            const comp = iframeWin.getComputedStyle(el);
+            iconColor.value = rgbToHex(comp.color);
             iconColor.addEventListener('input', (e) => {
                 if (!el._undoSavingColor) {
                     if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
@@ -1188,7 +1232,7 @@ window.initEditorUI = function (iframe) {
         text.style.left = '50%';
         text.style.top = '50%';
         text.style.transform = 'translate(-50%, -50%)';
-        text.style.zIndex = '100';
+        text.style.zIndex = '10';
         text.style.color = '#ffffff';
         text.style.margin = '0';
         slide.appendChild(text);
@@ -1214,7 +1258,7 @@ window.initEditorUI = function (iframe) {
         img.style.backgroundColor = 'rgba(255,255,255,0.1)';
         img.style.border = '2px dashed rgba(255,255,255,0.3)';
         img.style.borderRadius = '8px';
-        img.style.zIndex = '100';
+        img.style.zIndex = '10';
         img.dataset.imageSlot = 'manual-' + Date.now();
         slide.appendChild(img);
 
@@ -1253,7 +1297,7 @@ window.initEditorUI = function (iframe) {
         shape.style.width = styles && styles.includes('999px') ? '240px' : '150px';
         shape.style.height = '150px';
         shape.style.backgroundColor = '#6366f1';
-        shape.style.zIndex = '100';
+        shape.style.zIndex = '10';
 
         // Split styles and apply manually 
         if (styles) {
@@ -1289,7 +1333,7 @@ window.initEditorUI = function (iframe) {
         icon.style.width = '64px';
         icon.style.height = '64px';
         icon.style.color = '#eab308';
-        icon.style.zIndex = '100';
+        icon.style.zIndex = '10';
         icon.classList.add('lucide-icon');
         slide.appendChild(icon);
 
