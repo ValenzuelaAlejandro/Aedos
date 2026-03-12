@@ -45,15 +45,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const count = e.data.count;
             totalSlides = count;
             if (slideLabel) {
-                 if (window.t) {
-                     const tpl = t("slide_label", "{current} / {total}");
-                     slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
-                 } else {
-                     slideLabel.textContent = `${count} / ${count}`;
-                 }
+                if (window.t) {
+                    const tpl = t("slide_label", "{current} / {total}");
+                    slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
+                } else {
+                    slideLabel.textContent = `${count} / ${count}`;
+                }
             }
             currentSlide = count - 1;
-            
+
             // Rebuild dots and minimap skeletons during generation
             if (typeof buildDots === 'function') buildDots();
             updateMinimapSkeleton(count);
@@ -465,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 buffer += decoder.decode(value, { stream: true });
                 let lines = buffer.split('\n\n');
-                buffer = lines.pop(); 
+                buffer = lines.pop();
 
                 for (let line of lines) {
                     if (line.trim() === '') continue;
@@ -639,7 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             iframeDoc.close();
-            
+
             // --- FLICKER GATE: Fade out shortly before final reload ---
             const stage = document.getElementById('preview-stage');
             if (stage) stage.classList.add('flicker-mask');
@@ -794,7 +794,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initPreview(html, callback) {
         let setupDone = false;
-        
+
         // Set onload BEFORE writing so we don't miss the event
         previewIframe.onload = () => {
             console.log('initPreview: iframe onload event fired');
@@ -900,10 +900,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Strategy 5: direct body children (excluding script/style/link/meta AND editor UI)
         const bodyKids = Array.from(doc.body.children).filter(el => {
             const tag = el.tagName;
-            const isTool = el.classList.contains('eidos-selection-box') || 
-                           el.classList.contains('eidos-toolbar') || 
-                           el.classList.contains('eidos-guide') || 
-                           el.classList.contains('eidos-color-picker');
+            const isTool = el.classList.contains('eidos-selection-box') ||
+                el.classList.contains('eidos-toolbar') ||
+                el.classList.contains('eidos-guide') ||
+                el.classList.contains('eidos-color-picker');
             return !['SCRIPT', 'STYLE', 'LINK', 'META'].includes(tag) && !isTool;
         });
         if (bodyKids.length >= 1) {
@@ -994,7 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Problem 9: Restore the "rewind" effect. 
         // We capture how far the skeleton went and start the final render from there.
-        const startSlide = currentSlide; 
+        const startSlide = currentSlide;
         if (startSlide > 0) {
             slideContainer.style.transform = `translateX(-${startSlide * naturalSlideW}px)`;
             // Force reflow BEFORE applying transition so the browser sees the start position
@@ -1002,7 +1002,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         slideContainer.style.transition = 'transform 2.2s cubic-bezier(0.25, 1, 0.5, 1)';
-        
+
         // Match minimap rewind speed
         const ml = document.getElementById('minimap-list');
         if (ml) ml.style.transition = 'transform 2.2s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -1088,10 +1088,50 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
+                // --- REFRESH SLIDE SYSTEM ---
+                const slides = findSlides(iDoc);
+                totalSlides = slides.length || 1;
+                buildDots();
+                
+                // Re-find and re-init the slide container (it might be a new DOM node after innerHTML replace)
+                slideContainer = (slides.length > 0) ? slides[0].parentElement : iDoc.body;
+                
+                // Re-apply critical styles to new slide nodes
+                slides.forEach(s => {
+                    s.style.flex = `0 0 1122px`;
+                    s.style.width = `1122px`;
+                    s.style.height = '631px';
+                    s.style.overflow = 'hidden';
+                    s.style.position = 'relative';
+                    s.style.boxSizing = 'border-box';
+                });
+
+                if (slideContainer) {
+                    slideContainer.style.display = 'flex';
+                    slideContainer.style.flexDirection = 'row';
+                    slideContainer.style.width = 'max-content';
+                    slideContainer.style.height = '100%';
+                    slideContainer.style.margin = '0';
+                    slideContainer.style.padding = '0';
+                    slideContainer.style.transition = 'none'; // Instant jump for sync
+                    
+                    if (currentSlide >= totalSlides) currentSlide = totalSlides - 1;
+                    if (currentSlide < 0) currentSlide = 0;
+                    
+                    scrollToSlide(currentSlide);
+                    
+                    // Restore transition after reflow
+                    setTimeout(() => {
+                        if (slideContainer) slideContainer.style.transition = 'transform 0.7s cubic-bezier(0.25, 1, 0.5, 1)';
+                    }, 50);
+                }
+
+                updateSlideCounter();
+
                 // Reposition labels to the new slot positions
                 if (_refreshSlotOverlays) {
-                    setTimeout(_refreshSlotOverlays, 50);
-                    setTimeout(_refreshSlotOverlays, 300);
+                    setTimeout(_refreshSlotOverlays, 100);
+                    setTimeout(_refreshSlotOverlays, 400);
                 }
             });
         }
@@ -1113,21 +1153,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    window.regenerateDotsCount = function() {
+    window.regenerateDotsCount = function () {
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
         if (!iframeDoc) return;
         const slides = findSlides(iframeDoc);
         totalSlides = slides.length || 1;
-        
+
         // Refresh slideContainer reference (it might have been replaced during Undo/Redo)
         slideContainer = (slides.length > 0) ? slides[0].parentElement : iframeDoc.body;
-        
+
         if (slideContainer) {
             slideContainer.style.cssText += '; display:flex !important; flex-direction:row !important; width:max-content !important; height:100%; transition:transform 0.6s cubic-bezier(0.25,1,0.5,1); margin:0; padding:0;';
         }
 
 
-        
+
         // Ensure new slides have the correct layout/scaling
         slides.forEach(s => {
             s.style.flex = `0 0 1122px`;
@@ -1137,9 +1177,9 @@ document.addEventListener('DOMContentLoaded', () => {
             s.style.position = 'relative';
             s.style.boxSizing = 'border-box';
         });
-        
+
         buildDots();
-        
+
         // Find which slide is currently active in the DOM
         const activeIndex = slides.findIndex(s => s.classList.contains('active'));
         if (activeIndex !== -1) {
@@ -1161,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSlideCounter();
 
 
-        
+
         // Refresh overlays because new slides might have slots
         if (_refreshSlotOverlays) setTimeout(_refreshSlotOverlays, 50);
     };
@@ -1206,11 +1246,18 @@ document.addEventListener('DOMContentLoaded', () => {
         previewIframe.style.transform = `scale(${scale})`;
         wrapper.style.height = `${iframeNativeHeight * scale}px`;
         wrapper.style.width = `${iframeNativeWidth * scale}px`;
+
+        // Inject scale into iframe for the visual editor's coordinate math
+        try {
+            const iframeWin = previewIframe.contentWindow;
+            if (iframeWin) iframeWin._eidosIframeScale = scale;
+        } catch (e) { }
+
         // Keep slot overlays aligned after scale change
         if (_refreshSlotOverlays) _refreshSlotOverlays();
     }
 
-    let _buildOverlayForSlot = () => {}; // forward declaration, assigned inside injectImageReplacementSystem
+    let _buildOverlayForSlot = () => { }; // forward.. declaration, assigned inside injectImageReplacementSystem
 
     function injectImageReplacementSystem(doc) {
         const style = doc.createElement('style');
@@ -1231,7 +1278,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 word-break: break-word;
                 overflow-wrap: break-word;
                 max-width: 100%;
-                overflow: hidden;
+                /* Removed overflow:hidden to prevent clipping of large fonts */
             }
             [data-image-slot] {
                 cursor: pointer;
@@ -1322,7 +1369,7 @@ document.addEventListener('DOMContentLoaded', () => {
         _overlayMap.clear();
 
 
-        _buildOverlayForSlot = function(slotEl) {
+        _buildOverlayForSlot = function (slotEl) {
             if (_overlayMap.has(slotEl)) return; // already built
 
             // Mutable ref so re-keying after Ctrl+Z just updates .current
@@ -1656,10 +1703,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateMinimapSkeleton(count) {
         const minimapList = document.getElementById('minimap-list');
         if (!minimapList) return;
-        
+
         let currentCount = minimapList.querySelectorAll('.minimap-item').length;
         if (currentCount === count) return;
-        
+
         if (count < currentCount || currentCount === 0) {
             minimapList.innerHTML = '';
             currentCount = 0;
@@ -1668,35 +1715,35 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = currentCount; i < count; i++) {
             const item = document.createElement('div');
             item.className = 'minimap-item skeleton' + (i === count - 1 ? ' active' : '');
-            
+
             const thumb = document.createElement('div');
             thumb.className = 'minimap-thumb-skeleton';
-            
+
             const num = document.createElement('div');
             num.className = 'minimap-item-number';
             num.textContent = i + 1;
-            
+
             item.appendChild(thumb);
             item.appendChild(num);
             minimapList.appendChild(item);
         }
-        
+
         const items = minimapList.querySelectorAll('.minimap-item');
         items.forEach((it, idx) => {
             it.classList.toggle('active', idx === count - 1);
         });
-        
+
         const minimapContainer = document.getElementById('editor-minimap');
         if (minimapContainer && items.length > 0) {
             const panelHeight = minimapContainer.clientHeight;
             const activeIdx = count - 1;
-            
+
             // Fixed ITEM_HEIGHT matching layout space: 94.25 (item+border) + 6 (margin) = 100.25
-            const ITEM_HEIGHT = 100.25; 
-            
+            const ITEM_HEIGHT = 100.25;
+
             // Centering logic with 20px extra compensation for the list's padding-top
             const offset = (panelHeight / 2) - (activeIdx * ITEM_HEIGHT) - (ITEM_HEIGHT / 2) - 20;
-            
+
             // Fast transition during streaming to match preview
             minimapList.style.transition = 'transform 0.8s cubic-bezier(0.25, 1, 0.5, 1)';
             minimapList.style.transform = `translateY(${offset}px)`;
@@ -1718,7 +1765,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (iframeWin && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
                 return;
             }
-        } catch (err) {}
+        } catch (err) { }
 
         if (e.key === 'ArrowLeft') {
             e.preventDefault();

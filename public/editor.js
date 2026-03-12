@@ -60,8 +60,10 @@ function initEditor() {
     guideV.className = 'eidos-guide eidos-guide-v';
 
     function ensureUI() {
-        if (!selectionBox.parentElement) document.body.appendChild(selectionBox);
-        if (!toolbar.parentElement) document.body.appendChild(toolbar);
+        if (!selectionBox.parentElement) document.documentElement.appendChild(selectionBox);
+        if (!toolbar.parentElement) document.documentElement.appendChild(toolbar);
+        if (!guideH.parentElement) document.documentElement.appendChild(guideH);
+        if (!guideV.parentElement) document.documentElement.appendChild(guideV);
     }
     ensureUI();
 
@@ -331,108 +333,25 @@ function initEditor() {
         const target = e.target.closest(editableSelectors);
 
         if (target) {
-            // Find the slide this element belongs to
-            const targetSlide = target.closest('.s') || target.closest('section') || document.body;
+            // Select it (visual only for now)
+            selectElement(target);
 
-            // Start drag logic
             isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
 
-            // Normalize coordinates for dragging: Convert percentages or transforms to pixels
-            // We want everything we select to behave as a box (absolute position)
-            const style = window.getComputedStyle(target);
-            // We want everything to be absolute in pixels for consistent behavior
-            const isAbsolute = style.position === 'absolute';
-            const isPixels = !target.style.left.includes('%') && !target.style.top.includes('%') && target.style.left !== '' && target.style.top !== '';
-            const hasTransform = style.transform && style.transform !== 'none';
+            // We don't normalize (rip out of DOM) immediately on click.
+            // We wait until the mouse actually moves to avoid breaking layouts on simple clicks.
+            const rect = target.getBoundingClientRect();
+            const slide = target.closest('.s') || target.closest('section') || document.body;
+            const slideRect = slide.getBoundingClientRect();
 
-            const needsNormalization = !isAbsolute || !isPixels || hasTransform;
-
-            if (needsNormalization) {
-                saveState();
-
-                const rect = target.getBoundingClientRect();
-                const slide = targetSlide;
-                const slideRect = slide.getBoundingClientRect();
-
-                // CRITICAL: Capture inherited styles before moving, so we don't lose them
-                const inherited = getInheritedStyles(target);
-
-                // To avoid parent layouts collapsing and shifting other elements, leave a phantom clone
-                if (style.position !== 'absolute') {
-                    const clone = target.cloneNode(true);
-                    clone.style.visibility = 'hidden';
-                    clone.style.pointerEvents = 'none';
-                    clone.classList.add('eidos-phantom');
-                    clone.removeAttribute('id');
-                    target.parentNode.insertBefore(clone, target);
-                }
-
-                // Move to slide root
-                if (target.parentElement !== slide) slide.appendChild(target);
-
-                // Apply styles to lock it in place
-                target.style.position = 'absolute';
-                target.style.boxSizing = 'border-box'; // Ensure width includes padding/border
-                target.style.margin = '0';
-                target.style.transform = 'none';
-
-                // Explicitly set inherited styles to avoid changes after move
-                target.style.fontSize = inherited.fontSize;
-                target.style.fontFamily = inherited.fontFamily;
-                target.style.color = inherited.color;
-                target.style.lineHeight = inherited.lineHeight;
-                target.style.textAlign = inherited.textAlign;
-                target.style.fontWeight = inherited.fontWeight;
-                target.style.letterSpacing = inherited.letterSpacing;
-
-                target.style.width = rect.width + 'px';
-                target.style.height = rect.height + 'px';
-
-                target.style.left = (rect.left - slideRect.left) + 'px';
-                target.style.top = (rect.top - slideRect.top) + 'px';
-            } else {
-                // If already absolute, just ensure it's on top and has fixed units
-                if (!target._stateSavedSinceMousedown) {
-                    saveState();
-                    target._stateSavedSinceMousedown = true;
-                }
-
-
-                // Ensure dimensions are in pixels for resizing consistency
-                const rect = target.getBoundingClientRect();
-                if (!target.style.width) target.style.width = rect.width + 'px';
-                if (!target.style.height) target.style.height = rect.height + 'px';
-
-                // Even if already absolute, ensure it's a direct child of its parent slide
-                if (target.parentElement !== targetSlide && targetSlide !== document.body) {
-                    const inherited = getInheritedStyles(target);
-                    const rect = target.getBoundingClientRect();
-                    const slideRect = targetSlide.getBoundingClientRect();
-
-                    targetSlide.appendChild(target);
-
-                    target.style.boxSizing = 'border-box';
-                    target.style.fontSize = inherited.fontSize;
-                    target.style.fontFamily = inherited.fontFamily;
-                    target.style.color = inherited.color;
-
-                    target.style.left = (rect.left - slideRect.left) + 'px';
-                    target.style.top = (rect.top - slideRect.top) + 'px';
-                }
-            }
-
-            // Select it
-            selectElement(target);
-
-            startLeft = parseFloat(target.style.left) || 0;
-            startTop = parseFloat(target.style.top) || 0;
+            startLeft = rect.left - slideRect.left;
+            startTop = rect.top - slideRect.top;
 
             // Build snap targets
             snapLinesX = [];
             snapLinesY = [];
-            const slide = target.closest('.s') || target.closest('section');
             if (slide) {
                 const sRect = slide.getBoundingClientRect();
                 snapLinesX.push({ val: sRect.width / 2 });
@@ -442,15 +361,11 @@ function initEditor() {
                 snapLinesY.push({ val: 0 });
                 snapLinesY.push({ val: sRect.height });
 
-                // Inner borders (padding 40px for precise aesthetics)
                 const padding = 40;
                 snapLinesX.push({ val: padding });
                 snapLinesX.push({ val: sRect.width - padding });
                 snapLinesY.push({ val: padding });
                 snapLinesY.push({ val: sRect.height - padding });
-
-                slide.appendChild(guideH);
-                slide.appendChild(guideV);
 
                 const others = slide.querySelectorAll(editableSelectors);
                 others.forEach(el => {
@@ -473,8 +388,6 @@ function initEditor() {
                 e.preventDefault();
             }
         } else {
-            // Clicked on background/container. 
-            // If it's not an editable element and not our tools, it's a deselect/background action.
             deselectGroup();
         }
     });
@@ -487,13 +400,14 @@ function initEditor() {
         guideH.style.display = 'none';
         guideV.style.display = 'none';
 
+        if (selectedElement) {
+            delete selectedElement._normalized;
+            updateSelectionBox();
+        }
+
         // Reset the flag for the next mousedown
         const allEditables = document.querySelectorAll(editableSelectors);
         allEditables.forEach(el => delete el._stateSavedSinceMousedown);
-
-        if (selectedElement) {
-            updateSelectionBox(); // Final update
-        }
     });
 
     // Prevent click events on the selection UI from bubbling to the background deselect listener
@@ -614,14 +528,59 @@ function initEditor() {
         if (!selectedElement) return;
 
         if (isDragging) {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            const dx = (e.clientX - startX);
+            const dy = (e.clientY - startY);
 
-            let newLeft = startLeft + dx;
-            let newTop = startTop + dy;
+            // NORMALIZATION ON DEMAND: Rip out of DOM when user actually drags.
+            const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
+            const style = window.getComputedStyle(selectedElement);
 
-            // Snapping Logic Variables
-            const slide = selectedElement.closest('.s') || selectedElement.closest('section');
+            if (!selectedElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+                selectedElement._normalized = true;
+                saveState(); 
+
+                const rect = selectedElement.getBoundingClientRect();
+                const slideRect = slide.getBoundingClientRect();
+                const inherited = getInheritedStyles(selectedElement);
+
+                if (style.position !== 'absolute') {
+                    const clone = selectedElement.cloneNode(true);
+                    clone.style.visibility = 'hidden';
+                    clone.style.pointerEvents = 'none';
+                    clone.classList.add('eidos-phantom');
+                    clone.style.display = style.display;
+                    clone.style.margin = style.margin;
+                    clone.style.position = style.position;
+                    selectedElement.parentNode.insertBefore(clone, selectedElement);
+                }
+
+                if (selectedElement.parentElement !== slide) slide.appendChild(selectedElement);
+
+                selectedElement.style.position = 'absolute';
+                selectedElement.style.margin = '0';
+                selectedElement.style.width = rect.width + 'px';
+                selectedElement.style.height = rect.height + 'px';
+                // Important: calculate position relative to the SLIDE, which might be translated
+                selectedElement.style.left = (rect.left - slideRect.left) + 'px';
+                selectedElement.style.top = (rect.top - slideRect.top) + 'px';
+                
+                selectedElement.style.fontSize = inherited.fontSize;
+                selectedElement.style.fontFamily = inherited.fontFamily;
+                selectedElement.style.color = inherited.color;
+                selectedElement.style.lineHeight = inherited.lineHeight;
+
+                startLeft = parseFloat(selectedElement.style.left);
+                startTop = parseFloat(selectedElement.style.top);
+                startX = e.clientX; 
+                startY = e.clientY;
+            }
+
+            if (!selectedElement._normalized && style.position !== 'absolute') return;
+
+            let newLeft = startLeft + (e.clientX - startX);
+            let newTop = startTop + (e.clientY - startY);
+
+            // Snapping Logic
             if (slide) {
                 const sRect = slide.getBoundingClientRect();
                 const eRect = selectedElement.getBoundingClientRect();
@@ -645,9 +604,10 @@ function initEditor() {
 
                 if (bestSnapX !== null) {
                     newLeft += bestDiffX;
-                    guideV.style.left = bestSnapX + 'px';
-                    guideV.style.top = '0px';
-                    guideV.style.height = '100%';
+                    // Guides are in document.body, so add slide offset
+                    guideV.style.left = (sRect.left + bestSnapX) + 'px';
+                    guideV.style.top = sRect.top + 'px';
+                    guideV.style.height = sRect.height + 'px';
                     guideV.style.display = 'block';
                 } else {
                     guideV.style.display = 'none';
@@ -668,9 +628,10 @@ function initEditor() {
 
                 if (bestSnapY !== null) {
                     newTop += bestDiffY;
-                    guideH.style.top = bestSnapY + 'px';
-                    guideH.style.left = '0px';
-                    guideH.style.width = '100%';
+                    // Guides are in document.body, so add slide offset
+                    guideH.style.top = (sRect.top + bestSnapY) + 'px';
+                    guideH.style.left = sRect.left + 'px';
+                    guideH.style.width = sRect.width + 'px';
                     guideH.style.display = 'block';
                 } else {
                     guideH.style.display = 'none';
@@ -813,20 +774,17 @@ function initEditor() {
 
         selectedElement = el;
 
-        // Move UI to the same slide as the element for better stacking and sync
-        const slide = el.closest('.s') || el.closest('section') || document.body;
-        if (selectionBox.parentElement !== slide) slide.appendChild(selectionBox);
-        if (toolbar.parentElement !== slide) slide.appendChild(toolbar);
+        // CRITICAL FIX: Keep UI tools in document body to avoid 'overflow: hidden' clipping in slides.
+        // We ensure they are always present and visible.
+        ensureUI();
         
-        // Refresh toolbar content every select to update quick colors & bindings
+        // Refresh toolbar content
         toolbar.innerHTML = getToolbarHTML();
         bindToolbarEvents();
 
-        // Ensure tools are always above the selected element
-        const elStyle = window.getComputedStyle(el);
-        const elZ = parseInt(elStyle.zIndex) || 1;
-        selectionBox.style.zIndex = Math.max(1000, elZ + 1);
-        toolbar.style.zIndex = Math.max(1001, elZ + 2);
+        // Ensure tools are always above everything else
+        selectionBox.style.zIndex = '10000';
+        toolbar.style.zIndex = '10001';
 
 
         updateSelectionBox();
@@ -850,13 +808,6 @@ function initEditor() {
             subtree: false
         });
         
-        // Also observe the parent to catch physical moves (To Front/Back)
-        const parentObserver = new MutationObserver(() => updateSelectionBox());
-        parentObserver.observe(el.parentElement, { childList: true });
-        // Store it to disconnect later
-        selectionObserver._parentObs = parentObserver;
-
-
         // Notify parent UI
         window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: el } }));
 
@@ -884,26 +835,23 @@ function initEditor() {
     function updateSelectionBox() {
         if (!selectedElement) return;
         const rect = selectedElement.getBoundingClientRect();
-        const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-        const slideRect = slide.getBoundingClientRect();
-
-        // Position relative to slide
-        const left = rect.left - slideRect.left;
-        const top = rect.top - slideRect.top;
+        
+        // Tools are now in document.body, so use absolute viewport coordinates
+        // rect.left/top are already correct relative to the document viewport inside the iframe.
+        const left = rect.left;
+        const top = rect.top;
 
         selectionBox.style.left = `${left}px`;
         selectionBox.style.top = `${top}px`;
         selectionBox.style.width = `${rect.width}px`;
         selectionBox.style.height = `${rect.height}px`;
 
-        // Add class for small elements to hide side handles and avoid crowding
         if (rect.width < 50 || rect.height < 50) {
             selectionBox.classList.add('eidos-small-selection');
         } else {
             selectionBox.classList.remove('eidos-small-selection');
         }
 
-        // Show toolbar only if NOT dragging/resizing (needed before offsetWidth check)
         if (!isDragging && !isResizing) {
             toolbar.style.display = 'flex';
             selectionBox.style.display = 'block';
@@ -911,25 +859,28 @@ function initEditor() {
             toolbar.style.display = 'none';
         }
 
-        // SMART POSITIONING: Keep toolbar within slide boundaries
+        // SMART POSITIONING: Keep toolbar within window boundaries
+        const winW = window.innerWidth;
+        const winH = window.innerHeight;
+        const tbWidth = toolbar.offsetWidth || 340;
+        
         let toolbarTop = top - 56;
         let toolbarLeft = left;
 
-        // 1. Vertical check: If too high, flip to bottom
+        // 1. Vertical check
         if (toolbarTop < 10) {
             toolbarTop = top + rect.height + 12;
         }
         
-        // 2. Vertical check: If too low (near bottom edge), flip back up (clamped)
-        if (toolbarTop + 46 > slideRect.height - 10) {
+        // 2. Vertical check bottom
+        if (toolbarTop + 46 > winH - 10) {
             toolbarTop = top - 56;
-            if (toolbarTop < 0) toolbarTop = 10; // Extreme case: very tall element
+            if (toolbarTop < 0) toolbarTop = 10;
         }
 
-        // 3. Horizontal check: Ensure it doesn't overflow right/left
-        const tbWidth = toolbar.offsetWidth || 340;
-        if (toolbarLeft + tbWidth > slideRect.width - 12) {
-            toolbarLeft = slideRect.width - tbWidth - 12;
+        // 3. Horizontal check
+        if (toolbarLeft + tbWidth > winW - 12) {
+            toolbarLeft = winW - tbWidth - 12;
         }
         if (toolbarLeft < 12) toolbarLeft = 12;
 
@@ -965,11 +916,7 @@ function initEditor() {
     }
 
     function undo() {
-        const currentState = getCleanHTML();
-        // If we have unsaved changes at the end of history, save them so we can redo back to them
-        if (historyIndex === history.length - 1 && history[historyIndex] !== currentState) {
-            saveState();
-        }
+        saveState(); // Capture any unsaved changes at current position
 
         if (historyIndex > 0) {
             historyIndex--;
@@ -989,11 +936,8 @@ function initEditor() {
 
         document.body.innerHTML = htmlContent;
 
-        // Re-inject UI and bindings
-        document.body.appendChild(selectionBox);
-        document.body.appendChild(toolbar);
-        document.body.appendChild(guideH);
-        document.body.appendChild(guideV);
+        // Re-inject UI and bindings into documentElement (outside body transform context)
+        ensureUI();
 
         // Re-init lucide icons just in case
         if (window.lucide) window.lucide.createIcons();
