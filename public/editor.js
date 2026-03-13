@@ -67,6 +67,38 @@ function initEditor() {
     }
     ensureUI();
 
+    // Deselect current element when navigating to another slide to prevent UI overlap
+    const handleSlideChange = () => {
+        if (selectedElement) deselectGroup();
+    };
+
+    window.addEventListener('eidos-navigate-prev', handleSlideChange);
+    window.addEventListener('eidos-navigate-next', handleSlideChange);
+
+    // Robust detection for any slide change (e.g., via pagination dots or parent UI)
+    // by observing when a section starts being 'active'
+    const slideActivationObserver = new MutationObserver((mutations) => {
+        mutations.forEach(m => {
+            if (m.target.classList.contains('active') && selectedElement) {
+                // If a new slide became active (or state restored), clean up selection
+                deselectGroup();
+            }
+        });
+    });
+
+    // Observe existing slides and any that might be added later
+    function observeSlides() {
+        document.querySelectorAll('section.s').forEach(s => {
+            slideActivationObserver.observe(s, { attributes: true, attributeFilter: ['class'] });
+        });
+    }
+    observeSlides();
+
+    // Also watch for newly added slides (e.g. after undo/redo or dynamic generation)
+    const slideStructureObserver = new MutationObserver(() => observeSlides());
+    slideStructureObserver.observe(document.body, { childList: true, subtree: true });
+
+
     // Toolbar content
     function getToolbarHTML() {
         if (!selectedElement) return '';
@@ -188,7 +220,7 @@ function initEditor() {
             });
         }
 
-        // Quick colors binding if ellos existen
+        // Quick colors binding if they exist
         toolbar.querySelectorAll('.eidos-color-swatches-mini .eidos-color-swatch').forEach(swatch => {
             swatch.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -317,6 +349,179 @@ function initEditor() {
         };
     }
 
+    function normalizeElement(el, slide) {
+        if (el._normalized) return;
+        el._normalized = true;
+        saveState();
+
+        const rect = el.getBoundingClientRect();
+        const slideRect = slide.getBoundingClientRect();
+        const inherited = getInheritedStyles(el);
+        const style = window.getComputedStyle(el);
+
+        const originalTransition = el.style.transition;
+        el.style.transition = 'none';
+
+        if (style.position !== 'absolute') {
+            // Only create phantom and move if it was NOT absolute
+            const clone = el.cloneNode(true);
+            clone.style.visibility = 'hidden';
+            clone.style.pointerEvents = 'none';
+            clone.classList.add('eidos-phantom');
+            clone.style.display = style.display;
+            clone.style.margin = style.margin;
+            clone.style.position = style.position;
+            el.parentNode.insertBefore(clone, el);
+
+            // Move to slide while maintaining z-index
+            const currentZ = el.style.zIndex;
+            if (el.parentElement !== slide) slide.appendChild(el);
+            if (currentZ) el.style.zIndex = currentZ; // preserve
+            
+            el.style.boxSizing = 'border-box';
+            el.style.position = 'absolute';
+            el.style.margin = '0';
+            el.style.width = rect.width + 'px';
+            el.style.height = rect.height + 'px';
+            el.style.left = (rect.left - slideRect.left) + 'px';
+            el.style.top = (rect.top - slideRect.top) + 'px';
+            el.style.transform = 'none';
+        } else {
+            // Already absolute - DO NOT move in DOM, only update coordinates
+            // Moving in DOM would break the z-order established by Send to Back/Front
+            el.style.boxSizing = 'border-box';
+            el.style.margin = '0';
+            el.style.width = rect.width + 'px';
+            el.style.height = rect.height + 'px';
+            el.style.left = (rect.left - slideRect.left) + 'px';
+            el.style.top = (rect.top - slideRect.top) + 'px';
+            el.style.transform = 'none';
+        }
+
+        el.style.fontSize = inherited.fontSize;
+        el.style.fontFamily = inherited.fontFamily;
+        el.style.color = inherited.color;
+        el.style.lineHeight = inherited.lineHeight;
+
+        const textElements = el.querySelectorAll('h1, h2, h3, h4, p, span, li, .big-number, .big-label, .tag');
+        textElements.forEach(item => {
+            const comp = window.getComputedStyle(item);
+            item.style.fontSize = comp.fontSize;
+        });
+
+        setTimeout(() => {
+            if (el) el.style.transition = originalTransition;
+        }, 50);
+    }
+
+    /**
+     * Helper to get all editable elements in the same slide, excluding the one being edited.
+     */
+    function getEditableElementsInSlide(slide, excludeEl) {
+        if (!slide) return [];
+        return Array.from(slide.querySelectorAll(window.editableSelectors || editableSelectors))
+            .filter(el => el !== excludeEl && 
+                    el.style.display !== 'none' && 
+                    el.style.visibility !== 'hidden' &&
+                    !el.classList.contains('eidos-phantom') && 
+                    !el.closest('.eidos-selection-box') && 
+                    !el.closest('.eidos-toolbar') &&
+                    // Exclude children and ancestors of the current element
+                    !excludeEl.contains(el) &&
+                    !el.contains(excludeEl));
+    }
+
+    /**
+     * Check if two rectangles intersect.
+     */
+    function rectIntersects(r1, r2) {
+        const margin = 2; // tolerance minimum in px
+        return !(r2.left >= r1.left + r1.width - margin || 
+                 r2.left + r2.width <= r1.left + margin || 
+                 r2.top >= r1.top + r1.height - margin || 
+                 r2.top + r2.height <= r1.top + margin);
+    }
+
+    /**
+     * Get element position and size relative to its slide container.
+     */
+    function getElementRect(el, slide) {
+        if (!el || !slide) return { left: 0, top: 0, width: 0, height: 0 };
+        const r = el.getBoundingClientRect();
+        const s = slide.getBoundingClientRect();
+        return {
+            left: r.left - s.left,
+            top: r.top - s.top,
+            width: r.width,
+            height: r.height
+        };
+    }
+
+    /**
+     * Clamps element position to slide boundaries.
+     */
+    function resolveDragCollision(proposedRect, slide, excludeEl) {
+        const sRect = slide.getBoundingClientRect();
+
+        return {
+            left: Math.max(0, Math.min(proposedRect.left, sRect.width - proposedRect.width)),
+            top: Math.max(0, Math.min(proposedRect.top, sRect.height - proposedRect.height)),
+        };
+    }
+
+    /**
+     * Clamps resizing to slide boundaries and enforces minimum size.
+     */
+    function resolveResizeCollision(proposedRect, handle, slide, excludeEl, fixed = {}) {
+        const sRect = slide.getBoundingClientRect();
+        const minSize = 20;
+
+        let res = { ...proposedRect };
+
+        // Slide boundary clamping
+        if (handle.includes('w')) {
+            if (res.left < 0) {
+                res.width = fixed.fixedRight !== undefined ? fixed.fixedRight : (res.width + res.left);
+                res.left = 0;
+            }
+        } else {
+            if (res.left < 0) res.left = 0;
+        }
+
+        if (handle.includes('n')) {
+            if (res.top < 0) {
+                res.height = fixed.fixedBottom !== undefined ? fixed.fixedBottom : (res.height + res.top);
+                res.top = 0;
+            }
+        } else {
+            if (res.top < 0) res.top = 0;
+        }
+
+        if (!handle.includes('w') && res.left + res.width > sRect.width) {
+            res.width = sRect.width - res.left;
+        }
+        if (!handle.includes('n') && res.top + res.height > sRect.height) {
+            res.height = sRect.height - res.top;
+        }
+
+        // Min size enforcement
+        if (res.width < minSize) {
+            res.width = minSize;
+            if (handle.includes('w') && fixed.fixedRight !== undefined) {
+                res.left = fixed.fixedRight - minSize;
+            }
+        }
+        if (res.height < minSize) {
+            res.height = minSize;
+            if (handle.includes('n') && fixed.fixedBottom !== undefined) {
+                res.top = fixed.fixedBottom - minSize;
+            }
+        }
+
+        return res;
+    }
+
+
     document.body.addEventListener('mousedown', (e) => {
         ensureUI();
 
@@ -330,7 +535,25 @@ function initEditor() {
             return;
         }
 
-        const target = e.target.closest(editableSelectors);
+        // Use elementsFromPoint to pierce z-index stacking
+        // This allows selecting elements that are visually behind others
+        const allUnderCursor = document.elementsFromPoint(e.clientX, e.clientY);
+        
+        // Find the best target: prefer the topmost editable that matches,
+        // but if the user clicked directly on an editable (e.target), use that first.
+        let target = e.target.closest(editableSelectors);
+        
+        // If no target found via native hit-test, scan all elements at this point
+        if (!target) {
+            for (const el of allUnderCursor) {
+                if (el.closest('.eidos-selection-box') || el.closest('.eidos-toolbar')) continue;
+                const match = el.closest(editableSelectors);
+                if (match) {
+                    target = match;
+                    break;
+                }
+            }
+        }
 
         if (target) {
             // Select it (visual only for now)
@@ -535,88 +758,49 @@ function initEditor() {
     document.addEventListener('mousemove', (e) => {
         if (!selectedElement) return;
 
-        if (isDragging) {
+        const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
+
+        if (isDragging || isResizing) {
             const dx = (e.clientX - startX);
             const dy = (e.clientY - startY);
 
-            // NORMALIZATION ON DEMAND: Rip out of DOM when user actually drags.
-            const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-            const style = window.getComputedStyle(selectedElement);            if (!selectedElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
-                selectedElement._normalized = true;
-                saveState(); 
-
-                const rect = selectedElement.getBoundingClientRect();
-                const slideRect = slide.getBoundingClientRect();
-                const inherited = getInheritedStyles(selectedElement);
-
-                // CRITICAL: Disable transitions during normalization to prevent "growing" animations
-                const originalTransition = selectedElement.style.transition;
-                selectedElement.style.transition = 'none';
-
-                if (style.position !== 'absolute') {
-                    const clone = selectedElement.cloneNode(true);
-                    clone.style.visibility = 'hidden';
-                    clone.style.pointerEvents = 'none';
-                    clone.classList.add('eidos-phantom');
-                    clone.style.display = style.display;
-                    clone.style.margin = style.margin;
-                    clone.style.position = style.position;
-                    selectedElement.parentNode.insertBefore(clone, selectedElement);
-                }
-
-                if (selectedElement.parentElement !== slide) slide.appendChild(selectedElement);
+            // NORMALIZATION ON DEMAND: Rip out of DOM when user actually starts transforming.
+            if (!selectedElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+                normalizeElement(selectedElement, slide);
                 
-                // CRITICAL: Force border-box because rect.width includes padding/border
-                // and many template elements (like .stat-box) use content-box by default.
-                selectedElement.style.boxSizing = 'border-box';
-                
-                selectedElement.style.position = 'absolute';
-                selectedElement.style.margin = '0';
-                selectedElement.style.width = rect.width + 'px';
-                selectedElement.style.height = rect.height + 'px';
-                // Important: calculate position relative to the SLIDE, which might be translated
-                selectedElement.style.left = (rect.left - slideRect.left) + 'px';
-                selectedElement.style.top = (rect.top - slideRect.top) + 'px';
-                
-                // CRITICAL: Clear any centering transform (like translate(-50%, -50%)) 
-                // because we just converted visual coordinates to absolute left/top.
-                // Keeping the transform would double the offset and cause a visual jump.
-                selectedElement.style.transform = 'none';
-
-                selectedElement.style.fontSize = inherited.fontSize;
-                selectedElement.style.fontFamily = inherited.fontFamily;
-                selectedElement.style.color = inherited.color;
-                selectedElement.style.lineHeight = inherited.lineHeight;
-
-                // CRITICAL: Freeze child font sizes. If they use container units (cqi, cqh),
-                // they will grow/shrink unpredictably when moved to the slide root.
-                const textElements = selectedElement.querySelectorAll('h1, h2, h3, h4, p, span, li, .big-number, .big-label, .tag');
-                textElements.forEach(el => {
-                    const comp = window.getComputedStyle(el);
-                    el.style.fontSize = comp.fontSize;
-                });
-
+                // After normalization, we MUST reset the base values because style.left/top
+                // might differ from the visual start coordinates captured in mousedown.
+                startWidth = parseFloat(selectedElement.style.width);
+                startHeight = parseFloat(selectedElement.style.height);
                 startLeft = parseFloat(selectedElement.style.left);
                 startTop = parseFloat(selectedElement.style.top);
                 startX = e.clientX; 
                 startY = e.clientY;
-
-                // Restore transitions after a tiny delay
-                setTimeout(() => {
-                    if (selectedElement) selectedElement.style.transition = originalTransition;
-                }, 50);
             }
+        }
 
-            if (!selectedElement._normalized && style.position !== 'absolute') return;
+        if (isDragging) {
+            if (!selectedElement._normalized) return;
 
             let newLeft = startLeft + (e.clientX - startX);
             let newTop = startTop + (e.clientY - startY);
 
-            // Snapping Logic
+            // 1. Resolve Collision
+            const eRect = selectedElement.getBoundingClientRect();
+            const resolved = resolveDragCollision({ 
+                left: newLeft, 
+                top: newTop, 
+                width: eRect.width, 
+                height: eRect.height 
+            }, slide, selectedElement);
+            
+            newLeft = resolved.left;
+            newTop = resolved.top;
+
+            // 2. Snapping Logic
             if (slide) {
                 const sRect = slide.getBoundingClientRect();
-                const eRect = selectedElement.getBoundingClientRect();
-
+                // Use updated rect for snapping
                 const myLinesX = [newLeft, newLeft + eRect.width / 2, newLeft + eRect.width];
                 const myLinesY = [newTop, newTop + eRect.height / 2, newTop + eRect.height];
 
@@ -675,6 +859,8 @@ function initEditor() {
             updateSelectionBox();
 
         } else if (isResizing) {
+            if (!selectedElement._normalized) return;
+
             const dx = (e.clientX - startX);
             const dy = (e.clientY - startY);
 
@@ -694,8 +880,21 @@ function initEditor() {
                 newTop = startTop + dy;
             }
 
-            // Snapping for Resize
-            const slide = selectedElement.closest('.s') || selectedElement.closest('section');
+            const fixedRight = startLeft + startWidth;
+            const fixedBottom = startTop + startHeight;
+
+            const resolved = resolveResizeCollision({ 
+                left: newLeft, top: newTop, width: newWidth, height: newHeight 
+            }, currentHandle, slide, selectedElement, { fixedRight, fixedBottom });
+            
+            newLeft = resolved.left;
+            newTop = resolved.top;
+            newWidth = resolved.width;
+            newHeight = resolved.height;
+
+            const sRect = slide.getBoundingClientRect();
+
+            // 2. Snapping for Resize
             if (slide) {
                 const snapTolerance = 8;
 
@@ -713,9 +912,9 @@ function initEditor() {
                     if (bestSnapX !== null) {
                         newLeft += bestDiffX;
                         newWidth -= bestDiffX;
-                        guideV.style.left = bestSnapX + 'px';
-                        guideV.style.top = '0px';
-                        guideV.style.height = '100%';
+                        guideV.style.left = (sRect.left + bestSnapX) + 'px';
+                        guideV.style.top = sRect.top + 'px';
+                        guideV.style.height = sRect.height + 'px';
                         guideV.style.display = 'block';
                     } else {
                         guideV.style.display = 'none';
@@ -733,9 +932,9 @@ function initEditor() {
                     }
                     if (bestSnapX !== null) {
                         newWidth += bestDiffX;
-                        guideV.style.left = bestSnapX + 'px';
-                        guideV.style.top = '0px';
-                        guideV.style.height = '100%';
+                        guideV.style.left = (sRect.left + bestSnapX) + 'px';
+                        guideV.style.top = sRect.top + 'px';
+                        guideV.style.height = sRect.height + 'px';
                         guideV.style.display = 'block';
                     } else {
                         guideV.style.display = 'none';
@@ -756,9 +955,9 @@ function initEditor() {
                     if (bestSnapY !== null) {
                         newTop += bestDiffY;
                         newHeight -= bestDiffY;
-                        guideH.style.top = bestSnapY + 'px';
-                        guideH.style.left = '0px';
-                        guideH.style.width = '100%';
+                        guideH.style.top = (sRect.top + bestSnapY) + 'px';
+                        guideH.style.left = sRect.left + 'px';
+                        guideH.style.width = sRect.width + 'px';
                         guideH.style.display = 'block';
                     } else {
                         guideH.style.display = 'none';
@@ -776,9 +975,9 @@ function initEditor() {
                     }
                     if (bestSnapY !== null) {
                         newHeight += bestDiffY;
-                        guideH.style.top = bestSnapY + 'px';
-                        guideH.style.left = '0px';
-                        guideH.style.width = '100%';
+                        guideH.style.top = (sRect.top + bestSnapY) + 'px';
+                        guideH.style.left = sRect.left + 'px';
+                        guideH.style.width = sRect.width + 'px';
                         guideH.style.display = 'block';
                     } else {
                         guideH.style.display = 'none';
@@ -786,15 +985,11 @@ function initEditor() {
                 }
             }
 
-            // Min sizes
-            if (newWidth > 20) {
-                selectedElement.style.width = `${newWidth}px`;
-                if (currentHandle.includes('w')) selectedElement.style.left = `${newLeft}px`;
-            }
-            if (newHeight > 20) {
-                selectedElement.style.height = `${newHeight}px`;
-                if (currentHandle.includes('n')) selectedElement.style.top = `${newTop}px`;
-            }
+            // 3. Apply changes (Min sizes are already enforced by resolveResizeCollision)
+            selectedElement.style.width = `${newWidth}px`;
+            selectedElement.style.height = `${newHeight}px`;
+            selectedElement.style.left = `${newLeft}px`;
+            selectedElement.style.top = `${newTop}px`;
 
             updateSelectionBox();
 
@@ -1061,14 +1256,26 @@ function initEditor() {
                         selectedElement._undoSavingArrow = true;
                         setTimeout(() => selectedElement._undoSavingArrow = false, 500);
                     }
+                    let newLeft = parseFloat(selectedElement.style.left) || 0;
+                    let newTop = parseFloat(selectedElement.style.top) || 0;
                     const amount = e.shiftKey ? 10 : 1;
-                    const currentLeft = parseFloat(selectedElement.style.left) || 0;
-                    const currentTop = parseFloat(selectedElement.style.top) || 0;
 
-                    if (e.key === 'ArrowUp') selectedElement.style.top = (currentTop - amount) + 'px';
-                    if (e.key === 'ArrowDown') selectedElement.style.top = (currentTop + amount) + 'px';
-                    if (e.key === 'ArrowLeft') selectedElement.style.left = (currentLeft - amount) + 'px';
-                    if (e.key === 'ArrowRight') selectedElement.style.left = (currentLeft + amount) + 'px';
+                    if (e.key === 'ArrowUp') newTop -= amount;
+                    if (e.key === 'ArrowDown') newTop += amount;
+                    if (e.key === 'ArrowLeft') newLeft -= amount;
+                    if (e.key === 'ArrowRight') newLeft += amount;
+
+                    const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
+                    const eRect = selectedElement.getBoundingClientRect();
+                    const resolved = resolveDragCollision({ 
+                        left: newLeft, 
+                        top: newTop, 
+                        width: eRect.width, 
+                        height: eRect.height 
+                    }, slide, selectedElement);
+
+                    selectedElement.style.left = `${resolved.left}px`;
+                    selectedElement.style.top = `${resolved.top}px`;
 
                     updateSelectionBox();
                 } else {
@@ -1155,12 +1362,25 @@ function initEditor() {
             setTimeout(() => selectedElement._undoSavingArrow = false, 500);
         }
         const amount = shift ? 10 : 1;
-        const currentLeft = parseFloat(selectedElement.style.left) || 0;
-        const currentTop = parseFloat(selectedElement.style.top) || 0;
-        if (key === 'ArrowUp') selectedElement.style.top = (currentTop - amount) + 'px';
-        if (key === 'ArrowDown') selectedElement.style.top = (currentTop + amount) + 'px';
-        if (key === 'ArrowLeft') selectedElement.style.left = (currentLeft - amount) + 'px';
-        if (key === 'ArrowRight') selectedElement.style.left = (currentLeft + amount) + 'px';
+        let newLeft = parseFloat(selectedElement.style.left) || 0;
+        let newTop = parseFloat(selectedElement.style.top) || 0;
+
+        if (key === 'ArrowUp') newTop -= amount;
+        if (key === 'ArrowDown') newTop += amount;
+        if (key === 'ArrowLeft') newLeft -= amount;
+        if (key === 'ArrowRight') newLeft += amount;
+
+        const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
+        const eRect = selectedElement.getBoundingClientRect();
+        const resolved = resolveDragCollision({ 
+            left: newLeft, 
+            top: newTop, 
+            width: eRect.width, 
+            height: eRect.height 
+        }, slide, selectedElement);
+
+        selectedElement.style.left = `${resolved.left}px`;
+        selectedElement.style.top = `${resolved.top}px`;
         updateSelectionBox();
     };
 }
