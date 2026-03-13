@@ -1278,6 +1278,17 @@ window.initEditorUI = function (iframe) {
             }
         };
         input.click();
+
+        // Select it automatically to show tools
+        if (iframeWin.eidosSelect) {
+            iframeWin.eidosSelect(img);
+        } else {
+            // Fallback for older sessions
+            const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
+            img.dispatchEvent(clickEv);
+            const upEv = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: iframeWin });
+            iframeDoc.dispatchEvent(upEv);
+        }
     });
 
     safeAddListener('btn-add-shape', 'click', () => {
@@ -1405,4 +1416,58 @@ window.initEditorUI = function (iframe) {
     }
     window._eidosKeydownHandler = keydownHandler;
     window.addEventListener('keydown', window._eidosKeydownHandler);
-}
+
+    // Support for dropping images at specific coordinates
+    const addImageAtHandler = (e) => {
+        const { file, x, y } = e.detail;
+        if (!file) return;
+
+        fixToolsPanel();
+        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+        const slide = getActiveSlide();
+        const slideRect = slide.getBoundingClientRect();
+
+        const img = iframeDoc.createElement('div');
+        img.className = 'img-slot has-custom-image';
+        img.style.position = 'absolute';
+        
+        // Convert viewport coordinates (from drop event) to slide-relative pixel coordinates
+        img.style.left = (x - slideRect.left) + 'px';
+        img.style.top = (y - slideRect.top) + 'px';
+        img.style.transform = 'translate(-50%, -50%)'; // Center on mouse
+        
+        img.style.width = '300px';
+        img.style.height = '200px';
+        img.style.backgroundColor = 'rgba(255,255,255,0.1)';
+        img.style.border = '2px dashed rgba(255,255,255,0.3)';
+        img.style.borderRadius = '8px';
+        img.style.zIndex = '10';
+        img.dataset.imageSlot = 'manual-' + Date.now();
+        slide.appendChild(img);
+
+        const reader = new FileReader();
+        reader.onload = (re) => {
+            img.style.backgroundImage = `url('${re.target.result}')`;
+            img.style.backgroundSize = 'cover';
+            img.style.border = 'none';
+        };
+        reader.readAsDataURL(file);
+
+        // Select it
+        if (iframeWin.eidosSelect) {
+            iframeWin.eidosSelect(img);
+        } else {
+            // Fallback for older sessions
+            const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
+            img.dispatchEvent(clickEv);
+            const upEv = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: iframeWin });
+            iframeDoc.dispatchEvent(upEv);
+        }
+    };
+
+    if (window._eidosAddImageHandler) {
+        window.removeEventListener('eidos-add-image-at', window._eidosAddImageHandler);
+    }
+    window._eidosAddImageHandler = addImageAtHandler;
+    window.addEventListener('eidos-add-image-at', window._eidosAddImageHandler);
+};

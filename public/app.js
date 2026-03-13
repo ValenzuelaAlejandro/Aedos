@@ -1273,6 +1273,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 overflow: hidden;
             }
             /* Fix #3: prevent long text from breaking slide layout */
+            section.s {
+                position: relative !important;
+                overflow: hidden;
+            }
             section.s h1, section.s h2, section.s h3, section.s h4,
             section.s p, section.s span, section.s li, section.s blockquote {
                 word-break: break-word;
@@ -1616,7 +1620,33 @@ document.addEventListener('DOMContentLoaded', () => {
         // Prevent browser default drag-and-drop navigation inside the iframe.
         // Without this, dropping a file anywhere on the iframe navigates it to the file URL.
         doc.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
-        doc.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); });
+        doc.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Handle dropping images onto the slide (NOT onto a slot)
+            const slot = e.target.closest('[data-image-slot]');
+            if (slot) return; // handled by slot listener
+
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (file.type.startsWith('image/')) {
+                    // Position it where dropped
+                    const rect = doc.documentElement.getBoundingClientRect();
+                    const x = e.clientX;
+                    const y = e.clientY;
+                    
+                    // Trigger a custom event to the parent to handle adding a new image at these coords
+                    window.parent.dispatchEvent(new CustomEvent('eidos-add-image-at', {
+                        detail: { 
+                            file: file,
+                            x: x, 
+                            y: y 
+                        }
+                    }));
+                }
+            }
+        });
 
         // Initial positioning after all slots are set up
         // (done after multiple delays to account for carousel transition, font loading, etc.)

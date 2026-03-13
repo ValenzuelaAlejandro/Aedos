@@ -502,10 +502,13 @@ function initEditor() {
             startY = e.clientY;
 
             const rect = selectedElement.getBoundingClientRect();
+            const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
+            const slideRect = slide.getBoundingClientRect();
+
             startWidth = rect.width;
             startHeight = rect.height;
-            startLeft = parseFloat(selectedElement.style.left) || 0;
-            startTop = parseFloat(selectedElement.style.top) || 0;
+            startLeft = rect.left - slideRect.left;
+            startTop = rect.top - slideRect.top;
             e.preventDefault();
         } else if (!e.target.classList.contains('eidos-resize-handle')) {
             // Drag via selection box proxy (anywhere that isn't a handle)
@@ -517,8 +520,13 @@ function initEditor() {
             isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
-            startLeft = parseFloat(selectedElement.style.left) || 0;
-            startTop = parseFloat(selectedElement.style.top) || 0;
+
+            const rect = selectedElement.getBoundingClientRect();
+            const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
+            const slideRect = slide.getBoundingClientRect();
+
+            startLeft = rect.left - slideRect.left;
+            startTop = rect.top - slideRect.top;
             e.preventDefault();
         }
     });
@@ -533,15 +541,17 @@ function initEditor() {
 
             // NORMALIZATION ON DEMAND: Rip out of DOM when user actually drags.
             const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-            const style = window.getComputedStyle(selectedElement);
-
-            if (!selectedElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+            const style = window.getComputedStyle(selectedElement);            if (!selectedElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
                 selectedElement._normalized = true;
                 saveState(); 
 
                 const rect = selectedElement.getBoundingClientRect();
                 const slideRect = slide.getBoundingClientRect();
                 const inherited = getInheritedStyles(selectedElement);
+
+                // CRITICAL: Disable transitions during normalization to prevent "growing" animations
+                const originalTransition = selectedElement.style.transition;
+                selectedElement.style.transition = 'none';
 
                 if (style.position !== 'absolute') {
                     const clone = selectedElement.cloneNode(true);
@@ -555,7 +565,11 @@ function initEditor() {
                 }
 
                 if (selectedElement.parentElement !== slide) slide.appendChild(selectedElement);
-
+                
+                // CRITICAL: Force border-box because rect.width includes padding/border
+                // and many template elements (like .stat-box) use content-box by default.
+                selectedElement.style.boxSizing = 'border-box';
+                
                 selectedElement.style.position = 'absolute';
                 selectedElement.style.margin = '0';
                 selectedElement.style.width = rect.width + 'px';
@@ -564,15 +578,33 @@ function initEditor() {
                 selectedElement.style.left = (rect.left - slideRect.left) + 'px';
                 selectedElement.style.top = (rect.top - slideRect.top) + 'px';
                 
+                // CRITICAL: Clear any centering transform (like translate(-50%, -50%)) 
+                // because we just converted visual coordinates to absolute left/top.
+                // Keeping the transform would double the offset and cause a visual jump.
+                selectedElement.style.transform = 'none';
+
                 selectedElement.style.fontSize = inherited.fontSize;
                 selectedElement.style.fontFamily = inherited.fontFamily;
                 selectedElement.style.color = inherited.color;
                 selectedElement.style.lineHeight = inherited.lineHeight;
 
+                // CRITICAL: Freeze child font sizes. If they use container units (cqi, cqh),
+                // they will grow/shrink unpredictably when moved to the slide root.
+                const textElements = selectedElement.querySelectorAll('h1, h2, h3, h4, p, span, li, .big-number, .big-label, .tag');
+                textElements.forEach(el => {
+                    const comp = window.getComputedStyle(el);
+                    el.style.fontSize = comp.fontSize;
+                });
+
                 startLeft = parseFloat(selectedElement.style.left);
                 startTop = parseFloat(selectedElement.style.top);
                 startX = e.clientX; 
                 startY = e.clientY;
+
+                // Restore transitions after a tiny delay
+                setTimeout(() => {
+                    if (selectedElement) selectedElement.style.transition = originalTransition;
+                }, 50);
             }
 
             if (!selectedElement._normalized && style.position !== 'absolute') return;
@@ -643,8 +675,8 @@ function initEditor() {
             updateSelectionBox();
 
         } else if (isResizing) {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            const dx = (e.clientX - startX);
+            const dy = (e.clientY - startY);
 
             let newWidth = startWidth;
             let newHeight = startHeight;
@@ -1058,6 +1090,7 @@ function initEditor() {
     window.eidosDeselect = deselectGroup;
     window.eidosUpdateSelection = updateSelectionBox;
     window.eidosGetSelection = () => selectedElement;
+    window.eidosSelect = selectElement;
     window.eidosIsJustSelected = () => _justSelected;
     window.eidosIsDragging = () => isDragging || isResizing;
     window.eidosDuplicateSelection = () => { if (selectedElement) duplicateElement(selectedElement); };
