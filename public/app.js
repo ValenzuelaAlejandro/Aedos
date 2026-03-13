@@ -1062,6 +1062,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const iframeWinRef = previewIframe.contentWindow;
         if (iframeWinRef) {
             iframeWinRef.addEventListener('eidos-state-restored', (ev) => {
+                if (typeof pruneDeadSlotOverlays === 'function') pruneDeadSlotOverlays();
+                
                 // Rebuild if detail says so, OR if no detail is provided (fallback for older editor.js state)
                 const needsRebuild = ev.detail ? ev.detail.needsOverlayRebuild : true;
                 if (!needsRebuild) return;
@@ -1482,6 +1484,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Enable labels only while a file is being dragged. Reset on drop/dragleave.
         window.addEventListener('dragenter', () => {
+            if (typeof pruneDeadSlotOverlays === 'function') pruneDeadSlotOverlays();
             _overlayMap.forEach(({ label }) => { label.style.pointerEvents = 'auto'; });
         });
         window.addEventListener('dragleave', (e) => {
@@ -1493,6 +1496,23 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('drop', () => {
             _overlayMap.forEach(({ label }) => { label.style.pointerEvents = 'none'; });
         });
+
+        window.addEventListener('eidos-drop-complete', () => {
+            _overlayMap.forEach(({ label }) => { label.style.pointerEvents = 'none'; });
+        });
+
+        function pruneDeadSlotOverlays() {
+            const iDoc = previewIframe.contentDocument;
+            _overlayMap.forEach((entry, slotEl) => {
+                if (!iDoc || !iDoc.contains(slotEl)) {
+                    entry.label.remove();
+                    entry.input.remove();
+                    _overlayMap.delete(slotEl);
+                }
+            });
+        }
+        window._pruneDeadSlotOverlays = pruneDeadSlotOverlays; // Expose for internal use
+
 
         // Position overlays for the slots on the CURRENT slide, hide others
         function _positionOverlays() {
@@ -1533,6 +1553,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Expose so scrollToSlide and scaleIframe can call it
         _refreshSlotOverlays = _positionOverlays;
+        window._refreshSlotOverlays = _positionOverlays;
+        window._buildOverlayForSlot = _buildOverlayForSlot;
 
         // Message handler is no longer needed since overlays handle everything directly
         if (window._slotMsgHandler) {

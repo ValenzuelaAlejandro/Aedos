@@ -381,6 +381,9 @@ function initEditor() {
             el.style.boxSizing = 'border-box';
             el.style.position = 'absolute';
             el.style.margin = '0';
+            el.style.overflow = 'hidden';
+            el.style.minHeight = '0';
+            el.style.minWidth = '0';
             el.style.width = rect.width + 'px';
             el.style.height = rect.height + 'px';
             el.style.left = (rect.left - slideRect.left) + 'px';
@@ -391,6 +394,9 @@ function initEditor() {
             // Moving in DOM would break the z-order established by Send to Back/Front
             el.style.boxSizing = 'border-box';
             el.style.margin = '0';
+            el.style.overflow = 'hidden';
+            el.style.minHeight = '0';
+            el.style.minWidth = '0';
             el.style.width = rect.width + 'px';
             el.style.height = rect.height + 'px';
             el.style.left = (rect.left - slideRect.left) + 'px';
@@ -986,6 +992,10 @@ function initEditor() {
             }
 
             // 3. Apply changes (Min sizes are already enforced by resolveResizeCollision)
+            selectedElement.style.minHeight = '0';
+            selectedElement.style.minWidth = '0';
+            selectedElement.style.overflow = 'hidden';
+
             selectedElement.style.width = `${newWidth}px`;
             selectedElement.style.height = `${newHeight}px`;
             selectedElement.style.left = `${newLeft}px`;

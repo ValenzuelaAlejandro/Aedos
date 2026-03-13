@@ -1453,6 +1453,20 @@ window.initEditorUI = function (iframe) {
         };
         reader.readAsDataURL(file);
 
+        // Register the new slot in the parent's overlay system
+        if (window.parent && window.parent._buildOverlayForSlot) {
+            window.parent._buildOverlayForSlot(img);
+        }
+        
+        // Notify parent that drop is complete to reset pointer-events
+        window.parent.dispatchEvent(new CustomEvent('eidos-drop-complete'));
+
+        setTimeout(() => {
+            if (window.parent && window.parent._refreshSlotOverlays) {
+                window.parent._refreshSlotOverlays();
+            }
+        }, 50);
+
         // Select it
         if (iframeWin.eidosSelect) {
             iframeWin.eidosSelect(img);
