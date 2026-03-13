@@ -2776,9 +2776,7 @@ select.tool-input {
     position: absolute;
     inset: -2px;
     border-radius: 50%;
-    background: conic-gradient(from 0deg,
-            #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
-    animation: rgbRotate 8s linear infinite, rgbPulse 4s ease-in-out infinite;
+    background: rgba(255, 255, 255, 0.6);
     z-index: 0;
     filter: blur(2px);
     /* Softer edges */
@@ -2798,30 +2796,6 @@ select.tool-input {
     z-index: 1;
     pointer-events: none;
     /* Crucial: clicks must pass through to the input */
-}
-
-@keyframes rgbRotate {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes rgbPulse {
-
-    0%,
-    100% {
-        opacity: 0.4;
-        filter: blur(2px);
-    }
-
-    50% {
-        opacity: 0.8;
-        filter: blur(4px);
-    }
 }
 
 .tool-input[type="color"] {
