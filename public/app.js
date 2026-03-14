@@ -81,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
             "click_drop": "Double-click or drag an image"
         },
         es: {
-            "t-app-subtitle": "Genera una presentación completa sobre...",
             "t-app-microcopy": "8–12 slides &middot; Contenido estructurado &middot; Listo para descargar en PDF",
             "tema-error": "Por favor, ingresa un tema para generar tu presentación.",
             "t-btn-edit-topic": "Editar",
@@ -2060,58 +2059,108 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const inner = document.getElementById('carousel-inner');
         if (!inner) return;
-        const SPEED = 0.4;
-        const BASE_W = 280;
-        const BASE_H = 158;
-        const MAX_W = 560;
-        const MAX_H = 315;
-        const GAP = 24;
+        const carouselWrap = document.getElementById('bg-carousel');
 
-        // Triple set para loop infinito
+        const ITEM_W = 600;
+        const ITEM_H = 338;
+        const GAP = 35;
+        const SPEED = 0.7;
+        const SET_WIDTH = (ITEM_W + GAP) * images.length;
+
         const allImages = [...images, ...images, ...images];
         const items = allImages.map(src => {
             const div = document.createElement('div');
-            div.style.cssText = `flex-shrink:0; border-radius:14px; overflow:hidden; width:${BASE_W}px; height:${BASE_H}px; transition: width 0.15s ease, height 0.15s ease, opacity 0.15s ease;`;
+            // Base state: lower opacity and blurry
+            div.style.cssText = `flex-shrink:0; width:${ITEM_W}px; height:${ITEM_H}px; opacity:0.3; filter:blur(4px); mix-blend-mode:screen; -webkit-mask-image: radial-gradient(ellipse, #fff 30%, transparent 95%); mask-image: radial-gradient(ellipse, #fff 30%, transparent 95%); will-change: opacity, filter, transform;`;
             const img = document.createElement('img');
             img.src = src;
             img.style.cssText = 'width:100%; height:100%; object-fit:cover; display:block;';
             img.draggable = false;
+            img.onerror = () => { div.style.display = 'none'; };
             div.appendChild(img);
             inner.appendChild(div);
             return div;
         });
 
-        const SET_WIDTH = (BASE_W + GAP) * images.length;
-        let x = -SET_WIDTH; // empieza en el set del medio
+        let x = 0;
+        let mouseX = -1000;
+        let isHovering = false;
+        
+        // Dragging state
+        let isDragging = false;
+        let startX = 0;
+        let scrollStartX = 0;
 
-        inner.style.cssText = 'display:flex; align-items:center; gap:24px; position:absolute; left:0; top:50%; transform:translateY(-50%);';
+        inner.style.cssText = `display:flex; align-items:center; gap:${GAP}px; position:absolute; left:0; top:50%; transform:translateY(-50%);`;
 
-        const screenCX = window.innerWidth / 2;
+        if (carouselWrap) {
+            carouselWrap.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                scrollStartX = x;
+                carouselWrap.style.cursor = 'grabbing';
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                // Tracking mouse for spotlight always
+                mouseX = e.clientX;
+                const rect = carouselWrap.getBoundingClientRect();
+                isHovering = (
+                    mouseX >= rect.left && 
+                    mouseX <= rect.right && 
+                    e.clientY >= rect.top && 
+                    e.clientY <= rect.bottom
+                );
+
+                if (isDragging) {
+                    const dx = e.clientX - startX;
+                    x = scrollStartX + dx;
+                    // Keep loop seamless
+                    if (x > 0) x -= SET_WIDTH;
+                    if (x < -SET_WIDTH) x += SET_WIDTH;
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    carouselWrap.style.cursor = 'grab';
+                }
+            });
+
+            carouselWrap.addEventListener('mouseenter', () => { isHovering = true; });
+            carouselWrap.addEventListener('mouseleave', () => { if (!isDragging) isHovering = false; });
+        }
 
         function animate() {
-            x -= SPEED;
-
-            // Loop: cuando el set del medio sale por la izquierda, vuelve al inicio del medio
-            if (x <= -SET_WIDTH * 2) x += SET_WIDTH;
-            if (x > -SET_WIDTH + 1) x -= SET_WIDTH;
-
+            if (!isDragging) {
+                x -= SPEED;
+                if (x <= -SET_WIDTH) x += SET_WIDTH;
+            }
+            
             inner.style.left = x + 'px';
 
-            // Escalar cada item según distancia al centro
+            // Spotlight effect logic
             items.forEach(item => {
+                if (!isHovering) {
+                    item.style.opacity = '0.3';
+                    item.style.filter = 'blur(6px)'; // Slightly more blur for larger items
+                    return;
+                }
+
                 const rect = item.getBoundingClientRect();
-                const itemCX = rect.left + rect.width / 2;
-                const dist = Math.abs(screenCX - itemCX);
-                const maxDist = screenCX * 0.6;
-                const ratio = Math.max(0, 1 - dist / maxDist);
+                const centerX = rect.left + rect.width / 2;
+                const dist = Math.abs(mouseX - centerX);
+                
+                const maxDist = 700; // Wider spotlight for wider items
+                let factor = Math.max(0, 1 - dist / maxDist);
+                factor = Math.pow(factor, 2);
 
-                const w = BASE_W + (MAX_W - BASE_W) * ratio;
-                const h = BASE_H + (MAX_H - BASE_H) * ratio;
-                const opacity = 0.08 + 0.15 * ratio;
+                const opacity = 0.3 + (factor * 0.6); 
+                const blur = 6 * (1 - factor); 
 
-                item.style.width = w + 'px';
-                item.style.height = h + 'px';
                 item.style.opacity = opacity;
+                item.style.filter = `blur(${blur}px)`;
             });
 
             requestAnimationFrame(animate);
