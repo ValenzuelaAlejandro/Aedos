@@ -152,6 +152,36 @@ function initEditor() {
 
     let activeColorAction = null; // 'text' or 'bg'
 
+    function deleteElement(el) {
+        if (!el) return;
+        saveState();
+
+        // 1. Clean up ALL phantoms in the slide (prevents orphaned borders)
+        const slide = el.closest('.s') || el.closest('section') || document.body;
+        slide.querySelectorAll('.eidos-phantom').forEach(p => p.remove());
+
+        // 2. If the element is part of the flex flow (not normalized to absolute),
+        //    replace it with an invisible spacer so the layout doesn't collapse.
+        const isInFlow = window.getComputedStyle(el).position !== 'absolute';
+        const isLayoutElement = el.matches('.img-slot, .flex-col, .flex-row, .card');
+
+        if (isInFlow && isLayoutElement) {
+            const spacer = document.createElement('div');
+            spacer.className = 'eidos-deleted-spacer';
+            spacer.style.cssText = `
+                flex: 1;
+                min-height: ${el.offsetHeight}px;
+                visibility: hidden;
+                pointer-events: none;
+            `;
+            el.replaceWith(spacer);
+        } else {
+            el.remove();
+        }
+
+        deselectGroup();
+    }
+
     function bindToolbarEvents() {
         const btnSizeDown = document.getElementById('eidos-btn-size-down');
         const btnSizeUp = document.getElementById('eidos-btn-size-up');
@@ -205,11 +235,7 @@ function initEditor() {
         if (btnDelete) {
             btnDelete.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (selectedElement) {
-                    saveState();
-                    selectedElement.remove();
-                    deselectGroup();
-                }
+                deleteElement(selectedElement);
             });
         }
 
@@ -1253,9 +1279,7 @@ function initEditor() {
         } else if (!isEditingText) {
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 if (selectedElement) {
-                    saveState();
-                    selectedElement.remove();
-                    deselectGroup();
+                    deleteElement(selectedElement);
                     e.preventDefault();
                 }
             } else if (e.key.startsWith('Arrow')) {
@@ -1311,13 +1335,7 @@ function initEditor() {
     window.eidosIsJustSelected = () => _justSelected;
     window.eidosIsDragging = () => isDragging || isResizing;
     window.eidosDuplicateSelection = () => { if (selectedElement) duplicateElement(selectedElement); };
-    window.eidosDeleteSelection = () => {
-        if (selectedElement) {
-            saveState();
-            selectedElement.remove();
-            deselectGroup();
-        }
-    };
+    window.eidosDeleteSelection = () => deleteElement(selectedElement);
     window.eidosToFront = () => {
         if (!selectedElement) return;
         saveState();
