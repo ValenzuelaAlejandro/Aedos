@@ -493,11 +493,9 @@ function initEditor() {
      * Clamps element position to slide boundaries.
      */
     function resolveDragCollision(proposedRect, slide, excludeEl) {
-        const sRect = slide.getBoundingClientRect();
-
         return {
-            left: Math.max(0, Math.min(proposedRect.left, sRect.width - proposedRect.width)),
-            top: Math.max(0, Math.min(proposedRect.top, sRect.height - proposedRect.height)),
+            left: proposedRect.left,
+            top: proposedRect.top,
         };
     }
 
@@ -505,36 +503,9 @@ function initEditor() {
      * Clamps resizing to slide boundaries and enforces minimum size.
      */
     function resolveResizeCollision(proposedRect, handle, slide, excludeEl, fixed = {}) {
-        const sRect = slide.getBoundingClientRect();
         const minSize = 20;
 
         let res = { ...proposedRect };
-
-        // Slide boundary clamping
-        if (handle.includes('w')) {
-            if (res.left < 0) {
-                res.width = fixed.fixedRight !== undefined ? fixed.fixedRight : (res.width + res.left);
-                res.left = 0;
-            }
-        } else {
-            if (res.left < 0) res.left = 0;
-        }
-
-        if (handle.includes('n')) {
-            if (res.top < 0) {
-                res.height = fixed.fixedBottom !== undefined ? fixed.fixedBottom : (res.height + res.top);
-                res.top = 0;
-            }
-        } else {
-            if (res.top < 0) res.top = 0;
-        }
-
-        if (!handle.includes('w') && res.left + res.width > sRect.width) {
-            res.width = sRect.width - res.left;
-        }
-        if (!handle.includes('n') && res.top + res.height > sRect.height) {
-            res.height = sRect.height - res.top;
-        }
 
         // Min size enforcement
         if (res.width < minSize) {
@@ -854,8 +825,8 @@ function initEditor() {
                     newLeft += bestDiffX;
                     // Guides are in document.body, so add slide offset
                     guideV.style.left = (sRect.left + bestSnapX) + 'px';
-                    guideV.style.top = sRect.top + 'px';
-                    guideV.style.height = sRect.height + 'px';
+                    guideV.style.top = '0px';
+                    guideV.style.height = '100%';
                     guideV.style.display = 'block';
                 } else {
                     guideV.style.display = 'none';
@@ -878,8 +849,8 @@ function initEditor() {
                     newTop += bestDiffY;
                     // Guides are in document.body, so add slide offset
                     guideH.style.top = (sRect.top + bestSnapY) + 'px';
-                    guideH.style.left = sRect.left + 'px';
-                    guideH.style.width = sRect.width + 'px';
+                    guideH.style.left = '0px';
+                    guideH.style.width = '100%';
                     guideH.style.display = 'block';
                 } else {
                     guideH.style.display = 'none';
@@ -945,8 +916,8 @@ function initEditor() {
                         newLeft += bestDiffX;
                         newWidth -= bestDiffX;
                         guideV.style.left = (sRect.left + bestSnapX) + 'px';
-                        guideV.style.top = sRect.top + 'px';
-                        guideV.style.height = sRect.height + 'px';
+                        guideV.style.top = '0px';
+                        guideV.style.height = '100%';
                         guideV.style.display = 'block';
                     } else {
                         guideV.style.display = 'none';
@@ -965,8 +936,8 @@ function initEditor() {
                     if (bestSnapX !== null) {
                         newWidth += bestDiffX;
                         guideV.style.left = (sRect.left + bestSnapX) + 'px';
-                        guideV.style.top = sRect.top + 'px';
-                        guideV.style.height = sRect.height + 'px';
+                        guideV.style.top = '0px';
+                        guideV.style.height = '100%';
                         guideV.style.display = 'block';
                     } else {
                         guideV.style.display = 'none';
@@ -988,8 +959,8 @@ function initEditor() {
                         newTop += bestDiffY;
                         newHeight -= bestDiffY;
                         guideH.style.top = (sRect.top + bestSnapY) + 'px';
-                        guideH.style.left = sRect.left + 'px';
-                        guideH.style.width = sRect.width + 'px';
+                        guideH.style.left = '0px';
+                        guideH.style.width = '100%';
                         guideH.style.display = 'block';
                     } else {
                         guideH.style.display = 'none';
@@ -1008,8 +979,8 @@ function initEditor() {
                     if (bestSnapY !== null) {
                         newHeight += bestDiffY;
                         guideH.style.top = (sRect.top + bestSnapY) + 'px';
-                        guideH.style.left = sRect.left + 'px';
-                        guideH.style.width = sRect.width + 'px';
+                        guideH.style.left = '0px';
+                        guideH.style.width = '100%';
                         guideH.style.display = 'block';
                     } else {
                         guideH.style.display = 'none';
