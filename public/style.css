@@ -318,6 +318,45 @@ body.no-scroll {
     z-index: 3;
 }
 
+#char-counter {
+  opacity: 0;
+  transition: opacity 0.2s ease, color 0.3s;
+}
+
+#char-counter.visible {
+  opacity: 1;
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+  position: relative;
+  z-index: 20;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: #1a1a1d;
+  color: rgba(255,255,255,0.5);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.chip:hover {
+  border-color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.85);
+  background: #252528;
+}
+
 @keyframes pulse {
 
     0%,
@@ -341,6 +380,26 @@ body.no-scroll {
     cursor: default;
     user-select: none;
 }
+
+/* ================================================================
+   BACKGROUND CAROUSEL
+   ================================================================ */
+#bg-carousel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 60%;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    filter: blur(1.5px);
+    mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+}
+
+
 
 /* ================================================================
    CHAT INTERFACE           
@@ -407,9 +466,11 @@ body.no-scroll {
     color: var(--muted);
     font-weight: 400;
     margin: 0;
+    opacity: 0.4;
 }
 
 #chat-screen {
+    position: relative;
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -422,6 +483,7 @@ body.no-scroll {
     width: 100%;
     max-width: 680px;
     position: relative;
+    z-index: 10;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -442,8 +504,8 @@ body.no-scroll {
 }
 
 .chat-input-wrapper:focus-within {
-    border-color: rgba(255, 255, 255, 0.8);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.05), 0 0 0 1px var(--accent), 0 12px 40px 0 rgba(0, 0, 0, 0.4);
 }
 
 .chat-input-wrapper:focus-within #chat-typewriter-cursor {

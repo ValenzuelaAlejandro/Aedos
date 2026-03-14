@@ -251,6 +251,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (charCounter) {
             const len = val.length;
             charCounter.textContent = `${len}/600`;
+            if (len > 0) {
+                charCounter.classList.add('visible');
+            } else {
+                charCounter.classList.remove('visible');
+            }
+
             if (len > 550) {
                 charCounter.style.color = '#ff5b5b'; // Red when approaching 600
             } else {
@@ -2037,4 +2043,92 @@ document.addEventListener('DOMContentLoaded', () => {
     previewResetBtn.addEventListener('click', resetUI);
     document.getElementById('refused-back-btn').addEventListener('click', resetUI);
 
+    // =========================================================
+    // 11. BACKGROUND CAROUSEL
+    // =========================================================
+    function initCarousel() {
+        const images = [
+            '/previews/examples/slide-1.webp',
+            '/previews/examples/slide-2.webp',
+            '/previews/examples/slide-3.webp',
+            '/previews/examples/slide-4.webp',
+            '/previews/examples/slide-5.webp',
+            '/previews/examples/slide-6.webp',
+            '/previews/examples/slide-7.webp',
+            '/previews/examples/slide-8.webp',
+        ];
+
+        const inner = document.getElementById('carousel-inner');
+        if (!inner) return;
+        const SPEED = 0.4;
+        const BASE_W = 280;
+        const BASE_H = 158;
+        const MAX_W = 560;
+        const MAX_H = 315;
+        const GAP = 24;
+
+        // Triple set para loop infinito
+        const allImages = [...images, ...images, ...images];
+        const items = allImages.map(src => {
+            const div = document.createElement('div');
+            div.style.cssText = `flex-shrink:0; border-radius:14px; overflow:hidden; width:${BASE_W}px; height:${BASE_H}px; transition: width 0.15s ease, height 0.15s ease, opacity 0.15s ease;`;
+            const img = document.createElement('img');
+            img.src = src;
+            img.style.cssText = 'width:100%; height:100%; object-fit:cover; display:block;';
+            img.draggable = false;
+            div.appendChild(img);
+            inner.appendChild(div);
+            return div;
+        });
+
+        const SET_WIDTH = (BASE_W + GAP) * images.length;
+        let x = -SET_WIDTH; // empieza en el set del medio
+
+        inner.style.cssText = 'display:flex; align-items:center; gap:24px; position:absolute; left:0; top:50%; transform:translateY(-50%);';
+
+        const screenCX = window.innerWidth / 2;
+
+        function animate() {
+            x -= SPEED;
+
+            // Loop: cuando el set del medio sale por la izquierda, vuelve al inicio del medio
+            if (x <= -SET_WIDTH * 2) x += SET_WIDTH;
+            if (x > -SET_WIDTH + 1) x -= SET_WIDTH;
+
+            inner.style.left = x + 'px';
+
+            // Escalar cada item según distancia al centro
+            items.forEach(item => {
+                const rect = item.getBoundingClientRect();
+                const itemCX = rect.left + rect.width / 2;
+                const dist = Math.abs(screenCX - itemCX);
+                const maxDist = screenCX * 0.6;
+                const ratio = Math.max(0, 1 - dist / maxDist);
+
+                const w = BASE_W + (MAX_W - BASE_W) * ratio;
+                const h = BASE_H + (MAX_H - BASE_H) * ratio;
+                const opacity = 0.08 + 0.15 * ratio;
+
+                item.style.width = w + 'px';
+                item.style.height = h + 'px';
+                item.style.opacity = opacity;
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        requestAnimationFrame(() => requestAnimationFrame(animate));
+    }
+
+    initCarousel();
+
+    // Global helper for chips
+    window.fillInput = (text) => {
+        const input = document.getElementById('w-tema');
+        if (input) {
+            input.value = text;
+            input.focus();
+            input.dispatchEvent(new Event('input'));
+        }
+    };
 });

@@ -26,6 +26,9 @@
     <!-- CHAT INTERFACE           -->
     <!-- ======================== -->
     <section id="chat-screen">
+        <div id="bg-carousel">
+            <div id="carousel-inner"></div>
+        </div>
         <div class="chat-container">
             <!-- App Header -->
             <div class="app-header">
@@ -70,11 +73,59 @@
             </div>
             <div
                 style="display: flex; justify-content: flex-end; width: 100%; margin-top: -1rem; padding-right: 1.5rem; z-index: 2;">
-                <span id="char-counter"
-                    style="font-size: 0.75rem; color: var(--muted); transition: color 0.3s; font-family: var(--font-body);">0/600</span>
+                <span id="char-counter">0/600</span>
             </div>
-            <p class="app-microcopy" id="t-app-microcopy" data-i18n="app_microcopy">8–12 slides &middot; Structured content &middot; Ready to download as PDF</p>
-            <span class="error-msg" id="tema-error" style="margin-top: 5px; text-align: center;" data-i18n="tema_error">Please enter a topic to generate your presentation.</span>
+
+            <div class="suggestion-chips">
+                <button class="chip" onclick="fillInput('Roman Empire')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M3 13V7l5-4 5 4v6" />
+                        <rect x="6" y="9" width="4" height="4" rx="1" />
+                    </svg>
+                    Roman Empire
+                </button>
+                <button class="chip" onclick="fillInput('Generative AI')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="8" cy="8" r="3" />
+                        <path d="M8 1v2M8 13v2M1 8h2M13 8h2" />
+                    </svg>
+                    Generative AI
+                </button>
+                <button class="chip" onclick="fillInput('Climate Change')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M3 10c0-2.8 2.2-5 5-5s5 2.2 5 5" />
+                        <path d="M1 10h14M5 13l3-3 3 3" />
+                    </svg>
+                    Climate Change
+                </button>
+                <button class="chip" onclick="fillInput('Industrial Revolution')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="2" y="8" width="4" height="5" />
+                        <rect x="6" y="5" width="4" height="8" />
+                        <rect x="10" y="3" width="4" height="10" />
+                    </svg>
+                    Industrial Revolution
+                </button>
+                <button class="chip" onclick="fillInput('Cell Biology')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <ellipse cx="8" cy="8" rx="6" ry="4" />
+                        <circle cx="8" cy="8" r="2" />
+                    </svg>
+                    Cell Biology
+                </button>
+                <button class="chip" onclick="fillInput('Black Holes')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="8" cy="8" r="3" />
+                        <circle cx="8" cy="8" r="6" stroke-dasharray="2 2" />
+                    </svg>
+                    Black Holes
+                </button>
+            </div>
+
+            <p class="app-microcopy" id="t-app-microcopy" data-i18n="app_microcopy">8–12 slides &middot; Structured content
+                &middot; Ready to download as PDF</p>
+            <span class="error-msg" id="tema-error" style="margin-top: 5px; text-align: center;"
+                data-i18n="tema_error">Please enter a topic to generate your presentation.</span>
 
 
         </div>
