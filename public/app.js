@@ -1850,6 +1850,45 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentSlide < totalSlides - 1) scrollToSlide(currentSlide + 1);
         }
     }
+    // Global keyboard shortcut forwarding to the editor iframe
+    // This ensures Ctrl+C, Ctrl+V, and Ctrl+D work even if focus is on parent UI (header, minimap)
+    function handleGlobalShortcuts(e) {
+        if (previewContainer.classList.contains('hidden')) return;
+        
+        // Skip if user is typing in a real input/textarea in the parent
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        if (e.ctrlKey || e.metaKey) {
+            const key = e.key.toLowerCase();
+            if (key === 'c' || key === 'v' || key === 'd' || key === 'x' || key === 'z' || key === 'y') {
+                try {
+                    const iframe = document.getElementById('preview-iframe');
+                    const iframeWin = iframe.contentWindow;
+                    
+                    // Check if an element is selected in the editor
+                    if (iframeWin && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
+                        // Forward the event to the iframe
+                        const event = new KeyboardEvent('keydown', {
+                            key: e.key,
+                            ctrlKey: e.ctrlKey,
+                            metaKey: e.metaKey,
+                            shiftKey: e.shiftKey,
+                            altKey: e.altKey,
+                            bubbles: true
+                        });
+                        iframeWin.dispatchEvent(event);
+                        
+                        // Prevent the default parent action (like Ctrl+D bookmarking or Ctrl+C copying empty parent)
+                        e.preventDefault();
+                    }
+                } catch (err) {
+                    console.error("Error forwarding shortcut to iframe:", err);
+                }
+            }
+        }
+    }
+    document.addEventListener('keydown', handleGlobalShortcuts, true); // useCapture to intercept before others
+
     document.addEventListener('keydown', handleSlideKeyboardNav);
 
     // Mouse wheel navigation for slides

@@ -1005,6 +1005,9 @@ function initEditor() {
 
     function selectElement(el) {
         if (selectionObserver) selectionObserver.disconnect();
+        
+        // Ensure the iframe has focus so keyboard shortcuts (Ctrl+C/V/D) work immediately
+        window.focus();
 
         selectedElement = el;
 
@@ -1223,6 +1226,12 @@ function initEditor() {
                     // Show brief visual feedback
                     selectedElement.style.outline = '2px solid rgba(255,255,255,0.6)';
                     setTimeout(() => { if (selectedElement) selectedElement.style.outline = ''; }, 300);
+                    e.preventDefault();
+                }
+            } else if (e.key.toLowerCase() === 'x' && !isEditingText) {
+                if (selectedElement) {
+                    _clipboard = selectedElement.cloneNode(true);
+                    deleteElement(selectedElement);
                     e.preventDefault();
                 }
             } else if (e.key.toLowerCase() === 'v' && !isEditingText) {
