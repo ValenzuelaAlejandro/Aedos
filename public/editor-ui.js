@@ -1143,18 +1143,6 @@ window.initEditorUI = function (iframe) {
     // --- 3. TOOLS PANEL CONTROL ---
     const toolsPanel = document.getElementById('editor-tools-panel');
 
-    // Close button logic
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'tools-close-btn';
-    closeBtn.innerHTML = '&times;';
-    closeBtn.title = 'Cerrar panel';
-    toolsPanel.appendChild(closeBtn);
-
-    closeBtn.addEventListener('click', () => {
-        toolsPanel.classList.add('is-empty');
-        toolsPanel.classList.remove('is-fixed');
-        if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
-    });
 
     // Make panel stay open when interacting/adding elements
     function fixToolsPanel() {

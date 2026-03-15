@@ -2782,23 +2782,6 @@ section.s.active > * {
     box-shadow: -4px 0 15px rgba(0, 0, 0, 0.3);
 }
 
-.tools-close-btn {
-    position: absolute;
-    top: 0.8rem;
-    right: 0.8rem;
-    background: transparent;
-    border: none;
-    color: var(--muted);
-    font-size: 1.5rem;
-    line-height: 1;
-    cursor: pointer;
-    display: none;
-    z-index: 10;
-}
-
-.editor-tools-panel.is-fixed .tools-close-btn {
-    display: block;
-}
 
 .tools-close-btn:hover {
     color: var(--text);
