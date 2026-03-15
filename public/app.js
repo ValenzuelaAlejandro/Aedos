@@ -2043,167 +2043,233 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('refused-back-btn').addEventListener('click', resetUI);
 
     // =========================================================
-    // 11. BACKGROUND CAROUSEL
+    // 11. LANDING SCROLLYTELLING (THREE.JS CINEMATIC)
     // =========================================================
-    function initPhysicsScrolly() {
-        const container = document.getElementById('physics-container');
-        const scrollySection = document.getElementById('scrollytelling');
-        const phaseSections = document.querySelectorAll('.phase-section');
-        const keywords = document.querySelectorAll('.keyword');
-        if (!container || !scrollySection) return;
+    class ThreeScrollytelling {
+        constructor() {
+            this.container = document.getElementById('scrolly-canvas-container');
+            if (!this.container) return;
 
-        const images = Array.from({ length: 8 }, (_, i) => `/previews/examples/slide-${i + 1}.webp`);
-        const cards = [];
-        const mouse = { x: -1000, y: -1000 };
-        let globalOrbitAngle = 0;
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            this.container.appendChild(this.renderer.domElement);
 
-        images.forEach((src, i) => {
-            const el = document.createElement('div');
-            el.className = 'physics-card';
-            const img = document.createElement('img');
-            img.src = src;
-            el.appendChild(img);
-            container.appendChild(el);
+            this.clock = new THREE.Clock();
+            this.initLights();
+            this.initObjects();
+            this.initLenis();
+            this.initScrollTrigger();
+            this.animate();
 
-            cards.push({
-                el,
-                width: 0, height: 0,
-                x: Math.random() * window.innerWidth,
-                y: -800 - (Math.random() * 800),
-                vx: 0,
-                vy: 0,
-                rotation: (Math.random() - 0.5) * 30,
-                vRotation: 0,
-                targetX: 0,
-                targetY: 0,
-                targetRotation: 0,
-                scale: 1,
-                targetScale: 1,
-                orbitOffset: (i / 8) * Math.PI * 2 
-            });
-        });
-
-        function resize() {
-            cards.forEach(card => {
-                const rect = card.el.getBoundingClientRect();
-                card.width = rect.width;
-                card.height = rect.height;
-            });
+            window.addEventListener('resize', () => this.onResize());
         }
-        window.addEventListener('resize', resize);
-        resize();
 
-        window.addEventListener('mousemove', (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
-        });
+        initLights() {
+            const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+            this.scene.add(ambient);
 
-        function update() {
-            const scrollY = window.scrollY;
-            const viewH = window.innerHeight;
-            const start = scrollySection.offsetTop;
-            const height = scrollySection.offsetHeight;
-            const progress = Math.max(0, Math.min(1, (scrollY - start) / (height - viewH)));
+            this.pointLight = new THREE.PointLight(0xffffff, 2);
+            this.pointLight.position.set(5, 5, 5);
+            this.scene.add(this.pointLight);
 
-            // Phase tracking
-            let phase = 'fall';
-            if (progress > 0.35) phase = 'shuffle';
-            if (progress > 0.7) phase = 'explode';
+            const blueLight = new THREE.PointLight(0x3b82f6, 10, 20);
+            blueLight.position.set(-5, -2, 2);
+            this.scene.add(blueLight);
+        }
 
-            keywords.forEach(kw => {
-                kw.classList.toggle('active', kw.dataset.phase === phase);
+        initObjects() {
+            // Step 1: Neural Core (Icosahedron with Wireframe)
+            this.coreGroup = new THREE.Group();
+            
+            const coreGeom = new THREE.IcosahedronGeometry(2, 2);
+            const coreMat = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            this.coreMesh = new THREE.Mesh(coreGeom, coreMat);
+            this.coreGroup.add(this.coreMesh);
+
+            const innerGeom = new THREE.IcosahedronGeometry(1.2, 1);
+            const innerMat = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff, 
+                emissive: 0xffffff,
+                emissiveIntensity: 0.5
+            });
+            this.innerCore = new THREE.Mesh(innerGeom, innerMat);
+            this.coreGroup.add(this.innerCore);
+
+            this.scene.add(this.coreGroup);
+
+            // Step 2 & 3: Particles / Crystals (InstancedMesh for performance)
+            this.particleCount = 500;
+            const partGeom = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+            const partMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            this.particles = new THREE.InstancedMesh(partGeom, partMat, this.particleCount);
+            
+            this.dummy = new THREE.Object3D();
+            for(let i=0; i<this.particleCount; i++) {
+                this.dummy.position.set(
+                    (Math.random() - 0.5) * 20,
+                    (Math.random() - 0.5) * 20,
+                    (Math.random() - 0.5) * 20
+                );
+                this.dummy.updateMatrix();
+                this.particles.setMatrixAt(i, this.dummy.matrix);
+            }
+            this.particles.visible = false;
+            this.scene.add(this.particles);
+
+            this.camera.position.z = 10;
+        }
+
+        initLenis() {
+            if (typeof Lenis !== 'undefined') {
+                this.lenis = new Lenis({
+                    duration: 1.2,
+                    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+                    orientation: 'vertical',
+                    smoothWheel: true,
+                });
+
+                function raf(time) {
+                    this.lenis.raf(time);
+                    requestAnimationFrame(raf.bind(this));
+                }
+                requestAnimationFrame(raf.bind(this));
+            }
+        }
+
+        initScrollTrigger() {
+            gsap.registerPlugin(ScrollTrigger);
+            const steps = gsap.utils.toArray('.narrative-step');
+            const sections = steps.length;
+            const sectionSelector = '.scrolly-three-section';
+
+            // Global container height based on steps
+            gsap.set(sectionSelector, { height: (sections * 100) + "vh" });
+
+            // Global container fade in
+            gsap.to(this.container, {
+                opacity: 1,
+                scrollTrigger: {
+                    trigger: sectionSelector,
+                    start: "top 80%",
+                    end: "top 20%",
+                    scrub: true
+                }
             });
 
-            // Dramatized global orbit
-            globalOrbitAngle += 0.004;
-
-            cards.forEach((card, i) => {
-                const cx = window.innerWidth / 2;
-                const cy = window.innerHeight / 2;
-                const time = Date.now();
-
-                // 1. PHASE CHOREOGRAPHY
-                if (phase === 'fall') {
-                    const angle = globalOrbitAngle + card.orbitOffset;
-                    const radiusX = window.innerWidth * 0.35;
-                    const radiusY = window.innerHeight * 0.22;
-                    card.targetX = cx + Math.cos(angle) * radiusX - card.width / 2;
-                    // Initial fall starts low and moves up
-                    card.targetY = cy + Math.sin(angle * 0.5) * radiusY - card.height / 2 + window.innerHeight * 0.6;
-                    card.targetRotation = Math.cos(angle) * 6;
-                    card.targetScale = 0.85;
-                } else if (phase === 'shuffle') {
-                    // Realistic deck fan
-                    card.targetX = cx - card.width / 2 + (i - 3.5) * 12;
-                    card.targetY = cy - card.height / 2 + (i - 3.5) * 3;
-                    card.targetRotation = (i - 3.5) * 2.5;
-                    card.targetScale = 1;
-                } else if (phase === 'explode') {
-                    const angle = (i / cards.length) * Math.PI * 2 + (progress * 1.2);
-                    const blastProgress = (progress - 0.7) / 0.3;
-                    const dist = 280 + blastProgress * 400; // Stay within visible range
-                    card.targetX = cx + Math.cos(angle) * dist - card.width / 2;
-                    card.targetY = cy + Math.sin(angle) * dist - card.height / 2;
-                    card.targetRotation = angle * (180 / Math.PI) * 0.2;
-                    card.targetScale = 0.6;
-                }
-
-                // 2. LIQUID PHYSICS ENGINE
-                const spring = 0.06; 
-                const damping = 0.78; 
-                
-                card.vx += (card.targetX - card.x) * spring;
-                card.vy += (card.targetY - card.y) * spring;
-                
-                // Subtle life oscillation
-                card.vx += Math.sin(time * 0.0008 + i * 1.2) * 0.08;
-                card.vy += Math.cos(time * 0.0006 + i * 0.9) * 0.08;
-
-                // Soft Repulsion (Large limit, small force)
-                const dx = card.x + card.width/2 - mouse.x;
-                const dy = card.y + card.height/2 - mouse.y;
-                const distMouse = Math.sqrt(dx*dx + dy*dy);
-                
-                if (distMouse < 280) {
-                    const force = Math.pow(1 - distMouse / 280, 2) * 8;
-                    card.vx += (dx / distMouse) * force;
-                    card.vy += (dy / distMouse) * force;
-                }
-                
-                // Central Zone Exclusion (Keeps text clear)
-                if (phase !== 'shuffle') {
-                    const dcx = card.x + card.width/2 - cx;
-                    const dcy = card.y + card.height/2 - cy;
-                    const distCenter = Math.sqrt(dcx*dcx + dcy*dcy);
-                    if (distCenter < 200) {
-                        const cForce = (1 - distCenter / 200) * 2;
-                        card.vx += (dcx / distCenter) * cForce;
-                        card.vy += (dcy / distCenter) * cForce;
+            // Master Timeline (Synced with Scroll)
+            const tl = gsap.timeline({
+                scrollTrigger: {
+                    trigger: sectionSelector,
+                    start: "top top",
+                    end: "bottom bottom",
+                    scrub: 1.5,
+                    onUpdate: (self) => {
+                        const prog = self.progress * 100;
+                        document.querySelector('.v-fill').style.height = prog + '%';
+                        const activeIdx = Math.min(Math.floor(self.progress * sections), sections - 1);
+                        document.querySelectorAll('.v-numbers span').forEach((n, i) => {
+                            n.classList.toggle('active', i === activeIdx);
+                        });
                     }
                 }
-
-                // Final Update
-                card.vx *= damping;
-                card.vy *= damping;
-                card.x += card.vx;
-                card.y += card.vy;
-
-                // Liquid Rotation
-                card.vRotation += (card.targetRotation - card.rotation) * 0.01;
-                card.vRotation *= 0.9;
-                card.rotation += card.vRotation;
-
-                // Commit
-                card.el.style.transform = `translate3d(${card.x}px, ${card.y}px, 0) rotate(${card.rotation}deg) scale(${card.targetScale})`;
             });
 
-            requestAnimationFrame(update);
+            // Camera & Object Animation Timeline
+            tl.to(this.camera.position, { z: 5, duration: 2, ease: "none" })
+              .to(this.coreGroup.rotation, { y: Math.PI * 2, duration: 2, ease: "none" }, "<")
+              .to(this.coreMesh.scale, { x: 5, y: 5, z: 5, duration: 1.5 }, "<+=1")
+              .to(this.coreMesh.material, { opacity: 0, duration: 1 }, "<")
+              .set(this.particles, { visible: true }, "<");
+
+            tl.to(this.camera.position, { y: 2, z: 15, duration: 3, ease: "power2.inOut" })
+              .to(this.camera.rotation, { x: -0.2, duration: 2 }, "<");
+
+            // Narrative Steps Transitions (Sequence to avoid overlap + Distinct animations)
+            const stepDuration = tl.totalDuration() / sections;
+            
+            steps.forEach((step, i) => {
+                const content = step.querySelector('.step-content');
+                const startTime = i * stepDuration;
+                
+                // Varied Animation Styles per Step
+                let entranceVars = { opacity: 1, duration: 0.8, ease: "power3.out" };
+                let exitVars = { opacity: 0, duration: 0.6, ease: "power2.in" };
+
+                if (i === 0) { // Step 1: Horizontal Slide
+                    gsap.set(content, { x: -100, opacity: 0 });
+                    entranceVars.x = 0;
+                    exitVars.x = 50;
+                } else if (i === 1) { // Step 2: Zoom & Blur
+                    gsap.set(content, { scale: 0.8, filter: "blur(10px)", opacity: 0 });
+                    entranceVars.scale = 1;
+                    entranceVars.filter = "blur(0px)";
+                    exitVars.scale = 1.2;
+                    exitVars.filter = "blur(15px)";
+                } else if (i === 2) { // Step 3: 3D Tilt
+                    gsap.set(content, { rotateY: 30, x: 100, opacity: 0 });
+                    entranceVars.rotateY = 0;
+                    entranceVars.x = 0;
+                    exitVars.rotateY = -30;
+                    exitVars.x = -100;
+                } else { // Step 4: Vertical Reveal
+                    gsap.set(content, { y: 100, opacity: 0 });
+                    entranceVars.y = 0;
+                }
+
+                // Add Entrance to Timeline
+                tl.to(content, entranceVars, startTime);
+
+                // Add Exit (Except for the last step)
+                if (i < sections - 1) {
+                    tl.to(content, exitVars, startTime + stepDuration - 0.8);
+                }
+            });
         }
 
-        update();
+        onResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        animate() {
+            requestAnimationFrame(() => this.animate());
+            const time = this.clock.getElapsedTime();
+
+            if (this.coreGroup) {
+                this.coreGroup.rotation.y += 0.005;
+                this.coreGroup.position.y = Math.sin(time) * 0.2;
+            }
+
+            if (this.particles.visible) {
+                for(let i=0; i<this.particleCount; i++) {
+                    this.particles.getMatrixAt(i, this.dummy.matrix);
+                    this.dummy.matrix.decompose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+                    this.dummy.position.y += Math.sin(time + i) * 0.01;
+                    this.dummy.rotation.x += 0.01;
+                    this.dummy.updateMatrix();
+                    this.particles.setMatrixAt(i, this.dummy.matrix);
+                }
+                this.particles.instanceMatrix.needsUpdate = true;
+            }
+
+            this.renderer.render(this.scene, this.camera);
+        }
     }
 
-    initPhysicsScrolly();
+    function initLandingScrollytelling() {
+        new ThreeScrollytelling();
+    }
+
+    initLandingScrollytelling();
 
     // Global helper for chips
     window.fillInput = (text) => {
@@ -2215,44 +2281,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // =========================================================
-    // 12. SCROLL LOOP SYSTEM
-    // =========================================================
-    let lastScrollY = window.scrollY;
-    let isRedirecting = false;
-
-    window.addEventListener('scroll', () => {
-        if (previewContainer && !previewContainer.classList.contains('hidden')) return;
-        if (isRedirecting) return;
-
-        const scrollY = window.scrollY;
-        const windowHeight = window.innerHeight;
-        const documentHeight = document.documentElement.scrollHeight;
-        
-        // --- 1. PREVENT SCROLL UP AT THE TOP ---
-        // If we are at the top and trying to scroll up, lock it.
-        if (scrollY <= 0 && scrollY < lastScrollY) {
-            window.scrollTo(0, 0);
-            lastScrollY = 0;
-            return;
-        }
-
-        // --- 2. REDIRECT TO TOP AT THE BOTTOM (LOOP) ---
-        // Detect if user is at the bottom and scrolling DOWN
-        if (scrollY + windowHeight >= documentHeight - 10 && scrollY > lastScrollY) {
-            isRedirecting = true;
-            // Smoothly jump to top
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-            
-            // Re-enable after transition
-            setTimeout(() => {
-                isRedirecting = false;
-            }, 800);
-        }
-
-        lastScrollY = scrollY;
-    }, { passive: false });
+    // Scroll is now native; no custom scroll-loop system
 });

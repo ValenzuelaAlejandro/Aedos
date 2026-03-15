@@ -15,13 +15,22 @@
     <link rel="stylesheet" href="style.css?v=3">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- GSAP for premium animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
     <!-- Motion Library (vanilla) -->
     <script src="https://unpkg.com/motion@latest/dist/motion.js"></script>
     <!-- i18n Translation System -->
     <script src="i18n.js"></script>
+    <!-- Three.js & Lenis -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.33/dist/lenis.min.js"></script>
 </head>
 
 <body>
+    <!-- 3D Canvas Container -->
+    <div id="scrolly-canvas-container"></div>
     <!-- ======================== -->
     <!-- CHAT INTERFACE           -->
     <!-- ======================== -->
@@ -128,29 +137,58 @@
         </div>
     </section>
 
-    <section id="scrollytelling">
-        <!-- The background where physics cards live -->
-        <div id="physics-container"></div>
+    <section id="scrolly-three" class="scrolly-three-section">
+        <div class="scrolly-narrative">
+            <!-- Step 1 -->
+            <article class="narrative-step" data-step="0">
+                <div class="step-content">
+                    <span class="step-label">01 // THE ARCHITECT</span>
+                    <h1>Neural <br><span>Architecture.</span></h1>
+                    <p>Our AI analyzes your intent, constructing a deep logical structure before a single pixel is rendered.</p>
+                </div>
+            </article>
 
-        <!-- Scroll-tracking phases (Centered) -->
-        <div class="phase-area">
-            <div class="phase-section" data-phase="fall">
-                <div class="keyword-wrap">
-                    <span class="keyword" data-phase="fall">IDEATE</span>
-                    <p class="keyword-sub">Write anything. The AI understands your vision and context instantly.</p>
+            <!-- Step 2 -->
+            <article class="narrative-step" data-step="1">
+                <div class="step-content">
+                    <span class="step-label">02 // THE VISION</span>
+                    <h1>Dynamic <br><span>Design.</span></h1>
+                    <p>A library of curated aesthetic DNA. From brutalist grids to organic layouts, tailored to your brand.</p>
                 </div>
+            </article>
+
+            <!-- Step 3 -->
+            <article class="narrative-step" data-step="2">
+                <div class="step-content">
+                    <span class="step-label">03 // THE ENGINE</span>
+                    <h1>Fluid <br><span>Refinery.</span></h1>
+                    <p>Adapt, edit, and pivot in real-time. A professional grade editor built for speed and visual precision.</p>
+                </div>
+            </article>
+
+            <!-- Step 4 -->
+            <article class="narrative-step" data-step="3">
+                <div class="step-content">
+                    <span class="step-label">04 // THE DELIVERY</span>
+                    <h1>Pixel <br><span>Perfect.</span></h1>
+                    <p>High-fidelity exports. Vector-grade PDFs ready for the world's biggest screens.</p>
+                    <button class="cta-cooking-v3" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+                        Start Cooking
+                    </button>
+                </div>
+            </article>
+        </div>
+
+        <!-- Progress Overlay -->
+        <div class="three-ui-overlay">
+            <div class="v-line-progress">
+                <div class="v-fill"></div>
             </div>
-            <div class="phase-section" data-phase="shuffle">
-                <div class="keyword-wrap">
-                    <span class="keyword" data-phase="shuffle">CRAFT</span>
-                    <p class="keyword-sub">Smart layouts. Automatic structure. Every slide designed to perfection.</p>
-                </div>
-            </div>
-            <div class="phase-section" data-phase="explode">
-                <div class="keyword-wrap">
-                    <span class="keyword" data-phase="explode">SHARE</span>
-                    <p class="keyword-sub">Ready to present. Export to PDF or share a live link in seconds.</p>
-                </div>
+            <div class="v-numbers">
+                <span>01</span>
+                <span>02</span>
+                <span>03</span>
+                <span>04</span>
             </div>
         </div>
     </section>

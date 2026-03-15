@@ -385,115 +385,148 @@ body.no-scroll {
 }
 
 /* ================================================================
-   THEATRICAL CENTERED SCROLLYTELLING
+   LANDING SCROLLYTELLING – THREE.JS ENGINE
    ================================================================ */
-#scrollytelling {
-  position: relative;
-  width: 100%;
+#scrolly-canvas-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: 1; /* Behind narrative, above global bg */
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1s ease;
 }
 
-#physics-container {
-  position: fixed;
-  top: -8vh;
-  left: 0;
-  width: 100%;
-  height: 108vh;
-  pointer-events: none;
-  z-index: 1;
+.scrolly-three-section {
+    position: relative;
+    width: 100%;
+    z-index: 10;
+    background: transparent;
+    /* This section will have its full height (e.g., 600vh) */
 }
 
-.physics-card {
-  position: absolute;
-  width: clamp(280px, 30vw, 550px);
-  aspect-ratio: 16/9;
-  border-radius: 12px;
-  overflow: hidden;
-  will-change: transform;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.6);
-  background: #121212;
-  pointer-events: auto;
-  z-index: 10;
-  transition: opacity 0.8s ease, filter 0.8s ease;
+.scrolly-narrative {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    max-width: 1400px;
+    height: 100vh;
+    margin: 0 auto;
+    pointer-events: none;
+    overflow: hidden;
 }
 
-.physics-card.dimmed {
-  opacity: 0.3;
-  filter: blur(2px) grayscale(0.5);
+.narrative-step {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 8vw;
+    color: #fff;
+    pointer-events: none;
+    opacity: 1; /* Always present, but content inside will fade */
 }
 
-.physics-card img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.step-content {
+    max-width: 600px;
+    opacity: 0;
+    transform: translateY(50px);
+    pointer-events: auto;
 }
 
-.phase-area {
-  position: relative;
-  z-index: 20; /* Keep text slightly above background cards but below center clear zone */
+.narrative-step h1 {
+    font-size: clamp(3.5rem, 8vw, 6rem);
+    font-family: var(--font-display);
+    line-height: 0.85;
+    margin-bottom: 2.5rem;
+    letter-spacing: -0.02em;
 }
 
-.phase-section {
-  height: 180vh;
-  position: relative;
+.narrative-step h1 span {
+    color: rgba(255,255,255,0.3);
 }
 
-.keyword-wrap {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  text-align: center;
-  gap: 1.5rem;
+.narrative-step p {
+    font-size: 1.25rem;
+    line-height: 1.6;
+    color: var(--muted);
+    font-weight: 300;
+    max-width: 450px;
 }
 
-.keyword {
-  font-family: var(--font-display);
-  font-size: clamp(4rem, 15vw, 12rem);
-  font-weight: 900;
-  color: #fff;
-  text-transform: uppercase;
-  letter-spacing: -0.04em;
-  line-height: 0.8;
-  opacity: 0;
-  transform: scale(0.9);
-  transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
-  text-shadow: 0 0 30px rgba(0,0,0,0.8), 0 0 60px rgba(0,0,0,0.4);
+/* UI PROGRESS V3 */
+.three-ui-overlay {
+    position: fixed;
+    right: 4vw;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    z-index: 100;
+    pointer-events: none;
 }
 
-.keyword.active {
-  opacity: 1;
-  transform: scale(1);
+.v-line-progress {
+    width: 1px;
+    height: 300px;
+    background: rgba(255,255,255,0.1);
+    position: relative;
 }
 
-.keyword-sub {
-  font-family: var(--font-body);
-  font-size: clamp(1.1rem, 2vw, 1.5rem);
-  color: rgba(255, 255, 255, 0.75);
-  max-width: 480px;
-  line-height: 1.6;
-  margin-top: 1.2rem;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
-  transition-delay: 0.5s;
-  text-align: center;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.9);
+.v-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 0%;
+    background: #fff;
 }
 
-.keyword.active + .keyword-sub {
-  opacity: 1;
-  transform: translateY(0);
+.v-numbers {
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
 }
 
-/* Phase Colors (Theatrical Glow) */
-[data-phase="fall"] .keyword.active { color: #facc15; }
-[data-phase="shuffle"] .keyword.active { color: #22d3ee; }
-[data-phase="explode"] .keyword.active { color: #f472b6; }
+.v-numbers span {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: rgba(255,255,255,0.2);
+    transition: color 0.4s ease;
+}
+
+.v-numbers span.active {
+    color: #fff;
+}
+
+/* CTA COOKING V3 */
+.cta-cooking-v3 {
+    margin-top: 3rem;
+    padding: 1.2rem 3rem;
+    background: #fff;
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.4s ease;
+}
+
+.cta-cooking-v3:hover {
+    letter-spacing: 0.3em;
+    background: #e0e0e0;
+}
+
+
+
 
 
 
@@ -560,13 +593,16 @@ body.no-scroll {
 
 #chat-screen {
     position: relative;
-    min-height: 92vh;
+    width: 100%;
+    min-height: 100vh; /* Exactly full screen */
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10;
+    z-index: 100; /* Over everything at start */
+    background: var(--bg);
     padding: 2rem;
-    padding-bottom: 6rem;
+    padding-bottom: 0px; 
+    margin: 0;
 }
 
 .chat-container {
