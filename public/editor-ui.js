@@ -74,6 +74,16 @@ window.initEditorUI = function (iframe) {
         if (!minimapList) return;
         minimapList.innerHTML = '';
         const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
+        const MAX_SLIDES = 15;
+        const reachedLimit = slides.length >= MAX_SLIDES;
+
+        // Disable add buttons visual state
+        if (addSlideBtn) {
+            addSlideBtn.disabled = reachedLimit;
+            addSlideBtn.style.opacity = reachedLimit ? '0.5' : '1';
+            addSlideBtn.style.pointerEvents = reachedLimit ? 'none' : 'auto';
+        }
+
         if (slides.length === 0) {
             const sections = Array.from(iframeDoc.querySelectorAll('section'));
             if (sections.length > 0) slides.push(...sections);
@@ -158,9 +168,15 @@ window.initEditorUI = function (iframe) {
             const dupBtn = document.createElement('button');
             dupBtn.className = 'minimap-dup-btn';
             dupBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-            dupBtn.title = 'Duplicate Slide';
+            dupBtn.title = reachedLimit ? 'Limit reached (15 slides max)' : 'Duplicate Slide';
+            dupBtn.disabled = reachedLimit;
+            if (reachedLimit) {
+                dupBtn.style.opacity = '0.5';
+                dupBtn.style.cursor = 'not-allowed';
+            }
             dupBtn.onclick = (e) => {
                 e.stopPropagation();
+                if (reachedLimit) return;
                 if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
                 const newSlide = slide.cloneNode(true);
                 newSlide.classList.remove('active');
@@ -358,8 +374,9 @@ window.initEditorUI = function (iframe) {
     // Add Slide
     if (addSlideBtn) {
         addSlideBtn.addEventListener('click', () => {
-            if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
             const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
+            if (slides.length >= 15) return;
+            if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
             if (slides.length === 0) return;
             const activeSlide = slides.find(s => s.classList.contains('active')) || slides[slides.length - 1];
 
@@ -407,8 +424,9 @@ window.initEditorUI = function (iframe) {
         if (window.eidosNextSlide) window.eidosNextSlide();
     });
     iframeWin.addEventListener('eidos-duplicate-slide', () => {
+        const slidesCount = iframeDoc.querySelectorAll('section[class*="s"]').length;
+        if (slidesCount >= 15) return;
         if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
-        const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
         if (slides.length === 0) return;
         const activeSlide = slides.find(s => s.classList.contains('active')) || slides[0];
 
@@ -446,6 +464,7 @@ window.initEditorUI = function (iframe) {
         }
 
         if (!el) {
+            const reachedLimit = iframeDoc.querySelectorAll('section[class*="s"]').length >= 15;
             // Render Slide level tools
             dynamicContainer.innerHTML = `
                 <div class="tool-section">
@@ -459,7 +478,7 @@ window.initEditorUI = function (iframe) {
                 </div>
 
                 <div class="tool-section" style="margin-top:0.5rem; border-top:1px solid var(--border); padding-top:1rem;">
-                    <button id="tool-add-slide-alt" class="add-el-btn" style="width:100%; padding:0.8rem; border:1px dashed var(--border); flex-direction:row; gap:0.8rem;">
+                    <button id="tool-add-slide-alt" class="add-el-btn" ${reachedLimit ? 'disabled' : ''} style="width:100%; padding:0.8rem; border:1px dashed var(--border); flex-direction:row; gap:0.8rem; ${reachedLimit ? 'opacity:0.5; pointer-events:none;' : ''}">
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
