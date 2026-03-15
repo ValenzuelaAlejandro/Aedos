@@ -401,10 +401,10 @@ window.initEditorUI = function (iframe) {
 
     // Subscriptions for keyboard navigation and duplication
     iframeWin.addEventListener('eidos-navigate-prev', () => {
-        document.getElementById('prev-slide')?.click();
+        if (window.eidosPrevSlide) window.eidosPrevSlide();
     });
     iframeWin.addEventListener('eidos-navigate-next', () => {
-        document.getElementById('next-slide')?.click();
+        if (window.eidosNextSlide) window.eidosNextSlide();
     });
     iframeWin.addEventListener('eidos-duplicate-slide', () => {
         if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();

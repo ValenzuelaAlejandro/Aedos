@@ -301,9 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('btn-back-to-chat'),
             document.getElementById('btn-regenerate'),
             document.getElementById('preview-reset-btn'),
-            document.getElementById('finalize-btn'),
-            document.getElementById('prev-slide'),
-            document.getElementById('next-slide')
+            document.getElementById('finalize-btn')
         ];
 
         if (isLoading) {
@@ -425,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         // Wait for the AI's first chunk with a loading screen
-        iframeDoc.write(loadingHtml);
+        iframeDoc.write('<!DOCTYPE html>' + loadingHtml);
 
         // Immediately update preview label
         const previewLabel = document.getElementById('preview-topic-label');
@@ -753,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
                 iframeDoc.open();
-                iframeDoc.write(generatedHtml);
+                iframeDoc.write('<!DOCTYPE html>' + generatedHtml);
                 iframeDoc.close();
 
                 currentSlide = 0;
@@ -844,7 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const doc = previewIframe.contentDocument || previewIframe.contentWindow.document;
             doc.open();
-            doc.write(html);
+            doc.write('<!DOCTYPE html>' + html);
             doc.close();
             console.log('initPreview: updated iframe with final HTML');
         }
@@ -1390,11 +1388,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Mutable ref so re-keying after Ctrl+Z just updates .current
             // instead of recreating all event listeners
             const slotRef = { current: slotEl };
+            const slotIdCode = slotEl.dataset.imageSlot || Math.random().toString(36).substr(2, 9);
+            const inputId = `eidos-img-input-${slotIdCode}`;
 
             const input = document.createElement('input');
             input.type = 'file';
+            input.id = inputId;
             input.accept = 'image/*';
             input.className = '_slot-overlay-input';
+            input.setAttribute('aria-label', 'Upload image');
             input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;width:1px;height:1px;pointer-events:none;';
             document.body.appendChild(input);
 
@@ -1409,6 +1411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const label = document.createElement('label');
+            label.htmlFor = inputId;
             label.className = '_slot-overlay-label';
             label.style.cssText = 'position:fixed;display:none;z-index:100000;cursor:pointer;background:transparent;pointer-events:none;';
             label.addEventListener('click', (e) => {
@@ -1740,6 +1743,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (_refreshSlotOverlays) setTimeout(_refreshSlotOverlays, 50);
         }
     }
+    
+    // Global navigation helpers for editor and other modules
+    window.eidosScrollToSlide = scrollToSlide;
+    window.eidosPrevSlide = () => {
+        if (currentSlide > 0) scrollToSlide(currentSlide - 1);
+    };
+    window.eidosNextSlide = () => {
+        if (currentSlide < totalSlides - 1) scrollToSlide(currentSlide + 1);
+    };
+    window.eidosGetCurrentSlide = () => currentSlide;
+    window.eidosGetTotalSlides = () => totalSlides;
 
     function buildDots() {
         slideDots.innerHTML = '';

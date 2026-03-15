@@ -67,6 +67,7 @@
                             id="chat-typewriter-cursor" class="typewriter-cursor">|</span>
                     </span>
                     <textarea id="w-tema" class="chat-input" autocomplete="off" autofocus rows="1" maxlength="600"
+                        aria-label="Presentation topic"
                         style="resize: none; min-height: 1.5rem;"></textarea>
                 </div>
                 <div class="chat-actions">
@@ -219,7 +220,7 @@
                     </svg>
                 </button>
                 <input type="text" class="preview-topic-input" id="preview-topic-label" value="Untitled draft"
-                    placeholder="Presentation name" data-i18n-val="untitled_draft" data-i18n-placeholder="presentation_name" />
+                    placeholder="Presentation name" aria-label="Presentation title" data-i18n-val="untitled_draft" data-i18n-placeholder="presentation_name" />
             </div>
 
             <div class="preview-unified-center">
@@ -246,6 +247,7 @@
                 </button>
 
                 <select id="canvas-zoom-select" class="action-btn text-link"
+                    aria-label="Canvas zoom"
                     style="background:transparent; border:none; cursor:pointer; color:var(--text); font-family:var(--font-body); font-size:0.9rem;">
                     <option value="fit" selected data-i18n="fit">Fit</option>
                     <option value="0.5">50%</option>

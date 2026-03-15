@@ -1023,7 +1023,8 @@ function initEditor() {
 
         updateSelectionBox();
         updateSizeDisplay();
-        document.getElementById('eidos-color-picker').style.display = 'none';
+        const colorPicker = document.getElementById('eidos-color-picker');
+        if (colorPicker) colorPicker.style.display = 'none';
 
         // Observe changes to the element (like style or classes) to update the selection box automatically
         selectionObserver = new MutationObserver((mutations) => {
@@ -1060,7 +1061,9 @@ function initEditor() {
         selectedElement = null;
         selectionBox.style.display = 'none';
         toolbar.style.display = 'none';
-        document.getElementById('eidos-color-picker').style.display = 'none';
+        
+        const colorPicker = document.getElementById('eidos-color-picker');
+        if (colorPicker) colorPicker.style.display = 'none';
 
         // Notify parent UI
         window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: null } }));
