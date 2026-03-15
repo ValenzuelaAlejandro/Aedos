@@ -26,9 +26,6 @@
     <!-- CHAT INTERFACE           -->
     <!-- ======================== -->
     <section id="chat-screen">
-        <div id="bg-carousel">
-            <div id="carousel-inner"></div>
-        </div>
         <div class="chat-container">
             <!-- App Header -->
             <div class="app-header">
@@ -36,6 +33,8 @@
                     <span class="logo-eidos">Eidos</span><span class="logo-lab">lab</span>
                     <div class="dot"></div>
                 </div>
+                <p class="app-microcopy" id="t-app-microcopy" data-i18n="app_microcopy">8–12 slides &middot; Structured content
+                    &middot; Ready to download as PDF</p>
             </div>
 
             <!-- Chat Input Area -->
@@ -121,12 +120,38 @@
                 </button>
             </div>
 
-            <p class="app-microcopy" id="t-app-microcopy" data-i18n="app_microcopy">8–12 slides &middot; Structured content
-                &middot; Ready to download as PDF</p>
+
             <span class="error-msg" id="tema-error" style="margin-top: 5px; text-align: center;"
                 data-i18n="tema_error">Please enter a topic to generate your presentation.</span>
 
 
+        </div>
+    </section>
+
+    <section id="scrollytelling">
+        <!-- The background where physics cards live -->
+        <div id="physics-container"></div>
+
+        <!-- Scroll-tracking phases (Centered) -->
+        <div class="phase-area">
+            <div class="phase-section" data-phase="fall">
+                <div class="keyword-wrap">
+                    <span class="keyword" data-phase="fall">IDEATE</span>
+                    <p class="keyword-sub">Write anything. The AI understands your vision and context instantly.</p>
+                </div>
+            </div>
+            <div class="phase-section" data-phase="shuffle">
+                <div class="keyword-wrap">
+                    <span class="keyword" data-phase="shuffle">CRAFT</span>
+                    <p class="keyword-sub">Smart layouts. Automatic structure. Every slide designed to perfection.</p>
+                </div>
+            </div>
+            <div class="phase-section" data-phase="explode">
+                <div class="keyword-wrap">
+                    <span class="keyword" data-phase="explode">SHARE</span>
+                    <p class="keyword-sub">Ready to present. Export to PDF or share a live link in seconds.</p>
+                </div>
+            </div>
         </div>
     </section>
 

@@ -1006,11 +1006,11 @@ document.addEventListener('DOMContentLoaded', () => {
             void slideContainer.offsetWidth;
         }
 
-        slideContainer.style.transition = 'transform 2.2s cubic-bezier(0.25, 1, 0.5, 1)';
+        slideContainer.style.transition = 'transform 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
 
         // Match minimap rewind speed
         const ml = document.getElementById('minimap-list');
-        if (ml) ml.style.transition = 'transform 2.2s cubic-bezier(0.25, 1, 0.5, 1)';
+        if (ml) ml.style.transition = 'transform 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
 
         // Important: we don't reset currentSlide to 0 until scrollToSlide(0) runs
         scrollToSlide(0);
@@ -1018,12 +1018,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // After the rewind is done, return to a faster, more responsive speed for editing
         setTimeout(() => {
             if (slideContainer) {
-                slideContainer.style.transition = 'transform 0.7s cubic-bezier(0.25, 1, 0.5, 1)';
+                slideContainer.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
             }
             if (ml) {
-                ml.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+                ml.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
             }
-        }, 2300);
+        }, 1300);
 
         // Update overlays when carrousel transition ends
         slideContainer.removeEventListener('transitionend', _refreshSlotOverlays);
@@ -1129,7 +1129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // Restore transition after reflow
                     setTimeout(() => {
-                        if (slideContainer) slideContainer.style.transition = 'transform 0.7s cubic-bezier(0.25, 1, 0.5, 1)';
+                        if (slideContainer) slideContainer.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
                     }, 50);
                 }
 
@@ -2045,131 +2045,165 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     // 11. BACKGROUND CAROUSEL
     // =========================================================
-    function initCarousel() {
-        const images = [
-            '/previews/examples/slide-1.webp',
-            '/previews/examples/slide-2.webp',
-            '/previews/examples/slide-3.webp',
-            '/previews/examples/slide-4.webp',
-            '/previews/examples/slide-5.webp',
-            '/previews/examples/slide-6.webp',
-            '/previews/examples/slide-7.webp',
-            '/previews/examples/slide-8.webp',
-        ];
+    function initPhysicsScrolly() {
+        const container = document.getElementById('physics-container');
+        const scrollySection = document.getElementById('scrollytelling');
+        const phaseSections = document.querySelectorAll('.phase-section');
+        const keywords = document.querySelectorAll('.keyword');
+        if (!container || !scrollySection) return;
 
-        const inner = document.getElementById('carousel-inner');
-        if (!inner) return;
-        const carouselWrap = document.getElementById('bg-carousel');
+        const images = Array.from({ length: 8 }, (_, i) => `/previews/examples/slide-${i + 1}.webp`);
+        const cards = [];
+        const mouse = { x: -1000, y: -1000 };
+        let globalOrbitAngle = 0;
 
-        const ITEM_W = 600;
-        const ITEM_H = 338;
-        const GAP = 35;
-        const SPEED = 0.7;
-        const SET_WIDTH = (ITEM_W + GAP) * images.length;
-
-        const allImages = [...images, ...images, ...images];
-        const items = allImages.map(src => {
-            const div = document.createElement('div');
-            // Base state: lower opacity and blurry
-            div.style.cssText = `flex-shrink:0; width:${ITEM_W}px; height:${ITEM_H}px; opacity:0.3; filter:blur(4px); mix-blend-mode:screen; -webkit-mask-image: radial-gradient(ellipse, #fff 30%, transparent 95%); mask-image: radial-gradient(ellipse, #fff 30%, transparent 95%); will-change: opacity, filter, transform;`;
+        images.forEach((src, i) => {
+            const el = document.createElement('div');
+            el.className = 'physics-card';
             const img = document.createElement('img');
             img.src = src;
-            img.style.cssText = 'width:100%; height:100%; object-fit:cover; display:block;';
-            img.draggable = false;
-            img.onerror = () => { div.style.display = 'none'; };
-            div.appendChild(img);
-            inner.appendChild(div);
-            return div;
+            el.appendChild(img);
+            container.appendChild(el);
+
+            cards.push({
+                el,
+                width: 0, height: 0,
+                x: Math.random() * window.innerWidth,
+                y: -800 - (Math.random() * 800),
+                vx: 0,
+                vy: 0,
+                rotation: (Math.random() - 0.5) * 30,
+                vRotation: 0,
+                targetX: 0,
+                targetY: 0,
+                targetRotation: 0,
+                scale: 1,
+                targetScale: 1,
+                orbitOffset: (i / 8) * Math.PI * 2 
+            });
         });
 
-        let x = 0;
-        let mouseX = -1000;
-        let isHovering = false;
-        
-        // Dragging state
-        let isDragging = false;
-        let startX = 0;
-        let scrollStartX = 0;
-
-        inner.style.cssText = `display:flex; align-items:center; gap:${GAP}px; position:absolute; left:0; top:50%; transform:translateY(-50%);`;
-
-        if (carouselWrap) {
-            carouselWrap.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                startX = e.clientX;
-                scrollStartX = x;
-                carouselWrap.style.cursor = 'grabbing';
+        function resize() {
+            cards.forEach(card => {
+                const rect = card.el.getBoundingClientRect();
+                card.width = rect.width;
+                card.height = rect.height;
             });
-
-            window.addEventListener('mousemove', (e) => {
-                // Tracking mouse for spotlight always
-                mouseX = e.clientX;
-                const rect = carouselWrap.getBoundingClientRect();
-                isHovering = (
-                    mouseX >= rect.left && 
-                    mouseX <= rect.right && 
-                    e.clientY >= rect.top && 
-                    e.clientY <= rect.bottom
-                );
-
-                if (isDragging) {
-                    const dx = e.clientX - startX;
-                    x = scrollStartX + dx;
-                    // Keep loop seamless
-                    if (x > 0) x -= SET_WIDTH;
-                    if (x < -SET_WIDTH) x += SET_WIDTH;
-                }
-            });
-
-            window.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    carouselWrap.style.cursor = 'grab';
-                }
-            });
-
-            carouselWrap.addEventListener('mouseenter', () => { isHovering = true; });
-            carouselWrap.addEventListener('mouseleave', () => { if (!isDragging) isHovering = false; });
         }
+        window.addEventListener('resize', resize);
+        resize();
 
-        function animate() {
-            if (!isDragging) {
-                x -= SPEED;
-                if (x <= -SET_WIDTH) x += SET_WIDTH;
-            }
-            
-            inner.style.left = x + 'px';
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
 
-            // Spotlight effect logic
-            items.forEach(item => {
-                if (!isHovering) {
-                    item.style.opacity = '0.3';
-                    item.style.filter = 'blur(6px)'; // Slightly more blur for larger items
-                    return;
+        function update() {
+            const scrollY = window.scrollY;
+            const viewH = window.innerHeight;
+            const start = scrollySection.offsetTop;
+            const height = scrollySection.offsetHeight;
+            const progress = Math.max(0, Math.min(1, (scrollY - start) / (height - viewH)));
+
+            // Phase tracking
+            let phase = 'fall';
+            if (progress > 0.35) phase = 'shuffle';
+            if (progress > 0.7) phase = 'explode';
+
+            keywords.forEach(kw => {
+                kw.classList.toggle('active', kw.dataset.phase === phase);
+            });
+
+            // Dramatized global orbit
+            globalOrbitAngle += 0.004;
+
+            cards.forEach((card, i) => {
+                const cx = window.innerWidth / 2;
+                const cy = window.innerHeight / 2;
+                const time = Date.now();
+
+                // 1. PHASE CHOREOGRAPHY
+                if (phase === 'fall') {
+                    const angle = globalOrbitAngle + card.orbitOffset;
+                    const radiusX = window.innerWidth * 0.35;
+                    const radiusY = window.innerHeight * 0.22;
+                    card.targetX = cx + Math.cos(angle) * radiusX - card.width / 2;
+                    // Initial fall starts low and moves up
+                    card.targetY = cy + Math.sin(angle * 0.5) * radiusY - card.height / 2 + window.innerHeight * 0.6;
+                    card.targetRotation = Math.cos(angle) * 6;
+                    card.targetScale = 0.85;
+                } else if (phase === 'shuffle') {
+                    // Realistic deck fan
+                    card.targetX = cx - card.width / 2 + (i - 3.5) * 12;
+                    card.targetY = cy - card.height / 2 + (i - 3.5) * 3;
+                    card.targetRotation = (i - 3.5) * 2.5;
+                    card.targetScale = 1;
+                } else if (phase === 'explode') {
+                    const angle = (i / cards.length) * Math.PI * 2 + (progress * 1.2);
+                    const blastProgress = (progress - 0.7) / 0.3;
+                    const dist = 280 + blastProgress * 400; // Stay within visible range
+                    card.targetX = cx + Math.cos(angle) * dist - card.width / 2;
+                    card.targetY = cy + Math.sin(angle) * dist - card.height / 2;
+                    card.targetRotation = angle * (180 / Math.PI) * 0.2;
+                    card.targetScale = 0.6;
                 }
 
-                const rect = item.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const dist = Math.abs(mouseX - centerX);
+                // 2. LIQUID PHYSICS ENGINE
+                const spring = 0.06; 
+                const damping = 0.78; 
                 
-                const maxDist = 700; // Wider spotlight for wider items
-                let factor = Math.max(0, 1 - dist / maxDist);
-                factor = Math.pow(factor, 2);
+                card.vx += (card.targetX - card.x) * spring;
+                card.vy += (card.targetY - card.y) * spring;
+                
+                // Subtle life oscillation
+                card.vx += Math.sin(time * 0.0008 + i * 1.2) * 0.08;
+                card.vy += Math.cos(time * 0.0006 + i * 0.9) * 0.08;
 
-                const opacity = 0.3 + (factor * 0.6); 
-                const blur = 6 * (1 - factor); 
+                // Soft Repulsion (Large limit, small force)
+                const dx = card.x + card.width/2 - mouse.x;
+                const dy = card.y + card.height/2 - mouse.y;
+                const distMouse = Math.sqrt(dx*dx + dy*dy);
+                
+                if (distMouse < 280) {
+                    const force = Math.pow(1 - distMouse / 280, 2) * 8;
+                    card.vx += (dx / distMouse) * force;
+                    card.vy += (dy / distMouse) * force;
+                }
+                
+                // Central Zone Exclusion (Keeps text clear)
+                if (phase !== 'shuffle') {
+                    const dcx = card.x + card.width/2 - cx;
+                    const dcy = card.y + card.height/2 - cy;
+                    const distCenter = Math.sqrt(dcx*dcx + dcy*dcy);
+                    if (distCenter < 200) {
+                        const cForce = (1 - distCenter / 200) * 2;
+                        card.vx += (dcx / distCenter) * cForce;
+                        card.vy += (dcy / distCenter) * cForce;
+                    }
+                }
 
-                item.style.opacity = opacity;
-                item.style.filter = `blur(${blur}px)`;
+                // Final Update
+                card.vx *= damping;
+                card.vy *= damping;
+                card.x += card.vx;
+                card.y += card.vy;
+
+                // Liquid Rotation
+                card.vRotation += (card.targetRotation - card.rotation) * 0.01;
+                card.vRotation *= 0.9;
+                card.rotation += card.vRotation;
+
+                // Commit
+                card.el.style.transform = `translate3d(${card.x}px, ${card.y}px, 0) rotate(${card.rotation}deg) scale(${card.targetScale})`;
             });
 
-            requestAnimationFrame(animate);
+            requestAnimationFrame(update);
         }
 
-        requestAnimationFrame(() => requestAnimationFrame(animate));
+        update();
     }
 
-    initCarousel();
+    initPhysicsScrolly();
 
     // Global helper for chips
     window.fillInput = (text) => {
@@ -2180,4 +2214,45 @@ document.addEventListener('DOMContentLoaded', () => {
             input.dispatchEvent(new Event('input'));
         }
     };
+
+    // =========================================================
+    // 12. SCROLL LOOP SYSTEM
+    // =========================================================
+    let lastScrollY = window.scrollY;
+    let isRedirecting = false;
+
+    window.addEventListener('scroll', () => {
+        if (previewContainer && !previewContainer.classList.contains('hidden')) return;
+        if (isRedirecting) return;
+
+        const scrollY = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        
+        // --- 1. PREVENT SCROLL UP AT THE TOP ---
+        // If we are at the top and trying to scroll up, lock it.
+        if (scrollY <= 0 && scrollY < lastScrollY) {
+            window.scrollTo(0, 0);
+            lastScrollY = 0;
+            return;
+        }
+
+        // --- 2. REDIRECT TO TOP AT THE BOTTOM (LOOP) ---
+        // Detect if user is at the bottom and scrolling DOWN
+        if (scrollY + windowHeight >= documentHeight - 10 && scrollY > lastScrollY) {
+            isRedirecting = true;
+            // Smoothly jump to top
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+            
+            // Re-enable after transition
+            setTimeout(() => {
+                isRedirecting = false;
+            }, 800);
+        }
+
+        lastScrollY = scrollY;
+    }, { passive: false });
 });
