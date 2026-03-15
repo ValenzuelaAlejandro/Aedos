@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backBtn = document.getElementById('back-btn');
     const errorMessage = document.getElementById('error-message');
     const temaError = document.getElementById('tema-error');
+    const scrollySection = document.getElementById('scrolly-three');
 
     // Preview elements
     let previewIframe = document.getElementById('preview-iframe');
@@ -45,8 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const count = e.data.count;
             totalSlides = count;
             if (slideLabel) {
-                if (window.t) {
-                    const tpl = t("slide_label", "{current} / {total}");
+                if (window.__eidos_t) {
+                    const tpl = window.__eidos_t("slide_label", "{current} / {total}");
                     slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
                 } else {
                     slideLabel.textContent = `${count} / ${count}`;
@@ -368,6 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide chatScreen when loading
         chatScreen.classList.add('hidden');
+        if (scrollySection) scrollySection.classList.add('hidden');
         previewHeader.classList.remove('slide-down');
         previewContainer.classList.remove('hidden');
 
@@ -390,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
         iframeDoc.open();
-        const loadingMsg = window.t ? window.t('loading-text', "Loading presentation structure...") : "Loading presentation structure...";
+        const loadingMsg = window.__eidos_t ? window.__eidos_t('loading-text', "Loading presentation structure...") : "Loading presentation structure...";
         const G_FONTS = `
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -583,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (parsed.refused) {
                             chatScreen.classList.add('hidden');
-                            refusedMessage.textContent = parsed.message || (window.t ? window.t('refused_msg', "This topic cannot be generated.") : "This topic cannot be generated.");
+                            refusedMessage.textContent = parsed.message || (window.__eidos_t ? window.__eidos_t('refused_msg', "This topic cannot be generated.") : "This topic cannot be generated.");
                             refusedContainer.classList.remove('hidden');
                             previewContainer.classList.add('hidden');
                             iframeDoc.close();
@@ -681,7 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (error.message.includes('429') || error.message.includes('503') || error.message.toLowerCase().includes('exhausted') || error.message.toLowerCase().includes('saturated')) {
                 if (errSubtitle) {
-                    errSubtitle.innerHTML = (window.t ? window.t('t-error-saturated', "The service is currently overloaded due to high demand. Please try again in a few minutes.") : "The service is currently overloaded due to high demand. Please try again in a few minutes.") + retryMsg;
+                    errSubtitle.innerHTML = (window.__eidos_t ? window.__eidos_t('t-error-saturated', "The service is currently overloaded due to high demand. Please try again in a few minutes.") : "The service is currently overloaded due to high demand. Please try again in a few minutes.") + retryMsg;
                 }
             } else {
                 if (errSubtitle) {
@@ -735,6 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 slideLabel.textContent = "1 / 1";
 
                 chatScreen.classList.add('hidden');
+                if (scrollySection) scrollySection.classList.add('hidden');
                 previewHeader.classList.remove('slide-down');
                 previewContainer.classList.remove('hidden');
 
@@ -770,6 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnBackToChat.addEventListener('click', () => {
             previewContainer.classList.add('hidden');
             chatScreen.classList.remove('hidden');
+            if (scrollySection) scrollySection.classList.remove('hidden');
             temaInput.focus();
         });
     }

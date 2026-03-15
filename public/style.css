@@ -648,6 +648,8 @@ body.no-scroll {
     padding: 0.5rem;
     resize: none;
     outline: none;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 .chat-input::placeholder {
@@ -1675,6 +1677,8 @@ section.s.active > * {
     position: fixed;
     /* Bound to viewport strictly */
     inset: 0;
+    z-index: 500; /* Higher than scrollytelling elements */
+    background: var(--bg);
 }
 
 .preview-unified-header {

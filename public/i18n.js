@@ -151,7 +151,7 @@ const translations = {
 
 window.currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
 
-window.t = function(key, defaultText = null) {
+window.__eidos_t = function(key, defaultText = null) {
     let result = key;
     if (translations[currentLang] && translations[currentLang][key]) {
         result = translations[currentLang][key];
@@ -167,18 +167,18 @@ window.t = function(key, defaultText = null) {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
-        el.innerHTML = window.t(key);
+        el.innerHTML = window.__eidos_t(key);
     });
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
         const key = el.getAttribute('data-i18n-title');
-        el.title = window.t(key);
+        el.title = window.__eidos_t(key);
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
         const key = el.getAttribute('data-i18n-placeholder');
-        el.placeholder = window.t(key);
+        el.placeholder = window.__eidos_t(key);
     });
     document.querySelectorAll('[data-i18n-val]').forEach(el => {
         const key = el.getAttribute('data-i18n-val');
-        el.value = window.t(key);
+        el.value = window.__eidos_t(key);
     });
 });
