@@ -771,7 +771,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btnBackToChat.addEventListener('click', () => {
             previewContainer.classList.add('hidden');
             chatScreen.classList.remove('hidden');
-            if (scrollySection) scrollySection.classList.remove('hidden');
+            if (scrollySection) {
+                scrollySection.classList.remove('hidden');
+                // Force recalculation of Three.js and GSAP positions
+                window.dispatchEvent(new Event('resize'));
+                if (typeof ScrollTrigger !== 'undefined') {
+                    setTimeout(() => ScrollTrigger.refresh(), 100);
+                }
+            }
             temaInput.focus();
         });
     }
@@ -1361,6 +1368,14 @@ document.addEventListener('DOMContentLoaded', () => {
             [data-image-slot].drag-over {
                 outline: 3px solid #6366f1 !important;
                 outline-offset: -3px;
+            }
+            body.eidos-locked .img-replace-overlay {
+                display: none !important;
+            }
+            body.eidos-locked [data-image-slot]:hover,
+            body.eidos-locked [data-image-slot].is-hovered {
+                outline: none !important;
+            }
         `;
         doc.head.appendChild(style);
 
@@ -1470,12 +1485,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Double-click on a slot opens the file picker.
         // We expose this as a global function so the editor can call it directly.
         window._eidosTriggerImagePicker = (slot) => {
+            // Block if in fullscreen (presentation mode)
+            if (document.fullscreenElement || document.webkitFullscreenElement) return;
+            
             const entry = _overlayMap.get(slot);
             if (entry) entry.input.click();
         };
 
         if (doc._eidosDblClickListener) doc.removeEventListener('dblclick', doc._eidosDblClickListener);
         doc._eidosDblClickListener = (e) => {
+            // Block if in fullscreen (presentation mode)
+            if (document.fullscreenElement || document.webkitFullscreenElement) return;
+
             const slot = e.target.closest('[data-image-slot]');
             if (!slot) return;
             e.preventDefault();
@@ -1858,6 +1879,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Skip if user is typing in a real input/textarea in the parent
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
+        // Skip if in fullscreen (presentation mode)
+        if (document.fullscreenElement || document.webkitFullscreenElement) return;
+
         if (e.ctrlKey || e.metaKey) {
             const key = e.key.toLowerCase();
             if (key === 'c' || key === 'v' || key === 'd' || key === 'x' || key === 'z' || key === 'y') {
@@ -2074,6 +2098,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (refusedContainer) refusedContainer.classList.add('hidden');
         if (previewContainer) previewContainer.classList.add('hidden');
         if (chatScreen) chatScreen.classList.remove('hidden');
+        if (scrollySection) {
+            scrollySection.classList.remove('hidden');
+            window.dispatchEvent(new Event('resize'));
+            if (typeof ScrollTrigger !== 'undefined') {
+                setTimeout(() => ScrollTrigger.refresh(), 100);
+            }
+        }
 
         currentSlide = 0;
         totalSlides = 0;

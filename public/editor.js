@@ -6,6 +6,29 @@ function initEditor() {
     if (window._editorInitialized) return;
     window._editorInitialized = true;
 
+    let _isLocked = false;
+    window.eidosSetLocked = (locked) => {
+        _isLocked = locked;
+        if (locked) {
+            document.body.classList.add('eidos-locked');
+            deselectGroup();
+            isDragging = false;
+            isResizing = false;
+        } else {
+            document.body.classList.remove('eidos-locked');
+        }
+    };
+
+    // Auto-lock if parent goes fullscreen
+    const syncLockWithFullscreen = () => {
+        const isFS = !!(document.fullscreenElement || window.parent.document.fullscreenElement || document.webkitFullscreenElement || window.parent.document.webkitFullscreenElement);
+        window.eidosSetLocked(isFS);
+    };
+    document.addEventListener('fullscreenchange', syncLockWithFullscreen);
+    window.parent.document.addEventListener('fullscreenchange', syncLockWithFullscreen);
+    document.addEventListener('webkitfullscreenchange', syncLockWithFullscreen);
+    window.parent.document.addEventListener('webkitfullscreenchange', syncLockWithFullscreen);
+
     // Basic state
     let selectedElement = null;
     let isDragging = false;
@@ -532,6 +555,7 @@ function initEditor() {
 
 
     document.body.addEventListener('mousedown', (e) => {
+        if (_isLocked) return;
         ensureUI();
 
         // Ignore if clicking on our own tools
@@ -648,6 +672,7 @@ function initEditor() {
 
     // Handle double-click to edit text
     document.body.addEventListener('dblclick', (e) => {
+        if (_isLocked) return;
         const textSelectors = 'h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite';
         const textTarget = e.target.closest(textSelectors);
         if (textTarget && (!textTarget.closest('.eidos-toolbar'))) {
@@ -673,6 +698,7 @@ function initEditor() {
     });
 
     selectionBox.addEventListener('dblclick', (e) => {
+        if (_isLocked) return;
         e.stopPropagation();
         if (!selectedElement) return;
 
@@ -1211,6 +1237,23 @@ function initEditor() {
     }
 
     document.addEventListener('keydown', (e) => {
+        // Support arrow navigation even when locked (for presentation mode)
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+            const isEditingText = activeTag === 'input' || activeTag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable);
+            
+            if (!isEditingText && (!selectedElement || _isLocked)) {
+                if (e.key === 'ArrowLeft') {
+                    window.dispatchEvent(new CustomEvent('eidos-navigate-prev'));
+                } else {
+                    window.dispatchEvent(new CustomEvent('eidos-navigate-next'));
+                }
+                e.preventDefault();
+                return;
+            }
+        }
+
+        if (_isLocked) return;
         // Ignore if native text editing
         const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
         const isEditingText = activeTag === 'input' || activeTag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable);
