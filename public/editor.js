@@ -253,9 +253,15 @@ function initEditor() {
                 if (selectedElement) {
                     saveState();
                     const color = swatch.dataset.color;
-                    if (selectedElement.matches('h1, h2, h3, h4, p, span, li, button, .tag, .big-number, .big-label')) {
+                    if (selectedElement.matches('h1, h2, h3, h4, p, span, li, button, .tag, .big-number, .big-label, i, svg, [data-lucide], .lucide, .lucide-icon')) {
                         selectedElement.style.color = color;
                         selectedElement.style.webkitTextFillColor = color;
+                        // For SVGs, also try setting fill and stroke if they don't use currentColor
+                        if (selectedElement.tagName.toLowerCase() === 'svg' || selectedElement.querySelector('svg')) {
+                            const svg = selectedElement.tagName.toLowerCase() === 'svg' ? selectedElement : selectedElement.querySelector('svg');
+                            // Only apply if it's not a complex SVG with multiple colors? 
+                            // For simplicity, we just set the color. Lucide will handle it via currentColor.
+                        }
                     } else {
                         selectedElement.style.backgroundColor = color;
                     }

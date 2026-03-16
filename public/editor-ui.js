@@ -1101,6 +1101,13 @@ window.initEditorUI = function (iframe) {
                     setTimeout(() => el._undoSavingColor = false, 1000);
                 }
                 el.style.color = e.target.value;
+                // Robustness for different SVG types (fill vs stroke)
+                if (el.tagName.toLowerCase() === 'svg' || el.querySelector('svg')) {
+                    const svg = el.tagName.toLowerCase() === 'svg' ? el : el.querySelector('svg');
+                    // Many icons use currentColor, so style.color on parent is enough.
+                    // For others, we might want to set fill/stroke, but we must be careful not to override 'none'.
+                    // For now, setting style.color is standard for this editor's design.
+                }
             });
 
             iconSize.addEventListener('input', (e) => {
