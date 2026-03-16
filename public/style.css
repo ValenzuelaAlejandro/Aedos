@@ -396,7 +396,6 @@ body.no-scroll {
     z-index: 1; /* Behind narrative, above global bg */
     pointer-events: none;
     opacity: 0;
-    transition: opacity 1s ease;
 }
 
 .scrolly-three-section {

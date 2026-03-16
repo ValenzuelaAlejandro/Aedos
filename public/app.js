@@ -2179,45 +2179,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
         initObjects() {
             // Step 1: Neural Core (Icosahedron with Wireframe)
-            this.coreGroup = new THREE.Group();
+            this.coreGroup = new THREE.Group(); // GSAP-controllable (scroll rotation)
+            this.idleGroup = new THREE.Group(); // Loop-controllable (constant rotation)
+            this.coreGroup.add(this.idleGroup);
             
             const coreGeom = new THREE.IcosahedronGeometry(2, 2);
             const coreMat = new THREE.MeshStandardMaterial({ 
                 color: 0xffffff, 
                 wireframe: true,
                 transparent: true,
-                opacity: 0.8
+                opacity: 1
             });
             this.coreMesh = new THREE.Mesh(coreGeom, coreMat);
-            this.coreGroup.add(this.coreMesh);
+            this.idleGroup.add(this.coreMesh);
 
             const innerGeom = new THREE.IcosahedronGeometry(1.2, 1);
             const innerMat = new THREE.MeshStandardMaterial({ 
                 color: 0xffffff, 
                 emissive: 0xffffff,
-                emissiveIntensity: 0.5
+                emissiveIntensity: 0.5,
+                transparent: true,
+                opacity: 1
             });
             this.innerCore = new THREE.Mesh(innerGeom, innerMat);
-            this.coreGroup.add(this.innerCore);
+            this.idleGroup.add(this.innerCore);
 
             this.scene.add(this.coreGroup);
 
             // Step 2 & 3: Particles / Crystals (InstancedMesh for performance)
             this.particleCount = 500;
-            const partGeom = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-            const partMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const partGeom = new THREE.SphereGeometry(0.04, 8, 8);
+            const partMat = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0
+            });
             this.particles = new THREE.InstancedMesh(partGeom, partMat, this.particleCount);
             
             this.dummy = new THREE.Object3D();
+            this.initialPositions = new Float32Array(this.particleCount * 3);
             for(let i=0; i<this.particleCount; i++) {
-                this.dummy.position.set(
-                    (Math.random() - 0.5) * 20,
-                    (Math.random() - 0.5) * 20,
-                    (Math.random() - 0.5) * 20
-                );
+                const x = (Math.random() - 0.5) * 20;
+                const y = (Math.random() - 0.5) * 20;
+                const z = (Math.random() - 0.5) * 20;
+                this.initialPositions[i*3] = x;
+                this.initialPositions[i*3+1] = y;
+                this.initialPositions[i*3+2] = z;
+                
+                this.dummy.position.set(x, y, z);
                 this.dummy.updateMatrix();
                 this.particles.setMatrixAt(i, this.dummy.matrix);
             }
+            this.particles.instanceMatrix.needsUpdate = true;
             this.particles.visible = false;
             this.scene.add(this.particles);
 
@@ -2267,7 +2280,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     trigger: sectionSelector,
                     start: "top top",
                     end: "bottom bottom",
-                    scrub: 1.5,
+                    scrub: 2.5,
                     onUpdate: (self) => {
                         const prog = self.progress * 100;
                         document.querySelector('.v-fill').style.height = prog + '%';
@@ -2279,26 +2292,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Camera & Object Animation Timeline
-            tl.to(this.camera.position, { z: 5, duration: 2, ease: "none" })
-              .to(this.coreGroup.rotation, { y: Math.PI * 2, duration: 2, ease: "none" }, "<")
-              .to(this.coreMesh.scale, { x: 5, y: 5, z: 5, duration: 1.5 }, "<+=1")
-              .to(this.coreMesh.material, { opacity: 0, duration: 1 }, "<")
-              .set(this.particles, { visible: true }, "<");
+            // Camera & Object Animation Timeline (Synchronized to avoid pauses)
+            tl.fromTo(this.camera.position, { x: 0, y: 0, z: 10 }, { z: 5, duration: 2.5, ease: "power2.inOut" }, 0)
+              .to(this.coreGroup.rotation, { y: Math.PI * 4, duration: 6, ease: "none" }, 0)
+              .to(this.coreGroup.scale, { x: 8, y: 8, z: 8, duration: 3, ease: "power2.in" }, 1.5)
+              .to([this.coreMesh.material, this.innerCore.material], { opacity: 0, duration: 2 }, 2)
+              .to(this.particles, { visible: true }, 1.5)
+              .to(this.particles.material, { opacity: 1, duration: 2.5, ease: "power2.inOut" }, 1.5)
+              .to(this.camera.position, { y: 2, z: 18, duration: 3.5, ease: "power2.inOut" }, 2.5);
 
-            tl.to(this.camera.position, { y: 2, z: 15, duration: 3, ease: "power2.inOut" })
-              .to(this.camera.rotation, { x: -0.2, duration: 2 }, "<");
+            // Total Duration is now 6 (approx)
+            const totalDur = 6;
 
             // Narrative Steps Transitions (Sequence to avoid overlap + Distinct animations)
-            const stepDuration = tl.totalDuration() / sections;
+            const stepDuration = totalDur / sections;
             
             steps.forEach((step, i) => {
                 const content = step.querySelector('.step-content');
                 const startTime = i * stepDuration;
                 
                 // Varied Animation Styles per Step
-                let entranceVars = { opacity: 1, duration: 0.8, ease: "power3.out" };
-                let exitVars = { opacity: 0, duration: 0.6, ease: "power2.in" };
+                let entranceVars = { opacity: 1, duration: 1.2, ease: "power2.inOut" };
+                let exitVars = { opacity: 0, duration: 1.2, ease: "power2.inOut" };
 
                 if (i === 0) { // Step 1: Horizontal Slide
                     gsap.set(content, { x: -100, opacity: 0 });
@@ -2325,8 +2340,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 tl.to(content, entranceVars, startTime);
 
                 // Add Exit (Except for the last step)
+                // Overlap exit with next entrance to avoid "cuts"
                 if (i < sections - 1) {
-                    tl.to(content, exitVars, startTime + stepDuration - 0.8);
+                    tl.to(content, exitVars, startTime + stepDuration - 0.5);
                 }
             });
         }
@@ -2341,17 +2357,24 @@ document.addEventListener('DOMContentLoaded', () => {
             requestAnimationFrame(() => this.animate());
             const time = this.clock.getElapsedTime();
 
-            if (this.coreGroup) {
-                this.coreGroup.rotation.y += 0.005;
-                this.coreGroup.position.y = Math.sin(time) * 0.2;
+            if (this.idleGroup) {
+                this.idleGroup.rotation.y += 0.004; // Gentle idle spin
+                this.coreGroup.position.y = Math.sin(time) * 0.15; // Hover effect on parent
             }
 
-            if (this.particles.visible) {
+            if (this.particles && this.particles.visible) {
                 for(let i=0; i<this.particleCount; i++) {
-                    this.particles.getMatrixAt(i, this.dummy.matrix);
-                    this.dummy.matrix.decompose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
-                    this.dummy.position.y += Math.sin(time + i) * 0.01;
-                    this.dummy.rotation.x += 0.01;
+                    const x = this.initialPositions[i*3];
+                    const y = this.initialPositions[i*3+1];
+                    const z = this.initialPositions[i*3+2];
+                    
+                    this.dummy.position.set(
+                        x + Math.sin(time * 0.4 + i) * 0.15,
+                        y + Math.cos(time * 0.3 + i) * 0.15,
+                        z + Math.sin(time * 0.5 + i) * 0.15
+                    );
+                    this.dummy.rotation.x += 0.005;
+                    this.dummy.rotation.y += 0.005;
                     this.dummy.updateMatrix();
                     this.particles.setMatrixAt(i, this.dummy.matrix);
                 }
