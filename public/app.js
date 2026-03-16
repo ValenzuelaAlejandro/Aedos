@@ -242,6 +242,15 @@ document.addEventListener('DOMContentLoaded', () => {
     temaInput.addEventListener('input', () => {
         const val = temaInput.value;
 
+        // NEW: Scroll to top if user starts typing while scrolled down (e.g. in the scrolly section)
+        if (window.scrollY > 200) {
+            if (typeof gsap !== 'undefined') {
+                gsap.to(window, { scrollTo: 0, duration: 0.8, ease: "power2.out" });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
         // Auto-resize vertical expansion
         temaInput.style.height = 'auto';
         temaInput.style.height = temaInput.scrollHeight + 'px';
