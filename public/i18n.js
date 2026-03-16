@@ -71,7 +71,41 @@ const translations = {
         "delete_element": "Delete Element",
         "loading-text": "Shaping your ideas...",
         "refused_msg": "This topic cannot be generated.",
-        "t-error-saturated": "The service is currently overloaded due to high demand. Please try again in a few minutes."
+        "t-error-saturated": "The service is currently overloaded due to high demand. Please try again in a few minutes.",
+        "scrolly_step1_label": "01 // THE SHORTCUT",
+        "scrolly_step1_title": "Prompt & <br><span>Chill.</span>",
+        "scrolly_step1_desc": "Give us a topic, we’ll do the thinking. It’s like having a group project where someone actually does the work.",
+        "scrolly_step2_label": "02 // THE FLEX",
+        "scrolly_step2_title": "Instant <br><span>Main Character.</span>",
+        "scrolly_step2_desc": "Default templates are for people with too much free time. We serve up layouts that make you look like a design prodigy.",
+        "scrolly_step3_label": "03 // THE CHEF'S KISS",
+        "scrolly_step3_title": "Pretend <br><span>You Toiled.</span>",
+        "scrolly_step3_desc": "A pro editor for the finishing touches. Drag a few things around so it looks like you spent hours on this, not seconds.",
+        "scrolly_step4_label": "04 // THE AUDACITY",
+        "scrolly_step4_title": "Ghost <br><span>Protocol.</span>",
+        "scrolly_step4_desc": "High-res PDFs ready to stun. Close your 50 Chrome tabs, act natural, and take all the credit. You earned it (sort of).",
+        "start_cooking": "Start Cooking",
+        "chip_roman": "Roman Empire",
+        "chip_ai": "Generative AI",
+        "chip_climate": "Climate Change",
+        "chip_industrial": "Industrial Revolution",
+        "chip_biology": "Cell Biology",
+        "chip_blackholes": "Black Holes",
+        "loading_structure": "Loading presentation structure...",
+        "click_drop": "Double-click or drag an image",
+        "generating": "Generating presentation...",
+        "slide_label_tpl": "{current} / {total}",
+        "delete_slide": "Delete Slide",
+        "duplicate_slide": "Duplicate Slide",
+        "limit_reached": "Limit reached (15 slides max)",
+        "select_font": "Select font",
+        "duplicate_element": "Duplicate",
+        "smaller": "Smaller",
+        "bigger": "Bigger",
+        "text_color": "Text Color",
+        "replace": "Replace",
+        "retry_in_es": "<br><br><strong>Podrás reintentar en: {time}</strong>",
+        "retry_in_en": "<br><br><strong>You can retry in: {time}</strong>"
     },
     es: {
         "app_subtitle": "Generar una presentación completa sobre...",
@@ -145,13 +179,48 @@ const translations = {
         "delete_element": "Eliminar Elemento",
         "loading-text": "Dando forma a tus ideas…",
         "refused_msg": "Este tema no puede ser generado.",
-        "t-error-saturated": "El servicio está saturado en este momento debido a la alta demanda. Por favor, intenta de nuevo en unos minutos."
+        "t-error-saturated": "El servicio está saturado en este momento debido a la alta demanda. Por favor, intenta de nuevo en unos minutos.",
+        "scrolly_step1_label": "01 // EL ATAJO",
+        "scrolly_step1_title": "Prompt y <br><span>relax.</span>",
+        "scrolly_step1_desc": "Danos un tema y nosotros pensamos. Es como ese trabajo en grupo donde alguien realmente hace todo el trabajo.",
+        "scrolly_step2_label": "02 // PRESUME",
+        "scrolly_step2_title": "Protagonista <br><span>al Instante.</span>",
+        "scrolly_step2_desc": "Las plantillas de siempre son para gente con demasiado tiempo libre. Aquí pareces un prodigio del diseño en segundos.",
+        "scrolly_step3_label": "03 // EL TOQUE MAESTRO",
+        "scrolly_step3_title": "Finge que <br><span>te lo curraste.</span>",
+        "scrolly_step3_desc": "Un editor pro para los retoques finales. Mueve un par de cosas para que parezca que pasaste horas, no segundos.",
+        "scrolly_step4_label": "04 // EL DESCARO",
+        "scrolly_step4_title": "Protocolo <br><span>Fantasma.</span>",
+        "scrolly_step4_desc": "PDFs de alta resolución para flipar. Cierra las 50 pestañas de Chrome, actúa con naturalidad y llévate el mérito. Te lo has ganado (más o menos).",
+        "start_cooking": "¡A cocinar!",
+        "chip_roman": "Imperio Romano",
+        "chip_ai": "IA Generativa",
+        "chip_climate": "Cambio Climático",
+        "chip_industrial": "Revolución Industrial",
+        "chip_biology": "Biología Celular",
+        "chip_blackholes": "Agujeros Negros",
+        "loading_structure": "Cargando estructura...",
+        "click_drop": "Doble clic o arrastra una imagen",
+        "generating": "Generando presentación...",
+        "slide_label_tpl": "{current} / {total}",
+        "delete_slide": "Eliminar Diapositiva",
+        "duplicate_slide": "Duplicar Diapositiva",
+        "limit_reached": "Límite alcanzado (máx. 15)",
+        "select_font": "Seleccionar fuente",
+        "duplicate_element": "Duplicar",
+        "smaller": "Más pequeño",
+        "bigger": "Más grande",
+        "text_color": "Color de texto",
+        "replace": "Reemplazar",
+        "retry_in_es": "<br><br><strong>Podrás reintentar en: {time}</strong>",
+        "retry_in_en": "<br><br><strong>You can retry in: {time}</strong>"
     }
 };
 
-window.currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
+const currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
+window.currentLang = currentLang;
 
-window.__eidos_t = function(key, defaultText = null) {
+window.__eidos_t = function (key, defaultText = null) {
     let result = key;
     if (translations[currentLang] && translations[currentLang][key]) {
         result = translations[currentLang][key];

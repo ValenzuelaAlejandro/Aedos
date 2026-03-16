@@ -141,18 +141,18 @@ function initEditor() {
                 <div class="eidos-color-swatches-mini">${quickColorsHTML}</div>
                 <div class="eidos-divider"></div>
                 <div class="eidos-tb-size-wrap">
-                    <button class="eidos-tb-btn" id="eidos-btn-size-down" title="Smaller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                    <button class="eidos-tb-btn" id="eidos-btn-size-down" title="${window.parent.__eidos_t('smaller', 'Smaller')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                     <div class="eidos-tb-size-val" id="eidos-tb-size-val">16</div>
-                    <button class="eidos-tb-btn" id="eidos-btn-size-up" title="Bigger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                    <button class="eidos-tb-btn" id="eidos-btn-size-up" title="${window.parent.__eidos_t('bigger', 'Bigger')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                 </div>
                 <div class="eidos-divider"></div>
-                <button class="eidos-tb-btn" id="eidos-btn-text-color" title="Text Color"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16l6-12 6 12M8 12h8"></path></svg></button>
+                <button class="eidos-tb-btn" id="eidos-btn-text-color" title="${window.parent.__eidos_t('text_color', 'Text Color')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16l6-12 6 12M8 12h8"></path></svg></button>
             `;
         } else if (isImage) {
             toolsHTML = `
-                <button class="eidos-tb-btn" id="eidos-btn-replace-img" title="Replace Image" style="width: auto; padding: 0 10px; border-radius: 20px; gap: 6px; font-size: 12px; font-weight: 600;">
+                <button class="eidos-tb-btn" id="eidos-btn-replace-img" title="${window.parent.__eidos_t('replace_image', 'Replace Image')}" style="width: auto; padding: 0 10px; border-radius: 20px; gap: 6px; font-size: 12px; font-weight: 600;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    Replace
+                    ${window.parent.__eidos_t('replace', 'Replace')}
                 </button>
             `;
         } else {
@@ -160,15 +160,15 @@ function initEditor() {
             toolsHTML = `
                 <div class="eidos-color-swatches-mini">${quickColorsHTML}</div>
                 <div class="eidos-divider"></div>
-                <button class="eidos-tb-btn" id="eidos-btn-bg-color" title="Fill Color"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path></svg></button>
+                <button class="eidos-tb-btn" id="eidos-btn-bg-color" title="${window.parent.__eidos_t('fill_color', 'Fill Color')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path></svg></button>
             `;
         }
 
         return `
             ${toolsHTML}
             <div class="eidos-divider"></div>
-            <button class="eidos-tb-btn" id="eidos-btn-duplicate" title="Duplicate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg></button>
-            <button class="eidos-tb-btn" id="eidos-btn-delete" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></button>
+            <button class="eidos-tb-btn" id="eidos-btn-duplicate" title="${window.parent.__eidos_t('duplicate_element', 'Duplicate')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg></button>
+            <button class="eidos-tb-btn" id="eidos-btn-delete" title="${window.parent.__eidos_t('delete_element', 'Delete')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></button>
             <div id="eidos-color-picker" class="eidos-color-picker" style="display:none;"></div>
         `;
     }

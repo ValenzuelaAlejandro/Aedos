@@ -46,12 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const count = e.data.count;
             totalSlides = count;
             if (slideLabel) {
-                if (window.__eidos_t) {
-                    const tpl = window.__eidos_t("slide_label", "{current} / {total}");
-                    slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
-                } else {
-                    slideLabel.textContent = `${count} / ${count}`;
-                }
+                const tpl = window.__eidos_t("slide_label_tpl", "{current} / {total}");
+                slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
             }
             currentSlide = count - 1;
 
@@ -71,56 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // =========================================================
-    // I18N SUPPORT
-    // =========================================================
-    const userLang = navigator.language || navigator.userLanguage;
-    const isSpanish = userLang.toLowerCase().includes('es');
+    // --- i18n is now handled globally by i18n.js ---
 
-    const i18n = {
-        en: {
-            "click_drop": "Double-click or drag an image"
-        },
-        es: {
-            "t-app-microcopy": "8–12 slides &middot; Contenido estructurado &middot; Listo para descargar en PDF",
-            "tema-error": "Por favor, ingresa un tema para generar tu presentación.",
-            "t-btn-edit-topic": "Editar",
-            "t-btn-regenerate": "Regenerar",
-            "t-finalize-text": "Descargar PDF",
-            "t-reset-text": "Nuevo",
-            "t-result-title": "¡Tu presentación está lista!",
-            "result-subtitle": "Las diapositivas sobre tu tema han sido generadas.",
-            "t-download-text": "Descargar PDF",
-            "reset-btn": "Generar otra presentación",
-            "t-error-title": "Algo no salió como esperábamos",
-            "t-error-subtitle": "El servicio de IA no está disponible temporalmente. Suele resolverse rápido.",
-            "t-error-saturated": "El servicio está saturado en este momento debido a la alta demanda. Por favor, intenta de nuevo en unos minutos.",
-            "t-error-summary": "Detalles técnicos",
-            "back-btn": "Intentar de nuevo",
-            "t-refused-title": "Este tema no puede ser generado",
-            "t-refused-subtitle": "La IA se ha negado a crear esta presentación por motivos de seguridad.",
-            "refused-back-btn": "Intentar un tema distinto",
-            "loading-text": "Dando forma a tus ideas…",
-
-            // Dynamic texts
-            "generating": "Generando presentación...",
-            "slide_label": "{current} / {total}",
-            "click_drop": "Doble clic para subir imagen",
-            "refused_msg": "Este tema no puede ser generado."
-        }
-    };
-
-    function t(key, defaultText) {
-        if (isSpanish) return i18n.es[key] || defaultText;
-        return (i18n.en && i18n.en[key]) || defaultText;
-    }
-
-    if (isSpanish) {
-        for (const [id, text] of Object.entries(i18n.es)) {
-            const el = document.getElementById(id);
-            if (el) el.innerHTML = text;
-        }
-    }
 
     // =========================================================
     // TYPEWRITER EFFECT
@@ -146,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
         "El Renacimiento Italiano, 7 slides, tonos sepia y dorado"
     ];
 
-    const topics = isSpanish ? topicsEs : topicsEn;
+    const topics = window.currentLang === 'es' ? topicsEs : topicsEn;
 
     // Randomize topics so everyone gets a different experience
     for (let i = topics.length - 1; i > 0; i--) {
@@ -405,6 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">`;
         const loadingHtml = `
+
         ${G_FONTS}
         <style class="skeleton-injector">
             body { background: #121212; margin: 0; padding: 0; font-family: sans-serif; }
@@ -427,8 +376,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="loader-spinner"></div>
             <div class="loader-text">${loadingMsg}</div>
         </div>
-        <link rel="stylesheet" href="editor.css">
-        <script src="editor.js"></script>
+        <link rel="stylesheet" href="editor.css?v=3">
+        <script src="editor.js?v=3"></script>
         `;
 
         // Wait for the AI's first chunk with a loading screen
@@ -685,7 +634,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let retryMsg = "";
             const retryMatch = error.message.match(/retry in ([\d\.]+s)/i);
             if (retryMatch) {
-                retryMsg = window.currentLang === 'es' ? `<br><br><strong>Podrás reintentar en: ${retryMatch[1]}</strong>` : `<br><br><strong>You can retry in: ${retryMatch[1]}</strong>`;
+                const retryTpl = window.__eidos_t(window.currentLang === 'es' ? 'retry_in_es' : 'retry_in_en', "<br><br><strong>Retry in: {time}</strong>");
+                retryMsg = retryTpl.replace('{time}', retryMatch[1]);
             }
 
             if (error.message.includes('429') || error.message.includes('503') || error.message.toLowerCase().includes('exhausted') || error.message.toLowerCase().includes('saturated')) {
@@ -694,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 if (errSubtitle) {
-                    errSubtitle.textContent = t('t-error-subtitle', "The AI service is temporarily unavailable. This is usually resolved quickly.");
+                    errSubtitle.textContent = window.__eidos_t('error_subtitle', "The AI service is temporarily unavailable. This is usually resolved quickly.");
                 }
             }
 
@@ -727,9 +677,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (html.includes('</body>')) {
-                    html = html.replace('</body>', '<link rel="stylesheet" href="editor.css"><script src="editor.js"></script></body>');
+                    html = html.replace('</body>', '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script></body>');
                 } else {
-                    html += '<link rel="stylesheet" href="editor.css"><script src="editor.js"></script>';
+                    html += '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script>';
                 }
 
                 generatedHtml = html;
@@ -841,9 +791,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Ensure editor scripts are always present
             if (!html.includes('editor.js')) {
                 if (html.includes('</body>')) {
-                    html = html.replace('</body>', '<link rel="stylesheet" href="editor.css"><script src="editor.js"></script></body>');
+                    html = html.replace('</body>', '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script></body>');
                 } else {
-                    html += '<link rel="stylesheet" href="editor.css"><script src="editor.js"></script>';
+                    html += '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script>';
                 }
             }
             // Ensure fonts are present
@@ -1649,7 +1599,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <circle cx="8.5" cy="8.5" r="1.5"></circle>
                     <polyline points="21 15 16 10 5 21"></polyline>
                 </svg>
-                <span>${t('click_drop', 'Double-click to upload image')}</span>
+                <span>${window.__eidos_t('click_drop', 'Double-click to upload image')}</span>
             `;
 
             // Drag & drop (works directly, no scaling issue)
@@ -1801,7 +1751,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dots.forEach((d, i) => {
             d.classList.toggle('active', i === currentSlide);
         });
-        const tpl = t("slide_label", "Slide {current} of {total}");
+        const tpl = window.__eidos_t("slide_label_tpl", "Slide {current} of {total}");
         slideLabel.textContent = tpl.replace('{current}', currentSlide + 1).replace('{total}', totalSlides);
     }
 

@@ -151,7 +151,7 @@ window.initEditorUI = function (iframe) {
             const delBtn = document.createElement('button');
             delBtn.className = 'minimap-delete-btn';
             delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-            delBtn.title = 'Delete Slide';
+            delBtn.title = window.__eidos_t('delete_slide', 'Delete Slide');
             delBtn.onclick = (e) => {
                 e.stopPropagation();
                 if (slides.length <= 1) return;
@@ -168,7 +168,7 @@ window.initEditorUI = function (iframe) {
             const dupBtn = document.createElement('button');
             dupBtn.className = 'minimap-dup-btn';
             dupBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-            dupBtn.title = reachedLimit ? 'Limit reached (15 slides max)' : 'Duplicate Slide';
+            dupBtn.title = reachedLimit ? window.__eidos_t('limit_reached', 'Limit reached (15 slides max)') : window.__eidos_t('duplicate_slide', 'Duplicate Slide');
             dupBtn.disabled = reachedLimit;
             if (reachedLimit) {
                 dupBtn.style.opacity = '0.5';
@@ -689,7 +689,7 @@ window.initEditorUI = function (iframe) {
                     <div class="tool-row">
                         <div class="fpicker" id="tool-font-picker">
                             <div class="fpicker-trigger" id="tool-font-trigger">
-                                <span class="fpicker-current" id="tool-font-label">Select font</span>
+                                <span class="fpicker-current" id="tool-font-label">${window.__eidos_t('select_font', 'Select font')}</span>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </div>
                             <div class="fpicker-dropdown" id="tool-font-dropdown">

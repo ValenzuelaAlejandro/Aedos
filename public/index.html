@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Eidoslab</title>
     <meta name="description"
         content="Generate professional presentations in seconds with AI. Fill in details, choose your style, download your PDF.">
@@ -22,7 +23,14 @@
     <!-- Motion Library (vanilla) -->
     <script src="https://unpkg.com/motion@latest/dist/motion.js"></script>
     <!-- i18n Translation System -->
-    <script src="i18n.js"></script>
+    <script src="i18n.js?v=3"></script>
+    <script>
+        // Safety fallback if i18n.js fails to load
+        if (!window.__eidos_t) {
+            window.__eidos_t = (k, d) => d || k;
+            window.currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
+        }
+    </script>
     <!-- Three.js & Lenis -->
     <!-- Three.js & Lenis -->
     <script type="importmap">
@@ -101,21 +109,21 @@
                         <path d="M3 13V7l5-4 5 4v6" />
                         <rect x="6" y="9" width="4" height="4" rx="1" />
                     </svg>
-                    Roman Empire
+                    <span data-i18n="chip_roman">Roman Empire</span>
                 </button>
                 <button class="chip" onclick="fillInput('Generative AI')">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                         <circle cx="8" cy="8" r="3" />
                         <path d="M8 1v2M8 13v2M1 8h2M13 8h2" />
                     </svg>
-                    Generative AI
+                    <span data-i18n="chip_ai">Generative AI</span>
                 </button>
                 <button class="chip" onclick="fillInput('Climate Change')">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                         <path d="M3 10c0-2.8 2.2-5 5-5s5 2.2 5 5" />
                         <path d="M1 10h14M5 13l3-3 3 3" />
                     </svg>
-                    Climate Change
+                    <span data-i18n="chip_climate">Climate Change</span>
                 </button>
                 <button class="chip" onclick="fillInput('Industrial Revolution')">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -123,21 +131,21 @@
                         <rect x="6" y="5" width="4" height="8" />
                         <rect x="10" y="3" width="4" height="10" />
                     </svg>
-                    Industrial Revolution
+                    <span data-i18n="chip_industrial">Industrial Revolution</span>
                 </button>
                 <button class="chip" onclick="fillInput('Cell Biology')">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                         <ellipse cx="8" cy="8" rx="6" ry="4" />
                         <circle cx="8" cy="8" r="2" />
                     </svg>
-                    Cell Biology
+                    <span data-i18n="chip_biology">Cell Biology</span>
                 </button>
                 <button class="chip" onclick="fillInput('Black Holes')">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                         <circle cx="8" cy="8" r="3" />
                         <circle cx="8" cy="8" r="6" stroke-dasharray="2 2" />
                     </svg>
-                    Black Holes
+                    <span data-i18n="chip_blackholes">Black Holes</span>
                 </button>
             </div>
 
@@ -154,37 +162,37 @@
             <!-- Step 1 -->
             <article class="narrative-step" data-step="0">
                 <div class="step-content">
-                    <span class="step-label">01 // THE ARCHITECT</span>
-                    <h1>Neural <br><span>Architecture.</span></h1>
-                    <p>Our AI analyzes your intent, constructing a deep logical structure before a single pixel is rendered.</p>
+                    <span class="step-label" data-i18n="scrolly_step1_label">01 // THE SHORTCUT</span>
+                    <h1 data-i18n="scrolly_step1_title">Prompt & <br><span>Chill.</span></h1>
+                    <p data-i18n="scrolly_step1_desc">Give us a topic, we’ll do the thinking. It’s like having a group project where someone actually does the work.</p>
                 </div>
             </article>
 
             <!-- Step 2 -->
             <article class="narrative-step" data-step="1">
                 <div class="step-content">
-                    <span class="step-label">02 // THE VISION</span>
-                    <h1>Dynamic <br><span>Design.</span></h1>
-                    <p>A library of curated aesthetic DNA. From brutalist grids to organic layouts, tailored to your brand.</p>
+                    <span class="step-label" data-i18n="scrolly_step2_label">02 // THE FLEX</span>
+                    <h1 data-i18n="scrolly_step2_title">Instant <br><span>Main Character.</span></h1>
+                    <p data-i18n="scrolly_step2_desc">Default templates are for people with too much free time. We serve up layouts that make you look like a design prodigy.</p>
                 </div>
             </article>
 
             <!-- Step 3 -->
             <article class="narrative-step" data-step="2">
                 <div class="step-content">
-                    <span class="step-label">03 // THE ENGINE</span>
-                    <h1>Fluid <br><span>Refinery.</span></h1>
-                    <p>Adapt, edit, and pivot in real-time. A professional grade editor built for speed and visual precision.</p>
+                    <span class="step-label" data-i18n="scrolly_step3_label">03 // THE CHEF'S KISS</span>
+                    <h1 data-i18n="scrolly_step3_title">Pretend <br><span>You Toiled.</span></h1>
+                    <p data-i18n="scrolly_step3_desc">A pro editor for the finishing touches. Drag a few things around so it looks like you spent hours on this, not seconds.</p>
                 </div>
             </article>
 
             <!-- Step 4 -->
             <article class="narrative-step" data-step="3">
                 <div class="step-content">
-                    <span class="step-label">04 // THE DELIVERY</span>
-                    <h1>Pixel <br><span>Perfect.</span></h1>
-                    <p>High-fidelity exports. Vector-grade PDFs ready for the world's biggest screens.</p>
-                    <button class="cta-cooking-v3" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+                    <span class="step-label" data-i18n="scrolly_step4_label">04 // THE AUDACITY</span>
+                    <h1 data-i18n="scrolly_step4_title">Ghost <br><span>Protocol.</span></h1>
+                    <p data-i18n="scrolly_step4_desc">High-res PDFs ready to stun. Close your 50 Chrome tabs, act natural, and take all the credit. You earned it (sort of).</p>
+                    <button class="cta-cooking-v3" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" data-i18n="start_cooking">
                         Start Cooking
                     </button>
                 </div>
@@ -461,8 +469,8 @@
         </div>
     </div>
 
-    <script src="editor-ui.js?v=2"></script>
-    <script src="app.js?v=2"></script>
+    <script src="editor-ui.js?v=3"></script>
+    <script src="app.js?v=3"></script>
 </body>
 
 </html>

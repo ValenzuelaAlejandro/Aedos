@@ -14,7 +14,9 @@ const TMP_DIR = path.join(__dirname, 'tmp');
 // Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
+
 app.use(express.static('public'));
+
 
 // Create /tmp/ folder if it doesn't exist
 if (!fs.existsSync(TMP_DIR)) {
@@ -176,6 +178,9 @@ app.post('/generate', async (req, res) => {
 
         // 6. Clean the full response
         let finalHtml = fullHtml.replace(/^```html\n?/m, '').replace(/^```\n?/m, '').replace(/```\n?$/m, '').trim();
+
+        // 6.5 Remove any existing CSP meta tags to avoid conflicts
+        finalHtml = finalHtml.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/gi, '');
 
         // 7. Validate the response — detect refusals
         const configRegex = /<!--\s*CONFIG[\s\S]*?-->/i;
