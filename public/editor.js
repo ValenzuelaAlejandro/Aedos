@@ -253,7 +253,7 @@ function initEditor() {
                 if (selectedElement) {
                     saveState();
                     const color = swatch.dataset.color;
-                    if (selectedElement.matches('h1, h2, h3, h4, p, span, li, button, .tag, .big-number, .big-label, i, svg, [data-lucide], .lucide, .lucide-icon')) {
+                    if (selectedElement.matches('h1, h2, h3, h4, p, span, li, button, .tag, .big-number, .big-label, .subtitle, .step-num, .timeline-year, i, svg, [data-lucide], .lucide, .lucide-icon')) {
                         selectedElement.style.color = color;
                         selectedElement.style.webkitTextFillColor = color;
                         // For SVGs, also try setting fill and stroke if they don't use currentColor

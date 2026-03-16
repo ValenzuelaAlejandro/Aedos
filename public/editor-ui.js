@@ -618,7 +618,13 @@ window.initEditorUI = function (iframe) {
 
         const tagName = el.tagName ? el.tagName.toLowerCase() : '';
         if (!tagName) return;
-        const isText = ['h1', 'h2', 'h3', 'h4', 'p', 'span', 'li', 'blockquote'].includes(tagName) || el.classList.contains('tag');
+        const isText = ['h1', 'h2', 'h3', 'h4', 'p', 'span', 'li', 'blockquote'].includes(tagName) || 
+                       el.classList.contains('tag') || 
+                       el.classList.contains('big-number') || 
+                       el.classList.contains('big-label') || 
+                       el.classList.contains('subtitle') || 
+                       el.classList.contains('step-num') || 
+                       el.classList.contains('timeline-year');
         const isImage = tagName === 'img' || el.classList.contains('img-slot') || el.hasAttribute('data-image-slot');
         // Shapes can be SVG or Divs with .card class
         const isShape = (tagName === 'svg' && !el.hasAttribute('data-lucide') && !isImage) ||
