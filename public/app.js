@@ -2168,14 +2168,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             this.dummy = new THREE.Object3D();
             this.initialPositions = new Float32Array(this.particleCount * 3);
-            for(let i=0; i<this.particleCount; i++) {
+            for (let i = 0; i < this.particleCount; i++) {
                 const x = (Math.random() - 0.5) * 20;
                 const y = (Math.random() - 0.5) * 20;
                 const z = (Math.random() - 0.5) * 20;
-                this.initialPositions[i*3] = x;
-                this.initialPositions[i*3+1] = y;
-                this.initialPositions[i*3+2] = z;
-                
+                this.initialPositions[i * 3] = x;
+                this.initialPositions[i * 3 + 1] = y;
+                this.initialPositions[i * 3 + 2] = z;
+
                 this.dummy.position.set(x, y, z);
                 this.dummy.updateMatrix();
                 this.particles.setMatrixAt(i, this.dummy.matrix);
