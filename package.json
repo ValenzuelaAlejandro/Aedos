@@ -12,6 +12,7 @@
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
+    "motion": "^12.35.1",
     "puppeteer": "^24.39.1"
   },
   "engines": {
