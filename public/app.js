@@ -2351,5 +2351,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Prevent wheel propagation for data-lenis-prevent elements
+    document.addEventListener('wheel', (e) => {
+        const target = e.target.closest('[data-lenis-prevent]');
+        if (target) {
+            e.stopPropagation();
+        }
+    }, { capture: false, passive: true });
+
     // Scroll is now native; no custom scroll-loop system
 });

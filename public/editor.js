@@ -179,28 +179,41 @@ function initEditor() {
         if (!el) return;
         saveState();
 
-        // 1. Clean up ALL phantoms in the slide (prevents orphaned borders)
         const slide = el.closest('.s') || el.closest('section') || document.body;
-        slide.querySelectorAll('.eidos-phantom').forEach(p => p.remove());
 
-        // 2. If the element is part of the flex flow (not normalized to absolute),
-        //    replace it with an invisible spacer so the layout doesn't collapse.
-        const isInFlow = window.getComputedStyle(el).position !== 'absolute';
-        const isLayoutElement = el.matches('.img-slot, .flex-col, .flex-row, .card');
+        const layoutSelector = '.img-slot, .flex-col, .flex-row, .card, .stat-box, .step-item, .timeline-item, .grid-2, .grid-3, .steps-list, .stat-grid, .timeline-list';
+        const isLayoutElement = el.matches(layoutSelector);
+        
+        const style = window.getComputedStyle(el);
+        const isInFlow = style.position !== 'absolute';
 
-        if (isInFlow && isLayoutElement) {
+        if (isLayoutElement) {
             const spacer = document.createElement('div');
             spacer.className = 'eidos-deleted-spacer';
             spacer.style.cssText = `
-                flex: 1;
+                flex: ${style.flex};
+                width: ${style.width};
+                height: ${style.height};
                 min-height: ${el.offsetHeight}px;
                 visibility: hidden;
                 pointer-events: none;
             `;
-            el.replaceWith(spacer);
+
+            if (isInFlow) {
+                el.replaceWith(spacer);
+            } else if (el._eidosPhantom && el._eidosPhantom.parentElement) {
+                // If it had a phantom (normalized), replace the phantom with the spacer
+                el._eidosPhantom.replaceWith(spacer);
+                el.remove();
+            } else {
+                el.remove();
+            }
         } else {
             el.remove();
         }
+
+        // Clean up remaining phantoms in the slide (except the one we might have just replaced if we missed it)
+        slide.querySelectorAll('.eidos-phantom').forEach(p => p.remove());
 
         deselectGroup();
     }
@@ -427,6 +440,7 @@ function initEditor() {
             clone.style.margin = style.margin;
             clone.style.position = style.position;
             el.parentNode.insertBefore(clone, el);
+            el._eidosPhantom = clone;
 
             // Move to slide while maintaining z-index
             const currentZ = el.style.zIndex;

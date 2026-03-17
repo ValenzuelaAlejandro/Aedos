@@ -66,8 +66,8 @@
             </div>
 
             <!-- Chat Input Area -->
-            <div class="chat-input-wrapper">
-                <div class="chat-input-container"
+            <div class="chat-input-wrapper" data-lenis-prevent>
+                <div class="chat-input-container" data-lenis-prevent
                     style="position: relative; flex: 1; display: flex; align-items: center;">
                     <span id="chat-placeholder"
                         style="position: absolute; left: 1.2rem; right: 0.5rem; color: var(--muted); pointer-events: none; white-space: nowrap; user-select: none; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;">
@@ -75,7 +75,7 @@
                             id="chat-typewriter-cursor" class="typewriter-cursor">|</span>
                     </span>
                     <textarea id="w-tema" class="chat-input" autocomplete="off" autofocus rows="1" maxlength="600"
-                        aria-label="Presentation topic"
+                        aria-label="Presentation topic" data-lenis-prevent
                         style="resize: none; min-height: 1.5rem;"></textarea>
                 </div>
                 <div class="chat-actions">
@@ -312,7 +312,7 @@
         <!-- Editor Layout -->
         <div class="editor-main-layout">
             <!-- Left Minimap -->
-            <div class="editor-minimap" id="editor-minimap">
+            <div class="editor-minimap" id="editor-minimap" data-lenis-prevent>
                 <div class="minimap-list" id="minimap-list"></div>
                 <button type="button" class="add-slide-btn" id="btn-add-slide" title="Add slide" data-i18n-title="add_slide">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -324,7 +324,7 @@
 
             <!-- Slide viewer (Center) -->
             <div class="preview-stage" id="preview-stage">
-                <div class="preview-wrapper-scrollable" id="preview-wrapper-scrollable">
+                <div class="preview-wrapper-scrollable" id="preview-wrapper-scrollable" data-lenis-prevent>
                     <div class="preview-wrapper" id="preview-wrapper">
                         <iframe id="preview-iframe"></iframe>
                     </div>
@@ -371,7 +371,7 @@
 
                 <div class="tools-divider"></div>
 
-                <div id="dynamic-tools-container" class="dynamic-tools-container">
+                <div id="dynamic-tools-container" class="dynamic-tools-container" data-lenis-prevent>
                     <div class="empty-tools-state"
                         style="color:var(--muted); font-size: 0.85rem; text-align:center; padding: 2rem 1rem;">
                         <span data-i18n="empty_tools">Select an element on the canvas, or click the background to change global settings.</span>
@@ -428,7 +428,7 @@
             <p class="error-subtitle" id="t-error-subtitle" data-i18n="error_subtitle">The AI service is temporarily unavailable. This is usually resolved quickly.</p>
             <details class="error-details">
                 <summary id="t-error-summary" data-i18n="error_summary">Technical details</summary>
-                <p id="error-message"></p>
+                <p id="error-message" data-lenis-prevent></p>
             </details>
             <button type="button" id="back-btn" class="btn-secondary" data-i18n="try_again">Try again</button>
         </div>
@@ -449,7 +449,7 @@
             </div>
             <h2 id="t-refused-title" data-i18n="refused_title">This topic can't be generated</h2>
             <p class="refused-subtitle" id="t-refused-subtitle" data-i18n="refused_subtitle">The AI declined to create this presentation for safety reasons.</p>
-            <div class="refused-message" id="refused-message"></div>
+            <div class="refused-message" id="refused-message" data-lenis-prevent></div>
             <button type="button" id="refused-back-btn" class="btn-secondary" data-i18n="try_different">Try a different topic</button>
         </div>
     </section>

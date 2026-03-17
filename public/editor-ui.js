@@ -692,7 +692,7 @@ window.initEditorUI = function (iframe) {
                                 <span class="fpicker-current" id="tool-font-label">${window.__eidos_t('select_font', 'Select font')}</span>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </div>
-                            <div class="fpicker-dropdown" id="tool-font-dropdown">
+                            <div class="fpicker-dropdown" id="tool-font-dropdown" data-lenis-prevent>
                                 ${fontPickerOptions}
                             </div>
                         </div>
