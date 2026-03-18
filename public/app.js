@@ -322,6 +322,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
+        // Freeze Lenis so it doesn't fight scroll state on return
+        if (window._eidosScrollytelling) window._eidosScrollytelling.pauseForPreview();
+        window.removeEventListener('resize', scaleIframe); // evita acumulación
+
         // Hide chatScreen when loading
         chatScreen.classList.add('hidden');
         if (scrollySection) scrollySection.classList.add('hidden');
@@ -661,6 +665,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnDebugCanva) {
         btnDebugCanva.addEventListener('click', async () => {
+            // Lenis nunca se paraba en debug — esto era otra fuente del problema
+            if (window._eidosScrollytelling) window._eidosScrollytelling.pauseForPreview();
             try {
                 toggleGenerateLoading(true);
                 const res = await fetch('/debug-last');
@@ -729,15 +735,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnBackToChat) {
         btnBackToChat.addEventListener('click', () => {
             previewContainer.classList.add('hidden');
+            window.removeEventListener('resize', scaleIframe);
             chatScreen.classList.remove('hidden');
-            if (scrollySection) {
-                scrollySection.classList.remove('hidden');
-                // Force recalculation of Three.js and GSAP positions
-                window.dispatchEvent(new Event('resize'));
-                if (typeof ScrollTrigger !== 'undefined') {
-                    setTimeout(() => ScrollTrigger.refresh(), 100);
-                }
-            }
+            if (scrollySection) scrollySection.classList.remove('hidden');
+            window.dispatchEvent(new Event('resize'));
+            if (window._eidosScrollytelling) window._eidosScrollytelling.resetScrollTriggers();
             temaInput.focus();
         });
     }
@@ -2060,9 +2062,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (scrollySection) {
             scrollySection.classList.remove('hidden');
             window.dispatchEvent(new Event('resize'));
-            if (typeof ScrollTrigger !== 'undefined') {
-                setTimeout(() => ScrollTrigger.refresh(), 100);
-            }
+            if (window._eidosScrollytelling) window._eidosScrollytelling.resetScrollTriggers();
         }
 
         currentSlide = 0;
@@ -2188,20 +2188,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         initLenis() {
-            if (typeof Lenis !== 'undefined') {
-                this.lenis = new Lenis({
-                    duration: 1.2,
-                    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-                    orientation: 'vertical',
-                    smoothWheel: true,
-                });
+            this._createLenis();
+        }
 
-                function raf(time) {
-                    this.lenis.raf(time);
-                    requestAnimationFrame(raf.bind(this));
-                }
-                requestAnimationFrame(raf.bind(this));
+        _createLenis() {
+            // Limpia instancia anterior
+            if (this._lenisTickerFn) {
+                gsap.ticker.remove(this._lenisTickerFn);
+                this._lenisTickerFn = null;
             }
+            if (this.lenis) {
+                this.lenis.destroy();
+                this.lenis = null;
+                window._eidosLenis = null;
+            }
+
+            if (typeof Lenis === 'undefined') return;
+
+            this.lenis = new Lenis({
+                duration: 1.2,
+                easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+                orientation: 'vertical',
+                smoothWheel: true,
+            });
+            window._eidosLenis = this.lenis;
+
+            // INTEGRACIÓN OFICIAL: Lenis tickea con GSAP, no con rAF manual
+            // Sin esto, Lenis y ScrollTrigger corren desincronizados → el "querer regresar"
+            this.lenis.on('scroll', () => {
+                if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.update();
+            });
+
+            this._lenisTickerFn = (time) => {
+                if (this.lenis) this.lenis.raf(time * 1000);
+            };
+            gsap.ticker.add(this._lenisTickerFn);
+            gsap.ticker.lagSmoothing(0); // evita que GSAP acelere para compensar lag
         }
 
         initScrollTrigger() {
@@ -2230,7 +2252,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     trigger: sectionSelector,
                     start: "top top",
                     end: "bottom bottom",
-                    scrub: 2.5,
+                    scrub: 1,
                     onUpdate: (self) => {
                         const prog = self.progress * 100;
                         document.querySelector('.v-fill').style.height = prog + '%';
@@ -2297,6 +2319,46 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        resetScrollTriggers() {
+            if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.getAll().forEach(st => st.kill());
+            if (typeof gsap !== 'undefined') {
+                gsap.killTweensOf([
+                    this.camera.position, this.coreGroup.rotation, this.coreGroup.scale,
+                    this.coreMesh.material, this.innerCore.material,
+                    this.particles.material, this.particles,
+                ]);
+                gsap.set(this.camera.position, { x: 0, y: 0, z: 10 });
+                gsap.set(this.coreGroup.rotation, { y: 0 });
+                gsap.set(this.coreGroup.scale, { x: 1, y: 1, z: 1 });
+                gsap.set([this.coreMesh.material, this.innerCore.material], { opacity: 1 });
+                gsap.set(this.particles.material, { opacity: 0 });
+            }
+            if (this.particles) this.particles.visible = false;
+
+            // Destruye Lenis (también remueve del ticker de GSAP)
+            this._createLenis(); // destroy + recreate limpio
+
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+
+            // Espera 2 frames para que el browser procese scrollY = 0
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    this.initScrollTrigger();
+                    if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
+                });
+            });
+        }
+
+        pauseForPreview() {
+            if (this._lenisTickerFn) {
+                gsap.ticker.remove(this._lenisTickerFn);
+                this._lenisTickerFn = null;
+            }
+            if (this.lenis) this.lenis.stop();
+        }
+
         onResize() {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
@@ -2336,7 +2398,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initLandingScrollytelling() {
-        new ThreeScrollytelling();
+        window._eidosScrollytelling = new ThreeScrollytelling();
     }
 
     initLandingScrollytelling();
