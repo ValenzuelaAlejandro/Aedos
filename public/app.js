@@ -1483,6 +1483,8 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.addEventListener('eidos-trigger-image-picker', doc._eidosTriggerListener);
 
 
+
+
         // Enable labels only while a file is being dragged. Reset on drop/dragleave.
         window.addEventListener('dragenter', () => {
             if (typeof pruneDeadSlotOverlays === 'function') pruneDeadSlotOverlays();
@@ -2416,6 +2418,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     initLandingScrollytelling();
+
+    // =========================================================
+    // DESELECT ON CLICK OUTSIDE PREVIEW
+    // =========================================================
+    document.addEventListener('mousedown', (e) => {
+        // Only act if preview is visible
+        if (previewContainer && !previewContainer.classList.contains('hidden')) {
+            // If not clicking inside the iframe itself
+            if (e.target !== previewIframe) {
+                // And not clicking on editor UI elements (tools, minimap, header)
+                const isEditorInteraction = 
+                    e.target.closest('#editor-tools-panel') || 
+                    e.target.closest('#editor-minimap') || 
+                    e.target.closest('.preview-unified-header') ||
+                    e.target.closest('._slot-overlay-label');
+
+                if (!isEditorInteraction) {
+                    try {
+                        if (previewIframe && previewIframe.contentWindow && previewIframe.contentWindow.eidosDeselect) {
+                            previewIframe.contentWindow.eidosDeselect();
+                        }
+                    } catch (err) { }
+                }
+            }
+        }
+    });
 
     // Global helper for chips
     window.fillInput = (keyOrText) => {
