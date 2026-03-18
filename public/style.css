@@ -2815,7 +2815,16 @@ section.s.active > * {
     font-family: var(--font-body);
 }
 
-.add-el-btn:hover {
+.add-el-btn:disabled,
+.tool-btn:disabled {
+    opacity: 0.3;
+    filter: grayscale(1);
+    cursor: not-allowed;
+    background: transparent !important;
+    pointer-events: none;
+}
+
+.add-el-btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text);
     transform: none;

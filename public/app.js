@@ -254,11 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const loaderIcon = document.getElementById('btn-icon-loader');
 
     function toggleGenerateLoading(isLoading) {
-        const previewBtns = [
-            document.getElementById('btn-back-to-chat'),
-            document.getElementById('btn-regenerate'),
-            document.getElementById('preview-reset-btn'),
-            document.getElementById('finalize-btn')
+        const editorControls = [
+            ...Array.from(document.querySelectorAll('.preview-unified-header button, .preview-unified-header select, .preview-unified-header input')),
+            ...Array.from(document.querySelectorAll('#editor-tools-panel button, #editor-tools-panel select, #editor-tools-panel input, #editor-minimap button'))
         ];
 
         if (isLoading) {
@@ -269,8 +267,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (loaderIcon) loaderIcon.classList.remove('hidden');
             stopTypewriter();
 
-            // Disable preview buttons during generation
-            previewBtns.forEach(btn => { if (btn) btn.disabled = true; });
+            // Disable editor buttons/controls during generation
+            editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = true; });
         } else {
             temaInput.disabled = false;
             generateBtn.disabled = temaInput.value.trim().length < 4;
@@ -279,8 +277,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (loaderIcon) loaderIcon.classList.add('hidden');
             if (typewriterCursor) typewriterCursor.style.display = '';
 
-            // Enable preview buttons after generation (or error)
-            previewBtns.forEach(btn => { if (btn) btn.disabled = false; });
+            // Enable editor buttons/controls after generation (or error)
+            editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = false; });
 
             if (temaInput.value.trim() && chatPlaceholderContainer) {
                 chatPlaceholderContainer.style.display = 'none';
