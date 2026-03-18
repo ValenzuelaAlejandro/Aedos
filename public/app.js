@@ -1295,37 +1295,46 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             .img-replace-overlay {
                 position: absolute;
-                bottom: 10px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 15;
+                inset: 0;
+                z-index: 20;
                 display: flex;
+                flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                gap: 6px;
-                padding: 5px 14px;
-                background: rgba(0,0,0,0.6);
-                backdrop-filter: blur(8px);
-                border-radius: 20px;
-                opacity: 0;
-                transition: opacity 0.25s ease;
+                gap: 8px;
+                background: rgba(0,0,0,0.3);
+                opacity: 0.7;
+                transition: all 0.25s ease;
                 pointer-events: none;
-                white-space: nowrap;
+                padding: 1rem;
+                text-align: center;
             }
+            /* Hide the large overlay when image is present, show only on hover then? */
+            /* Or maybe just hide it completely if image is set, since we have the topbar replace btn */
+            [data-image-slot].has-custom-image .img-replace-overlay {
+                display: none !important;
+            }
+
             [data-image-slot]:hover .img-replace-overlay,
             [data-image-slot].is-hovered .img-replace-overlay {
                 opacity: 1;
+                background: rgba(0,0,0,0.5);
             }
             .img-replace-overlay svg {
-                width: 14px; height: 14px;
+                width: 24px; height: 24px;
                 stroke: white; fill: none; stroke-width: 1.5;
+                opacity: 0.8;
             }
             .img-replace-overlay span {
-                color: white; font-size: 11px;
+                color: white; font-size: 13px;
                 font-family: 'DM Sans', sans-serif;
+                font-weight: 500;
+                max-width: 140px;
+                line-height: 1.3;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.3);
             }
             [data-image-slot].drag-over {
-                outline: 3px solid #6366f1 !important;
+                outline: 3px solid var(--presentation-accent, #6366f1) !important;
                 outline-offset: -3px;
             }
             body.eidos-locked .img-replace-overlay {
@@ -1556,9 +1565,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // ──────────────────────────────────────────────────────────────────────
 
 
-        const slots = doc.querySelectorAll('[data-image-slot]');
+        const slots = doc.querySelectorAll('[data-image-slot], .img-slot');
         slots.forEach(slot => {
             const slotId = slot.dataset.imageSlot;
+
+            // Ensure it has data-image-slot for consistency if it's an .img-slot
+            if (!slot.dataset.imageSlot) {
+                slot.dataset.imageSlot = 'gen-' + Math.random().toString(36).substr(2, 9);
+            }
 
             // Hide decorative shapes (circles/blobs) — keep gradient overlays
             Array.from(slot.children).forEach(child => {
@@ -1594,12 +1608,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 slot.appendChild(overlay);
             }
             overlay.innerHTML = `
-                <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                    <polyline points="21 15 16 10 5 21"></polyline>
-                </svg>
-                <span>${window.__eidos_t('click_drop', 'Double-click to upload image')}</span>
+                <div class="overlay-content" style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <span>${window.__eidos_t('click_drop')}</span>
+                </div>
             `;
 
             // Drag & drop (works directly, no scaling issue)
