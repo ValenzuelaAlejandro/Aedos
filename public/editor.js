@@ -711,6 +711,33 @@ function initEditor() {
         }
     });
 
+    // Handle Paste as Plain Text (Clean & Safe version)
+    document.addEventListener('paste', (e) => {
+        const target = e.target.closest('[contenteditable="true"]');
+        if (!target) return;
+
+        e.preventDefault();
+        const clipboardData = e.clipboardData || window.clipboardData;
+        const text = clipboardData.getData('text/plain') || clipboardData.getData('text');
+        
+        if (text) {
+            try {
+                // This is the standard way to insert text into contenteditable
+                // It maintains undo/redo history and works in most modern browsers.
+                document.execCommand('insertText', false, text);
+            } catch (err) {
+                // Minimal fallback for restricted environments
+                const selection = window.getSelection();
+                if (selection.rangeCount) {
+                    const range = selection.getRangeAt(0);
+                    range.deleteContents();
+                    range.insertNode(document.createTextNode(text));
+                    range.collapse(false); // Move cursor to end of inserted text
+                }
+            }
+        }
+    });
+
     selectionBox.addEventListener('dblclick', (e) => {
         if (_isLocked) return;
         e.stopPropagation();
