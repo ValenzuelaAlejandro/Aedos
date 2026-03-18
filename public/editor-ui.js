@@ -604,7 +604,7 @@ window.initEditorUI = function (iframe) {
                     } else if (type === 'shape') {
                         insertShape(item.dataset.class, item.dataset.styles);
                     }
-                    renderTools(null); // Back to slide tools
+                    // Removed renderTools(null) as the new selection will trigger its own tools
                 });
             });
 
@@ -1258,8 +1258,14 @@ window.initEditorUI = function (iframe) {
         slide.appendChild(text);
 
         // Select it automatically to show tools
-        if (iframeWin.initEditor) {
-            // Injected editor.js has selectElement
+        if (iframeWin.eidosSelect) {
+            iframeWin.eidosSelect(text);
+        } else {
+            // Fallback for older sessions
+            const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
+            text.dispatchEvent(clickEv);
+            const upEv = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: iframeWin });
+            iframeDoc.dispatchEvent(upEv);
         }
     });
 
@@ -1344,6 +1350,18 @@ window.initEditorUI = function (iframe) {
         }
 
         slide.appendChild(shape);
+
+        // Select it automatically to show tools
+        if (iframeWin.eidosSelect) {
+            iframeWin.eidosSelect(shape);
+        } else {
+            // Fallback for older sessions
+            const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
+            shape.dispatchEvent(clickEv);
+            const upEv = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: iframeWin });
+            iframeDoc.dispatchEvent(upEv);
+        }
+
         if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
     }
 
@@ -1369,6 +1387,22 @@ window.initEditorUI = function (iframe) {
         slide.appendChild(icon);
 
         if (iframeWin.lucide) iframeWin.lucide.createIcons();
+
+        // Select it automatically to show tools
+        // After Lucide replaces the <i> with <svg>, find the actual element
+        const newlyCreated = slide.querySelector(`[data-lucide="${iconName}"]`);
+        const elToSelect = newlyCreated || icon;
+
+        if (iframeWin.eidosSelect) {
+            iframeWin.eidosSelect(elToSelect);
+        } else {
+            // Fallback
+            const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
+            elToSelect.dispatchEvent(clickEv);
+            const upEv = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: iframeWin });
+            iframeDoc.dispatchEvent(upEv);
+        }
+
         if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
     }
 
