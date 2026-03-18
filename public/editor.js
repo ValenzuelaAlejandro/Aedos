@@ -181,28 +181,30 @@ function initEditor() {
 
         const slide = el.closest('.s') || el.closest('section') || document.body;
 
-        const layoutSelector = '.img-slot, .flex-col, .flex-row, .card, .stat-box, .step-item, .timeline-item, .grid-2, .grid-3, .steps-list, .stat-grid, .timeline-list';
-        const isLayoutElement = el.matches(layoutSelector);
-        
         const style = window.getComputedStyle(el);
         const isInFlow = style.position !== 'absolute';
 
-        if (isLayoutElement) {
+        if (isInFlow || el._eidosPhantom) {
+            const rect = el.getBoundingClientRect();
             const spacer = document.createElement('div');
             spacer.className = 'eidos-deleted-spacer';
-            spacer.style.cssText = `
-                flex: ${style.flex};
-                width: ${style.width};
-                height: ${style.height};
-                min-height: ${el.offsetHeight}px;
-                visibility: hidden;
-                pointer-events: none;
-            `;
+            
+            // Mirror essential layout properties to preserve the gap
+            spacer.style.width = `${rect.width}px`;
+            spacer.style.height = `${rect.height}px`;
+            spacer.style.flex = style.flex;
+            spacer.style.margin = style.margin;
+            spacer.style.padding = style.padding;
+            spacer.style.display = style.display === 'inline' ? 'inline-block' : style.display;
+            spacer.style.visibility = 'hidden';
+            spacer.style.pointerEvents = 'none';
+            spacer.style.boxSizing = 'border-box'; // Ensure padding doesn't expand it
+            spacer.style.minHeight = '0';
+            spacer.style.minWidth = '0';
 
             if (isInFlow) {
                 el.replaceWith(spacer);
             } else if (el._eidosPhantom && el._eidosPhantom.parentElement) {
-                // If it had a phantom (normalized), replace the phantom with the spacer
                 el._eidosPhantom.replaceWith(spacer);
                 el.remove();
             } else {
@@ -211,9 +213,6 @@ function initEditor() {
         } else {
             el.remove();
         }
-
-        // Clean up remaining phantoms in the slide (except the one we might have just replaced if we missed it)
-        slide.querySelectorAll('.eidos-phantom').forEach(p => p.remove());
 
         deselectGroup();
     }
@@ -1264,6 +1263,9 @@ function initEditor() {
 
     function duplicateElement(el) {
         saveState();
+        const slide = el.closest('.s') || el.closest('section') || document.body;
+        normalizeElement(el, slide);
+
         const clone = el.cloneNode(true);
         // remove any tracking state inside clone if needed
         delete clone._stateSavedSinceMousedown;
@@ -1273,7 +1275,8 @@ function initEditor() {
         clone.style.left = (currentLeft + 20) + 'px';
         clone.style.top = (currentTop + 20) + 'px';
 
-        el.parentNode.insertBefore(clone, el.nextSibling);
+        // Since it's normalized, it should be appended to the slide to maintain absolute coordinates
+        slide.appendChild(clone);
         selectElement(clone);
     }
 
@@ -1312,6 +1315,8 @@ function initEditor() {
                 e.preventDefault();
             } else if (e.key.toLowerCase() === 'c' && !isEditingText) {
                 if (selectedElement) {
+                    const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
+                    normalizeElement(selectedElement, slide);
                     _clipboard = selectedElement.cloneNode(true);
                     // Show brief visual feedback
                     selectedElement.style.outline = '2px solid rgba(255,255,255,0.6)';
@@ -1320,6 +1325,8 @@ function initEditor() {
                 }
             } else if (e.key.toLowerCase() === 'x' && !isEditingText) {
                 if (selectedElement) {
+                    const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
+                    normalizeElement(selectedElement, slide);
                     _clipboard = selectedElement.cloneNode(true);
                     deleteElement(selectedElement);
                     e.preventDefault();
