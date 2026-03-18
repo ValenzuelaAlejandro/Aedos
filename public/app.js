@@ -2404,10 +2404,14 @@ document.addEventListener('DOMContentLoaded', () => {
     initLandingScrollytelling();
 
     // Global helper for chips
-    window.fillInput = (text) => {
+    window.fillInput = (keyOrText) => {
         const input = document.getElementById('w-tema');
         if (input) {
-            input.value = text;
+            // Use translation if key exists, otherwise use as literal
+            const translated = (typeof window.__eidos_t === 'function') 
+                ? window.__eidos_t(keyOrText) 
+                : keyOrText;
+            input.value = translated;
             input.focus();
             input.dispatchEvent(new Event('input'));
         }
