@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // State
     let currentSlide = 0;
+    window.eidosCurrentSlide = 0; // Initialize globally for editor iframe sync
     let totalSlides = 0;
     let generatedHtml = '';
     let slideContainer = null; // The actual parent element of the slides (may be body or a wrapper)
@@ -893,7 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return Array.from(slides); // fallback to whatever last matched
     }
 
-    function setupPreviewInteractions() {
+    function setupPreviewInteractions(targetIndex = 0) {
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
         if (!iframeDoc || !iframeDoc.body) return;
 
@@ -980,8 +981,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const ml = document.getElementById('minimap-list');
         if (ml) ml.style.transition = 'transform 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
 
-        // Important: we don't reset currentSlide to 0 until scrollToSlide(0) runs
-        scrollToSlide(0);
+        // Important: we don't reset currentSlide to 0 until scrollToSlide(targetIndex) runs
+        scrollToSlide(targetIndex);
 
         // After the rewind is done, return to a faster, more responsive speed for editing
         setTimeout(() => {
@@ -1008,7 +1009,7 @@ document.addEventListener('DOMContentLoaded', () => {
         iframeDoc.body.style.margin = '0';
         iframeDoc.body.style.padding = '0';
 
-        scrollToSlide(0);
+        scrollToSlide(targetIndex);
         updateSlideCounter();
         scaleIframe();
         window.addEventListener('resize', scaleIframe);
@@ -1042,6 +1043,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!needsRebuild) return;
                 const iDoc = previewIframe.contentDocument;
                 if (!iDoc) return;
+                
+                // CRITICAL: Cache width early for scrollToSlide calculations
+                previewIframe._slideWidthPx = 1122; 
 
                 // Snapshot by slot ID (string attribute — survives innerHTML replace)
                 const byId = new Map();
@@ -1062,6 +1066,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         _buildOverlayForSlot(newSlot); // new slot (e.g. from redo)
                     }
                 });
+
+                // REBUILD iframe-internal visible overlays and re-bind listeners
+                // DEBOUNCED: Avoid CPU peak when hammer-pressing Ctrl+Z
+                clearTimeout(window._restoreBatchT);
+                window._restoreBatchT = setTimeout(() => {
+                    setupPreviewInteractions(currentSlide);
+                }, 150);
 
                 // --- REFRESH SLIDE SYSTEM ---
                 const slides = findSlides(iDoc);
@@ -1093,6 +1104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (currentSlide >= totalSlides) currentSlide = totalSlides - 1;
                     if (currentSlide < 0) currentSlide = 0;
                     
+                    // Don't restore slide position from entry. User doesn't want to move.
                     scrollToSlide(currentSlide);
                     
                     // Restore transition after reflow
@@ -1155,22 +1167,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         buildDots();
 
-        // Find which slide is currently active in the DOM
-        const activeIndex = slides.findIndex(s => s.classList.contains('active'));
-        if (activeIndex !== -1) {
-            currentSlide = activeIndex;
-        }
-
-        // Ensure currentSlide is within bounds
+        // Ensure currentSlide is within bounds before syncing classes
         if (currentSlide >= totalSlides) {
             currentSlide = totalSlides - 1;
         }
         if (currentSlide < 0) currentSlide = 0;
 
-        // If no slide was active, mark the current one
-        if (activeIndex === -1 && slides[currentSlide]) {
-            slides[currentSlide].classList.add('active');
-        }
+        // Force 'active' class to match currentSlide JS state
+        slides.forEach((s, idx) => {
+            if (idx === currentSlide) s.classList.add('active');
+            else s.classList.remove('active');
+        });
 
         scrollToSlide(currentSlide);
         updateSlideCounter();
@@ -1731,11 +1738,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const iframeWin = previewIframe.contentWindow;
             const slideWidthPx = previewIframe._slideWidthPx
                 || (iframeWin && iframeWin.innerWidth > 0 ? iframeWin.innerWidth : 0)
-                || Math.round(297 * 3.7795275591);
+                || 1122; // Hard fallback for high-fidelity consistency
             container.style.transform = `translateX(-${index * slideWidthPx}px)`;
             slides.forEach(s => s.classList.remove('active'));
             slides[index].classList.add('active');
             currentSlide = index;
+            window.eidosCurrentSlide = index; // Expose globally for the editor iframe
             updateSlideCounter();
             // Reposition overlays for the new active slide
             if (_refreshSlotOverlays) setTimeout(_refreshSlotOverlays, 50);

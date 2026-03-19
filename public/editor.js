@@ -48,6 +48,10 @@ function initEditor() {
     // Clipboard for copy/paste
     let _clipboard = null;
 
+    // Track which slides have been "frozen" into absolute layout to avoid reflows
+    const _isFrozenMap = new WeakMap();
+    let _isRestoring = false; // Flag to prevent state saving during undo/redo
+
     // Selection Observer to update box on property changes
     let selectionObserver = null;
 
@@ -366,7 +370,32 @@ function initEditor() {
 
     // Editable Elements Target Mapping
     const editableSelectors = 'h1, h2, h3, h4, p, span, li, blockquote, div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, .tag, .stat-box, .step-item, .quote-block, .timeline-item, .lucide-icon, svg[data-lucide], .big-number, .big-label, .accent-bar, .subtitle, .step-num, .timeline-year, [class*="card"], [class*="box"], [class*="item"]';
+    const ignoreSelectors = '.img-replace-overlay, .img-replace-overlay *, .eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-phantom';
     window.editableSelectors = editableSelectors; // Export for UI
+
+    function freezeSlideLayout(slide) {
+        if (!slide || _isFrozenMap.has(slide)) return;
+        _isFrozenMap.set(slide, true);
+
+        // Filter out system UI elements from the initial list
+        const allEditables = getEditableElementsInSlide(slide);
+        if (allEditables.length === 0) return;
+
+        // Capture all positions FIRST before any element is moved
+        const slideRect = slide.getBoundingClientRect();
+        const data = allEditables.map(el => ({
+            el,
+            rect: el.getBoundingClientRect()
+        }));
+
+        // Save state ONCE for the whole batch
+        saveState();
+
+        // Normalize all elements using captured positions
+        data.forEach(({ el, rect }) => {
+            normalizeElement(el, slide, true, rect);
+        });
+    }
 
     function getInheritedStyles(el) {
         const style = window.getComputedStyle(el);
@@ -381,12 +410,12 @@ function initEditor() {
         };
     }
 
-    function normalizeElement(el, slide) {
+    function normalizeElement(el, slide, silent = false, providedRect = null) {
         if (el._normalized) return;
         el._normalized = true;
-        saveState();
+        if (!silent) saveState();
 
-        const rect = el.getBoundingClientRect();
+        const rect = providedRect || el.getBoundingClientRect();
         const slideRect = slide.getBoundingClientRect();
         const inherited = getInheritedStyles(el);
         const style = window.getComputedStyle(el);
@@ -395,9 +424,6 @@ function initEditor() {
         el.style.transition = 'none';
 
         if (style.position !== 'absolute') {
-            // OPTIMIZED: We no longer create phantoms because the user wants 'everything else to move up'
-            // when an element is removed from the normal flow (normalized to absolute).
-            
             // Move to slide while maintaining z-index
             const currentZ = el.style.zIndex;
             if (el.parentElement !== slide) slide.appendChild(el);
@@ -456,15 +482,16 @@ function initEditor() {
     function getEditableElementsInSlide(slide, excludeEl) {
         if (!slide) return [];
         return Array.from(slide.querySelectorAll(window.editableSelectors || editableSelectors))
-            .filter(el => el !== excludeEl && 
-                    el.style.display !== 'none' && 
-                    el.style.visibility !== 'hidden' &&
-                    !el.classList.contains('eidos-phantom') && 
-                    !el.closest('.eidos-selection-box') && 
-                    !el.closest('.eidos-toolbar') &&
-                    // Exclude children and ancestors of the current element
-                    !excludeEl.contains(el) &&
-                    !el.contains(excludeEl));
+            .filter(el => {
+                if (el === excludeEl) return false;
+                if (el.style.display === 'none' || el.style.visibility === 'hidden') return false;
+                if (el.matches(ignoreSelectors) || el.closest(ignoreSelectors)) return false;
+                
+                // Exclude children and ancestors of the current element
+                if (excludeEl && (excludeEl.contains(el) || el.contains(excludeEl))) return false;
+                
+                return true;
+            });
     }
 
     /**
@@ -1094,6 +1121,14 @@ function initEditor() {
     });
 
     function selectElement(el) {
+        if (!el || selectedElement === el) return;
+        if (_isLocked) return;
+
+        const slide = el.closest('.s') || el.closest('section') || document.body;
+        
+        // Freeze layout of the whole slide immediately to prevent reflows during editing
+        freezeSlideLayout(slide);
+
         if (selectionObserver) selectionObserver.disconnect();
         
         // Ensure the iframe has focus so keyboard shortcuts (Ctrl+C/V/D) work immediately
@@ -1244,30 +1279,80 @@ function initEditor() {
 
     // --- UNDO / REDO LOGIC ---
     function getCleanHTML() {
-        const clone = document.body.cloneNode(true);
-        // We MUST keep .eidos-phantom to maintain layout, but remove transient UI
-        const editorNodes = clone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker');
-        editorNodes.forEach(node => node.remove());
-        return clone.innerHTML;
+        // Use a temporary container for safe cleaning without regex corruption
+        const temp = document.createElement('div');
+        temp.innerHTML = document.body.innerHTML;
+        
+        // Robust removal of system UI
+        const toRemove = temp.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker, .img-replace-overlay');
+        toRemove.forEach(el => el.remove());
+        
+        return temp.innerHTML;
+    }
+
+    function getCurrentSlideIndex() {
+        const slides = Array.from(document.querySelectorAll('section, .s, [class*="slide"]'));
+        if (slides.length === 0) return 0;
+        
+        // 1. Check parent state first
+        try {
+            if (window.parent && window.parent.eidosCurrentSlide !== undefined) {
+                return window.parent.eidosCurrentSlide;
+            }
+        } catch(e) {}
+
+        // 2. Check for .active class
+        const activeIdx = slides.findIndex(s => s.classList.contains('active'));
+        if (activeIdx !== -1) return activeIdx;
+
+        // 3. Calculation based on container transform (most robust)
+        const container = slides[0].parentElement;
+        if (container) {
+            const transform = window.getComputedStyle(container).transform;
+            if (transform && transform !== 'none') {
+                const matrix = new DOMMatrix(transform);
+                const x = Math.abs(matrix.e); // The horizontal translation
+                // Slide width is usually 1122px in this app
+                const slideWidth = 1122; 
+                return Math.round(x / slideWidth);
+            }
+        }
+        
+        return 0;
     }
 
     function saveState() {
+        if (_isRestoring) return;
         const state = getCleanHTML();
-        // Don't save if it's the same state as current to avoid duplicate history points
-        if (historyIndex !== -1 && history[historyIndex] === state) return;
+        
+        // Always try to get the current index from parent (most reliable)
+        const slideIndex = (window.parent && window.parent.eidosCurrentSlide !== undefined)
+            ? window.parent.eidosCurrentSlide
+            : getCurrentSlideIndex();
+        
+        // Don't save if it's identical HTML to avoid duplicate history points
+        if (historyIndex !== -1 && history[historyIndex].html === state) {
+            // But if the HTML is same but slide moved, just keep the current point?
+            // Usually we only save on physical changes to avoid bloating history
+            return;
+        }
 
         // Truncate history forward if we are in the middle of it
         history.splice(historyIndex + 1);
-        history.push(state);
+        history.push({ html: state, slideIndex: slideIndex });
+        
         // Limit history size to 50
         if (history.length > 50) history.shift();
         historyIndex = history.length - 1;
     }
+    
+    // Initial Save!
+    setTimeout(saveState, 500); 
 
     function undo() {
-        saveState(); // Capture any unsaved changes at current position
-
         if (historyIndex > 0) {
+            // Only save if index is at the tail
+            if (historyIndex === history.length - 1) saveState();
             historyIndex--;
             restoreState(history[historyIndex]);
         }
@@ -1280,10 +1365,12 @@ function initEditor() {
         }
     }
 
-    function restoreState(htmlContent) {
+    function restoreState(entry) {
+        if (!entry || !entry.html) return;
+        _isRestoring = true;
         deselectGroup();
 
-        document.body.innerHTML = htmlContent;
+        document.body.innerHTML = entry.html;
 
         // Re-inject UI and bindings into documentElement (outside body transform context)
         ensureUI();
@@ -1293,8 +1380,15 @@ function initEditor() {
         
         // Notify parent that state changed significantly (slides might have been added/removed)
         // Pass 'needsOverlayRebuild' so app.js can re-inject image slot overlays
-        // (restoring innerHTML destroys the old DOM nodes the overlays were pointing to)
-        window.dispatchEvent(new CustomEvent('eidos-state-restored', { detail: { needsOverlayRebuild: true } }));
+        // Pass 'slideIndex' to restore scroll position
+        window.dispatchEvent(new CustomEvent('eidos-state-restored', { 
+            detail: { 
+                needsOverlayRebuild: true
+            } 
+        }));
+        
+        // Brief timeout to allow observers to settle before unlocking state saves
+        setTimeout(() => { _isRestoring = false; }, 100);
     }
 
 
