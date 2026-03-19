@@ -1041,9 +1041,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!needsRebuild) return;
                 const iDoc = previewIframe.contentDocument;
                 if (!iDoc) return;
-                
+
                 // CRITICAL: Cache width early for scrollToSlide calculations
-                previewIframe._slideWidthPx = 1122; 
+                previewIframe._slideWidthPx = 1122;
 
                 // --- OPTIMIZATION: Non-destructive overlay re-keying ---
                 // 1. Map existing overlays by their slot ID (string attribute - survives innerHTML replace)
@@ -1073,9 +1073,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         _overlayMap.set(newSlot, entry);
                     } else {
                         // Truly new slot (e.g. from copy-paste or redo)
-                        _buildOverlayForSlot(newSlot); 
+                        _buildOverlayForSlot(newSlot);
                     }
-                    
+
                     // REBUILD internal visual message (only if missing)
                     _ensureInternalOverlay(newSlot, iDoc);
                 });
@@ -1087,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     iDoc._eidosRestoringState = true;
                     setupPreviewInteractions(currentSlide);
                     iDoc._eidosRestoringState = false;
-                    
+
                     // Final refresh of overlay positions
                     if (window._refreshSlotOverlays) window._refreshSlotOverlays();
                 }, 40);
@@ -1096,10 +1096,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const slides = findSlides(iDoc);
                 totalSlides = slides.length || 1;
                 buildDots();
-                
+
                 // Re-find and re-init the slide container (it might be a new DOM node after innerHTML replace)
                 slideContainer = (slides.length > 0) ? slides[0].parentElement : iDoc.body;
-                
+
                 // Re-apply critical styles to new slide nodes
                 slides.forEach(s => {
                     s.style.flex = `0 0 1122px`;
@@ -1118,13 +1118,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     slideContainer.style.margin = '0';
                     slideContainer.style.padding = '0';
                     slideContainer.style.transition = 'none'; // Instant jump for sync
-                    
+
                     if (currentSlide >= totalSlides) currentSlide = totalSlides - 1;
                     if (currentSlide < 0) currentSlide = 0;
-                    
+
                     // Don't restore slide position from entry. User doesn't want to move.
                     scrollToSlide(currentSlide);
-                    
+
                     // Restore transition after reflow
                     setTimeout(() => {
                         if (slideContainer) slideContainer.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -1482,7 +1482,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 overlay = doc.createElement('div');
                 overlay.className = 'img-replace-overlay';
                 slot.appendChild(overlay);
-                
+
                 overlay.innerHTML = `
                     <div class="overlay-content" style="display:flex; flex-direction:column; align-items:center; gap:8px;">
                         <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
@@ -1506,7 +1506,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window._eidosTriggerImagePicker = (slot) => {
             // Block if in fullscreen (presentation mode)
             if (document.fullscreenElement || document.webkitFullscreenElement) return;
-            
+
             const entry = _overlayMap.get(slot);
             if (entry) entry.input.click();
         };
@@ -1703,13 +1703,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const rect = doc.documentElement.getBoundingClientRect();
                     const x = e.clientX;
                     const y = e.clientY;
-                    
+
                     // Trigger a custom event to the parent to handle adding a new image at these coords
                     window.parent.dispatchEvent(new CustomEvent('eidos-add-image-at', {
-                        detail: { 
+                        detail: {
                             file: file,
-                            x: x, 
-                            y: y 
+                            x: x,
+                            y: y
                         }
                     }));
                 }
@@ -1778,7 +1778,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (_refreshSlotOverlays) setTimeout(_refreshSlotOverlays, 50);
         }
     }
-    
+
     // Global navigation helpers for editor and other modules
     let _lastNavScroll = 0;
     const NAV_COOLDOWN = 350; // ms to Wait between slide transitions to prevent skipping
@@ -1786,7 +1786,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function tryNavigate(targetIndex) {
         if (Date.now() - _lastNavScroll < NAV_COOLDOWN) return false;
         if (targetIndex < 0 || targetIndex >= totalSlides) return false;
-        
+
         _lastNavScroll = Date.now();
         scrollToSlide(targetIndex);
         return true;
@@ -1896,7 +1896,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // This ensures Ctrl+C, Ctrl+V, and Ctrl+D work even if focus is on parent UI (header, minimap)
     function handleGlobalShortcuts(e) {
         if (previewContainer.classList.contains('hidden')) return;
-        
+
         // Skip if user is typing in a real input/textarea in the parent
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
@@ -1909,7 +1909,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const iframe = document.getElementById('preview-iframe');
                     const iframeWin = iframe.contentWindow;
-                    
+
                     // Check if an element is selected in the editor
                     if (iframeWin && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
                         // Forward the event to the iframe
@@ -1922,7 +1922,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             bubbles: true
                         });
                         iframeWin.dispatchEvent(event);
-                        
+
                         // Prevent the default parent action (like Ctrl+D bookmarking or Ctrl+C copying empty parent)
                         e.preventDefault();
                     }
@@ -2176,10 +2176,10 @@ document.addEventListener('DOMContentLoaded', () => {
             this.coreGroup = new THREE.Group(); // GSAP-controllable (scroll rotation)
             this.idleGroup = new THREE.Group(); // Loop-controllable (constant rotation)
             this.coreGroup.add(this.idleGroup);
-            
+
             const coreGeom = new THREE.IcosahedronGeometry(2, 2);
-            const coreMat = new THREE.MeshStandardMaterial({ 
-                color: 0xffffff, 
+            const coreMat = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
                 wireframe: true,
                 transparent: true,
                 opacity: 1
@@ -2188,8 +2188,8 @@ document.addEventListener('DOMContentLoaded', () => {
             this.idleGroup.add(this.coreMesh);
 
             const innerGeom = new THREE.IcosahedronGeometry(1.2, 1);
-            const innerMat = new THREE.MeshStandardMaterial({ 
-                color: 0xffffff, 
+            const innerMat = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
                 emissive: 0xffffff,
                 emissiveIntensity: 0.5,
                 transparent: true,
@@ -2203,13 +2203,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Step 2 & 3: Particles / Crystals (InstancedMesh for performance)
             this.particleCount = 500;
             const partGeom = new THREE.SphereGeometry(0.04, 8, 8);
-            const partMat = new THREE.MeshStandardMaterial({ 
+            const partMat = new THREE.MeshStandardMaterial({
                 color: 0xffffff,
                 transparent: true,
                 opacity: 0
             });
             this.particles = new THREE.InstancedMesh(partGeom, partMat, this.particleCount);
-            
+
             this.dummy = new THREE.Object3D();
             this.initialPositions = new Float32Array(this.particleCount * 3);
             for (let i = 0; i < this.particleCount; i++) {
@@ -2272,7 +2272,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         initScrollTrigger() {
             gsap.registerPlugin(ScrollTrigger);
-            
+
             // Estabilizar scroll para evitar conflictos con smooth scrolling
             ScrollTrigger.normalizeScroll(true);
             ScrollTrigger.config({ ignoreMobileResize: true });
@@ -2315,23 +2315,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Camera & Object Animation Timeline (Synchronized to avoid pauses)
             tl.fromTo(this.camera.position, { x: 0, y: 0, z: 10 }, { z: 5, duration: 2.5, ease: "power2.inOut" }, 0)
-              .to(this.coreGroup.rotation, { y: Math.PI * 4, duration: 6, ease: "none" }, 0)
-              .to(this.coreGroup.scale, { x: 8, y: 8, z: 8, duration: 3, ease: "power2.in" }, 1.5)
-              .to([this.coreMesh.material, this.innerCore.material], { opacity: 0, duration: 2 }, 2)
-              .to(this.particles, { visible: true }, 1.5)
-              .to(this.particles.material, { opacity: 1, duration: 2.5, ease: "power2.inOut" }, 1.5)
-              .to(this.camera.position, { y: 2, z: 18, duration: 3.5, ease: "power2.inOut" }, 2.5);
+                .to(this.coreGroup.rotation, { y: Math.PI * 4, duration: 6, ease: "none" }, 0)
+                .to(this.coreGroup.scale, { x: 8, y: 8, z: 8, duration: 3, ease: "power2.in" }, 1.5)
+                .to([this.coreMesh.material, this.innerCore.material], { opacity: 0, duration: 2 }, 2)
+                .to(this.particles, { visible: true }, 1.5)
+                .to(this.particles.material, { opacity: 1, duration: 2.5, ease: "power2.inOut" }, 1.5)
+                .to(this.camera.position, { y: 2, z: 18, duration: 3.5, ease: "power2.inOut" }, 2.5);
 
             // Total Duration is now 6 (approx)
             const totalDur = 6;
 
             // Narrative Steps Transitions (Sequence to avoid overlap + Distinct animations)
             const stepDuration = totalDur / sections;
-            
+
             steps.forEach((step, i) => {
                 const content = step.querySelector('.step-content');
                 const startTime = i * stepDuration;
-                
+
                 // Varied Animation Styles per Step
                 let entranceVars = { opacity: 1, duration: 1.2, ease: "power2.inOut" };
                 let exitVars = { opacity: 0, duration: 1.2, ease: "power2.inOut" };
@@ -2411,7 +2411,7 @@ document.addEventListener('DOMContentLoaded', () => {
         onResize() {
             const width = window.innerWidth;
             const height = window.innerHeight;
-            
+
             // Solo redimensionar si el ancho cambia significativamente 
             // (evita tirones por barra de direcciones en móvil)
             if (this._lastW === width && Math.abs(this._lastH - height) < 100) return;
@@ -2421,7 +2421,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.camera.aspect = width / height;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(width, height);
-            
+
             // Refrescar ScrollTrigger con un pequeño delay para asegurar layout estable
             clearTimeout(this._refreshT);
             this._refreshT = setTimeout(() => {
@@ -2439,11 +2439,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (this.particles && this.particles.visible) {
-                for(let i=0; i<this.particleCount; i++) {
-                    const x = this.initialPositions[i*3];
-                    const y = this.initialPositions[i*3+1];
-                    const z = this.initialPositions[i*3+2];
-                    
+                for (let i = 0; i < this.particleCount; i++) {
+                    const x = this.initialPositions[i * 3];
+                    const y = this.initialPositions[i * 3 + 1];
+                    const z = this.initialPositions[i * 3 + 2];
+
                     this.dummy.position.set(
                         x + Math.sin(time * 0.4 + i) * 0.15,
                         y + Math.cos(time * 0.3 + i) * 0.15,
@@ -2476,9 +2476,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // If not clicking inside the iframe itself
             if (e.target !== previewIframe) {
                 // And not clicking on editor UI elements (tools, minimap, header)
-                const isEditorInteraction = 
-                    e.target.closest('#editor-tools-panel') || 
-                    e.target.closest('#editor-minimap') || 
+                const isEditorInteraction =
+                    e.target.closest('#editor-tools-panel') ||
+                    e.target.closest('#editor-minimap') ||
                     e.target.closest('.preview-unified-header') ||
                     e.target.closest('._slot-overlay-label');
 
@@ -2498,8 +2498,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const input = document.getElementById('w-tema');
         if (input) {
             // Use translation if key exists, otherwise use as literal
-            const translated = (typeof window.__eidos_t === 'function') 
-                ? window.__eidos_t(keyOrText) 
+            const translated = (typeof window.__eidos_t === 'function')
+                ? window.__eidos_t(keyOrText)
                 : keyOrText;
             input.value = translated;
             input.focus();

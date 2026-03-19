@@ -132,17 +132,17 @@ function initEditor() {
     // Toolbar content
     function getToolbarHTML() {
         if (!selectedElement) return '';
-        
+
         const palette = getDynamicPalette().slice(0, 4);
         const quickColorsHTML = palette.map(color => `
             <div class="eidos-color-swatch" style="background:${color};" data-color="${color}"></div>
         `).join('');
 
-    let dragGroup = [];
+        let dragGroup = [];
 
-    const isImage = selectedElement.matches('img, .img-slot') || selectedElement.dataset.imageSlot !== undefined;
+        const isImage = selectedElement.matches('img, .img-slot') || selectedElement.dataset.imageSlot !== undefined;
         const isText = selectedElement.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
-        
+
         let toolsHTML = '';
 
         if (isText) {
@@ -305,7 +305,7 @@ function initEditor() {
     function showColorPicker(anchorEl) {
         const picker = document.getElementById('eidos-color-picker');
         const isCurrentlyVisible = picker.style.display === 'grid';
-        
+
         if (isCurrentlyVisible && picker.dataset.anchor === anchorEl.id) {
             picker.style.display = 'none';
             return;
@@ -345,7 +345,7 @@ function initEditor() {
 
     function getDynamicPalette() {
         const colors = new Set();
-        
+
         // 1. Extract from presentation variables (Priority)
         const rootStyle = window.getComputedStyle(document.documentElement);
         const vars = ['--presentation-accent', '--accent', '--accent-2', '--bg', '--surface'];
@@ -435,9 +435,9 @@ function initEditor() {
             const currentZ = el.style.zIndex;
             if (el.parentElement !== slide) slide.appendChild(el);
             if (currentZ) el.style.zIndex = currentZ; // preserve
-            
+
             const isText = el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
-            
+
             el.style.boxSizing = 'border-box';
             el.style.position = 'absolute';
             el.style.margin = '0';
@@ -493,10 +493,10 @@ function initEditor() {
                 if (el === excludeEl) return false;
                 if (el.style.display === 'none' || el.style.visibility === 'hidden') return false;
                 if (el.matches(ignoreSelectors) || el.closest(ignoreSelectors)) return false;
-                
+
                 // Exclude children and ancestors of the current element
                 if (excludeEl && (excludeEl.contains(el) || el.contains(excludeEl))) return false;
-                
+
                 return true;
             });
     }
@@ -506,10 +506,10 @@ function initEditor() {
      */
     function rectIntersects(r1, r2) {
         const margin = 2; // tolerance minimum in px
-        return !(r2.left >= r1.left + r1.width - margin || 
-                 r2.left + r2.width <= r1.left + margin || 
-                 r2.top >= r1.top + r1.height - margin || 
-                 r2.top + r2.height <= r1.top + margin);
+        return !(r2.left >= r1.left + r1.width - margin ||
+            r2.left + r2.width <= r1.left + margin ||
+            r2.top >= r1.top + r1.height - margin ||
+            r2.top + r2.height <= r1.top + margin);
     }
 
     /**
@@ -580,11 +580,11 @@ function initEditor() {
         // Use elementsFromPoint to pierce z-index stacking
         // This allows selecting elements that are visually behind others
         const allUnderCursor = document.elementsFromPoint(e.clientX, e.clientY);
-        
+
         // Find the best target: prefer the topmost editable that matches,
         // but if the user clicked directly on an editable (e.target), use that first.
         let target = e.target.closest(editableSelectors);
-        
+
         // If no target found via native hit-test, scan all elements at this point
         if (!target) {
             for (const el of allUnderCursor) {
@@ -621,11 +621,11 @@ function initEditor() {
                 const others = getEditableElementsInSlide(slide, target);
                 others.forEach(other => {
                     const otherRect = other.getBoundingClientRect();
-                    if (otherRect.left >= rect.left && 
-                        otherRect.right <= rect.right && 
-                        otherRect.top >= rect.top && 
+                    if (otherRect.left >= rect.left &&
+                        otherRect.right <= rect.right &&
+                        otherRect.top >= rect.top &&
                         otherRect.bottom <= rect.bottom) {
-                        
+
                         dragGroup.push({
                             el: other,
                             startLeft: otherRect.left - slideRect.left,
@@ -744,14 +744,14 @@ function initEditor() {
                 textTarget.style.outline = "";
                 // Use getBoundingClientRect for more accurate height after text change
                 const newHeight = textTarget.getBoundingClientRect().height;
-                textTarget.style.height = newHeight + "px"; 
+                textTarget.style.height = newHeight + "px";
                 delete textTarget._baseBottom;
                 textTarget.removeEventListener('blur', onBlur);
                 window.getSelection().removeAllRanges();
-                
+
                 selectionBox.style.pointerEvents = "auto";
                 selectionBox.classList.remove('eidos-editing-text');
-                
+
                 saveState(); // Save the new text to history
             }, { once: true });
         }
@@ -765,7 +765,7 @@ function initEditor() {
         e.preventDefault();
         const clipboardData = e.clipboardData || window.clipboardData;
         const text = clipboardData.getData('text/plain') || clipboardData.getData('text');
-        
+
         if (text) {
             try {
                 // This is the standard way to insert text into contenteditable
@@ -795,9 +795,9 @@ function initEditor() {
                 window.parent._eidosTriggerImagePicker(selectedElement);
             } else {
                 // Fallback to event if direct call fails
-                document.dispatchEvent(new CustomEvent('eidos-trigger-image-picker', { 
+                document.dispatchEvent(new CustomEvent('eidos-trigger-image-picker', {
                     detail: { element: selectedElement },
-                    bubbles: true 
+                    bubbles: true
                 }));
             }
             return;
@@ -849,10 +849,10 @@ function initEditor() {
                 delete textTarget._baseBottom;
                 textTarget.removeEventListener('blur', onBlur);
                 window.getSelection().removeAllRanges();
-                
+
                 selectionBox.style.pointerEvents = "auto";
                 selectionBox.classList.remove('eidos-editing-text');
-                
+
                 saveState(); // Save the new text to history
 
                 // restore selection box interaction
@@ -907,11 +907,11 @@ function initEditor() {
                 const others = getEditableElementsInSlide(slide, selectedElement);
                 others.forEach(other => {
                     const otherRect = other.getBoundingClientRect();
-                    if (otherRect.left >= rect.left && 
-                        otherRect.right <= rect.right && 
-                        otherRect.top >= rect.top && 
+                    if (otherRect.left >= rect.left &&
+                        otherRect.right <= rect.right &&
+                        otherRect.top >= rect.top &&
                         otherRect.bottom <= rect.bottom) {
-                        
+
                         dragGroup.push({
                             el: other,
                             startLeft: otherRect.left - slideRect.left,
@@ -938,7 +938,7 @@ function initEditor() {
             // NORMALIZATION ON DEMAND: Rip out of DOM when user actually starts transforming.
             if (!selectedElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
                 normalizeElement(selectedElement, slide);
-                
+
                 // Also normalize everything in the group
                 dragGroup.forEach(item => {
                     if (!item.el._normalized) normalizeElement(item.el, slide);
@@ -957,7 +957,7 @@ function initEditor() {
                     item.startTop = parseFloat(item.el.style.top);
                 });
 
-                startX = e.clientX; 
+                startX = e.clientX;
                 startY = e.clientY;
             }
         }
@@ -970,13 +970,13 @@ function initEditor() {
 
             // 1. Resolve Collision
             const eRect = selectedElement.getBoundingClientRect();
-            const resolved = resolveDragCollision({ 
-                left: newLeft, 
-                top: newTop, 
-                width: eRect.width, 
-                height: eRect.height 
+            const resolved = resolveDragCollision({
+                left: newLeft,
+                top: newTop,
+                width: eRect.width,
+                height: eRect.height
             }, slide, selectedElement);
-            
+
             newLeft = resolved.left;
             newTop = resolved.top;
 
@@ -1075,10 +1075,10 @@ function initEditor() {
             const fixedRight = startLeft + startWidth;
             const fixedBottom = startTop + startHeight;
 
-            const resolved = resolveResizeCollision({ 
-                left: newLeft, top: newTop, width: newWidth, height: newHeight 
+            const resolved = resolveResizeCollision({
+                left: newLeft, top: newTop, width: newWidth, height: newHeight
             }, currentHandle, slide, selectedElement, { fixedRight, fixedBottom });
-            
+
             newLeft = resolved.left;
             newTop = resolved.top;
             newWidth = resolved.width;
@@ -1197,12 +1197,12 @@ function initEditor() {
         if (_isLocked) return;
 
         const slide = el.closest('.s') || el.closest('section') || document.body;
-        
+
         // Freeze layout of the whole slide immediately to prevent reflows during editing
         freezeSlideLayout(slide);
 
         if (selectionObserver) selectionObserver.disconnect();
-        
+
         // Ensure the iframe has focus so keyboard shortcuts (Ctrl+C/V/D) work immediately
         window.focus();
 
@@ -1211,7 +1211,7 @@ function initEditor() {
         // CRITICAL FIX: Keep UI tools in document body to avoid 'overflow: hidden' clipping in slides.
         // We ensure they are always present and visible.
         ensureUI();
-        
+
         // Refresh toolbar content
         toolbar.innerHTML = getToolbarHTML();
         bindToolbarEvents();
@@ -1229,7 +1229,7 @@ function initEditor() {
         // Observe changes to the element (like style or classes) to update the selection box automatically
         selectionObserver = new MutationObserver((mutations) => {
             updateSelectionBox();
-            
+
             // If the element's Z-index changed or it was moved in DOM, refresh tool z-index
             const elStyle = window.getComputedStyle(el);
             const elZ = parseInt(elStyle.zIndex) || 1;
@@ -1260,7 +1260,7 @@ function initEditor() {
             resizeObs.observe(el);
             selectionObserver._resizeObs = resizeObs;
         }
-        
+
         // Notify parent UI
         window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: el } }));
 
@@ -1280,7 +1280,7 @@ function initEditor() {
         selectedElement = null;
         selectionBox.style.display = 'none';
         toolbar.style.display = 'none';
-        
+
         const colorPicker = document.getElementById('eidos-color-picker');
         if (colorPicker) colorPicker.style.display = 'none';
 
@@ -1293,7 +1293,7 @@ function initEditor() {
     function updateSelectionBox() {
         if (!selectedElement) return;
         const rect = selectedElement.getBoundingClientRect();
-        
+
         // Tools are now in document.body, so use absolute viewport coordinates
         // rect.left/top are already correct relative to the document viewport inside the iframe.
         const left = rect.left;
@@ -1321,7 +1321,7 @@ function initEditor() {
         const winW = window.innerWidth;
         const winH = window.innerHeight;
         const tbWidth = toolbar.offsetWidth || 340;
-        
+
         let toolbarTop = top - 56;
         let toolbarLeft = left;
 
@@ -1329,7 +1329,7 @@ function initEditor() {
         if (toolbarTop < 10) {
             toolbarTop = top + rect.height + 12;
         }
-        
+
         // 2. Vertical check bottom
         if (toolbarTop + 46 > winH - 10) {
             toolbarTop = top - 56;
@@ -1344,7 +1344,7 @@ function initEditor() {
 
         toolbar.style.left = `${toolbarLeft}px`;
         toolbar.style.top = `${toolbarTop}px`;
-        
+
         if (!isDragging && !isResizing) {
             toolbar.style.opacity = '1';
             toolbar.style.transform = 'translateY(0)';
@@ -1356,26 +1356,26 @@ function initEditor() {
         // Optimization: Use cloneNode instead of innerHTML parsing for cloning.
         // Also avoid double-pass by serializing only once at the end.
         const bodyClone = document.body.cloneNode(true);
-        
+
         // Remove system UI elements that shouldn't be in the state history
         // NOTE: We keep .img-replace-overlay (tooltips) in the history to prevent flicker.
         // Final exports (PPTX/PDF) clean them up separately anyway.
         const toRemove = bodyClone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker');
         toRemove.forEach(el => el.remove());
-        
+
         return bodyClone.innerHTML;
     }
 
     function getCurrentSlideIndex() {
         const slides = Array.from(document.querySelectorAll('section, .s, [class*="slide"]'));
         if (slides.length === 0) return 0;
-        
+
         // 1. Check parent state first
         try {
             if (window.parent && window.parent.eidosCurrentSlide !== undefined) {
                 return window.parent.eidosCurrentSlide;
             }
-        } catch(e) {}
+        } catch (e) { }
 
         // 2. Check for .active class
         const activeIdx = slides.findIndex(s => s.classList.contains('active'));
@@ -1389,11 +1389,11 @@ function initEditor() {
                 const matrix = new DOMMatrix(transform);
                 const x = Math.abs(matrix.e); // The horizontal translation
                 // Slide width is usually 1122px in this app
-                const slideWidth = 1122; 
+                const slideWidth = 1122;
                 return Math.round(x / slideWidth);
             }
         }
-        
+
         return 0;
     }
 
@@ -1402,12 +1402,12 @@ function initEditor() {
         // Performance: Optimization to avoid getCleanHTML() on every save call.
         // We only serialize if we're not likely at the current state.
         const state = getCleanHTML();
-        
+
         // Always try to get the current index from parent (most reliable)
         const slideIndex = (window.parent && window.parent.eidosCurrentSlide !== undefined)
             ? window.parent.eidosCurrentSlide
             : getCurrentSlideIndex();
-        
+
         // Don't save if it's identical HTML to avoid duplicate history points
         if (historyIndex !== -1 && history[historyIndex].html === state) {
             return;
@@ -1416,14 +1416,14 @@ function initEditor() {
         // Truncate history forward if we are in the middle of it
         history.splice(historyIndex + 1);
         history.push({ html: state, slideIndex: slideIndex });
-        
+
         // Limit history size to 50
         if (history.length > 50) history.shift();
         historyIndex = history.length - 1;
     }
-    
+
     // Initial Save!
-    setTimeout(saveState, 500); 
+    setTimeout(saveState, 500);
 
     function undo() {
         if (historyIndex > 0) {
@@ -1443,7 +1443,7 @@ function initEditor() {
 
     function restoreState(entry) {
         if (!entry || !entry.html) return;
-        
+
         // Fast-path: don't restore if already there
         if (document.body.innerHTML === entry.html) return;
 
@@ -1459,16 +1459,16 @@ function initEditor() {
         if (window.lucide && document.body.querySelector('i[data-lucide]')) {
             window.lucide.createIcons();
         }
-        
+
         // Notify parent that state changed significantly (slides might have been added/removed)
         // Pass 'needsOverlayRebuild' so app.js can re-inject image slot overlays
         // Pass 'slideIndex' to restore scroll position
-        window.dispatchEvent(new CustomEvent('eidos-state-restored', { 
-            detail: { 
+        window.dispatchEvent(new CustomEvent('eidos-state-restored', {
+            detail: {
                 needsOverlayRebuild: true
-            } 
+            }
         }));
-        
+
         // Brief timeout to allow observers to settle before unlocking state saves
         setTimeout(() => { _isRestoring = false; }, 100);
     }
@@ -1482,7 +1482,7 @@ function initEditor() {
         const clone = el.cloneNode(true);
         // remove any tracking state inside clone if needed
         delete clone._stateSavedSinceMousedown;
-        
+
         const currentLeft = parseFloat(clone.style.left) || 0;
         const currentTop = parseFloat(clone.style.top) || 0;
         clone.style.left = (currentLeft + 20) + 'px';
@@ -1498,7 +1498,7 @@ function initEditor() {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
             const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
             const isEditingText = activeTag === 'input' || activeTag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable);
-            
+
             // If nothing is selected or locked, we let it bubble out or handle it as slide navigation
             if (!isEditingText && (!selectedElement || _isLocked)) {
                 if (e.key === 'ArrowLeft') {
@@ -1563,7 +1563,7 @@ function initEditor() {
             } else if (e.key.toLowerCase() === 'd') {
                 e.preventDefault();
                 if (isEditingText) return;
-                
+
                 if (selectedElement) {
                     duplicateElement(selectedElement);
                 } else {
@@ -1595,11 +1595,11 @@ function initEditor() {
 
                     const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
                     const eRect = selectedElement.getBoundingClientRect();
-                    const resolved = resolveDragCollision({ 
-                        left: newLeft, 
-                        top: newTop, 
-                        width: eRect.width, 
-                        height: eRect.height 
+                    const resolved = resolveDragCollision({
+                        left: newLeft,
+                        top: newTop,
+                        width: eRect.width,
+                        height: eRect.height
                     }, slide, selectedElement);
 
                     selectedElement.style.left = `${resolved.left}px`;
@@ -1630,7 +1630,7 @@ function initEditor() {
         if (!selectedElement) return;
         saveState();
         const parent = selectedElement.parentElement;
-        
+
         // Strategy: Max z-index among siblings (excluding self) + 1
         const siblings = Array.from(parent.children).filter(s => s !== selectedElement);
         let maxZ = 1;
@@ -1649,7 +1649,7 @@ function initEditor() {
         if (!selectedElement) return;
         saveState();
         const parent = selectedElement.parentElement;
-        
+
         // Strategy: Min z-index among siblings (excluding self) - 1
         const siblings = Array.from(parent.children).filter(s => s !== selectedElement);
         let minZ = 1000;
@@ -1667,7 +1667,7 @@ function initEditor() {
 
         // Never go below 1 to avoid disappearing behind the section background
         selectedElement.style.zIndex = Math.max(1, minZ - 1);
-        
+
         parent.prepend(selectedElement); // Physical move to start of DOM (back)
         updateSelectionBox();
     };
@@ -1690,11 +1690,11 @@ function initEditor() {
 
         const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
         const eRect = selectedElement.getBoundingClientRect();
-        const resolved = resolveDragCollision({ 
-            left: newLeft, 
-            top: newTop, 
-            width: eRect.width, 
-            height: eRect.height 
+        const resolved = resolveDragCollision({
+            left: newLeft,
+            top: newTop,
+            width: eRect.width,
+            height: eRect.height
         }, slide, selectedElement);
 
         selectedElement.style.left = `${resolved.left}px`;
