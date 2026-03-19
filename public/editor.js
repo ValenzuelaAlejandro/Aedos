@@ -47,6 +47,7 @@ function initEditor() {
 
     // Clipboard for copy/paste
     let _clipboard = null;
+    let dragGroup = [];
 
     // Track which slides have been "frozen" into absolute layout to avoid reflows
     const _isFrozenMap = new WeakMap();
@@ -54,6 +55,36 @@ function initEditor() {
 
     // Selection Observer to update box on property changes
     let selectionObserver = null;
+
+    /**
+     * Grouping Helper: Finds elements visually inside a container to treat them as a unit
+     */
+    function collectGroup(target) {
+        const group = [];
+        const isContainer = target.matches('div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"]');
+        if (!isContainer) return group;
+
+        const slide = target.closest('.s') || target.closest('section') || document.body;
+        const rect = target.getBoundingClientRect();
+        const slideRect = slide.getBoundingClientRect();
+        const others = getEditableElementsInSlide(slide, target);
+
+        others.forEach(other => {
+            const otherRect = other.getBoundingClientRect();
+            // Intersection with tolerance
+            if (otherRect.left >= rect.left - 2 &&
+                otherRect.right <= rect.right + 2 &&
+                otherRect.top >= rect.top - 2 &&
+                otherRect.bottom <= rect.bottom + 2) {
+                group.push({
+                    el: other,
+                    startLeft: otherRect.left - slideRect.left,
+                    startTop: otherRect.top - slideRect.top
+                });
+            }
+        });
+        return group;
+    }
 
     // UI Elements
     const selectionBox = document.createElement('div');
@@ -189,6 +220,11 @@ function initEditor() {
         const slide = el.closest('.s') || el.closest('section') || document.body;
         freezeSlideLayout(slide);
         saveState();
+        
+        // Also delete visual group members
+        const group = collectGroup(el);
+        group.forEach(item => item.el.remove());
+        
         el.remove();
         deselectGroup();
     }
@@ -616,24 +652,7 @@ function initEditor() {
             startTop = rect.top - slideRect.top;
 
             // Grouping Logic: Find elements inside this one
-            const isContainer = target.matches('div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"]');
-            if (isContainer) {
-                const others = getEditableElementsInSlide(slide, target);
-                others.forEach(other => {
-                    const otherRect = other.getBoundingClientRect();
-                    if (otherRect.left >= rect.left &&
-                        otherRect.right <= rect.right &&
-                        otherRect.top >= rect.top &&
-                        otherRect.bottom <= rect.bottom) {
-
-                        dragGroup.push({
-                            el: other,
-                            startLeft: otherRect.left - slideRect.left,
-                            startTop: otherRect.top - slideRect.top
-                        });
-                    }
-                });
-            }
+            dragGroup = collectGroup(target);
 
             // Build snap targets
             snapLinesX = [];
@@ -1479,18 +1498,31 @@ function initEditor() {
         const slide = el.closest('.s') || el.closest('section') || document.body;
         normalizeElement(el, slide);
 
-        const clone = el.cloneNode(true);
-        // remove any tracking state inside clone if needed
-        delete clone._stateSavedSinceMousedown;
+        // Identify children to duplicate as well
+        const group = collectGroup(el);
+        const clones = [];
 
-        const currentLeft = parseFloat(clone.style.left) || 0;
-        const currentTop = parseFloat(clone.style.top) || 0;
-        clone.style.left = (currentLeft + 20) + 'px';
-        clone.style.top = (currentTop + 20) + 'px';
+        const mainClone = el.cloneNode(true);
+        delete mainClone._stateSavedSinceMousedown;
+        clones.push({ original: el, clone: mainClone });
 
-        // Since it's normalized, it should be appended to the slide to maintain absolute coordinates
-        slide.appendChild(clone);
-        selectElement(clone);
+        group.forEach(item => {
+            normalizeElement(item.el, slide);
+            const childClone = item.el.cloneNode(true);
+            delete childClone._stateSavedSinceMousedown;
+            clones.push({ original: item.el, clone: childClone });
+        });
+
+        // Offset all together
+        clones.forEach(pair => {
+            const currentLeft = parseFloat(pair.original.style.left) || 0;
+            const currentTop = parseFloat(pair.original.style.top) || 0;
+            pair.clone.style.left = (currentLeft + 20) + 'px';
+            pair.clone.style.top = (currentTop + 20) + 'px';
+            slide.appendChild(pair.clone);
+        });
+
+        selectElement(mainClone);
     }
 
     document.addEventListener('keydown', (e) => {
@@ -1531,8 +1563,15 @@ function initEditor() {
                 if (selectedElement) {
                     const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
                     normalizeElement(selectedElement, slide);
-                    _clipboard = selectedElement.cloneNode(true);
-                    // Show brief visual feedback
+                    
+                    const group = collectGroup(selectedElement);
+                    _clipboard = [selectedElement.cloneNode(true)];
+                    group.forEach(item => {
+                        normalizeElement(item.el, slide);
+                        _clipboard.push(item.el.cloneNode(true));
+                    });
+
+                    // Show brief visual feedback on main
                     selectedElement.style.outline = '2px solid rgba(255,255,255,0.6)';
                     setTimeout(() => { if (selectedElement) selectedElement.style.outline = ''; }, 300);
                     e.preventDefault();
@@ -1541,23 +1580,37 @@ function initEditor() {
                 if (selectedElement) {
                     const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
                     normalizeElement(selectedElement, slide);
-                    _clipboard = selectedElement.cloneNode(true);
+                    
+                    const group = collectGroup(selectedElement);
+                    _clipboard = [selectedElement.cloneNode(true)];
+                    group.forEach(item => {
+                        normalizeElement(item.el, slide);
+                        _clipboard.push(item.el.cloneNode(true));
+                        item.el.remove();
+                    });
+                    
                     deleteElement(selectedElement);
                     e.preventDefault();
                 }
             } else if (e.key.toLowerCase() === 'v' && !isEditingText) {
-                if (_clipboard) {
+                if (_clipboard && _clipboard.length > 0) {
                     saveState();
-                    const clone = _clipboard.cloneNode(true);
-                    // Offset slightly so it's visible
-                    const curLeft = parseFloat(clone.style.left) || 0;
-                    const curTop = parseFloat(clone.style.top) || 0;
-                    clone.style.left = (curLeft + 20) + 'px';
-                    clone.style.top = (curTop + 20) + 'px';
-                    // Paste into the current active slide
                     const activeSlide = document.querySelector('section.active') || document.querySelector('section') || document.body;
-                    activeSlide.appendChild(clone);
-                    selectElement(clone);
+                    
+                    let mainClone = null;
+                    _clipboard.forEach((node, idx) => {
+                        const clone = node.cloneNode(true);
+                        // Offset slightly
+                        const curLeft = parseFloat(clone.style.left) || 0;
+                        const curTop = parseFloat(clone.style.top) || 0;
+                        clone.style.left = (curLeft + 20) + 'px';
+                        clone.style.top = (curTop + 20) + 'px';
+                        
+                        activeSlide.appendChild(clone);
+                        if (idx === 0) mainClone = clone;
+                    });
+                    
+                    if (mainClone) selectElement(mainClone);
                     e.preventDefault();
                 }
             } else if (e.key.toLowerCase() === 'd') {
