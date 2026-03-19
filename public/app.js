@@ -2244,6 +2244,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         initScrollTrigger() {
             gsap.registerPlugin(ScrollTrigger);
+            
+            // Estabilizar scroll para evitar conflictos con smooth scrolling
+            ScrollTrigger.normalizeScroll(true);
+            ScrollTrigger.config({ ignoreMobileResize: true });
+
             const steps = gsap.utils.toArray('.narrative-step');
             const sections = steps.length;
             const sectionSelector = '.scrolly-three-section';
@@ -2376,9 +2381,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         onResize() {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            // Solo redimensionar si el ancho cambia significativamente 
+            // (evita tirones por barra de direcciones en móvil)
+            if (this._lastW === width && Math.abs(this._lastH - height) < 100) return;
+            this._lastW = width;
+            this._lastH = height;
+
+            this.camera.aspect = width / height;
             this.camera.updateProjectionMatrix();
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.setSize(width, height);
+            
+            // Refrescar ScrollTrigger con un pequeño delay para asegurar layout estable
+            clearTimeout(this._refreshT);
+            this._refreshT = setTimeout(() => {
+                ScrollTrigger.refresh();
+            }, 200);
         }
 
         animate() {

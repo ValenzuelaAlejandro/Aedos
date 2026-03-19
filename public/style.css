@@ -403,7 +403,8 @@ body.no-scroll {
     width: 100%;
     z-index: 10;
     background: transparent;
-    /* This section will have its full height (e.g., 600vh) */
+    /* Espacio base para 4 pasos (400vh) para evitar saltos en carga */
+    min-height: 400vh;
 }
 
 .scrolly-narrative {
