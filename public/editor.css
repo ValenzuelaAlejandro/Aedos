@@ -15,6 +15,18 @@ body {
     pointer-events: auto;
     z-index: 10000;
     cursor: move;
+    transition: border-color 0.2s, border-style 0.2s;
+}
+
+.eidos-selection-box.eidos-editing-text {
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.5);
+    cursor: text;
+}
+
+[contenteditable="true"] {
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 .eidos-resize-handle {

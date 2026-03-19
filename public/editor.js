@@ -178,42 +178,7 @@ function initEditor() {
     function deleteElement(el) {
         if (!el) return;
         saveState();
-
-        const slide = el.closest('.s') || el.closest('section') || document.body;
-
-        const style = window.getComputedStyle(el);
-        const isInFlow = style.position !== 'absolute';
-
-        if (isInFlow || el._eidosPhantom) {
-            const rect = el.getBoundingClientRect();
-            const spacer = document.createElement('div');
-            spacer.className = 'eidos-deleted-spacer';
-            
-            // Mirror essential layout properties to preserve the gap
-            spacer.style.width = `${rect.width}px`;
-            spacer.style.height = `${rect.height}px`;
-            spacer.style.flex = style.flex;
-            spacer.style.margin = style.margin;
-            spacer.style.padding = style.padding;
-            spacer.style.display = style.display === 'inline' ? 'inline-block' : style.display;
-            spacer.style.visibility = 'hidden';
-            spacer.style.pointerEvents = 'none';
-            spacer.style.boxSizing = 'border-box'; // Ensure padding doesn't expand it
-            spacer.style.minHeight = '0';
-            spacer.style.minWidth = '0';
-
-            if (isInFlow) {
-                el.replaceWith(spacer);
-            } else if (el._eidosPhantom && el._eidosPhantom.parentElement) {
-                el._eidosPhantom.replaceWith(spacer);
-                el.remove();
-            } else {
-                el.remove();
-            }
-        } else {
-            el.remove();
-        }
-
+        el.remove();
         deselectGroup();
     }
 
@@ -430,43 +395,40 @@ function initEditor() {
         el.style.transition = 'none';
 
         if (style.position !== 'absolute') {
-            // Only create phantom and move if it was NOT absolute
-            const clone = el.cloneNode(true);
-            clone.style.visibility = 'hidden';
-            clone.style.pointerEvents = 'none';
-            clone.classList.add('eidos-phantom');
-            clone.style.display = style.display;
-            clone.style.margin = style.margin;
-            clone.style.position = style.position;
-            el.parentNode.insertBefore(clone, el);
-            el._eidosPhantom = clone;
-
+            // OPTIMIZED: We no longer create phantoms because the user wants 'everything else to move up'
+            // when an element is removed from the normal flow (normalized to absolute).
+            
             // Move to slide while maintaining z-index
             const currentZ = el.style.zIndex;
             if (el.parentElement !== slide) slide.appendChild(el);
             if (currentZ) el.style.zIndex = currentZ; // preserve
             
+            const isText = el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
+            
             el.style.boxSizing = 'border-box';
             el.style.position = 'absolute';
             el.style.margin = '0';
-            el.style.overflow = 'hidden';
+            el.style.overflow = isText ? 'visible' : 'hidden'; // Allow text to grow/overflow if needed
             el.style.minHeight = '0';
             el.style.minWidth = '0';
             el.style.width = rect.width + 'px';
-            el.style.height = rect.height + 'px';
+            el.style.height = isText ? 'auto' : (rect.height + 'px');
+            el.style.minHeight = isText ? (rect.height + 'px') : '0'; // Maintain at least original height
             el.style.left = (rect.left - slideRect.left) + 'px';
             el.style.top = (rect.top - slideRect.top) + 'px';
             el.style.transform = 'none';
         } else {
             // Already absolute - DO NOT move in DOM, only update coordinates
             // Moving in DOM would break the z-order established by Send to Back/Front
+            const isText = el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
             el.style.boxSizing = 'border-box';
             el.style.margin = '0';
-            el.style.overflow = 'hidden';
+            el.style.overflow = isText ? 'visible' : 'hidden';
             el.style.minHeight = '0';
             el.style.minWidth = '0';
             el.style.width = rect.width + 'px';
-            el.style.height = rect.height + 'px';
+            el.style.height = isText ? 'auto' : (rect.height + 'px');
+            el.style.minHeight = isText ? (rect.height + 'px') : '0';
             el.style.left = (rect.left - slideRect.left) + 'px';
             el.style.top = (rect.top - slideRect.top) + 'px';
             el.style.transform = 'none';
@@ -689,8 +651,28 @@ function initEditor() {
         const textSelectors = 'h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite';
         const textTarget = e.target.closest(textSelectors);
         if (textTarget && (!textTarget.closest('.eidos-toolbar'))) {
+            // Ensure element is normalized (absolute positioned) so it doesn't push other text
+            if (!textTarget._normalized) {
+                const slide = textTarget.closest('.s') || textTarget.closest('section') || document.body;
+                normalizeElement(textTarget, slide);
+            }
+
             textTarget.contentEditable = "true";
+            textTarget.style.outline = "none"; // Hide browser focus box, use ours
+            textTarget.style.boxShadow = "none";
+            textTarget.style.height = "auto"; // Allow growth during editing
+            textTarget.style.overflow = "visible";
             textTarget.focus();
+
+            // Store current bottom point to grow upwards
+            const rect = textTarget.getBoundingClientRect();
+            const slide = textTarget.closest('.s') || document.body;
+            const slideRect = slide.getBoundingClientRect();
+            textTarget._baseBottom = rect.bottom - slideRect.top;
+
+            // Make selection box non-interactive so we can edit text through it
+            selectionBox.style.pointerEvents = "none";
+            selectionBox.classList.add('eidos-editing-text');
 
             // Select all text
             const range = document.createRange();
@@ -703,8 +685,17 @@ function initEditor() {
 
             textTarget.addEventListener('blur', function onBlur() {
                 textTarget.contentEditable = "false";
+                textTarget.style.outline = "";
+                // Use getBoundingClientRect for more accurate height after text change
+                const newHeight = textTarget.getBoundingClientRect().height;
+                textTarget.style.height = newHeight + "px"; 
+                delete textTarget._baseBottom;
                 textTarget.removeEventListener('blur', onBlur);
                 window.getSelection().removeAllRanges();
+                
+                selectionBox.style.pointerEvents = "auto";
+                selectionBox.classList.remove('eidos-editing-text');
+                
                 saveState(); // Save the new text to history
             }, { once: true });
         }
@@ -761,12 +752,31 @@ function initEditor() {
         let textTarget = isEditable(selectedElement) ? selectedElement : selectedElement.querySelector('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
 
         if (textTarget && !textTarget.closest('.eidos-toolbar')) {
-            // Hide selection tools so we can interact with text
-            selectionBox.style.display = 'none';
-            toolbar.style.display = 'none';
+            // Ensure element is normalized
+            if (!textTarget._normalized) {
+                const slide = textTarget.closest('.s') || textTarget.closest('section') || document.body;
+                normalizeElement(textTarget, slide);
+            }
+
+            // DO NOT hide selection box anymore, we want it to guide the user
+            // selectionBox.style.display = 'none';
+            // toolbar.style.display = 'none';
 
             textTarget.contentEditable = "true";
+            textTarget.style.outline = "none";
+            textTarget.style.boxShadow = "none";
+            textTarget.style.height = "auto";
+            textTarget.style.overflow = "visible";
             textTarget.focus();
+
+            // Store current bottom point to grow upwards
+            const rect = textTarget.getBoundingClientRect();
+            const slide = textTarget.closest('.s') || document.body;
+            const slideRect = slide.getBoundingClientRect();
+            textTarget._baseBottom = rect.bottom - slideRect.top;
+
+            selectionBox.style.pointerEvents = "none";
+            selectionBox.classList.add('eidos-editing-text');
 
             // Select all text
             const range = document.createRange();
@@ -777,11 +787,19 @@ function initEditor() {
 
             textTarget.addEventListener('blur', function onBlur() {
                 textTarget.contentEditable = "false";
+                textTarget.style.outline = "";
+                const newHeight = textTarget.getBoundingClientRect().height;
+                textTarget.style.height = newHeight + "px";
+                delete textTarget._baseBottom;
                 textTarget.removeEventListener('blur', onBlur);
                 window.getSelection().removeAllRanges();
+                
+                selectionBox.style.pointerEvents = "auto";
+                selectionBox.classList.remove('eidos-editing-text');
+                
                 saveState(); // Save the new text to history
 
-                // restore selection box
+                // restore selection box interaction
                 selectElement(selectedElement);
             }, { once: true });
         }
@@ -1115,8 +1133,26 @@ function initEditor() {
             attributes: true,
             attributeFilter: ['style', 'class'],
             characterData: true,
-            subtree: false
+            subtree: true
         });
+
+        // Add ResizeObserver for robust layout tracking (growth, text wrapping, etc)
+        if (window.ResizeObserver) {
+            const resizeObs = new ResizeObserver(() => {
+                // If editing and we want to grow upwards, adjust 'top' based on new height
+                if (el.isContentEditable && el._baseBottom !== undefined) {
+                    const rect = el.getBoundingClientRect();
+                    const slide = el.closest('.s') || document.body;
+                    const slideRect = slide.getBoundingClientRect();
+                    const currentHeight = rect.height;
+                    const newTop = el._baseBottom - currentHeight;
+                    el.style.top = newTop + "px";
+                }
+                updateSelectionBox();
+            });
+            resizeObs.observe(el);
+            selectionObserver._resizeObs = resizeObs;
+        }
         
         // Notify parent UI
         window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: el } }));
@@ -1128,9 +1164,10 @@ function initEditor() {
 
     function deselectGroup() {
         if (selectionObserver) {
-            if (selectionObserver._parentObs) selectionObserver._parentObs.disconnect();
-            selectionObserver.disconnect();
-            selectionObserver = null;
+        if (selectionObserver._parentObs) selectionObserver._parentObs.disconnect();
+        if (selectionObserver._resizeObs) selectionObserver._resizeObs.disconnect();
+        selectionObserver.disconnect();
+        selectionObserver = null;
         }
 
         selectedElement = null;
