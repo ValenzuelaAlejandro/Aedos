@@ -72,8 +72,13 @@ window.initEditorUI = function (iframe) {
 
     function buildMinimap() {
         if (!minimapList) return;
-        minimapList.innerHTML = '';
+        
         const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
+        if (slides.length === 0) {
+            const sections = Array.from(iframeDoc.querySelectorAll('section'));
+            if (sections.length > 0) slides.push(...sections);
+        }
+
         const MAX_SLIDES = 15;
         const reachedLimit = slides.length >= MAX_SLIDES;
 
@@ -84,13 +89,17 @@ window.initEditorUI = function (iframe) {
             addSlideBtn.style.pointerEvents = reachedLimit ? 'none' : 'auto';
         }
 
-        if (slides.length === 0) {
-            const sections = Array.from(iframeDoc.querySelectorAll('section'));
-            if (sections.length > 0) slides.push(...sections);
+        // --- OPTIMIZATION: Non-destructive update ---
+        const existingItems = Array.from(minimapList.querySelectorAll('.minimap-item'));
+        
+        // Remove excess items if any
+        if (existingItems.length > slides.length) {
+            for (let i = slides.length; i < existingItems.length; i++) {
+                existingItems[i].remove();
+            }
         }
 
         // --- DETECT PRIMARY COLOR ---
-        // We pick the --accent variable from the first slide or the root of the iframe
         const firstSection = slides[0];
         if (firstSection) {
             const iframeStyles = iframeWin.getComputedStyle(firstSection);
@@ -103,29 +112,38 @@ window.initEditorUI = function (iframe) {
             }
         }
 
-        // --- 1. PRE-RENDER HEAD & BODY WRAPPER ---
         const G_FONTS = '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">';
         const headWithViewport = iframeDoc.head.innerHTML + G_FONTS + '<meta name="viewport" content="width=1122">';
         const htmlTemplate = `<!DOCTYPE html><html><head>${headWithViewport}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
 
         slides.forEach((slide, index) => {
-            const item = document.createElement('div');
-            item.className = 'minimap-item';
+            let item = existingItems[index];
+            let isNew = false;
+            
+            if (!item) {
+                item = document.createElement('div');
+                item.className = 'minimap-item';
+                isNew = true;
+            }
+            
             item.dataset.index = index;
             item.draggable = true;
 
-            const thumbIframe = document.createElement('iframe');
-            thumbIframe.style.width = '1122px';
-            thumbIframe.style.height = '631px';
-            thumbIframe.style.background = 'transparent';
-            thumbIframe.style.border = 'none';
+            let thumbIframe = item.querySelector('iframe');
+            if (!thumbIframe) {
+                thumbIframe = document.createElement('iframe');
+                thumbIframe.style.width = '1122px';
+                thumbIframe.style.height = '631px';
+                thumbIframe.style.background = 'transparent';
+                thumbIframe.style.border = 'none';
+                item.appendChild(thumbIframe);
+            }
 
             // Clean slide for thumbnail
             const clone = slide.cloneNode(true);
-            // DO NOT REMOVE phantoms as they hold the layout for absolute-positioned edited elements
             clone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker').forEach(n => n.remove());
 
-            clone.style.width = '1122px'; // Match original fixed width
+            clone.style.width = '1122px';
             clone.style.height = '631px';
             clone.style.flex = 'none';
             clone.style.margin = '0';
@@ -134,107 +152,113 @@ window.initEditorUI = function (iframe) {
             clone.style.left = '0';
             clone.style.transform = 'none';
 
-            thumbIframe.srcdoc = htmlTemplate.split('[CONTENT]').join(clone.outerHTML);
+            const newContent = htmlTemplate.split('[CONTENT]').join(clone.outerHTML);
+            // Optimization: Only update srcdoc if content changed to avoid iframe flicker/reload
+            if (thumbIframe.srcdoc !== newContent) {
+                thumbIframe.srcdoc = newContent;
+            }
 
-            const overlay = document.createElement('div');
-            overlay.className = 'minimap-item-overlay';
+            let overlay = item.querySelector('.minimap-item-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'minimap-item-overlay';
+                
+                const delBtn = document.createElement('button');
+                delBtn.className = 'minimap-delete-btn';
+                delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+                delBtn.title = window.__eidos_t('delete_slide', 'Delete Slide');
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (Array.from(iframeDoc.querySelectorAll('section[class*="s"]')).length <= 1) return;
+                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    slide.remove();
+                    buildMinimap();
+                    setTimeout(() => {
+                        const dots = document.querySelectorAll('.slide-dot');
+                        const newIdx = Math.min(index, dots.length - 1);
+                        if (dots[newIdx]) dots[newIdx].click();
+                    }, 50);
+                };
 
-            const numberWrap = document.createElement('div');
-            numberWrap.className = 'minimap-item-number';
+                const dupBtn = document.createElement('button');
+                dupBtn.className = 'minimap-dup-btn';
+                dupBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+                dupBtn.title = reachedLimit ? window.__eidos_t('limit_reached', 'Limit reached (15 slides max)') : window.__eidos_t('duplicate_slide', 'Duplicate Slide');
+                
+                dupBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (Array.from(iframeDoc.querySelectorAll('section[class*="s"]')).length >= 15) return;
+                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    const newSlide = slide.cloneNode(true);
+                    newSlide.classList.remove('active');
+                    slide.after(newSlide);
+                    buildMinimap();
+                    setTimeout(() => {
+                        const dots = document.querySelectorAll('.slide-dot');
+                        if (dots.length > index + 1) dots[index + 1].click();
+                    }, 50);
+                };
+
+                overlay.appendChild(delBtn);
+                overlay.appendChild(dupBtn);
+                item.appendChild(overlay);
+            }
+            
+            // Sync duplication button state
+            const dupBtn = overlay.querySelector('.minimap-dup-btn');
+            if (dupBtn) {
+                dupBtn.disabled = reachedLimit;
+                dupBtn.style.opacity = reachedLimit ? '0.5' : '1';
+                dupBtn.style.cursor = reachedLimit ? 'not-allowed' : 'pointer';
+            }
+
+            let numberWrap = item.querySelector('.minimap-item-number');
+            if (!numberWrap) {
+                numberWrap = document.createElement('div');
+                numberWrap.className = 'minimap-item-number';
+                item.appendChild(numberWrap);
+            }
             numberWrap.textContent = index + 1;
 
             // Highlight active
-            if (slide.classList.contains('active')) {
-                item.classList.add('active');
-            }
+            item.classList.toggle('active', slide.classList.contains('active'));
 
-            const delBtn = document.createElement('button');
-            delBtn.className = 'minimap-delete-btn';
-            delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-            delBtn.title = window.__eidos_t('delete_slide', 'Delete Slide');
-            delBtn.onclick = (e) => {
-                e.stopPropagation();
-                if (slides.length <= 1) return;
-                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
-                slide.remove();
-                buildMinimap();
-                setTimeout(() => {
+            if (isNew) {
+                // Click to navigate
+                item.addEventListener('click', () => {
                     const dots = document.querySelectorAll('.slide-dot');
-                    const newIdx = Math.min(index, dots.length - 1);
-                    if (dots[newIdx]) dots[newIdx].click();
-                }, 50);
-            };
+                    if (dots[index]) dots[index].click();
+                    document.querySelectorAll('.minimap-item').forEach(m => m.classList.remove('active'));
+                    item.classList.add('active');
+                });
 
-            const dupBtn = document.createElement('button');
-            dupBtn.className = 'minimap-dup-btn';
-            dupBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-            dupBtn.title = reachedLimit ? window.__eidos_t('limit_reached', 'Limit reached (15 slides max)') : window.__eidos_t('duplicate_slide', 'Duplicate Slide');
-            dupBtn.disabled = reachedLimit;
-            if (reachedLimit) {
-                dupBtn.style.opacity = '0.5';
-                dupBtn.style.cursor = 'not-allowed';
+                // Drag and Drop (Reorder)
+                item.addEventListener('dragstart', (e) => {
+                    draggedItem = item;
+                    setTimeout(() => item.classList.add('is-dragging'), 0);
+                });
+
+                item.addEventListener('dragend', () => {
+                    setTimeout(() => {
+                        if (draggedItem) draggedItem.classList.remove('is-dragging');
+                        draggedItem = null;
+                    }, 0);
+                    syncSlidesOrderToIframe();
+                });
+
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    const afterElement = getDragAfterElement(minimapList, e.clientY);
+                    if (afterElement == null) {
+                        minimapList.appendChild(draggedItem);
+                    } else {
+                        minimapList.insertBefore(draggedItem, afterElement);
+                    }
+                });
+
+                observeMinimapItem(item);
+                minimapList.appendChild(item);
             }
-            dupBtn.onclick = (e) => {
-                e.stopPropagation();
-                if (reachedLimit) return;
-                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
-                const newSlide = slide.cloneNode(true);
-                newSlide.classList.remove('active');
-                slide.after(newSlide);
-                buildMinimap();
-                setTimeout(() => {
-                    const dots = document.querySelectorAll('.slide-dot');
-                    if (dots.length > index + 1) dots[index + 1].click();
-                }, 50);
-            };
-
-            overlay.appendChild(delBtn);
-            overlay.appendChild(dupBtn);
-
-            item.appendChild(thumbIframe);
-            item.appendChild(overlay);
-            item.appendChild(numberWrap);
-
-            // Click to navigate
-            item.addEventListener('click', () => {
-                // app.js has a logic to scrollToSlide(i). We can just click the corresponding dot
-                const dots = document.querySelectorAll('.slide-dot');
-                if (dots[index]) dots[index].click();
-
-                // update local active state
-                document.querySelectorAll('.minimap-item').forEach(m => m.classList.remove('active'));
-                item.classList.add('active');
-            });
-
-            // Drag and Drop (Reorder)
-            item.addEventListener('dragstart', (e) => {
-                draggedItem = item;
-                setTimeout(() => item.classList.add('is-dragging'), 0);
-            });
-
-            item.addEventListener('dragend', () => {
-                setTimeout(() => {
-                    draggedItem.classList.remove('is-dragging');
-                    draggedItem = null;
-                }, 0);
-                // Trigger an update in iframe DOM
-                syncSlidesOrderToIframe();
-            });
-
-            item.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                const afterElement = getDragAfterElement(minimapList, e.clientY);
-                if (afterElement == null) {
-                    minimapList.appendChild(draggedItem);
-                } else {
-                    minimapList.insertBefore(draggedItem, afterElement);
-                }
-            });
-
-            // Trigger entrance animation via observer
-            observeMinimapItem(item);
-
-            minimapList.appendChild(item);
         });
 
         // Add proper scaling to thumb iframes
@@ -250,14 +274,9 @@ window.initEditorUI = function (iframe) {
 
         if (window.regenerateDotsCount) window.regenerateDotsCount();
 
-        // Initial centering - Ensuring layout is painted
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                centerActiveMinimapItem();
-            });
-        });
+        // Initial centering
+        requestAnimationFrame(() => centerActiveMinimapItem());
     }
-
 
     let minimapUpdateTimeout = null;
     function triggerMinimapUpdate() {
@@ -411,9 +430,14 @@ window.initEditorUI = function (iframe) {
     const dynamicContainer = document.getElementById('dynamic-tools-container');
 
     // Subscribe to selection change from iframe
+    let selectionT = null;
     iframeWin.addEventListener('eidos-selection-changed', (e) => {
         const el = e.detail.element;
-        renderTools(el);
+        // Optimization: debounce UI re-renders for multi-clicks/restores
+        clearTimeout(selectionT);
+        selectionT = setTimeout(() => {
+            renderTools(el);
+        }, 50);
     });
 
     // Subscriptions for keyboard navigation and duplication
@@ -442,8 +466,13 @@ window.initEditorUI = function (iframe) {
         }, 100);
     });
 
+    let buildMinimapT = null;
     iframeWin.addEventListener('eidos-state-restored', () => {
-        buildMinimap();
+        // Debounce to avoid CPU peaks when hammer-pressing Ctrl+Z
+        clearTimeout(buildMinimapT);
+        buildMinimapT = setTimeout(() => {
+            buildMinimap();
+        }, 300);
     });
 
 

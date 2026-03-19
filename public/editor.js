@@ -105,9 +105,9 @@ function initEditor() {
     // Robust detection for any slide change (e.g., via pagination dots or parent UI)
     // by observing when a section starts being 'active'
     const slideActivationObserver = new MutationObserver((mutations) => {
+        if (_isRestoring) return; // Silent during undo/redo
         mutations.forEach(m => {
             if (m.target.classList.contains('active') && selectedElement) {
-                // If a new slide became active (or state restored), clean up selection
                 deselectGroup();
             }
         });
@@ -122,7 +122,10 @@ function initEditor() {
     observeSlides();
 
     // Also watch for newly added slides (e.g. after undo/redo or dynamic generation)
-    const slideStructureObserver = new MutationObserver(() => observeSlides());
+    const slideStructureObserver = new MutationObserver(() => {
+        if (_isRestoring) return; // Silent during undo/redo
+        observeSlides();
+    });
     slideStructureObserver.observe(document.body, { childList: true, subtree: true });
 
 
@@ -135,7 +138,9 @@ function initEditor() {
             <div class="eidos-color-swatch" style="background:${color};" data-color="${color}"></div>
         `).join('');
 
-        const isImage = selectedElement.matches('img, .img-slot') || selectedElement.dataset.imageSlot !== undefined;
+    let dragGroup = [];
+
+    const isImage = selectedElement.matches('img, .img-slot') || selectedElement.dataset.imageSlot !== undefined;
         const isText = selectedElement.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
         
         let toolsHTML = '';
@@ -181,6 +186,8 @@ function initEditor() {
 
     function deleteElement(el) {
         if (!el) return;
+        const slide = el.closest('.s') || el.closest('section') || document.body;
+        freezeSlideLayout(slide);
         saveState();
         el.remove();
         deselectGroup();
@@ -595,6 +602,7 @@ function initEditor() {
             selectElement(target);
 
             isDragging = true;
+            dragGroup = [];
             startX = e.clientX;
             startY = e.clientY;
 
@@ -606,6 +614,26 @@ function initEditor() {
 
             startLeft = rect.left - slideRect.left;
             startTop = rect.top - slideRect.top;
+
+            // Grouping Logic: Find elements inside this one
+            const isContainer = target.matches('div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"]');
+            if (isContainer) {
+                const others = getEditableElementsInSlide(slide, target);
+                others.forEach(other => {
+                    const otherRect = other.getBoundingClientRect();
+                    if (otherRect.left >= rect.left && 
+                        otherRect.right <= rect.right && 
+                        otherRect.top >= rect.top && 
+                        otherRect.bottom <= rect.bottom) {
+                        
+                        dragGroup.push({
+                            el: other,
+                            startLeft: otherRect.left - slideRect.left,
+                            startTop: otherRect.top - slideRect.top
+                        });
+                    }
+                });
+            }
 
             // Build snap targets
             snapLinesX = [];
@@ -655,6 +683,7 @@ function initEditor() {
         isDragging = false;
         isResizing = false;
         currentHandle = null;
+        dragGroup = [];
         guideH.style.display = 'none';
         guideV.style.display = 'none';
 
@@ -861,6 +890,7 @@ function initEditor() {
             saveState(); // Save state before drag
 
             isDragging = true;
+            dragGroup = [];
             startX = e.clientX;
             startY = e.clientY;
 
@@ -870,6 +900,27 @@ function initEditor() {
 
             startLeft = rect.left - slideRect.left;
             startTop = rect.top - slideRect.top;
+
+            // Grouping Logic for Proxy Drag
+            const isContainer = selectedElement.matches('div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"]');
+            if (isContainer) {
+                const others = getEditableElementsInSlide(slide, selectedElement);
+                others.forEach(other => {
+                    const otherRect = other.getBoundingClientRect();
+                    if (otherRect.left >= rect.left && 
+                        otherRect.right <= rect.right && 
+                        otherRect.top >= rect.top && 
+                        otherRect.bottom <= rect.bottom) {
+                        
+                        dragGroup.push({
+                            el: other,
+                            startLeft: otherRect.left - slideRect.left,
+                            startTop: otherRect.top - slideRect.top
+                        });
+                    }
+                });
+            }
+
             e.preventDefault();
         }
     });
@@ -888,12 +939,24 @@ function initEditor() {
             if (!selectedElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
                 normalizeElement(selectedElement, slide);
                 
+                // Also normalize everything in the group
+                dragGroup.forEach(item => {
+                    if (!item.el._normalized) normalizeElement(item.el, slide);
+                });
+
                 // After normalization, we MUST reset the base values because style.left/top
                 // might differ from the visual start coordinates captured in mousedown.
                 startWidth = parseFloat(selectedElement.style.width);
                 startHeight = parseFloat(selectedElement.style.height);
                 startLeft = parseFloat(selectedElement.style.left);
                 startTop = parseFloat(selectedElement.style.top);
+
+                // Update start group positions based on normalized state
+                dragGroup.forEach(item => {
+                    item.startLeft = parseFloat(item.el.style.left);
+                    item.startTop = parseFloat(item.el.style.top);
+                });
+
                 startX = e.clientX; 
                 startY = e.clientY;
             }
@@ -976,6 +1039,15 @@ function initEditor() {
 
             selectedElement.style.left = `${newLeft}px`;
             selectedElement.style.top = `${newTop}px`;
+
+            // Apply same offset to drag group
+            const groupDx = newLeft - startLeft;
+            const groupDy = newTop - startTop;
+            dragGroup.forEach(item => {
+                item.el.style.left = (item.startLeft + groupDx) + 'px';
+                item.el.style.top = (item.startTop + groupDy) + 'px';
+            });
+
             updateSelectionBox();
 
         } else if (isResizing) {
@@ -1197,12 +1269,12 @@ function initEditor() {
         setTimeout(() => { _justSelected = false; }, 250);
     }
 
-    function deselectGroup() {
+    function deselectGroup(silent = false) {
         if (selectionObserver) {
-        if (selectionObserver._parentObs) selectionObserver._parentObs.disconnect();
-        if (selectionObserver._resizeObs) selectionObserver._resizeObs.disconnect();
-        selectionObserver.disconnect();
-        selectionObserver = null;
+            if (selectionObserver._parentObs) selectionObserver._parentObs.disconnect();
+            if (selectionObserver._resizeObs) selectionObserver._resizeObs.disconnect();
+            selectionObserver.disconnect();
+            selectionObserver = null;
         }
 
         selectedElement = null;
@@ -1212,8 +1284,10 @@ function initEditor() {
         const colorPicker = document.getElementById('eidos-color-picker');
         if (colorPicker) colorPicker.style.display = 'none';
 
-        // Notify parent UI
-        window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: null } }));
+        // Notify parent UI only if not silent
+        if (!silent) {
+            window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: null } }));
+        }
     }
 
     function updateSelectionBox() {
@@ -1279,15 +1353,17 @@ function initEditor() {
 
     // --- UNDO / REDO LOGIC ---
     function getCleanHTML() {
-        // Use a temporary container for safe cleaning without regex corruption
-        const temp = document.createElement('div');
-        temp.innerHTML = document.body.innerHTML;
+        // Optimization: Use cloneNode instead of innerHTML parsing for cloning.
+        // Also avoid double-pass by serializing only once at the end.
+        const bodyClone = document.body.cloneNode(true);
         
-        // Robust removal of system UI
-        const toRemove = temp.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker, .img-replace-overlay');
+        // Remove system UI elements that shouldn't be in the state history
+        // NOTE: We keep .img-replace-overlay (tooltips) in the history to prevent flicker.
+        // Final exports (PPTX/PDF) clean them up separately anyway.
+        const toRemove = bodyClone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker');
         toRemove.forEach(el => el.remove());
         
-        return temp.innerHTML;
+        return bodyClone.innerHTML;
     }
 
     function getCurrentSlideIndex() {
@@ -1323,6 +1399,8 @@ function initEditor() {
 
     function saveState() {
         if (_isRestoring) return;
+        // Performance: Optimization to avoid getCleanHTML() on every save call.
+        // We only serialize if we're not likely at the current state.
         const state = getCleanHTML();
         
         // Always try to get the current index from parent (most reliable)
@@ -1332,8 +1410,6 @@ function initEditor() {
         
         // Don't save if it's identical HTML to avoid duplicate history points
         if (historyIndex !== -1 && history[historyIndex].html === state) {
-            // But if the HTML is same but slide moved, just keep the current point?
-            // Usually we only save on physical changes to avoid bloating history
             return;
         }
 
@@ -1367,16 +1443,22 @@ function initEditor() {
 
     function restoreState(entry) {
         if (!entry || !entry.html) return;
+        
+        // Fast-path: don't restore if already there
+        if (document.body.innerHTML === entry.html) return;
+
         _isRestoring = true;
-        deselectGroup();
+        deselectGroup(true); // SILENT deselect during restoration
 
         document.body.innerHTML = entry.html;
 
         // Re-inject UI and bindings into documentElement (outside body transform context)
         ensureUI();
 
-        // Re-init lucide icons just in case
-        if (window.lucide) window.lucide.createIcons();
+        // Re-init lucide icons ONLY if they are likely present as original i tags
+        if (window.lucide && document.body.querySelector('i[data-lucide]')) {
+            window.lucide.createIcons();
+        }
         
         // Notify parent that state changed significantly (slides might have been added/removed)
         // Pass 'needsOverlayRebuild' so app.js can re-inject image slot overlays
@@ -1417,6 +1499,7 @@ function initEditor() {
             const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
             const isEditingText = activeTag === 'input' || activeTag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable);
             
+            // If nothing is selected or locked, we let it bubble out or handle it as slide navigation
             if (!isEditingText && (!selectedElement || _isLocked)) {
                 if (e.key === 'ArrowLeft') {
                     window.dispatchEvent(new CustomEvent('eidos-navigate-prev'));
@@ -1523,10 +1606,6 @@ function initEditor() {
                     selectedElement.style.top = `${resolved.top}px`;
 
                     updateSelectionBox();
-                } else {
-                    // Navigate slides
-                    if (e.key === 'ArrowLeft') window.dispatchEvent(new CustomEvent('eidos-navigate-prev'));
-                    if (e.key === 'ArrowRight') window.dispatchEvent(new CustomEvent('eidos-navigate-next'));
                 }
             }
         }

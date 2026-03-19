@@ -925,18 +925,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const slides = findSlides(iframeDoc);
         totalSlides = slides.length || 1;
-        buildDots();
+        // buildDots() was redundant here as it's called after restoration anyway
 
-        // Attach global nav listeners directly to the iframe document too!
-        // This solves the issue where file input dialog steals focus to the iframe.
-        // NOTE: we removed handleSlideKeyboardNav here because editor.js handles it and forwards to parent, 
-        // preventing double jump.
-        iframeDoc.addEventListener('wheel', handleSlideWheelNav, { passive: true });
-
-
-        // Problem 6: Touch events for mobile swipe
-        iframeDoc.addEventListener('touchstart', handleTouchStart, { passive: true });
-        iframeDoc.addEventListener('touchend', handleTouchEnd, { passive: true });
+        // Attach global nav listeners only once to avoid memory leaks and CPU peaks
+        if (!iframeDoc._eidosListenersAttached) {
+            iframeDoc.addEventListener('wheel', handleSlideWheelNav, { passive: true });
+            iframeDoc.addEventListener('touchstart', handleTouchStart, { passive: true });
+            iframeDoc.addEventListener('touchend', handleTouchEnd, { passive: true });
+            iframeDoc._eidosListenersAttached = true;
+        }
 
 
         // Determine the container that holds the slides (could be body or a wrapper like <main>)
@@ -956,7 +953,11 @@ document.addEventListener('DOMContentLoaded', () => {
             s.style.boxSizing = 'border-box';
         });
 
-        injectImageReplacementSystem(iframeDoc);
+        // If we are restoring state, we handle overlay re-keying in the 'eidos-state-restored' event listener
+        // instead of doing a full destructive clear and rebuild here.
+        if (!iframeDoc._eidosRestoringState) {
+            injectImageReplacementSystem(iframeDoc);
+        }
 
         // Apply horizontal carousel layout to the real slide container
         slideContainer.style.display = 'flex';
@@ -1036,9 +1037,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const iframeWinRef = previewIframe.contentWindow;
         if (iframeWinRef) {
             iframeWinRef.addEventListener('eidos-state-restored', (ev) => {
-                if (typeof pruneDeadSlotOverlays === 'function') pruneDeadSlotOverlays();
-                
-                // Rebuild if detail says so, OR if no detail is provided (fallback for older editor.js state)
                 const needsRebuild = ev.detail ? ev.detail.needsOverlayRebuild : true;
                 if (!needsRebuild) return;
                 const iDoc = previewIframe.contentDocument;
@@ -1047,32 +1045,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 // CRITICAL: Cache width early for scrollToSlide calculations
                 previewIframe._slideWidthPx = 1122; 
 
-                // Snapshot by slot ID (string attribute — survives innerHTML replace)
+                // --- OPTIMIZATION: Non-destructive overlay re-keying ---
+                // 1. Map existing overlays by their slot ID (string attribute - survives innerHTML replace)
                 const byId = new Map();
                 _overlayMap.forEach((entry, slotEl) => {
                     const id = slotEl.dataset && slotEl.dataset.imageSlot;
-                    if (id !== undefined) byId.set(String(id), entry);
+                    if (id !== undefined) {
+                        byId.set(String(id), entry);
+                        if (entry.label) entry.label.style.display = 'none'; // Hide until repositioned
+                    } else {
+                        // Truly dead or no-id slot: clean up
+                        if (entry.label) entry.label.remove();
+                        if (entry.input) entry.input.remove();
+                    }
                 });
 
-                // Re-key with the NEW DOM nodes that replaced the old ones
+                // 2. Clear current map (we will refill it with the NEW DOM nodes)
                 _overlayMap.clear();
+
+                // 3. Match new DOM nodes with existing labels/ref objects
                 iDoc.querySelectorAll('[data-image-slot]').forEach(newSlot => {
                     const id = String(newSlot.dataset.imageSlot);
                     const entry = byId.get(id);
                     if (entry) {
-                        entry.slotRef.current = newSlot; // update the mutable ref — all listeners auto-follow
+                        // RE-KEY: update the mutable ref to point to the NEW DOM node
+                        entry.slotRef.current = newSlot;
                         _overlayMap.set(newSlot, entry);
                     } else {
-                        _buildOverlayForSlot(newSlot); // new slot (e.g. from redo)
+                        // Truly new slot (e.g. from copy-paste or redo)
+                        _buildOverlayForSlot(newSlot); 
                     }
+                    
+                    // REBUILD internal visual message (only if missing)
+                    _ensureInternalOverlay(newSlot, iDoc);
                 });
 
                 // REBUILD iframe-internal visible overlays and re-bind listeners
-                // DEBOUNCED: Avoid CPU peak when hammer-pressing Ctrl+Z
+                // REDUCED timeout: 150ms was too slow, causing visual lag
                 clearTimeout(window._restoreBatchT);
                 window._restoreBatchT = setTimeout(() => {
+                    iDoc._eidosRestoringState = true;
                     setupPreviewInteractions(currentSlide);
-                }, 150);
+                    iDoc._eidosRestoringState = false;
+                    
+                    // Final refresh of overlay positions
+                    if (window._refreshSlotOverlays) window._refreshSlotOverlays();
+                }, 40);
 
                 // --- REFRESH SLIDE SYSTEM ---
                 const slides = findSlides(iDoc);
@@ -1241,7 +1259,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let _buildOverlayForSlot = () => { }; // forward.. declaration, assigned inside injectImageReplacementSystem
 
-    function injectImageReplacementSystem(doc) {
+    function injectImageReplacementSystem(doc, isRestoringFlow = false) {
         const style = doc.createElement('style');
         style.className = 'preview-injected-style';
         style.textContent = `
@@ -1366,39 +1384,44 @@ document.addEventListener('DOMContentLoaded', () => {
         //     A click on the label (parent DOM) directly opens the picker — no
         //     focus handshake, no async, works on first click on desktop & mobile.
 
-        // Remove any overlays from a previous generation
-        document.querySelectorAll('._slot-overlay-label').forEach(el => el.remove());
-        document.querySelectorAll('._slot-overlay-input').forEach(el => el.remove());
-        _overlayMap.clear();
+        // PERFORMANCE: If we are in a restore flow, we keep the existing DOM overlays
+        // and just re-position them. The re-keying is handled before this call.
+        if (!isRestoringFlow && !doc._eidosRestoringState) {
+            // Remove any overlays from a previous session entirely
+            document.querySelectorAll('._slot-overlay-label').forEach(el => el.remove());
+            document.querySelectorAll('._slot-overlay-input').forEach(el => el.remove());
+            _overlayMap.clear();
+        }
 
 
-        _buildOverlayForSlot = function (slotEl) {
+        _buildOverlayForSlot = function (slotEl, existingInput = null) {
             if (_overlayMap.has(slotEl)) return; // already built
 
             // Mutable ref so re-keying after Ctrl+Z just updates .current
             // instead of recreating all event listeners
             const slotRef = { current: slotEl };
-            const slotIdCode = slotEl.dataset.imageSlot || Math.random().toString(36).substr(2, 9);
+            const slotIdCode = slotEl.dataset.imageSlot ? slotEl.dataset.imageSlot.replace(/[^a-z0-9]/gi, '') : Math.random().toString(36).substr(2, 9);
             const inputId = `eidos-img-input-${slotIdCode}`;
 
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.id = inputId;
-            input.accept = 'image/*';
-            input.className = '_slot-overlay-input';
-            input.setAttribute('aria-label', 'Upload image');
-            input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;width:1px;height:1px;pointer-events:none;';
-            document.body.appendChild(input);
+            const input = existingInput || document.createElement('input');
+            if (!existingInput) {
+                input.className = 'preview-file-input';
+                input.type = 'file';
+                input.id = inputId;
+                input.accept = 'image/*';
+                input.setAttribute('aria-label', 'Upload image');
+                input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;width:1px;height:1px;pointer-events:none;';
+                document.body.appendChild(input);
 
-            input.addEventListener('change', () => {
-                const file = input.files[0];
-                if (file) {
-                    const iframeWin = previewIframe.contentWindow;
-                    if (iframeWin && iframeWin.eidosSaveState) iframeWin.eidosSaveState();
-                    replaceSlotImage(slotRef.current, file); // uses live ref
-                }
-                input.value = '';
-            });
+                input.addEventListener('change', (e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                        const iframeWin = previewIframe.contentWindow;
+                        if (iframeWin && iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                        replaceSlotImage(slotRef.current, e.target.files[0]);
+                    }
+                    input.value = ''; // Clear the input so the same file can be selected again
+                });
+            }
 
             const label = document.createElement('label');
             label.htmlFor = inputId;
@@ -1452,6 +1475,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             _overlayMap.set(slotEl, { input, label, slotRef });
         }
+
+        function _ensureInternalOverlay(slot, doc) {
+            let overlay = slot.querySelector('.img-replace-overlay');
+            if (!overlay) {
+                overlay = doc.createElement('div');
+                overlay.className = 'img-replace-overlay';
+                slot.appendChild(overlay);
+                
+                overlay.innerHTML = `
+                    <div class="overlay-content" style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+                        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        <span>${window.__eidos_t('click_drop')}</span>
+                    </div>
+                `;
+            }
+        }
+        window._ensureInternalOverlay = _ensureInternalOverlay; // Expose as global helper
 
         // Build overlays for ALL slots in the document
         const allSlots = doc.querySelectorAll('[data-image-slot]');
@@ -1610,22 +1654,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // overlay (z-index:200) handles all click routing.
 
             // "Click or drop image" tooltip
-            let overlay = slot.querySelector('.img-replace-overlay');
-            if (!overlay) {
-                overlay = doc.createElement('div');
-                overlay.className = 'img-replace-overlay';
-                slot.appendChild(overlay);
-            }
-            overlay.innerHTML = `
-                <div class="overlay-content" style="display:flex; flex-direction:column; align-items:center; gap:8px;">
-                    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                        <polyline points="21 15 16 10 5 21"></polyline>
-                    </svg>
-                    <span>${window.__eidos_t('click_drop')}</span>
-                </div>
-            `;
+            _ensureInternalOverlay(slot, doc);
 
             // Drag & drop (works directly, no scaling issue)
             slot.addEventListener('dragover', (e) => {
@@ -1751,13 +1780,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Global navigation helpers for editor and other modules
+    let _lastNavScroll = 0;
+    const NAV_COOLDOWN = 350; // ms to Wait between slide transitions to prevent skipping
+
+    function tryNavigate(targetIndex) {
+        if (Date.now() - _lastNavScroll < NAV_COOLDOWN) return false;
+        if (targetIndex < 0 || targetIndex >= totalSlides) return false;
+        
+        _lastNavScroll = Date.now();
+        scrollToSlide(targetIndex);
+        return true;
+    }
+
     window.eidosScrollToSlide = scrollToSlide;
-    window.eidosPrevSlide = () => {
-        if (currentSlide > 0) scrollToSlide(currentSlide - 1);
-    };
-    window.eidosNextSlide = () => {
-        if (currentSlide < totalSlides - 1) scrollToSlide(currentSlide + 1);
-    };
+    window.eidosPrevSlide = () => tryNavigate(currentSlide - 1);
+    window.eidosNextSlide = () => tryNavigate(currentSlide + 1);
     window.eidosGetCurrentSlide = () => currentSlide;
     window.eidosGetTotalSlides = () => totalSlides;
 
@@ -1837,23 +1874,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleSlideKeyboardNav(e) {
         if (previewContainer.classList.contains('hidden')) return;
         // Don't capture arrows when user is typing in an input/textarea
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
 
         // Skip if editor has a selected element
         try {
             const iframe = document.getElementById('preview-iframe');
             const iframeWin = iframe.contentWindow;
             if (iframeWin && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
+                // If an element is selected, let the editor handle arrows (moving elements)
                 return;
             }
         } catch (err) { }
 
         if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            if (currentSlide > 0) scrollToSlide(currentSlide - 1);
+            if (tryNavigate(currentSlide - 1)) e.preventDefault();
         } else if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            if (currentSlide < totalSlides - 1) scrollToSlide(currentSlide + 1);
+            if (tryNavigate(currentSlide + 1)) e.preventDefault();
         }
     }
     // Global keyboard shortcut forwarding to the editor iframe
@@ -1908,31 +1944,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
             if (e.deltaY > 0) {
-                if (currentSlide < totalSlides - 1) {
-                    scrollToSlide(currentSlide + 1);
-                    wheelCooldown = true;
-                    setTimeout(() => { wheelCooldown = false; }, 400);
-                }
+                tryNavigate(currentSlide + 1);
             } else if (e.deltaY < 0) {
-                if (currentSlide > 0) {
-                    scrollToSlide(currentSlide - 1);
-                    wheelCooldown = true;
-                    setTimeout(() => { wheelCooldown = false; }, 400);
-                }
+                tryNavigate(currentSlide - 1);
             }
         } else {
             if (e.deltaX > 0) {
-                if (currentSlide < totalSlides - 1) {
-                    scrollToSlide(currentSlide + 1);
-                    wheelCooldown = true;
-                    setTimeout(() => { wheelCooldown = false; }, 400);
-                }
+                tryNavigate(currentSlide + 1);
             } else if (e.deltaX < 0) {
-                if (currentSlide > 0) {
-                    scrollToSlide(currentSlide - 1);
-                    wheelCooldown = true;
-                    setTimeout(() => { wheelCooldown = false; }, 400);
-                }
+                tryNavigate(currentSlide - 1);
             }
         }
     }
