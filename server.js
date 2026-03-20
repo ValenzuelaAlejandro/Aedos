@@ -7,13 +7,28 @@ const puppeteer = require('puppeteer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const buildPrompt = require('./prompts/base');
 
+const rateLimit = require('express-rate-limit');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const TMP_DIR = path.join(__dirname, 'tmp');
 
+// Rate Limiters
+const genLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { error: 'RATE_LIMIT_EXCEEDED' }
+});
+
+const finalizeLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: 'RATE_LIMIT_EXCEEDED' }
+});
+
 // Middleware
 app.use(express.json({ limit: '50mb' }));
-app.use(cors());
+app.use(cors({ origin: process.env.ALLOWED_ORIGIN || 'http://localhost:3000' }));
 
 app.use(express.static('public'));
 
@@ -87,22 +102,17 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/debug-last', (req, res) => {
-    const debugPath = path.join(TMP_DIR, 'last_generated.html');
-    if (fs.existsSync(debugPath)) {
-        res.sendFile(debugPath);
-    } else {
-        res.status(404).send('No file generated yet');
-    }
-});
 
-app.post('/generate', async (req, res) => {
+app.post('/generate', genLimiter, async (req, res) => {
     try {
         const opciones = req.body;
 
-        // Validate that the chat input is not empty
+        // Validate that the chat input is not empty or too long
         if (!opciones.tema || String(opciones.tema).trim() === '') {
             return res.status(400).json({ error: 'The topic is required' });
+        }
+        if (String(opciones.tema).length > 600) {
+            return res.status(400).json({ error: 'TOPIC_TOO_LONG' });
         }
 
         if (!process.env.GEMINI_API_KEY) {
@@ -298,12 +308,15 @@ app.post('/generate', async (req, res) => {
 });
 
 // Finalize: receive (possibly modified) HTML, convert to PDF
-app.post('/finalize', async (req, res) => {
+app.post('/finalize', finalizeLimiter, async (req, res) => {
     try {
         const { html, title } = req.body;
 
         if (!html || typeof html !== 'string') {
             return res.status(400).json({ error: 'HTML content is required' });
+        }
+        if (html.length > 2 * 1024 * 1024) { // 2MB
+            return res.status(400).json({ error: 'Payload too large' });
         }
 
         const timestamp = Date.now();

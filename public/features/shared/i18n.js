@@ -105,7 +105,10 @@ const translations = {
         "text_color": "Text Color",
         "replace": "Replace",
         "retry_in_es": "<br><br><strong>Podrás reintentar en: {time}</strong>",
-        "retry_in_en": "<br><br><strong>You can retry in: {time}</strong>"
+        "retry_in_en": "<br><br><strong>You can retry in: {time}</strong>",
+        "rate_limit_title": "Slow down a little",
+        "rate_limit_msg": "You've reached the generation limit. Please wait a few minutes before trying again.",
+        "topic_too_long": "The topic is too long. Maximum 600 characters."
     },
     es: {
         "app_subtitle": "Genera una presentación completa sobre...",
@@ -213,7 +216,10 @@ const translations = {
         "text_color": "Color de texto",
         "replace": "Reemplazar",
         "retry_in_es": "<br><br><strong>Podrás reintentar en: {time}</strong>",
-        "retry_in_en": "<br><br><strong>You can retry in: {time}</strong>"
+        "retry_in_en": "<br><br><strong>You can retry in: {time}</strong>",
+        "rate_limit_title": "Espera un momento",
+        "rate_limit_msg": "Has alcanzado el límite de generaciones. Espera unos minutos e inténtalo de nuevo.",
+        "topic_too_long": "El tema es demasiado largo. Máximo 600 caracteres."
     }
 };
 

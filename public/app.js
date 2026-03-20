@@ -631,23 +631,31 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error(error);
 
+            const errTitle = document.getElementById('t-error-title');
             const errSubtitle = document.getElementById('t-error-subtitle');
 
-            // Try to extract "Please retry in X seconds"
-            let retryMsg = "";
-            const retryMatch = error.message.match(/retry in ([\d\.]+s)/i);
-            if (retryMatch) {
-                const retryTpl = window.__eidos_t(window.currentLang === 'es' ? 'retry_in_es' : 'retry_in_en', "<br><br><strong>Retry in: {time}</strong>");
-                retryMsg = retryTpl.replace('{time}', retryMatch[1]);
-            }
+            // Default titles/subtitles
+            if (errTitle) errTitle.textContent = window.__eidos_t('error_title', "Something didn't go as planned");
+            if (errSubtitle) errSubtitle.textContent = window.__eidos_t('error_subtitle', "The AI service is temporarily unavailable. This is usually resolved quickly.");
 
-            if (error.message.includes('429') || error.message.includes('503') || error.message.toLowerCase().includes('exhausted') || error.message.toLowerCase().includes('saturated')) {
-                if (errSubtitle) {
-                    errSubtitle.innerHTML = (window.__eidos_t ? window.__eidos_t('t-error-saturated', "The service is currently overloaded due to high demand. Please try again in a few minutes.") : "The service is currently overloaded due to high demand. Please try again in a few minutes.") + retryMsg;
-                }
+            if (error.message.includes('RATE_LIMIT_EXCEEDED')) {
+                if (errTitle) errTitle.textContent = window.__eidos_t('rate_limit_title', "Slow down a little");
+                if (errSubtitle) errSubtitle.textContent = window.__eidos_t('rate_limit_msg', "You've reached the generation limit. Please wait a few minutes before trying again.");
+            } else if (error.message.includes('TOPIC_TOO_LONG')) {
+                if (errSubtitle) errSubtitle.textContent = window.__eidos_t('topic_too_long', "The topic is too long. Maximum 600 characters.");
             } else {
-                if (errSubtitle) {
-                    errSubtitle.textContent = window.__eidos_t('error_subtitle', "The AI service is temporarily unavailable. This is usually resolved quickly.");
+                // Try to extract "Please retry in X seconds" from Gemini standard errors
+                let retryMsg = "";
+                const retryMatch = error.message.match(/retry in ([\d\.]+s)/i);
+                if (retryMatch) {
+                    const retryTpl = window.__eidos_t(window.currentLang === 'es' ? 'retry_in_es' : 'retry_in_en', "<br><br><strong>Retry in: {time}</strong>");
+                    retryMsg = retryTpl.replace('{time}', retryMatch[1]);
+                }
+
+                if (error.message.includes('429') || error.message.includes('503') || error.message.toLowerCase().includes('exhausted') || error.message.toLowerCase().includes('saturated')) {
+                    if (errSubtitle) {
+                        errSubtitle.innerHTML = (window.__eidos_t ? window.__eidos_t('t-error-saturated', "The service is currently overloaded due to high demand. Please try again in a few minutes.") : "The service is currently overloaded due to high demand. Please try again in a few minutes.") + retryMsg;
+                    }
                 }
             }
 
@@ -662,72 +670,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateBtn.addEventListener('click', () => handleGenerate(null));
 
-    if (btnDebugCanva) {
-        btnDebugCanva.addEventListener('click', async () => {
-            // Lenis nunca se paraba en debug — esto era otra fuente del problema
-            if (window._eidosScrollytelling) window._eidosScrollytelling.pauseForPreview();
-            try {
-                toggleGenerateLoading(true);
-                const res = await fetch('/debug-last');
-                if (!res.ok) throw new Error('No last generated file found');
-                let html = await res.text();
-
-                let displayTitle = "Debug Mode";
-                const configMatch = html.match(/<!--\s*CONFIG\s*([\s\S]*?)\s*-->/i);
-                if (configMatch) {
-                    try {
-                        const configObj = JSON.parse(configMatch[1]);
-                        if (configObj.Clean_Topic) displayTitle = configObj.Clean_Topic;
-                    } catch (e) { }
-                }
-
-                if (html.includes('</body>')) {
-                    html = html.replace('</body>', '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script></body>');
-                } else {
-                    html += '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script>';
-                }
-
-                generatedHtml = html;
-                currentTitle = displayTitle;
-                const previewLabel = document.getElementById('preview-topic-label');
-                if (previewLabel) {
-                    if (previewLabel.tagName === 'INPUT') previewLabel.value = currentTitle;
-                    else previewLabel.textContent = currentTitle;
-                }
-
-                if (slideDots) slideDots.innerHTML = '';
-                slideLabel.textContent = "1 / 1";
-
-                chatScreen.classList.add('hidden');
-                if (scrollySection) scrollySection.classList.add('hidden');
-                previewHeader.classList.remove('slide-down');
-                previewContainer.classList.remove('hidden');
-
-                if (typeof scaleIframe === 'function') {
-                    scaleIframe();
-                    window.removeEventListener('resize', scaleIframe);
-                    window.addEventListener('resize', scaleIframe);
-                }
-
-                const rawIframe = previewIframe.cloneNode();
-                previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
-                previewIframe = rawIframe;
-
-                const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
-                iframeDoc.open();
-                iframeDoc.write('<!DOCTYPE html>' + generatedHtml);
-                iframeDoc.close();
-
-                currentSlide = 0;
-                initPreview(generatedHtml);
-            } catch (err) {
-                console.error(err);
-                alert('No previous HTML found to debug. Please generate once.');
-            } finally {
-                toggleGenerateLoading(false);
-            }
-        });
-    }
 
     // Preview actions (Edit / Regenerate / Back)
     const btnBackToChat = document.getElementById('btn-back-to-chat');
