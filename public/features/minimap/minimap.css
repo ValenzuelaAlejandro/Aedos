@@ -1,0 +1,255 @@
+/* Left Minimap */
+.editor-minimap {
+    width: 180px;
+    min-width: 180px;
+    background: #111111; /* Matching requested sidebar background */
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden; /* CRITICAL: No scrollbar */
+    position: relative; /* REQUIRED */
+    user-select: none;
+    height: 100%; /* REQUIRED: fixed/full height */
+}
+
+/* Gradiente superior */
+.editor-minimap::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 80px;
+  background: linear-gradient(to bottom, #111111, transparent);
+  pointer-events: none;
+  z-index: 20;
+}
+/* Gradiente inferior */
+.editor-minimap::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 80px;
+  background: linear-gradient(to top, #111111, transparent);
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Hide scrollbar for Chrome/Safari */
+.editor-minimap::-webkit-scrollbar {
+    display: none;
+}
+
+.minimap-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 20px 0; /* Horizontal padding removed to use item margins instead */
+    position: relative;
+    /* Centering calculation transformation */
+    transition: transform 450ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+    width: 100%;
+    padding-bottom: 80px;
+}
+
+.minimap-item {
+    position: relative;
+    width: calc(100% - 16px); 
+    aspect-ratio: 16 / 9;
+    margin: 0 8px 6px 8px; 
+    background: transparent;
+    border-radius: 10px; 
+    cursor: pointer;
+    overflow: hidden;
+    
+    /* Animation base state - Dramatized */
+    transform: scale(0.6) translateY(40px); 
+    opacity: 0;
+    filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.08);
+
+    transition: transform 500ms cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                opacity 400ms ease, 
+                filter 400ms ease,
+                border-color 0.2s ease, 
+                box-shadow 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.minimap-item.in-view {
+    transform: scale(0.78) translateY(0);
+    opacity: 0.55;
+    filter: blur(0);
+}
+
+/* Skeleton State */
+.minimap-item.skeleton {
+    background: #1a1a1a;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    opacity: 1 !important;
+    filter: none !important;
+    transform: scale(0.78) translateY(0) !important;
+    animation: minimap-skeleton-pulse 1.8s ease-in-out infinite;
+    cursor: default;
+    pointer-events: none;
+}
+
+.minimap-item.skeleton.active {
+    transform: scale(1.0) translateY(0) !important;
+    border: 2px solid var(--accent);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--accent);
+}
+
+@keyframes minimap-skeleton-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+}
+
+.minimap-thumb-skeleton {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.03) 50%, 
+        transparent 100%);
+    background-size: 200% 100%;
+    animation: minimap-skeleton-shimmer 2s infinite linear;
+}
+
+@keyframes minimap-skeleton-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.minimap-item.in-view:hover {
+    opacity: 0.8;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.minimap-item.in-view.active {
+    transform: scale(1.0); /* Full size for focus */
+    opacity: 1;
+    z-index: 10;
+    border: 1.5px solid var(--presentation-accent, var(--accent)); 
+    box-shadow: 0 0 0 1px var(--presentation-accent, var(--accent)), 
+                0 4px 12px color-mix(in srgb, var(--presentation-accent, var(--accent)), transparent 80%);
+}
+
+/* Optimization for active hover */
+.minimap-item.in-view.active:hover {
+    transform: scale(1.02);
+}
+
+.minimap-item iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    pointer-events: none;
+    border-radius: inherit;
+    transform-origin: top left;
+    background: transparent;
+}
+
+.minimap-item-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    z-index: 2;
+    transition: background 0.2s ease;
+}
+
+.minimap-item:hover .minimap-item-overlay {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.minimap-dup-btn, .minimap-delete-btn {
+    position: absolute;
+    top: 6px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    width: 26px;
+    height: 26px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(4px);
+    z-index: 5;
+}
+
+.minimap-dup-btn {
+    right: 6px;
+}
+
+.minimap-delete-btn {
+    left: 6px;
+}
+
+.minimap-dup-btn:hover, .minimap-delete-btn:hover {
+    background: rgba(0, 0, 0, 0.85);
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.minimap-delete-btn:hover {
+    color: #ff4d4d; /* Subtle red hint for deletion */
+}
+
+.minimap-item:hover .minimap-dup-btn, .minimap-item:hover .minimap-delete-btn {
+    display: flex;
+}
+
+.minimap-item.is-dragging {
+    opacity: 0.5;
+    z-index: 100;
+    transform: scale(1.02);
+}
+
+.minimap-item-number {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.6); /* Keynote Badge */
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 5px;
+    z-index: 3;
+    pointer-events: none;
+    font-family: var(--font-body);
+}
+
+.add-slide-btn {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    background: rgba(20, 20, 20, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--muted);
+    border-radius: 12px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 40; /* Above gradients */
+    box-shadow: 0 -10px 20px rgba(0,0,0,0.2);
+}
+
+.add-slide-btn:hover {
+    border-style: solid;
+    border-color: rgba(255, 255, 255, 0.4);
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+}

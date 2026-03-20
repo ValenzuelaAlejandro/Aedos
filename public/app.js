@@ -894,6 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return Array.from(slides); // fallback to whatever last matched
     }
 
+    let minimapAlreadyInit = false;
     function setupPreviewInteractions(targetIndex = 0) {
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
         if (!iframeDoc || !iframeDoc.body) return;
@@ -1028,6 +1029,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Init React-like declarative UI binding for Editor Panels
         if (typeof window.initEditorUI === 'function') {
             window.initEditorUI(previewIframe);
+        }
+
+        if (typeof window.initMinimap === 'function' && !minimapAlreadyInit) {
+            minimapAlreadyInit = true;
+            window.initMinimap(previewIframe);
         }
 
         // Fix #4/#5/#6: After Ctrl+Z, restoreState replaces body.innerHTML, creating NEW
