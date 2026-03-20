@@ -167,6 +167,22 @@ window.initEditorUI = function (iframe) {
                 delBtn.className = 'minimap-delete-btn';
                 delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
                 delBtn.title = window.__eidos_t('delete_slide', 'Delete Slide');
+
+                const dupBtn = document.createElement('button');
+                dupBtn.className = 'minimap-dup-btn';
+                dupBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+                dupBtn.title = reachedLimit ? window.__eidos_t('limit_reached', 'Limit reached (15 slides max)') : window.__eidos_t('duplicate_slide', 'Duplicate Slide');
+                
+                overlay.appendChild(delBtn);
+                overlay.appendChild(dupBtn);
+                item.appendChild(overlay);
+            }
+            
+            // Sync handlers and visual state (Crucial: update onclick with new iframe context)
+            const delBtn = overlay.querySelector('.minimap-delete-btn');
+            const dupBtn = overlay.querySelector('.minimap-dup-btn');
+            
+            if (delBtn) {
                 delBtn.onclick = (e) => {
                     e.stopPropagation();
                     if (Array.from(iframeDoc.querySelectorAll('section[class*="s"]')).length <= 1) return;
@@ -179,12 +195,12 @@ window.initEditorUI = function (iframe) {
                         if (dots[newIdx]) dots[newIdx].click();
                     }, 50);
                 };
+            }
 
-                const dupBtn = document.createElement('button');
-                dupBtn.className = 'minimap-dup-btn';
-                dupBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-                dupBtn.title = reachedLimit ? window.__eidos_t('limit_reached', 'Limit reached (15 slides max)') : window.__eidos_t('duplicate_slide', 'Duplicate Slide');
-                
+            if (dupBtn) {
+                dupBtn.disabled = reachedLimit;
+                dupBtn.style.opacity = reachedLimit ? '0.5' : '1';
+                dupBtn.style.cursor = reachedLimit ? 'not-allowed' : 'pointer';
                 dupBtn.onclick = (e) => {
                     e.stopPropagation();
                     if (Array.from(iframeDoc.querySelectorAll('section[class*="s"]')).length >= 15) return;
@@ -198,18 +214,6 @@ window.initEditorUI = function (iframe) {
                         if (dots.length > index + 1) dots[index + 1].click();
                     }, 50);
                 };
-
-                overlay.appendChild(delBtn);
-                overlay.appendChild(dupBtn);
-                item.appendChild(overlay);
-            }
-            
-            // Sync duplication button state
-            const dupBtn = overlay.querySelector('.minimap-dup-btn');
-            if (dupBtn) {
-                dupBtn.disabled = reachedLimit;
-                dupBtn.style.opacity = reachedLimit ? '0.5' : '1';
-                dupBtn.style.cursor = reachedLimit ? 'not-allowed' : 'pointer';
             }
 
             let numberWrap = item.querySelector('.minimap-item-number');
@@ -392,7 +396,7 @@ window.initEditorUI = function (iframe) {
 
     // Add Slide
     if (addSlideBtn) {
-        addSlideBtn.addEventListener('click', () => {
+        addSlideBtn.onclick = () => {
             const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
             if (slides.length >= 15) return;
             if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
@@ -421,8 +425,7 @@ window.initEditorUI = function (iframe) {
                 const dots = document.querySelectorAll('.slide-dot');
                 if (dots.length > nextIdx) dots[nextIdx].click();
             }, 100);
-        });
-
+        };
     }
 
 
