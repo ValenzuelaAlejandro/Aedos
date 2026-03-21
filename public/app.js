@@ -662,10 +662,14 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // Try to extract "Please retry in X seconds" from Gemini standard errors
                 let retryMsg = "";
-                const retryMatch = error.message.match(/retry in ([\d\.]+s)/i);
+                const retryMatch = error.message.match(/retry in ([\d\.]+)s/i);
                 if (retryMatch) {
+                    const seconds = Math.ceil(parseFloat(retryMatch[1]));
+                    const timeStr = seconds >= 60
+                        ? `${Math.ceil(seconds / 60)} min`
+                        : `${seconds}s`;
                     const retryTpl = window.__eidos_t(window.currentLang === 'es' ? 'retry_in_es' : 'retry_in_en', "<br><br><strong>Retry in: {time}</strong>");
-                    retryMsg = retryTpl.replace('{time}', retryMatch[1]);
+                    retryMsg = retryTpl.replace('{time}', timeStr);
                 }
 
                 if (error.message.includes('429') || error.message.includes('503') || error.message.toLowerCase().includes('exhausted') || error.message.toLowerCase().includes('saturated')) {
