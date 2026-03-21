@@ -441,6 +441,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         let parsed;
                         try { parsed = JSON.parse(dataStr); } catch (e) { continue; }
 
+                        if (parsed.queued === true) {
+                            const loaderText = iframeDoc.querySelector('.loader-text');
+                            if (loaderText) {
+                                let msg = window.__eidos_t("queued_position", "Waiting in queue — position {pos}");
+                                loaderText.textContent = msg.replace('{pos}', parsed.position);
+                            }
+                            continue;
+                        }
+                        if (parsed.queued === false) {
+                            const loaderText = iframeDoc.querySelector('.loader-text');
+                            if (loaderText) {
+                                loaderText.textContent = window.__eidos_t("loading-text", "Shaping your ideas...");
+                            }
+                            continue;
+                        }
+
                         if (parsed.chunk) {
                             if (firstWrite) {
                                 iframeDoc.open();

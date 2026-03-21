@@ -13,6 +13,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const TMP_DIR = path.join(__dirname, 'tmp');
 
+// Queue System State
+let activeGenerations = 0;
+const queue = [];
+
+function processQueue() {
+    if (activeGenerations < 3 && queue.length > 0) {
+        const { resolve } = queue.shift();
+        activeGenerations++;
+        resolve();
+    }
+}
+
 // Rate Limiters
 const genLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -124,6 +136,23 @@ app.post('/generate', genLimiter, async (req, res) => {
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
+
+        // Manage Entry to the Queue
+        if (activeGenerations >= 3) {
+            res.write(`data: ${JSON.stringify({ queued: true, position: queue.length + 1 })}\n\n`);
+            await new Promise((resolve) => {
+                const item = { resolve };
+                queue.push(item);
+                req.on('close', () => {
+                    const idx = queue.indexOf(item);
+                    if (idx !== -1) queue.splice(idx, 1);
+                });
+            });
+            res.write(`data: ${JSON.stringify({ queued: false })}\n\n`);
+        } else {
+            activeGenerations++;
+        }
+
 
         const result = await tryModels(prompt);
 
@@ -304,6 +333,9 @@ app.post('/generate', genLimiter, async (req, res) => {
             res.write(`data: ${JSON.stringify({ error: userMessage })}\n\n`);
             res.end();
         }
+    } finally {
+        activeGenerations--;
+        processQueue();
     }
 });
 

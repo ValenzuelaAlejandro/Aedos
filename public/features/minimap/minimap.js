@@ -33,6 +33,7 @@ function initMinimap(iframe) {
 
         // Mide el item real incluyendo su margin
         const activeItem = items[activeIdx];
+        if (!activeItem) return;
         const style = window.getComputedStyle(activeItem);
         const marginTop = parseFloat(style.marginTop) || 0;
         const marginBottom = parseFloat(style.marginBottom) || 0;
