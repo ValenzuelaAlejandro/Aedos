@@ -347,6 +347,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (minimapList) {
             minimapList.innerHTML = '';
             minimapList.style.transform = 'none'; // Reset scrolling
+            const mmContainer = document.getElementById('editor-minimap');
+            if (mmContainer) {
+                mmContainer.style.removeProperty('--presentation-accent');
+                mmContainer.style.removeProperty('--accent');
+            }
         }
         if (slideDots) slideDots.innerHTML = '';
 
@@ -1874,6 +1879,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (count < currentCount || currentCount === 0) {
             minimapList.innerHTML = '';
             currentCount = 0;
+            const mmContainer = document.getElementById('editor-minimap');
+            if (mmContainer) {
+                mmContainer.style.removeProperty('--presentation-accent');
+                mmContainer.style.removeProperty('--accent');
+            }
         }
 
         for (let i = currentCount; i < count; i++) {
