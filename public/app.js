@@ -807,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set onload BEFORE writing so we don't miss the event
         previewIframe.onload = () => {
             console.log('initPreview: iframe onload event fired');
-            setTimeout(doSetup, 50);
+            setTimeout(doSetup, 300);
         };
 
         if (html) {

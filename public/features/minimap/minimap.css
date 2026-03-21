@@ -130,9 +130,9 @@
     transform: scale(1.0); /* Full size for focus */
     opacity: 1;
     z-index: 10;
-    border: 1.5px solid var(--presentation-accent, var(--accent)); 
-    box-shadow: 0 0 0 1px var(--presentation-accent, var(--accent)), 
-                0 4px 12px color-mix(in srgb, var(--presentation-accent, var(--accent)), transparent 80%);
+    border: 1.5px solid var(--presentation-accent, #6366f1); 
+    box-shadow: 0 0 0 1px var(--presentation-accent, #6366f1), 
+                0 4px 12px color-mix(in srgb, var(--presentation-accent, #6366f1), transparent 80%);
 }
 
 /* Optimization for active hover */

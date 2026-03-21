@@ -99,17 +99,32 @@ function initMinimap(iframe) {
         }
 
         // --- DETECT PRIMARY COLOR ---
-        const firstSection = slides[0];
-        if (firstSection) {
-            const iframeStyles = iframeWin.getComputedStyle(firstSection);
-            const accentColor = iframeStyles.getPropertyValue('--accent').trim();
-            if (accentColor) {
+        let detectionAttempts = 0;
+        function detectAndApplyAccent() {
+            detectionAttempts++;
+            // Try to query :root or any section to find the accent color
+            const targetEl = iframeDoc.documentElement || iframeDoc.querySelector('section');
+            if (!targetEl || detectionAttempts > 15) return;
+            
+            const styles = iframeWin.getComputedStyle(targetEl);
+            const rawAccent = styles.getPropertyValue('--accent').trim();
+            
+            // Validate it's a real color (not white, empty or the literal variable name)
+            if (rawAccent && 
+                rawAccent !== '#ffffff' && 
+                rawAccent !== 'rgb(255, 255, 255)' && 
+                rawAccent !== 'rgba(255, 255, 255, 1)') {
+                
                 const minimapContainer = document.getElementById('editor-minimap');
                 if (minimapContainer) {
-                    minimapContainer.style.setProperty('--presentation-accent', accentColor);
+                    minimapContainer.style.setProperty('--presentation-accent', rawAccent);
+                    minimapContainer.style.setProperty('--accent', rawAccent); // Also set --accent for direct var() use
                 }
+            } else {
+                setTimeout(detectAndApplyAccent, 200);
             }
         }
+        detectAndApplyAccent();
 
         const G_FONTS = '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">';
         const headWithViewport = iframeDoc.head.innerHTML + G_FONTS + '<meta name="viewport" content="width=1122">';
