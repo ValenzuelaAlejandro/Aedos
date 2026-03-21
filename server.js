@@ -265,7 +265,7 @@ app.post('/generate', genLimiter, async (req, res) => {
             const fontsLink = `
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Serif:wght@600;700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --font-display: 'Syne', sans-serif;
@@ -301,13 +301,24 @@ app.post('/generate', genLimiter, async (req, res) => {
 
             // 2. Ensure lucide.createIcons() call is present
             if (!cleanedOutput.includes('lucide.createIcons')) {
-                const call = `<script>if(window.lucide) lucide.createIcons();</script>`;
+                const call = `<script>
+                    function tryLucide(a) { 
+                        if(window.lucide) { lucide.createIcons(); } 
+                        else if(a > 0) { setTimeout(() => tryLucide(a-1), 100); }
+                    }
+                    tryLucide(20);
+                </script>`;
                 if (cleanedOutput.includes('</body>')) {
                     cleanedOutput = cleanedOutput.replace(/<\/body>/i, `${call}\n</body>`);
                 } else {
                     cleanedOutput = cleanedOutput + `\n${call}`;
                 }
                 console.log('Sanitizer: injected missing lucide.createIcons() call');
+            }
+
+            // 3. Ensure DOCTYPE remains at the start
+            if (!cleanedOutput.trim().toLowerCase().startsWith('<!doctype html')) {
+                cleanedOutput = '<!DOCTYPE html>\n' + cleanedOutput;
             }
 
             res.write(`data: ${JSON.stringify({ done: true, html: cleanedOutput })}\n\n`);
