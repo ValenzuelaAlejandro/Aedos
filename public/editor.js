@@ -136,7 +136,6 @@ function initEditor() {
     // Robust detection for any slide change (e.g., via pagination dots or parent UI)
     // by observing when a section starts being 'active'
     const slideActivationObserver = new MutationObserver((mutations) => {
-        if (_isRestoring) return; // Silent during undo/redo
         mutations.forEach(m => {
             if (m.target.classList.contains('active') && selectedElement) {
                 deselectGroup();
@@ -154,7 +153,6 @@ function initEditor() {
 
     // Also watch for newly added slides (e.g. after undo/redo or dynamic generation)
     const slideStructureObserver = new MutationObserver(() => {
-        if (_isRestoring) return; // Silent during undo/redo
         observeSlides();
     });
     slideStructureObserver.observe(document.body, { childList: true, subtree: true });
@@ -1489,7 +1487,10 @@ function initEditor() {
         }));
 
         // Brief timeout to allow observers to settle before unlocking state saves
-        setTimeout(() => { _isRestoring = false; }, 100);
+        setTimeout(() => { 
+            _isRestoring = false; 
+            deselectGroup();
+        }, 50);
     }
 
 
