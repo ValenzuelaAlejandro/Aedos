@@ -114,6 +114,15 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get('/debug-canva', (req, res) => {
+    const debugPath = path.join(TMP_DIR, 'last_generated.html');
+    if (fs.existsSync(debugPath)) {
+        res.sendFile(debugPath);
+    } else {
+        res.status(404).send('No file generated yet');
+    }
+});
+
 
 app.post('/generate', genLimiter, async (req, res) => {
     try {

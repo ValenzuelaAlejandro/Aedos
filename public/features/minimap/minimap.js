@@ -226,39 +226,39 @@ function initMinimap(iframe) {
             // Highlight active
             item.classList.toggle('active', slide.classList.contains('active'));
 
+            // Click to navigate - Always updated to use the current index
+            item.onclick = () => {
+                const dots = document.querySelectorAll('.slide-dot');
+                if (dots[index]) dots[index].click();
+                document.querySelectorAll('.minimap-item').forEach(m => m.classList.remove('active'));
+                item.classList.add('active');
+            };
+
+            // Drag and Drop (Reorder) - Always updated to ensure correct references
+            item.ondragstart = (e) => {
+                draggedItem = item;
+                setTimeout(() => item.classList.add('is-dragging'), 0);
+            };
+
+            item.ondragend = () => {
+                setTimeout(() => {
+                    if (draggedItem) draggedItem.classList.remove('is-dragging');
+                    draggedItem = null;
+                }, 0);
+                syncSlidesOrderToIframe();
+            };
+
+            item.ondragover = (e) => {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(minimapList, e.clientY);
+                if (afterElement == null) {
+                    minimapList.appendChild(draggedItem);
+                } else {
+                    minimapList.insertBefore(draggedItem, afterElement);
+                }
+            };
+
             if (isNew) {
-                // Click to navigate
-                item.addEventListener('click', () => {
-                    const dots = document.querySelectorAll('.slide-dot');
-                    if (dots[index]) dots[index].click();
-                    document.querySelectorAll('.minimap-item').forEach(m => m.classList.remove('active'));
-                    item.classList.add('active');
-                });
-
-                // Drag and Drop (Reorder)
-                item.addEventListener('dragstart', (e) => {
-                    draggedItem = item;
-                    setTimeout(() => item.classList.add('is-dragging'), 0);
-                });
-
-                item.addEventListener('dragend', () => {
-                    setTimeout(() => {
-                        if (draggedItem) draggedItem.classList.remove('is-dragging');
-                        draggedItem = null;
-                    }, 0);
-                    syncSlidesOrderToIframe();
-                });
-
-                item.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    const afterElement = getDragAfterElement(minimapList, e.clientY);
-                    if (afterElement == null) {
-                        minimapList.appendChild(draggedItem);
-                    } else {
-                        minimapList.insertBefore(draggedItem, afterElement);
-                    }
-                });
-
                 observeMinimapItem(item);
                 minimapList.appendChild(item);
             }
