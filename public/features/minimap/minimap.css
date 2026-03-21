@@ -208,9 +208,19 @@
 }
 
 .minimap-item.is-dragging {
-    opacity: 0.5;
-    z-index: 100;
-    transform: scale(1.02);
+    display: none;
+}
+
+.drag-placeholder {
+    width: calc(100% - 16px);
+    aspect-ratio: 16 / 9;
+    margin: 0 8px 6px 8px; /* Matching item margins */
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    box-sizing: border-box;
+    transform: scale(0.78); /* Match item's base scale */
+    pointer-events: none;
 }
 
 .minimap-item-number {

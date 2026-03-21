@@ -4,6 +4,7 @@ function initMinimap(iframe) {
     const minimapList = document.getElementById('minimap-list');
     const addSlideBtn = document.getElementById('btn-add-slide');
     let draggedItem = null;
+    let dragPlaceholder = null;
     let minimapUpdateTimeout = null;
 
     function centerActiveMinimapItem(idx = null) {
@@ -252,24 +253,42 @@ function initMinimap(iframe) {
             // Drag and Drop (Reorder) - Always updated to ensure correct references
             item.ondragstart = (e) => {
                 draggedItem = item;
+                
+                // --- CREATE PLACEHOLDER ---
+                dragPlaceholder = document.createElement('div');
+                dragPlaceholder.className = 'drag-placeholder';
+                
+                // Position placeholder relative to dragging item
+                item.parentNode.insertBefore(dragPlaceholder, item.nextSibling);
+
                 setTimeout(() => item.classList.add('is-dragging'), 0);
             };
 
             item.ondragend = () => {
+                if (dragPlaceholder && dragPlaceholder.parentNode) {
+                    // Place the item where the placeholder was
+                    dragPlaceholder.parentNode.insertBefore(draggedItem, dragPlaceholder);
+                    dragPlaceholder.remove();
+                }
+                
                 setTimeout(() => {
                     if (draggedItem) draggedItem.classList.remove('is-dragging');
                     draggedItem = null;
+                    dragPlaceholder = null;
                 }, 0);
+                
                 syncSlidesOrderToIframe();
             };
 
             item.ondragover = (e) => {
                 e.preventDefault();
+                if (!dragPlaceholder) return;
+                
                 const afterElement = getDragAfterElement(minimapList, e.clientY);
                 if (afterElement == null) {
-                    minimapList.appendChild(draggedItem);
+                    minimapList.appendChild(dragPlaceholder);
                 } else {
-                    minimapList.insertBefore(draggedItem, afterElement);
+                    minimapList.insertBefore(dragPlaceholder, afterElement);
                 }
             };
 
