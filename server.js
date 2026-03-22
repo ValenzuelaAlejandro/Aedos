@@ -125,6 +125,16 @@ app.get('/debug-canva', (req, res) => {
 
 
 app.post('/generate', genLimiter, async (req, res) => {
+    let cancelled = false;
+    let completed = false;
+
+    res.on('close', () => {
+        if (!completed) {
+            console.log(`[${new Date().toLocaleTimeString()}] Client disconnected — cancelling generation`);
+            cancelled = true;
+        }
+    });
+
     try {
         const opciones = req.body;
 
@@ -169,6 +179,10 @@ app.post('/generate', genLimiter, async (req, res) => {
         let hasStartedValidContent = false;
         try {
             for await (const chunk of result.stream) {
+                if (cancelled) {
+                    console.log('Generation manually stopped: client disconnected.');
+                    break;
+                }
                 let chunkText = "";
                 try {
                     // Only try to get text if candidates exist and have content
@@ -222,6 +236,11 @@ app.post('/generate', genLimiter, async (req, res) => {
                 res.end();
                 return;
             }
+        }
+
+        if (cancelled) {
+            res.end();
+            return;
         }
 
         // 6. Clean the full response
@@ -333,9 +352,12 @@ app.post('/generate', genLimiter, async (req, res) => {
             res.write(`data: ${JSON.stringify({ done: true, html: cleanedOutput })}\n\n`);
         }
         // 8. Save debug copy for HTML structure inspection (saving the cleaned version)
-        fs.writeFileSync(path.join(TMP_DIR, 'last_generated.html'), cleanedOutput);
-        console.log('Debug: Cleaned HTML saved to tmp/last_generated.html');
+        if (process.env.NODE_ENV !== 'production') {
+            fs.writeFileSync(path.join(TMP_DIR, 'last_generated.html'), cleanedOutput);
+            console.log('Debug: Cleaned HTML saved to tmp/last_generated.html');
+        }
 
+        completed = true;
         res.end();
 
     } catch (error) {
@@ -409,9 +431,15 @@ app.post('/finalize', finalizeLimiter, async (req, res) => {
             await page.close();
         }
 
-        const safeTitle = title ? title.replace(/[\/\\?%*:|"<>]/g, '-').trim() : 'Presentacion';
+        const safeTitle = title ? title.replace(/[\/\\?%*:|<|>]/g, '-').trim() : 'Presentacion';
         res.json({ pdfUrl: `/download/${pdfFilename}?name=${encodeURIComponent(safeTitle)}` });
 
+        setTimeout(() => {
+            if (fs.existsSync(pdfPath)) {
+                fs.unlink(pdfPath, () => {});
+                console.log(`Auto-deleted unclaimed PDF: ${pdfFilename}`);
+            }
+        }, 10 * 60 * 1000);
     } catch (error) {
         console.error('Error finalizing PDF:', error);
         res.status(500).json({ error: 'Error generating PDF: ' + (error.message || error) });
