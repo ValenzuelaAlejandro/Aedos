@@ -128,7 +128,15 @@ function initMinimap(iframe) {
         detectAndApplyAccent();
 
         const G_FONTS = '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">';
-        const headWithViewport = iframeDoc.head.innerHTML + G_FONTS + '<meta name="viewport" content="width=1122">';
+        // Extract the main theme <style> block from body (first <style> in body)
+        let themeStyleBlock = '';
+        if (iframeDoc.body) {
+            const bodyStyles = iframeDoc.body.querySelectorAll('style');
+            if (bodyStyles.length > 0) {
+                themeStyleBlock = bodyStyles[0].outerHTML;
+            }
+        }
+        const headWithViewport = iframeDoc.head.innerHTML + themeStyleBlock + G_FONTS + '<meta name="viewport" content="width=1122">';
         const htmlTemplate = `<!DOCTYPE html><html><head>${headWithViewport}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
 
         slides.forEach((slide, index) => {
@@ -334,7 +342,15 @@ function initMinimap(iframe) {
         if (!ifr) return;
 
         const G_FONTS = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet"><style>:root{--font-display:\'Syne\',sans-serif;--font-body:\'DM Sans\',sans-serif;}</style>';
-        const headWithViewport = iframeDoc.head.innerHTML + G_FONTS + '<meta name="viewport" content="width=1122">';
+        // Extract the main theme <style> block from body (first <style> in body)
+        let themeStyleBlock = '';
+        if (iframeDoc.body) {
+            const bodyStyles = iframeDoc.body.querySelectorAll('style');
+            if (bodyStyles.length > 0) {
+                themeStyleBlock = bodyStyles[0].outerHTML;
+            }
+        }
+        const headWithViewport = iframeDoc.head.innerHTML + themeStyleBlock + G_FONTS + '<meta name="viewport" content="width=1122">';
         const localizedHtml = `<!DOCTYPE html><html><head>${headWithViewport}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
 
         const clone = slide.cloneNode(true);
