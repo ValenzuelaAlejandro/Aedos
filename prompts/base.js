@@ -295,7 +295,7 @@ ul li { font-size:var(--base-p); line-height:1.6; color:var(--white-dim); margin
 </div>
 
 ━━━ ICON SYSTEM (always include both script tags) ━━━━━━
-In <head>: <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.js"></script>
+In <head>: <script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.js"></script>
 Before </body>: <script>lucide.createIcons();</script>
 Allowed icons (ONLY these, no others):
 brain rocket shield target zap check-circle star heart lightbulb trending-up users globe lock search calendar clock activity box layers book award briefcase file-text bar-chart cpu database sun moon camera music mic settings tool anchor flag compass map-pin eye droplet wifi cloud

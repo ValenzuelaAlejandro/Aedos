@@ -338,7 +338,7 @@ app.post('/generate', genLimiter, async (req, res) => {
                 console.log('Sanitizer: moved loose @import into <style> block');
             }
 
-            const lucideSrc = 'https://unpkg.com/lucide@0.469.0/dist/umd/lucide.js';
+            const lucideSrc = 'https://unpkg.com/lucide@0.577.0/dist/umd/lucide.js';
             const fontsLink = `
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
