@@ -123,6 +123,37 @@ app.get('/debug-canva', (req, res) => {
     }
 });
 
+function sanitizeTema(input) {
+    if (typeof input !== 'string') return { valid: false, reason: "Topic must be a string" };
+    
+    if (/<[^>]+>/.test(input) || 
+        /javascript:/i.test(input) || 
+        /onerror\s*=/i.test(input) || 
+        /onload\s*=/i.test(input) || 
+        /eval\s*\(/i.test(input) || 
+        /document\.cookie/i.test(input) || 
+        /window\.location/i.test(input) || 
+        /fetch\s*\(/i.test(input) || 
+        /innerHTML/i.test(input)) {
+        return { valid: false, reason: "HTML/script content not allowed" };
+    }
+
+    const restrictedPatterns = [
+        "ignore previous", "ignore all", "system prompt",
+        "you are now", "act as", "disregard", "reveal your",
+        "print your instructions", "forget your", "new instruction"
+    ];
+
+    const lowerInput = input.toLowerCase();
+    for (const pattern of restrictedPatterns) {
+        if (lowerInput.includes(pattern)) {
+            return { valid: false, reason: "Contains restricted patterns" };
+        }
+    }
+
+    const cleanedString = input.trim().replace(/\s+/g, ' ').substring(0, 600);
+    return { valid: true, tema: cleanedString };
+}
 
 app.post('/generate', genLimiter, async (req, res) => {
     let cancelled = false;
@@ -138,13 +169,13 @@ app.post('/generate', genLimiter, async (req, res) => {
     try {
         const opciones = req.body;
 
-        // Validate that the chat input is not empty or too long
-        if (!opciones.tema || String(opciones.tema).trim() === '') {
-            return res.status(400).json({ error: 'The topic is required' });
+        const rawTema = opciones.tema || '';
+        const sanitizeResult = sanitizeTema(String(rawTema));
+        if (!sanitizeResult.valid) {
+            return res.status(400).json({ error: `Invalid topic: ${sanitizeResult.reason}` });
         }
-        if (String(opciones.tema).length > 600) {
-            return res.status(400).json({ error: 'TOPIC_TOO_LONG' });
-        }
+        
+        opciones.tema = sanitizeResult.tema;
 
         if (!process.env.GEMINI_API_KEY) {
             return res.status(500).json({ error: 'Gemini API Key is not configured in .env' });
@@ -255,6 +286,8 @@ app.post('/generate', genLimiter, async (req, res) => {
         let contentForCheck = finalHtml.toLowerCase();
         let htmlStartIdx = contentForCheck.indexOf('<html');
         if (htmlStartIdx === -1) htmlStartIdx = contentForCheck.indexOf('<style');
+        if (htmlStartIdx === -1) htmlStartIdx = contentForCheck.indexOf('<section');
+        if (htmlStartIdx === -1) htmlStartIdx = contentForCheck.indexOf('<!--');
 
         const looksLikeHtml = htmlStartIdx !== -1;
 
@@ -264,6 +297,22 @@ app.post('/generate', genLimiter, async (req, res) => {
         } else {
             // Trim off any conversational garbage Gemini put *before* the first real HTML tag
             cleanedOutput = finalHtml.substring(finalHtml.indexOf('<', htmlStartIdx));
+
+            // If model output has no <html> wrapper, add a proper document structure
+            if (!cleanedOutput.includes('<html') && !cleanedOutput.includes('<head')) {
+                cleanedOutput = [
+                    '<!DOCTYPE html>',
+                    '<html lang="es">',
+                    '<head>',
+                    '<meta charset="UTF-8">',
+                    '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+                    '</head>',
+                    '<body>',
+                    cleanedOutput,
+                    '</body>',
+                    '</html>'
+                ].join('\n');
+            }
 
             // Safety net: hard cap at 15 slides — strip any section.s beyond the 15th
             const MAX_SLIDES = 15;
@@ -478,6 +527,10 @@ app.get('/download/:filename', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
-    console.log(`Eidoslab running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Eidoslab running at http://localhost:${PORT}`);
+    });
+}
+
+module.exports = { sanitizeTema, buildPrompt };

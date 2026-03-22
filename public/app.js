@@ -1,3 +1,36 @@
+function sanitizeModelOutput(html) {
+    if (typeof html !== 'string') return html;
+    
+    const allowed = [];
+    html = html.replace(/<script[\s\S]*?<\/script>/gi, (match) => {
+        if (/class=["']skeleton-injector["']/i.test(match)) {
+            allowed.push(match);
+            return `__ALLOWED_SCRIPT_${allowed.length - 1}__`;
+        }
+        
+        const contentMatch = match.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+        if (contentMatch) {
+            const content = contentMatch[1].trim();
+            if (/^lucide\.createIcons\(\s*\{?\}?\s*\);?$/.test(content)) {
+                allowed.push(match);
+                return `__ALLOWED_SCRIPT_${allowed.length - 1}__`;
+            }
+        }
+        return '';
+    });
+    
+    html = html.replace(/<script[^>]*>/gi, '');
+    html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
+    html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
+    html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
+    
+    allowed.forEach((script, i) => {
+        html = html.replace(`__ALLOWED_SCRIPT_${i}__`, script);
+    });
+    
+    return html;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Prevent accidental browser navigation when dragging files over the page
     window.addEventListener('dragover', (e) => e.preventDefault(), false);
@@ -563,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 `;
                                 parsed.chunk = skelStyle + parsed.chunk;
                             }
-                            iframeDoc.write(parsed.chunk);
+                            iframeDoc.write(sanitizeModelOutput(parsed.chunk));
                         }
                         if (parsed.refused) {
                             chatScreen.classList.add('hidden');
@@ -616,7 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dataStr = rLine.substring(6);
                         try {
                             const parsed = JSON.parse(dataStr);
-                            if (parsed.chunk) iframeDoc.write(parsed.chunk);
+                            if (parsed.chunk) iframeDoc.write(sanitizeModelOutput(parsed.chunk));
                             if (parsed.done && parsed.html) generatedHtml = parsed.html;
                         } catch (e) { }
                     }
