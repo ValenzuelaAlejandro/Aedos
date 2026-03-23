@@ -171,8 +171,15 @@ let browser;
 async function initBrowser() {
     try {
         browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            headless: 'new',
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote'
+            ]
         });
     } catch (error) {
         console.error("Error starting Puppeteer:", error);
