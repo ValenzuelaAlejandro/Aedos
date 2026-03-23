@@ -11,6 +11,8 @@ const buildPrompt = require('./prompts/base');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+// Trust Render's proxy to get real client IPs for rate limiting
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const TMP_DIR = path.join(__dirname, 'tmp');
 
