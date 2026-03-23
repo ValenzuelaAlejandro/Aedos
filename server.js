@@ -78,9 +78,8 @@ function buildCorsOptions() {
         origin: (origin, callback) => {
             // Allow server-to-server (no origin header) only in development
             if (!origin) {
-                if (env !== 'production') return callback(null, true);
-                console.warn('[CORS REJECTED] Request with no origin in production');
-                return callback(new Error('Origin required in production'), false);
+                // Allow requests with no origin (healthchecks, server-to-server, curl)
+                return callback(null, true);
             }
             if (allowedOrigins.includes(origin)) {
                 return callback(null, true);
