@@ -283,7 +283,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 5. GENERATE BUTTON
     // =========================================================
     const generateBtn = document.getElementById('btn-generate');
-    const btnDebugCanva = document.getElementById('btn-debug-canva');
     const sendIcon = document.getElementById('btn-icon-send');
     const loaderIcon = document.getElementById('btn-icon-loader');
 
@@ -296,7 +295,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isLoading) {
             temaInput.disabled = true;
             generateBtn.disabled = true;
-            if (btnDebugCanva) btnDebugCanva.disabled = true;
             if (sendIcon) sendIcon.classList.add('hidden');
             if (loaderIcon) loaderIcon.classList.remove('hidden');
             stopTypewriter();
@@ -306,7 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             temaInput.disabled = false;
             generateBtn.disabled = temaInput.value.trim().length < 4;
-            if (btnDebugCanva) btnDebugCanva.disabled = false;
             if (sendIcon) sendIcon.classList.remove('hidden');
             if (loaderIcon) loaderIcon.classList.add('hidden');
             if (typewriterCursor) typewriterCursor.style.display = '';
@@ -732,74 +729,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateBtn.addEventListener('click', () => handleGenerate(null));
 
-    if (btnDebugCanva) {
-        btnDebugCanva.addEventListener('click', async () => {
-            // Lenis nunca se paraba en debug — esto era otra fuente del problema
-            if (window._eidosScrollytelling) window._eidosScrollytelling.pauseForPreview();
-            try {
-                toggleGenerateLoading(true);
-                const res = await fetch('/debug-canva');
-                if (!res.ok) throw new Error('No last generated file found');
-                let html = await res.text();
-
-                let displayTitle = "Debug Mode";
-                const configMatch = html.match(/<!--\s*CONFIG\s*([\s\S]*?)\s*-->/i);
-                if (configMatch) {
-                    try {
-                        const configObj = JSON.parse(configMatch[1]);
-                        if (configObj.Clean_Topic) displayTitle = configObj.Clean_Topic;
-                    } catch (e) { }
-                }
-
-                if (html.includes('</body>')) {
-                    html = html.replace('</body>', '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script></body>');
-                } else {
-                    html += '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script>';
-                }
-
-                generatedHtml = html;
-                currentTitle = displayTitle;
-                const previewLabel = document.getElementById('preview-topic-label');
-                if (previewLabel) {
-                    if (previewLabel.tagName === 'INPUT') previewLabel.value = currentTitle;
-                    else previewLabel.textContent = currentTitle;
-                }
-
-                if (typeof slideDots !== 'undefined' && slideDots) slideDots.innerHTML = '';
-                if (typeof slideLabel !== 'undefined' && slideLabel) slideLabel.textContent = "1 / 1";
-
-                chatScreen.classList.add('hidden');
-                if (typeof scrollySection !== 'undefined' && scrollySection) scrollySection.classList.add('hidden');
-                previewHeader.classList.remove('slide-down');
-                previewContainer.classList.remove('hidden');
-
-                if (typeof scaleIframe === 'function') {
-                    scaleIframe();
-                    window.removeEventListener('resize', scaleIframe);
-                    window.addEventListener('resize', scaleIframe);
-                }
-
-                minimapAlreadyInit = false;
-                toolsAlreadyInit = false;
-                const rawIframe = previewIframe.cloneNode();
-                previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
-                previewIframe = rawIframe;
-
-                const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
-                iframeDoc.open();
-                iframeDoc.write('<!DOCTYPE html>' + generatedHtml);
-                iframeDoc.close();
-
-                currentSlide = 0;
-                initPreview(generatedHtml);
-            } catch (err) {
-                console.error(err);
-                alert('No previous HTML found to debug. Please generate once.');
-            } finally {
-                toggleGenerateLoading(false);
-            }
-        });
-    }
 
 
     // Preview actions (Edit / Regenerate / Back)

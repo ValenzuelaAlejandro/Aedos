@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const crypto = require('crypto');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
@@ -103,9 +104,8 @@ function validateEnvironment() {
         { key: 'PORT', value: process.env.PORT, fallback: '3000' },
     ];
     
-    const hasApiKey = process.env.GOOGLE_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY;
-    if (!hasApiKey) {
-        throw new Error('[FATAL] GOOGLE_API_KEY, ANTHROPIC_API_KEY or GEMINI_API_KEY must be set.');
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error('[FATAL] GEMINI_API_KEY must be set.');
     }
 
     console.log('[BOOT] Environment validation:');
@@ -191,14 +191,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/debug-canva', (req, res) => {
-    const debugPath = path.join(TMP_DIR, 'last_generated.html');
-    if (fs.existsSync(debugPath)) {
-        res.sendFile(debugPath);
-    } else {
-        res.status(404).send('No file generated yet');
-    }
-});
+
 
 function sanitizeTema(input) {
     if (typeof input !== 'string') return { valid: false, reason: "Topic must be a string" };
@@ -495,10 +488,7 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             res.write(`data: ${JSON.stringify({ done: true, html: cleanedOutput })}\n\n`);
         }
         // 8. Save debug copy for HTML structure inspection (saving the cleaned version)
-        if (process.env.NODE_ENV !== 'production') {
-            fs.writeFileSync(path.join(TMP_DIR, 'last_generated.html'), cleanedOutput);
-            console.log('Debug: Cleaned HTML saved to tmp/last_generated.html');
-        }
+
 
         completed = true;
         res.end();
@@ -537,7 +527,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
         }
 
         const timestamp = Date.now();
-        const pdfFilename = `slide_${timestamp}.pdf`;
+        const pdfFilename = `pdf_${crypto.randomBytes(16).toString('hex')}.pdf`;
         const pdfPath = path.join(TMP_DIR, pdfFilename);
 
         // Restart / check browser
