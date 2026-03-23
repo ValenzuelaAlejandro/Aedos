@@ -38,8 +38,86 @@ const finalizeLimiter = rateLimit({
     message: { error: 'RATE_LIMIT_EXCEEDED' }
 });
 
-// Middleware
-app.use(cors({ origin: process.env.ALLOWED_ORIGIN || 'http://localhost:3000' }));
+// CORS Configuration
+function buildCorsOptions() {
+    const env = process.env.NODE_ENV || 'development';
+    const rawOrigins = process.env.ALLOWED_ORIGINS || '';
+    
+    let allowedOrigins = [];
+
+    if (env === 'production') {
+        if (!rawOrigins) {
+            throw new Error(
+                '[FATAL] ALLOWED_ORIGINS environment variable is required in production.\n' +
+                'Example: ALLOWED_ORIGINS=https://eidoslab.app,https://www.eidoslab.app'
+            );
+        }
+        allowedOrigins = rawOrigins.split(',').map(o => o.trim()).filter(Boolean);
+        
+        // Validate each origin
+        for (const origin of allowedOrigins) {
+            if (!origin.startsWith('https://') || origin.endsWith('/') || origin.includes('*')) {
+                throw new Error(
+                    `[FATAL] Invalid origin in ALLOWED_ORIGINS: "${origin}"\n` +
+                    'Each origin must start with https://, have no trailing slash, and no wildcards.'
+                );
+            }
+        }
+    } else {
+        // Development: allow localhost with a warning
+        allowedOrigins = [
+            'http://localhost:3000',
+            'http://localhost:5173',
+            'http://127.0.0.1:3000'
+        ];
+        console.warn('[CORS WARNING] Using development fallback origins. Set ALLOWED_ORIGINS in .env for production.');
+    }
+
+    return {
+        origin: (origin, callback) => {
+            // Allow server-to-server (no origin header) only in development
+            if (!origin) {
+                if (env !== 'production') return callback(null, true);
+                console.warn('[CORS REJECTED] Request with no origin in production');
+                return callback(new Error('Origin required in production'), false);
+            }
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            console.warn(`[CORS REJECTED] origin: ${origin}`);
+            return callback(new Error('Not allowed by CORS'), false);
+        },
+        methods: ['GET', 'POST'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        credentials: false,
+        maxAge: 600,
+        optionsSuccessStatus: 204
+    };
+}
+
+app.use(cors(buildCorsOptions()));
+
+function validateEnvironment() {
+    const checks = [
+        { key: 'NODE_ENV', value: process.env.NODE_ENV, fallback: 'development' },
+        { key: 'PORT', value: process.env.PORT, fallback: '3000' },
+    ];
+    
+    const hasApiKey = process.env.GOOGLE_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY;
+    if (!hasApiKey) {
+        throw new Error('[FATAL] GOOGLE_API_KEY, ANTHROPIC_API_KEY or GEMINI_API_KEY must be set.');
+    }
+
+    console.log('[BOOT] Environment validation:');
+    checks.forEach(({ key, value, fallback }) => {
+        const val = value || fallback;
+        const symbol = value ? '✓' : '⚠';
+        console.log(`  ${symbol} ${key}: ${val}${!value ? ' (using default)' : ''}`);
+    });
+    console.log('  ✓ API key: present');
+}
+
+validateEnvironment();
 
 app.use(express.static('public'));
 
