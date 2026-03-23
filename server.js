@@ -39,7 +39,6 @@ const finalizeLimiter = rateLimit({
 });
 
 // Middleware
-app.use(express.json({ limit: '50mb' }));
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || 'http://localhost:3000' }));
 
 app.use(express.static('public'));
@@ -155,7 +154,7 @@ function sanitizeTema(input) {
     return { valid: true, tema: cleanedString };
 }
 
-app.post('/generate', genLimiter, async (req, res) => {
+app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, res) => {
     let cancelled = false;
     let completed = false;
 
@@ -176,6 +175,23 @@ app.post('/generate', genLimiter, async (req, res) => {
         }
         
         opciones.tema = sanitizeResult.tema;
+
+        const slidesNum = req.body.slides !== undefined ? parseInt(req.body.slides, 10) : 5;
+        if (isNaN(slidesNum) || slidesNum < 1 || slidesNum > 15) {
+            return res.status(422).json({
+                error: 'Validation failed',
+                fields: { slides: 'must be integer between 1 and 15' }
+            });
+        }
+
+        const VALID_IDIOMAS = ['es', 'en', 'fr', 'pt', 'de'];
+        const idiomaVal = req.body.idioma || 'es';
+        if (!VALID_IDIOMAS.includes(idiomaVal)) {
+            return res.status(422).json({
+                error: 'Validation failed',
+                fields: { idioma: 'must be one of: es, en, fr, pt, de' }
+            });
+        }
 
         if (!process.env.GEMINI_API_KEY) {
             return res.status(500).json({ error: 'Gemini API Key is not configured in .env' });
@@ -431,7 +447,7 @@ app.post('/generate', genLimiter, async (req, res) => {
 });
 
 // Finalize: receive (possibly modified) HTML, convert to PDF
-app.post('/finalize', finalizeLimiter, async (req, res) => {
+app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (req, res) => {
     try {
         const { html, title } = req.body;
 
