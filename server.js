@@ -172,6 +172,8 @@ async function initBrowser() {
     try {
         browser = await puppeteer.launch({
             headless: 'new',
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || 
+                '/opt/render/.cache/puppeteer/chrome/linux-146.0.7680.76/chrome-linux64/chrome',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
