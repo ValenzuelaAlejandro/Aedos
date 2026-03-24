@@ -438,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
             liquid.classList.replace('fill-up', 'empty-out');
             setTimeout(() => {
                 liquid.classList.remove('empty-out', 'active');
-                document.body.classList.remove('no-scroll');
+                // document.body.classList.remove('no-scroll'); // FIXED: Keep no-scroll active until we explicitly close preview
             }, 5000); // Wait for the wave to actually leave the screen
         }
 
@@ -1283,7 +1283,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             body {
                 margin: 0; padding: 0;
-                overflow: hidden;
+                width: 100%; height: 100%;
+                overflow: hidden !important;
             }
             /* Fix #3: prevent long text from breaking slide layout */
             section.s {
@@ -2115,6 +2116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 10. RESET
     // =========================================================
     function resetUI() {
+        document.body.classList.remove('no-scroll');
         // Show chat again
         if (resultContainer) resultContainer.classList.add('hidden');
         if (errorContainer) errorContainer.classList.add('hidden');

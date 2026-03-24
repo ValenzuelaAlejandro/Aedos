@@ -1598,6 +1598,7 @@ section.s.active > * {
     inset: 0;
     z-index: 500; /* Higher than scrollytelling elements */
     background: var(--bg);
+    overscroll-behavior: none; /* Block browser's own swipe-to-navigate patterns */
 }
 
 .preview-unified-header {
@@ -1955,6 +1956,7 @@ section.s.active > * {
     background: var(--surface);
     box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
     border: 1px solid var(--border);
+    touch-action: pan-y; /* Block horizontal browser gestures on the preview itself */
 }
 
 #preview-iframe {
@@ -2401,6 +2403,8 @@ section.s.active > * {
     box-sizing: border-box;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    overscroll-behavior: none; /* Block browser's own swipe-to-navigate patterns */
+    touch-action: pan-y; /* Block browser's own swipe-to-navigate patterns */
 }
 
 .preview-wrapper-scrollable::-webkit-scrollbar {

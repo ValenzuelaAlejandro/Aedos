@@ -52,7 +52,8 @@ body {
     overflow-y: auto; /* allow page scroll */
     position: relative;
     min-height: 100vh;
-    overscroll-behavior-y: none; /* Prevent elastic bouncing/swipe-down-to-refresh */
+    overscroll-behavior: none; /* Prevent elastic bouncing/swipe-down/swipe-horizontal */
+    touch-action: pan-y; /* Only allow vertical panning on body to prevent horizontal jitter */
 }
 
 body.no-scroll {
