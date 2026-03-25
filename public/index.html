@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="features/minimap/minimap.css?v=3">
     <link rel="stylesheet" href="features/tools/tools.css?v=3">
     <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="mobile.css?v=4">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js"></script>
     <!-- GSAP for premium animations -->
@@ -468,9 +469,39 @@
         </div>
     </div>
 
+    <!-- Mobile Navigation -->
+    <div id="mobile-overlay"></div>
+    <nav id="mobile-bottom-nav">
+        <button class="mobile-nav-btn" onclick="toggleMobileDrawer('minimap')">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span data-i18n="slides">Slides</span>
+        </button>
+        <button class="mobile-nav-btn active" onclick="toggleMobileDrawer('canvas')">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3h18v18H3z"></path>
+                <path d="M3 9h18"></path>
+                <path d="M9 21V9"></path>
+            </svg>
+            <span data-i18n="editor">Editor</span>
+        </button>
+        <button class="mobile-nav-btn" onclick="toggleMobileDrawer('tools')">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+            <span data-i18n="options">Options</span>
+        </button>
+    </nav>
+
     <script src="features/tools/tools.js?v=3"></script>
     <script src="editor-ui.js?v=3"></script>
     <script src="app.js?v=3"></script>
+    <script src="mobile-bridge.js?v=3"></script>
 </body>
 
 </html>
