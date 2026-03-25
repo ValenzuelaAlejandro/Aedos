@@ -130,13 +130,18 @@
         };
 
         if (mobileOverlay) {
-            mobileOverlay.style.pointerEvents = 'none'; // Initial state
-            mobileOverlay.addEventListener('click', () => {
+            const closeOverlay = (e) => {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
                 if (minimap) minimap.classList.remove('open');
                 if (toolsPanel) toolsPanel.classList.remove('open');
                 mobileOverlay.classList.remove('visible');
                 mobileOverlay.style.pointerEvents = 'none';
-            });
+            };
+            mobileOverlay.addEventListener('mousedown', closeOverlay);
+            mobileOverlay.addEventListener('touchstart', closeOverlay, { passive: false });
         }
     }
 
