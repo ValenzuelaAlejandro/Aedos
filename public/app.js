@@ -8,6 +8,11 @@ function sanitizeModelOutput(html) {
             return `__ALLOWED_SCRIPT_${allowed.length - 1}__`;
         }
         
+        if (/src=["'][^"']*lucide[^"']*["']/i.test(match)) {
+            allowed.push(match);
+            return `__ALLOWED_SCRIPT_${allowed.length - 1}__`;
+        }
+        
         const contentMatch = match.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
         if (contentMatch) {
             const content = contentMatch[1].trim();

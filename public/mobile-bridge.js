@@ -6,6 +6,47 @@
  * Version v=8 - FIXED DRAG, RESIZE, AND DRAWER RELIABILITY
  */
 (function() {
+    // Global navigation toggle for mobile drawers
+    window.toggleMobileDrawer = (type, e) => {
+        if (e) e.stopPropagation();
+
+        const minimap = document.getElementById('editor-minimap');
+        const toolsPanel = document.getElementById('editor-tools-panel');
+        const mobileOverlay = document.getElementById('mobile-overlay');
+        const previewIframe = document.getElementById('preview-iframe');
+
+        if (!minimap || !toolsPanel || !mobileOverlay) return;
+
+        if (type === 'minimap') {
+            minimap.classList.toggle('open');
+            toolsPanel.classList.remove('open');
+            const isOpen = minimap.classList.contains('open');
+            mobileOverlay.classList.toggle('visible', isOpen);
+            mobileOverlay.style.pointerEvents = isOpen ? 'auto' : 'none';
+        } else if (type === 'tools') {
+            toolsPanel.classList.toggle('open');
+            minimap.classList.remove('open');
+            const isOpen = toolsPanel.classList.contains('open');
+            mobileOverlay.classList.toggle('visible', isOpen);
+            mobileOverlay.style.pointerEvents = isOpen ? 'auto' : 'none';
+        } else if (type === 'canvas') {
+            minimap.classList.remove('open');
+            toolsPanel.classList.remove('open');
+            mobileOverlay.classList.remove('visible');
+            mobileOverlay.style.pointerEvents = 'none';
+            
+            // Deselect element in editor
+            if (previewIframe && previewIframe.contentWindow && previewIframe.contentWindow.eidosDeselect) {
+                previewIframe.contentWindow.eidosDeselect();
+            }
+        }
+
+        document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+            const onclickStr = btn.getAttribute('onclick') || '';
+            btn.classList.toggle('active', onclickStr.includes(`'${type}'`));
+        });
+    };
+
     function initMobileBridge() {
         const isMobile = () => window.innerWidth < 850;
         if (!isMobile()) return;
@@ -54,7 +95,6 @@
                 dragTarget = iframeDoc.elementFromPoint(relX, relY) || iframeDoc.body;
                 
                 // CRITICAL IMPROVEMENT: If we hit something near a resize handle, give it priority
-                // The selection box and handles are DOM elements inside the iframe.
                 const possibleHandle = dragTarget.closest('.eidos-resize-handle');
                 if (possibleHandle) dragTarget = possibleHandle;
             }
@@ -74,9 +114,7 @@
 
         const stage = document.getElementById('preview-stage');
         if (stage) {
-            // We use the stage (which wraps the iframe) to capture touches
             stage.addEventListener('touchstart', (e) => {
-                // Ignore touches on UI components
                 if (e.target.closest('#mobile-bottom-nav') || e.target.closest('.editor-tools-panel') || e.target.closest('.editor-minimap')) {
                     return;
                 }
@@ -96,49 +134,9 @@
             }, { passive: false });
         }
         
-        // --- Navigation Logic for Bottom Drawers ---
+        const mobileOverlay = document.getElementById('mobile-overlay');
         const minimap = document.getElementById('editor-minimap');
         const toolsPanel = document.getElementById('editor-tools-panel');
-        const mobileOverlay = document.getElementById('mobile-overlay');
-
-        window.toggleMobileDrawer = (type, e) => {
-            if (e) {
-                // Important: Don't prevent default on the click to allow visual feedback,
-                // but stop propagation so it doesn't trigger app.js deselection logic.
-                e.stopPropagation();
-            }
-
-            if (!minimap || !toolsPanel || !mobileOverlay) return;
-
-            if (type === 'minimap') {
-                minimap.classList.toggle('open');
-                toolsPanel.classList.remove('open');
-                const isOpen = minimap.classList.contains('open');
-                mobileOverlay.classList.toggle('visible', isOpen);
-                mobileOverlay.style.pointerEvents = isOpen ? 'auto' : 'none';
-            } else if (type === 'tools') {
-                toolsPanel.classList.toggle('open');
-                minimap.classList.remove('open');
-                const isOpen = toolsPanel.classList.contains('open');
-                mobileOverlay.classList.toggle('visible', isOpen);
-                mobileOverlay.style.pointerEvents = isOpen ? 'auto' : 'none';
-            } else if (type === 'canvas') {
-                minimap.classList.remove('open');
-                toolsPanel.classList.remove('open');
-                mobileOverlay.classList.remove('visible');
-                mobileOverlay.style.pointerEvents = 'none';
-                
-                // Deselect element in editor
-                if (previewIframe.contentWindow && previewIframe.contentWindow.eidosDeselect) {
-                    previewIframe.contentWindow.eidosDeselect();
-                }
-            }
-
-            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
-                const onclickStr = btn.getAttribute('onclick') || '';
-                btn.classList.toggle('active', onclickStr.includes(`'${type}'`));
-            });
-        };
 
         if (mobileOverlay) {
             const closeOverlay = (e) => {
