@@ -26,6 +26,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
     <!-- Motion Library (vanilla) -->
     <script src="https://unpkg.com/motion@12.38.0/dist/motion.js"></script>
+    <!-- HTML5 Drag and Drop polyfill for mobile -->
+    <link rel="stylesheet" href="https://unpkg.com/mobile-drag-drop@2.3.0-rc.2/default.css" />
+    <script src="https://unpkg.com/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+    <script src="https://unpkg.com/mobile-drag-drop@2.3.0-rc.2/scroll-behaviour.min.js"></script>
+    <script>
+        window.addEventListener('touchmove', function() {}, {passive: true});
+        MobileDragDrop.polyfill({
+            dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride
+        });
+    </script>
     <!-- i18n Translation System -->
     <script src="features/shared/i18n.js?v=3"></script>
     <script src="features/minimap/minimap.js?v=3"></script>
@@ -379,6 +389,35 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Mobile Navigation (Moved inside preview-container stacking context) -->
+        <div id="mobile-overlay"></div>
+        <nav id="mobile-bottom-nav">
+            <button class="mobile-nav-btn" onclick="toggleMobileDrawer('minimap', event)">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                <span data-i18n="slides">Slides</span>
+            </button>
+            <button class="mobile-nav-btn active" onclick="toggleMobileDrawer('canvas', event)">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 3h18v18H3z"></path>
+                    <path d="M3 9h18"></path>
+                    <path d="M9 21V9"></path>
+                </svg>
+                <span data-i18n="editor">Editor</span>
+            </button>
+            <button class="mobile-nav-btn" onclick="toggleMobileDrawer('tools', event)">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+                <span data-i18n="options">Options</span>
+            </button>
+        </nav>
     </section>
 
     <!-- ======================== -->
@@ -469,39 +508,12 @@
         </div>
     </div>
 
-    <!-- Mobile Navigation -->
-    <div id="mobile-overlay"></div>
-    <nav id="mobile-bottom-nav">
-        <button class="mobile-nav-btn" onclick="toggleMobileDrawer('minimap')">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-            <span data-i18n="slides">Slides</span>
-        </button>
-        <button class="mobile-nav-btn active" onclick="toggleMobileDrawer('canvas')">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 3h18v18H3z"></path>
-                <path d="M3 9h18"></path>
-                <path d="M9 21V9"></path>
-            </svg>
-            <span data-i18n="editor">Editor</span>
-        </button>
-        <button class="mobile-nav-btn" onclick="toggleMobileDrawer('tools')">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 20h9"></path>
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-            </svg>
-            <span data-i18n="options">Options</span>
-        </button>
-    </nav>
+    <!-- Mobile Navigation moved -->
 
     <script src="features/tools/tools.js?v=3"></script>
     <script src="editor-ui.js?v=3"></script>
     <script src="app.js?v=3"></script>
-    <script src="mobile-bridge.js?v=3"></script>
+    <script src="mobile-bridge.js?v=6"></script>
 </body>
 
 </html>
