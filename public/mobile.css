@@ -69,7 +69,7 @@
         flex: 1 !important;
         margin-top: 0 !important;
         padding: 0 !important;
-        touch-action: pinch-zoom; /* Allow zoom but prevent scroll during drag */
+        touch-action: none; /* Disable ALL browser touch gestures to let bridge handle drag/resize */
     }
 
     .preview-wrapper-scrollable {

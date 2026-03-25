@@ -2,23 +2,24 @@
  * Eidoslab Mobile Bridge
  * Maps touch events to mouse events to enable editor interactivity on mobile
  * without modifying the core desktop-focused editor.js.
+ * 
+ * Version v=8 - FIXED DRAG, RESIZE, AND DRAWER RELIABILITY
  */
 (function() {
     function initMobileBridge() {
         const isMobile = () => window.innerWidth < 850;
-        
+        if (!isMobile()) return;
+
         const previewIframe = document.getElementById('preview-iframe');
         if (!previewIframe) return;
 
         let dragTarget = null;
 
         function mapTouchToMouse(e, type) {
-            if (!isMobile()) return;
-            
             // Allow native pinch zoom (multi-touch)
-            if (e.touches.length > 1) return;
+            if (e.touches && e.touches.length > 1) return;
 
-            const touch = e.touches[0] || e.changedTouches[0];
+            const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
             if (!touch) return;
 
             const iframeDoc = previewIframe.contentDocument;
@@ -26,14 +27,14 @@
             if (!iframeDoc || !iframeWin) return;
 
             const rect = previewIframe.getBoundingClientRect();
-            const scale = window._eidosIframeScale || 1;
+            // Try to find scale in iframe first (where app.js sets it), then fallback to parent
+            const scale = iframeWin._eidosIframeScale || window._eidosIframeScale || 1;
             
+            // Map coordinates relative to INTERNAL iframe document
             const relX = (touch.clientX - rect.left) / scale;
             const relY = (touch.clientY - rect.top) / scale;
 
-            // CRITICAL: We dispatch inside the iframe, 
-            // so clientX/clientY MUST be relative to the iframe's internal coordinate system!
-            const mouseEvent = new MouseEvent(type, {
+            const eventInit = {
                 clientX: relX,
                 clientY: relY,
                 screenX: touch.screenX,
@@ -42,11 +43,20 @@
                 cancelable: true,
                 view: iframeWin,
                 buttons: 1,
-                which: 1
-            });
+                which: 1,
+                composed: true
+            };
+
+            const mouseEvent = new MouseEvent(type, eventInit);
 
             if (type === 'mousedown') {
+                // Precise hit testing inside the iframe
                 dragTarget = iframeDoc.elementFromPoint(relX, relY) || iframeDoc.body;
+                
+                // CRITICAL IMPROVEMENT: If we hit something near a resize handle, give it priority
+                // The selection box and handles are DOM elements inside the iframe.
+                const possibleHandle = dragTarget.closest('.eidos-resize-handle');
+                if (possibleHandle) dragTarget = possibleHandle;
             }
 
             const target = dragTarget || iframeDoc.body;
@@ -56,8 +66,7 @@
                 dragTarget = null;
             }
 
-            // ONLY prevent default if we are interacting with the canvas elements
-            // This allows native scrolling if touching empty space
+            // Prevent scroll/gesture interference while dragging or resizing
             if (dragTarget && dragTarget !== iframeDoc.body && dragTarget !== iframeDoc.documentElement) {
                 if (e.cancelable) e.preventDefault();
             }
@@ -65,44 +74,41 @@
 
         const stage = document.getElementById('preview-stage');
         if (stage) {
-            stage.addEventListener('touchstart', (e) => mapTouchToMouse(e, 'mousedown'), { passive: false });
+            // We use the stage (which wraps the iframe) to capture touches
+            stage.addEventListener('touchstart', (e) => {
+                // Ignore touches on UI components
+                if (e.target.closest('#mobile-bottom-nav') || e.target.closest('.editor-tools-panel') || e.target.closest('.editor-minimap')) {
+                    return;
+                }
+                mapTouchToMouse(e, 'mousedown');
+            }, { passive: false });
+
             stage.addEventListener('touchmove', (e) => {
                 if (dragTarget) mapTouchToMouse(e, 'mousemove');
             }, { passive: false });
-            stage.addEventListener('touchend', (e) => mapTouchToMouse(e, 'mouseup'), { passive: false });
+
+            stage.addEventListener('touchend', (e) => {
+                if (dragTarget) mapTouchToMouse(e, 'mouseup');
+            }, { passive: false });
+            
+            stage.addEventListener('touchcancel', (e) => {
+                if (dragTarget) mapTouchToMouse(e, 'mouseup');
+            }, { passive: false });
         }
         
-        // Prevent tapping mobile UI from triggering root editor deselect in app.js
-        const stopBubbling = (e) => e.stopPropagation();
-        [
-            document.getElementById('mobile-bottom-nav'),
-            document.getElementById('editor-tools-panel'),
-            document.getElementById('editor-minimap'),
-            document.getElementById('mobile-overlay')
-        ].forEach(node => {
-            if (node) {
-                node.addEventListener('mousedown', stopBubbling);
-                node.addEventListener('touchstart', stopBubbling, { passive: true });
-                node.addEventListener('click', stopBubbling);
-            }
-        });
-        
+        // --- Navigation Logic for Bottom Drawers ---
         const minimap = document.getElementById('editor-minimap');
         const toolsPanel = document.getElementById('editor-tools-panel');
         const mobileOverlay = document.getElementById('mobile-overlay');
 
-        // Ensure global access correctly
         window.toggleMobileDrawer = (type, e) => {
-            console.log('toggleMobileDrawer called with type:', type);
             if (e) {
-                e.preventDefault();
+                // Important: Don't prevent default on the click to allow visual feedback,
+                // but stop propagation so it doesn't trigger app.js deselection logic.
                 e.stopPropagation();
             }
 
-            if (!minimap || !toolsPanel || !mobileOverlay) {
-                console.error('Mobile UI elements not found. minimap:', !!minimap, 'toolsPanel:', !!toolsPanel, 'mobileOverlay:', !!mobileOverlay);
-                return;
-            }
+            if (!minimap || !toolsPanel || !mobileOverlay) return;
 
             if (type === 'minimap') {
                 minimap.classList.toggle('open');
@@ -121,6 +127,11 @@
                 toolsPanel.classList.remove('open');
                 mobileOverlay.classList.remove('visible');
                 mobileOverlay.style.pointerEvents = 'none';
+                
+                // Deselect element in editor
+                if (previewIframe.contentWindow && previewIframe.contentWindow.eidosDeselect) {
+                    previewIframe.contentWindow.eidosDeselect();
+                }
             }
 
             document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
@@ -139,6 +150,12 @@
                 if (toolsPanel) toolsPanel.classList.remove('open');
                 mobileOverlay.classList.remove('visible');
                 mobileOverlay.style.pointerEvents = 'none';
+                
+                // Sync nav buttons
+                document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                    const onclickStr = btn.getAttribute('onclick') || '';
+                    btn.classList.toggle('active', onclickStr.includes("'canvas'"));
+                });
             };
             mobileOverlay.addEventListener('mousedown', closeOverlay);
             mobileOverlay.addEventListener('touchstart', closeOverlay, { passive: false });
