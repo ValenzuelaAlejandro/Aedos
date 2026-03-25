@@ -41,7 +41,7 @@
         border-radius: 20px 20px 0 0;
         box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
         flex: none !important;
-        padding-bottom: 2rem;
+        padding-bottom: 80px !important;
     }
 
     .editor-tools-panel.open {
@@ -76,7 +76,7 @@
 
     /* 5. Mobile UI Elements */
     #mobile-bottom-nav {
-        display: none !important;
+        display: flex !important;
         position: fixed;
         bottom: 0;
         left: 0;
@@ -88,11 +88,6 @@
         align-items: center;
         justify-content: space-around;
         padding-bottom: env(safe-area-inset-bottom);
-    }
-
-    /* Show only when editor is active */
-    #preview-container:not(.hidden) ~ #mobile-bottom-nav {
-        display: flex !important;
     }
 
     .mobile-nav-btn {
