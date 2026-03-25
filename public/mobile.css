@@ -1,3 +1,7 @@
+#mobile-overlay, #mobile-bottom-nav {
+    display: none !important;
+}
+
 /* Use a broader media query to ensure it catches more devices */
 @media (max-width: 850px) {
     /* 1. Reset layout for mobile */
