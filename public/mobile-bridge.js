@@ -148,13 +148,20 @@
         const bindEvents = (element) => {
             if (!element) return;
             element.addEventListener('touchstart', (e) => {
-                // Ignore multi-touch to let native zoom handle it
-                if (e.touches && e.touches.length > 1) return;
+                // If 2+ fingers, abort any active drag and exit to let native zoom work
+                if (e.touches && e.touches.length > 1) {
+                    dragTarget = null;
+                    return;
+                }
                 mapTouchToMouse(e, 'mousedown');
             }, { passive: true });
 
             element.addEventListener('touchmove', (e) => {
-                if (e.touches && e.touches.length > 1) return;
+                // If 2+ fingers, abort drag and exit
+                if (e.touches && e.touches.length > 1) {
+                    dragTarget = null;
+                    return;
+                }
                 if (dragTarget) mapTouchToMouse(e, 'mousemove');
             }, { passive: true });
 
@@ -163,11 +170,12 @@
             }, { passive: true });
 
             element.addEventListener('touchcancel', (e) => {
+                dragTarget = null;
                 mapTouchToMouse(e, 'mouseup');
             }, { passive: true });
         };
 
-        // Bind for single-touch editing while allowing native zoom
+        // Bind for single-touch editing while fully respecting native zoom
         bindEvents(stage);
         previewIframe.addEventListener('load', () => {
             if (previewIframe.contentDocument) bindEvents(previewIframe.contentDocument);
