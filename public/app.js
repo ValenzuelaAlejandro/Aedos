@@ -1269,6 +1269,14 @@ document.addEventListener('DOMContentLoaded', () => {
         wrapper.style.height = `${iframeNativeHeight * totalScale}px`;
         wrapper.style.width = `${iframeNativeWidth * totalScale}px`;
 
+        // Keep wrapper pan transform in sync with zoom state
+        if (mobileZoom <= 1) {
+            if (window._eidos_pan) { window._eidos_pan.x = 0; window._eidos_pan.y = 0; }
+            wrapper.style.transform = 'translate(0,0)';
+        } else if (window._eidos_pan) {
+            wrapper.style.transform = `translate(${window._eidos_pan.x}px, ${window._eidos_pan.y}px)`;
+        }
+
         // Inject scale into iframe for the visual editor's coordinate math
         try {
             const iframeWin = previewIframe.contentWindow;
