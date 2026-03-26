@@ -152,15 +152,17 @@
         opacity: 1;
     }
 
-    /* Hide desktop-only UI if necessary */
-    /* 5. Header Optimization - Fix cut-off buttons */
+    /* Header: left/right are flex items, center is absolutely centred */
     .preview-unified-header {
         position: fixed !important;
         top: 0;
         left: 0;
         right: 0;
         display: flex !important;
-        grid-template-columns: none !important; /* Force flex on mobile */
+        flex-direction: row !important;
+        grid-template-areas: none !important;
+        grid-template-columns: none !important;
+        grid-template-rows: none !important;
         align-items: center !important;
         justify-content: space-between !important;
         padding: 0 0.5rem !important;
@@ -178,35 +180,67 @@
         display: none !important; /* Hide title input to save space */
     }
 
-    /* Show slide dots on mobile — same as desktop, clipped & scrolled when too many */
+    /* Hide dots block from header on mobile — they live in the bottom nav now */
     .preview-unified-center {
-        display: flex !important;
-        flex: 1 1 0 !important;
-        max-width: 160px !important;
-        align-items: center !important;
-        justify-content: center !important;
-        overflow: hidden !important;
+        display: none !important;
     }
 
-    /* Dots visible; JS will translateX to keep active dot centred */
-    .preview-unified-center .slide-dots {
-        display: flex !important;
-        flex-wrap: nowrap !important;
+    /* Bottom nav: dots center slot */
+    .mobile-dots-center {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .mobile-slide-dots {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 5px;
+        align-items: center;
+        padding: 4px 0; /* room for scale(1.4) without clipping */
         transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
         will-change: transform;
     }
 
-    /* Hide text label — dots already convey position */
-    .preview-unified-center .slide-label {
-        display: none !important;
+    /* reuse desktop dot styles */
+    .mobile-slide-dots .slide-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--surface2);
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .mobile-slide-dots .slide-dot.active {
+        background: var(--accent);
+        transform: scale(1.4);
+        box-shadow: 0 0 8px rgba(255,255,255,0.3);
+    }
+
+    .mobile-slide-label {
+        font-family: monospace;
+        font-size: 0.58rem;
+        color: var(--muted);
+        opacity: 0.7;
+        white-space: nowrap;
+        letter-spacing: 0.05em;
     }
 
     .preview-unified-right {
-        flex: 1 !important;
+        flex: 0 0 auto !important;
         display: flex !important;
         justify-content: flex-end !important;
+        align-items: center !important;
         gap: 0.3rem !important;
-        overflow: hidden !important;
     }
 
     .preview-unified-right .action-btn {

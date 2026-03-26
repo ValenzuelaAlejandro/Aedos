@@ -381,30 +381,58 @@
 
         // Minimap removed on mobile — touch-scrolling handled by desktop minimap only.
 
-        // Dot scroller — when active dot changes, translate the row so the active dot stays centred
-        (function initDotScroller() {
-            const dotsEl = document.getElementById('slide-dots');
-            const centerEl = dotsEl && dotsEl.closest('.preview-unified-center');
-            if (!dotsEl || !centerEl) return;
+        // Mobile bottom-nav dot mirror:
+        // Keeps #mobile-slide-dots in sync with the real #slide-dots (built by app.js)
+        // and scrolls to keep the active dot centred in the clipped row.
+        (function initMobileNavDots() {
+            const sourceDots = document.getElementById('slide-dots');
+            const mobileDotsEl = document.getElementById('mobile-slide-dots');
+            const mobileLabelEl = document.getElementById('mobile-slide-label');
+            if (!sourceDots || !mobileDotsEl) return;
 
-            function scrollToActiveDot() {
-                const activeDot = dotsEl.querySelector('.slide-dot.active');
-                if (!activeDot) return;
-                const dotIndex = Array.from(dotsEl.children).indexOf(activeDot);
-                const dotW = activeDot.offsetWidth + 5; // dot width + gap
-                const containerW = centerEl.offsetWidth;
-                const dotsW = dotsEl.scrollWidth;
-                // Ideal: centre the active dot inside the container
-                const idealOffset = dotIndex * dotW - containerW / 2 + dotW / 2;
-                const maxOffset = Math.max(0, dotsW - containerW);
-                const clamped = Math.max(0, Math.min(maxOffset, idealOffset));
-                dotsEl.style.transform = `translateX(-${clamped}px)`;
+            function syncDots() {
+                const source = sourceDots.querySelectorAll('.slide-dot');
+                if (!source.length) return;
+
+                // Rebuild if count changed
+                if (mobileDotsEl.children.length !== source.length) {
+                    mobileDotsEl.innerHTML = '';
+                    source.forEach((src, i) => {
+                        const dot = document.createElement('button');
+                        dot.className = 'slide-dot' + (src.classList.contains('active') ? ' active' : '');
+                        dot.setAttribute('aria-label', `Slide ${i + 1}`);
+                        dot.addEventListener('click', () => src.click());
+                        mobileDotsEl.appendChild(dot);
+                    });
+                } else {
+                    // Just sync active class
+                    source.forEach((src, i) => {
+                        mobileDotsEl.children[i].classList.toggle('active', src.classList.contains('active'));
+                    });
+                }
+
+                // Update label
+                const activeIdx = Array.from(source).findIndex(d => d.classList.contains('active'));
+                if (mobileLabelEl && activeIdx !== -1) {
+                    mobileLabelEl.textContent = `${activeIdx + 1} / ${source.length}`;
+                }
+
+                // Scroll to keep active dot centred
+                const activeDot = mobileDotsEl.querySelector('.slide-dot.active');
+                if (activeDot) {
+                    const dotW = activeDot.offsetWidth + 5;
+                    const containerW = mobileDotsEl.parentElement.offsetWidth;
+                    const activeIdx2 = Array.from(mobileDotsEl.children).indexOf(activeDot);
+                    const ideal = activeIdx2 * dotW - containerW / 2 + dotW / 2;
+                    const max = Math.max(0, mobileDotsEl.scrollWidth - containerW);
+                    mobileDotsEl.style.transform = `translateX(-${Math.max(0, Math.min(max, ideal))}px)`;
+                }
             }
 
-            // Watch for class changes on child dots (active state)
-            const obs = new MutationObserver(scrollToActiveDot);
-            obs.observe(dotsEl, { subtree: true, attributes: true, attributeFilter: ['class'] });
-            scrollToActiveDot();
+            // Watch the source dots for any class or DOM change
+            const obs = new MutationObserver(syncDots);
+            obs.observe(sourceDots, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+            syncDots();
         })();
     }
 
