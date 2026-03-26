@@ -3,7 +3,8 @@
  * Maps touch events to mouse events to enable editor interactivity on mobile
  * without modifying the core desktop-focused editor.js.
  * 
- * Version v=12 - LONG-PRESS DRAG + INTENT-BASED GESTURE STATE MACHINE
+ * Version v=13 - IMPROVED TOUCH: better scale detection, instant drag on selected,
+ *                minimap touch-scroll, relaxed swipe, prev/next nav haptics
  */
 (function() {
     // Global navigation toggle for mobile drawers
@@ -151,8 +152,9 @@
             if (!iframeDoc || !iframeWin) return;
 
             const rect = iframe.getBoundingClientRect();
-            // Try to find scale in iframe first (where app.js sets it), then fallback to parent
-            const scale = iframeWin._eidosIframeScale || window._eidosIframeScale || 1;
+            // Derive scale from actual rendered size vs the known internal iframe width (1122px).
+            // This is reliable even before app.js sets _eidosIframeScale (e.g. first tap).
+            const scale = rect.width > 0 ? rect.width / 1122 : (iframeWin._eidosIframeScale || 1);
             
             // Map coordinates relative to INTERNAL iframe document
             const relX = (touch.clientX - rect.left) / scale;
@@ -182,8 +184,13 @@
                 if (possibleHandle) dragTarget = possibleHandle;
             }
 
-            const target = dragTarget || iframeDoc.body;
-            target.dispatchEvent(mouseEvent);
+            // For mousemove/mouseup always dispatch on the document so editor.js
+            // document-level listeners fire regardless of which element is under cursor.
+            // For mousedown, dispatch on the specific target for correct hit-testing.
+            const dispatchTarget = (type === 'mousedown')
+                ? (dragTarget || iframeDoc.body)
+                : iframeDoc;
+            dispatchTarget.dispatchEvent(mouseEvent);
 
             if (type === 'mouseup') {
                 dragTarget = null;
@@ -207,7 +214,7 @@
         //   'none'          — gesture cancelled / unrecognised, eat touches silently
         const overlay = document.getElementById('touch-capture-overlay');
         if (overlay) {
-            const LONG_PRESS_MS  = 320;
+            const LONG_PRESS_MS  = 180;  // Reduced: 320→180ms for snappier drag activation
             const MOVE_THRESHOLD = 10;
             const SWIPE_MIN      = 40;
 
@@ -218,6 +225,32 @@
 
             function cancelLP() {
                 if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+            }
+
+            // Check if the touch point (in iframe-internal coords) is over the active selection box.
+            // If so, we can skip long-press and drag immediately.
+            function isTouchOnSelectedElement(relX, relY) {
+                const iframe = document.getElementById('preview-iframe');
+                if (!iframe) return false;
+                const iframeDoc = iframe.contentDocument;
+                if (!iframeDoc) return false;
+                const selBox = iframeDoc.querySelector('.eidos-selection-box');
+                if (!selBox || selBox.style.display === 'none') return false;
+                const r = selBox.getBoundingClientRect();
+                // getBoundingClientRect inside iframe is in iframe viewport coords
+                return relX >= r.left && relX <= r.right && relY >= r.top && relY <= r.bottom;
+            }
+
+            // Get iframe-internal coords from a touch event (or override coords)
+            function getTouchIframeCoords(touch) {
+                const iframe = document.getElementById('preview-iframe');
+                if (!iframe) return null;
+                const rect = iframe.getBoundingClientRect();
+                const scale = rect.width > 0 ? rect.width / 1122 : 1;
+                return {
+                    relX: (touch.clientX - rect.left) / scale,
+                    relY: (touch.clientY - rect.top) / scale
+                };
             }
 
             overlay.addEventListener('touchstart', (e) => {
@@ -245,14 +278,24 @@
                         moved: false
                     };
                 } else {
-                    mode = 'pending';
-                    // Start long-press countdown for element dragging.
-                    longPressTimer = setTimeout(() => {
-                        longPressTimer = null;
-                        if (mode !== 'pending') return;
+                    // Check if touching an already-selected element → start drag immediately
+                    const coords = getTouchIframeCoords(t);
+                    if (coords && isTouchOnSelectedElement(coords.relX, coords.relY)) {
                         mode = 'longpress-drag';
                         mapTouchToMouse(null, 'mousedown', pendingTouchCoords);
-                    }, LONG_PRESS_MS);
+                        // Haptic pulse so user knows drag mode is active
+                        if (navigator.vibrate) navigator.vibrate(30);
+                    } else {
+                        mode = 'pending';
+                        // Start long-press countdown for element dragging.
+                        longPressTimer = setTimeout(() => {
+                            longPressTimer = null;
+                            if (mode !== 'pending') return;
+                            mode = 'longpress-drag';
+                            mapTouchToMouse(null, 'mousedown', pendingTouchCoords);
+                            if (navigator.vibrate) navigator.vibrate(40);
+                        }, LONG_PRESS_MS);
+                    }
                 }
                 if (e.cancelable) e.preventDefault();
             }, { passive: false });
@@ -277,7 +320,8 @@
                 // ── Resolve pending gesture once threshold crossed ───────────
                 if (mode === 'pending' && dist > MOVE_THRESHOLD) {
                     cancelLP();
-                    const isHoriz = Math.abs(dx) > Math.abs(dy) * 1.4;
+                    // Relaxed: ratio 0.8 makes horizontal swipe much easier to trigger
+                    const isHoriz = Math.abs(dx) > Math.abs(dy) * 0.8;
                     mode = isHoriz ? 'slide-swipe' : 'none';
                 }
 
@@ -291,6 +335,9 @@
                 // All other modes: eat the move silently.
                 if (e.cancelable) e.preventDefault();
             }, { passive: false });
+
+            let lastTapTime = 0;
+            let lastTapCoords = null;
 
             overlay.addEventListener('touchend', (e) => {
                 cancelLP();
@@ -321,6 +368,37 @@
                     // Normal tap: send a quick click (mousedown then mouseup).
                     mapTouchToMouse(e, 'mousedown', pendingTouchCoords);
                     setTimeout(() => mapTouchToMouse(e, 'mouseup', pendingTouchCoords), 20);
+
+                    // Double-tap detection → fire dblclick so text editing activates
+                    const now = Date.now();
+                    const tapX = pendingTouchCoords.clientX;
+                    const tapY = pendingTouchCoords.clientY;
+                    const isDoubleTap = (now - lastTapTime < 350) &&
+                        lastTapCoords &&
+                        Math.hypot(tapX - lastTapCoords.x, tapY - lastTapCoords.y) < 30;
+                    lastTapTime = now;
+                    lastTapCoords = { x: tapX, y: tapY };
+                    if (isDoubleTap) {
+                        lastTapTime = 0; // reset so triple-tap doesn't re-trigger
+                        setTimeout(() => {
+                            // Dispatch dblclick inside the iframe at the same position
+                            const iframe = document.getElementById('preview-iframe');
+                            if (!iframe) return;
+                            const iframeDoc = iframe.contentDocument;
+                            const iframeWin  = iframe.contentWindow;
+                            if (!iframeDoc || !iframeWin) return;
+                            const rect  = iframe.getBoundingClientRect();
+                            const scale = rect.width > 0 ? rect.width / 1122 : 1;
+                            const relX  = (tapX - rect.left) / scale;
+                            const relY  = (tapY - rect.top)  / scale;
+                            const tgt   = iframeDoc.elementFromPoint(relX, relY) || iframeDoc.body;
+                            tgt.dispatchEvent(new MouseEvent('dblclick', {
+                                clientX: relX, clientY: relY,
+                                bubbles: true, cancelable: true,
+                                view: iframeWin
+                            }));
+                        }, 30);
+                    }
                     return;
                 }
 
@@ -386,6 +464,55 @@
             mobileOverlay.addEventListener('mousedown', closeOverlay);
             mobileOverlay.addEventListener('touchstart', closeOverlay, { passive: false });
         }
+
+        // ── Minimap touch scroll ──────────────────────────────────────────────
+        // The minimap uses CSS translateY() to center the active slide. On mobile
+        // we add a touch-pan so users can scroll through the list directly.
+        (function initMinimapTouchScroll() {
+            const minimapEl = document.getElementById('editor-minimap');
+            const listEl    = document.getElementById('minimap-list');
+            if (!minimapEl || !listEl) return;
+
+            let scrollStartY      = null;
+            let scrollStartOffset = 0;
+
+            function getCurrentOffsetY() {
+                const t = listEl.style.transform || '';
+                const m = t.match(/translateY\((-?[\d.]+)px\)/);
+                return m ? parseFloat(m[1]) : 0;
+            }
+
+            function clampOffset(y) {
+                // Never push list so far down that the first item is below center
+                const maxY = minimapEl.clientHeight / 2;
+                // Never pull list so far up that the last item is above center
+                const minY = -(Math.max(0, listEl.scrollHeight - minimapEl.clientHeight / 2));
+                return Math.max(minY, Math.min(maxY, y));
+            }
+
+            minimapEl.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                scrollStartY      = e.touches[0].clientY;
+                scrollStartOffset = getCurrentOffsetY();
+                // Snap off any centering transition so it responds instantly
+                listEl.style.transition = 'none';
+                e.stopPropagation();
+            }, { passive: true });
+
+            minimapEl.addEventListener('touchmove', (e) => {
+                if (scrollStartY === null || e.touches.length !== 1) return;
+                const dy = e.touches[0].clientY - scrollStartY;
+                listEl.style.transform = `translateY(${clampOffset(scrollStartOffset + dy)}px)`;
+                e.stopPropagation();
+                if (e.cancelable) e.preventDefault();
+            }, { passive: false });
+
+            minimapEl.addEventListener('touchend', () => {
+                scrollStartY = null;
+                // Restore smooth transition for subsequent auto-centering on slide click
+                listEl.style.transition = 'transform 380ms cubic-bezier(0.4, 0, 0.2, 1)';
+            }, { passive: true });
+        })();
     }
 
     if (document.readyState === 'loading') {

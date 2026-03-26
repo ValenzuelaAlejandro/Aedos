@@ -121,8 +121,29 @@
         gap: 4px;
     }
 
+    /* Prev / Next slide buttons — slightly larger hit target, no label */
+    .mobile-prev-btn,
+    .mobile-next-btn {
+        min-width: 44px;
+        height: 44px;
+        justify-content: center;
+    }
+
     .mobile-nav-btn.active {
         color: var(--accent);
+    }
+
+    /* Minimap drawer: allow native touch-pan so users can scroll through slides */
+    .editor-minimap.open {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        /* JS manages translateY on the list; keep container scrollable as fallback */
+        touch-action: pan-y;
+    }
+
+    /* Minimap list: allow overflow so JS touch-scroll clamp works correctly */
+    .editor-minimap .minimap-list {
+        overflow: visible;
     }
 
     #mobile-overlay {
