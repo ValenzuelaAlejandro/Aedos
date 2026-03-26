@@ -544,9 +544,20 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
             await initBrowser();
         }
 
+        // Replace animated GIFs with a 1×1 transparent placeholder so Puppeteer
+        // doesn't time-out or crash while trying to load/decode animation frames.
+        const TRANSPARENT_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+        const processedHtml = html
+            // img src pointing to a .gif URL (not already a data-URI)
+            .replace(/(<img\b[^>]*?)\bsrc\s*=\s*(["'])(?!data:)[^"']*\.gif[^"']*\2/gi,
+                `$1src="${TRANSPARENT_GIF}"`)
+            // CSS background-image / content url() pointing to a .gif
+            .replace(/url\s*\(\s*(["']?)(?!data:)[^)"'\s]*\.gif[^)"'\s]*\1\s*\)/gi,
+                `url("${TRANSPARENT_GIF}")`);
+
         const page = await browser.newPage();
         try {
-            await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.setContent(processedHtml, { waitUntil: 'domcontentloaded', timeout: 60000 });
             // Wait for Lucide icons to render
             await page.waitForFunction(() => {
                 const pendingIcons = document.querySelectorAll('i[data-lucide]');

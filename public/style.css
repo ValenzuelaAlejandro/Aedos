@@ -1177,14 +1177,28 @@
     animation: sectionFadeIn 0.5s ease;
 }
 
-#result-container,
-#error-container {
+#result-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 4rem 2rem;
     min-height: 80vh;
+    text-align: center;
+    animation: sectionFadeIn 0.5s ease;
+}
+
+#error-container {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    background: var(--bg);
+    overflow-y: auto;
     text-align: center;
     animation: sectionFadeIn 0.5s ease;
 }
@@ -1429,12 +1443,16 @@
    REFUSED CARD
    ================================================================ */
 #refused-container {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 4rem 2rem;
-    min-height: 80vh;
+    background: var(--bg);
+    overflow-y: auto;
     text-align: center;
     animation: sectionFadeIn 0.5s ease;
 }

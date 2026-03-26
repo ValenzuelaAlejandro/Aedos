@@ -639,13 +639,12 @@ function initTools(iframe) {
                 input.onchange = (e) => {
                     const file = e.target.files[0];
                     if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (re) => {
+                        window.gifToStaticDataUrl(file).then((dataUrl) => {
                             if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
                             if (el.tagName === 'IMG') {
-                                el.src = re.target.result;
+                                el.src = dataUrl;
                             } else {
-                                el.style.backgroundImage = `url('${re.target.result}')`;
+                                el.style.backgroundImage = `url('${dataUrl}')`;
                                 el.style.backgroundSize = 'cover';
                                 el.classList.add('has-custom-image');
                                 const decorativeDivs = Array.from(el.querySelectorAll(':scope > div')).filter(c =>
@@ -653,8 +652,7 @@ function initTools(iframe) {
                                 );
                                 decorativeDivs.forEach(d => d.style.display = 'none');
                             }
-                        };
-                        reader.readAsDataURL(file);
+                        });
                     }
                 };
                 input.click();
@@ -823,6 +821,8 @@ function initTools(iframe) {
         text.style.zIndex = '10';
         text.style.color = '#ffffff';
         text.style.margin = '0';
+        text.style.fontFamily = 'Arial, sans-serif';
+        text.style.fontSize = '12px';
         slide.appendChild(text);
         if (iframeWin.eidosSelect) {
             iframeWin.eidosSelect(text);
@@ -859,13 +859,11 @@ function initTools(iframe) {
         input.onchange = (e) => {
             const file = e.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = (re) => {
-                    img.style.backgroundImage = `url('${re.target.result}')`;
+                window.gifToStaticDataUrl(file).then((dataUrl) => {
+                    img.style.backgroundImage = `url('${dataUrl}')`;
                     img.style.backgroundSize = 'cover';
                     img.style.border = 'none';
-                };
-                reader.readAsDataURL(file);
+                });
             }
         };
         input.click();
@@ -912,13 +910,11 @@ function initTools(iframe) {
         img.style.zIndex = '10';
         img.dataset.imageSlot = 'manual-' + Date.now();
         slide.appendChild(img);
-        const reader = new FileReader();
-        reader.onload = (re) => {
-            img.style.backgroundImage = `url('${re.target.result}')`;
+        window.gifToStaticDataUrl(file).then((dataUrl) => {
+            img.style.backgroundImage = `url('${dataUrl}')`;
             img.style.backgroundSize = 'cover';
             img.style.border = 'none';
-        };
-        reader.readAsDataURL(file);
+        });
         if (window.parent && window.parent._buildOverlayForSlot) window.parent._buildOverlayForSlot(img);
         window.parent.dispatchEvent(new CustomEvent('eidos-drop-complete'));
         setTimeout(() => window.parent && window.parent._refreshSlotOverlays && window.parent._refreshSlotOverlays(), 50);

@@ -36,6 +36,41 @@ function sanitizeModelOutput(html) {
     return html;
 }
 
+/**
+ * Converts a File to a data URL, snapshotting the first frame if it's a GIF.
+ * Returns a Promise<string> with a JPEG data URL (PNG for non-GIF).
+ */
+function gifToStaticDataUrl(file) {
+    if (!file.type.includes('gif')) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+    }
+    // GIF: draw the first frame onto a canvas and export as JPEG
+    return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width  = img.naturalWidth  || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            resolve(canvas.toDataURL('image/jpeg', 0.9));
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            // Fallback: plain FileReader
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        };
+        img.src = url;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Prevent accidental browser navigation when dragging files over the page
     window.addEventListener('dragover', (e) => e.preventDefault(), false);
@@ -1767,9 +1802,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function replaceSlotImage(slot, file) {
-        const reader = new FileReader();
-        reader.onload = (e) => applyImageToSlot(slot, e.target.result);
-        reader.readAsDataURL(file);
+        gifToStaticDataUrl(file).then((dataUrl) => applyImageToSlot(slot, dataUrl));
     }
 
     function replaceSlotWithUrl(slot, url) {

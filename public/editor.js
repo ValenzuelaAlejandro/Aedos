@@ -1314,7 +1314,8 @@ function initEditor() {
                     const slide = el.closest('.s') || document.body;
                     const slideRect = slide.getBoundingClientRect();
                     const currentHeight = rect.height;
-                    const newTop = el._baseBottom - currentHeight;
+                    // Clamp so the element never grows above the slide top
+                    const newTop = Math.max(0, el._baseBottom - currentHeight);
                     el.style.top = newTop + "px";
                 }
                 updateSelectionBox();
@@ -1355,18 +1356,31 @@ function initEditor() {
     function updateSelectionBox() {
         if (!selectedElement) return;
         const rect = selectedElement.getBoundingClientRect();
+        const winW = window.innerWidth;
+        const winH = window.innerHeight;
 
-        // Tools are now in document.body, so use absolute viewport coordinates
-        // rect.left/top are already correct relative to the document viewport inside the iframe.
-        const left = rect.left;
-        const top = rect.top;
+        // Clamp the selection box to the visible viewport so it never collapses
+        // when an element partially overflows the canvas (e.g. very long text).
+        const boxLeft   = Math.max(0, Math.min(rect.left, winW));
+        const boxTop    = Math.max(0, Math.min(rect.top, winH));
+        const boxRight  = Math.max(boxLeft, Math.min(rect.left + rect.width, winW));
+        const boxBottom = Math.max(boxTop, Math.min(rect.top + rect.height, winH));
+        const boxW = boxRight - boxLeft;
+        const boxH = boxBottom - boxTop;
 
-        selectionBox.style.left = `${left}px`;
-        selectionBox.style.top = `${top}px`;
-        selectionBox.style.width = `${rect.width}px`;
-        selectionBox.style.height = `${rect.height}px`;
+        // If the element is entirely outside the viewport, hide the UI and bail.
+        if (boxW === 0 || boxH === 0) {
+            selectionBox.style.display = 'none';
+            toolbar.style.display = 'none';
+            return;
+        }
 
-        if (rect.width < 50 || rect.height < 50) {
+        selectionBox.style.left   = `${boxLeft}px`;
+        selectionBox.style.top    = `${boxTop}px`;
+        selectionBox.style.width  = `${boxW}px`;
+        selectionBox.style.height = `${boxH}px`;
+
+        if (boxW < 50 || boxH < 50) {
             selectionBox.classList.add('eidos-small-selection');
         } else {
             selectionBox.classList.remove('eidos-small-selection');
@@ -1380,21 +1394,19 @@ function initEditor() {
         }
 
         // SMART POSITIONING: Keep toolbar within window boundaries
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
         const tbWidth = toolbar.offsetWidth || 340;
 
-        let toolbarTop = top - 56;
-        let toolbarLeft = left;
+        let toolbarTop  = boxTop - 56;
+        let toolbarLeft = boxLeft;
 
         // 1. Vertical check
         if (toolbarTop < 10) {
-            toolbarTop = top + rect.height + 12;
+            toolbarTop = boxTop + boxH + 12;
         }
 
         // 2. Vertical check bottom
         if (toolbarTop + 46 > winH - 10) {
-            toolbarTop = top - 56;
+            toolbarTop = boxTop - 56;
             if (toolbarTop < 0) toolbarTop = 10;
         }
 
@@ -1405,7 +1417,7 @@ function initEditor() {
         if (toolbarLeft < 12) toolbarLeft = 12;
 
         toolbar.style.left = `${toolbarLeft}px`;
-        toolbar.style.top = `${toolbarTop}px`;
+        toolbar.style.top  = `${toolbarTop}px`;
 
         if (!isDragging && !isResizing) {
             toolbar.style.opacity = '1';
