@@ -3,7 +3,7 @@
  * Maps touch events to mouse events to enable editor interactivity on mobile
  * without modifying the core desktop-focused editor.js.
  * 
- * Version v=8 - FIXED DRAG, RESIZE, AND DRAWER RELIABILITY
+ * Version v=9 - FULL-AREA PINCH + SINGLE-FINGER PAN WHEN ZOOMED
  */
 (function() {
     // Global navigation toggle for mobile drawers
@@ -55,6 +55,7 @@
         if (!previewIframe) return;
 
         let dragTarget = null;
+        let panState = null; // single-finger view-pan when zoomed in
 
         // ── Pinch-to-zoom + 2-finger pan ──────────────────────────────────────
         // Registered at document level so it fires even when both fingers land
@@ -226,44 +227,78 @@
 
         const stage = document.getElementById('preview-stage');
         if (stage) {
-            // Single-touch only: drag / resize elements inside the iframe.
-            // 2-finger pinch+pan is handled at document level below.
+            // Single-touch: drag/resize elements inside the iframe OR pan the view when zoomed in.
+            // 2-finger pinch+pan is handled at document level.
             stage.addEventListener('touchstart', (e) => {
                 if (e.target.closest('#mobile-bottom-nav') || e.target.closest('.editor-tools-panel') || e.target.closest('.editor-minimap')) {
                     return;
                 }
                 if (e.touches.length > 1) {
-                    // Second finger added: cancel any in-progress drag cleanly.
+                    // Second finger added: cancel any in-progress drag/pan cleanly.
                     if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
+                    panState = null;
                     return;
+                }
+                const t = e.touches[0];
+                // When already zoomed in, track touch for potential pan gesture.
+                if (window._eidos_mobile_zoom > 1) {
+                    panState = {
+                        startX: t.clientX, startY: t.clientY,
+                        startPanX: window._eidos_pan.x, startPanY: window._eidos_pan.y,
+                        moved: false
+                    };
                 }
                 mapTouchToMouse(e, 'mousedown');
             }, { passive: false });
 
             stage.addEventListener('touchmove', (e) => {
                 if (e.touches.length > 1) return; // handled by document-level pinch+pan
+                if (panState) {
+                    const t = e.touches[0];
+                    const dx = t.clientX - panState.startX;
+                    const dy = t.clientY - panState.startY;
+                    if (!panState.moved && Math.hypot(dx, dy) > 8) {
+                        panState.moved = true;
+                        // Cancel the drag that started before we knew this was a pan.
+                        if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
+                    }
+                    if (panState.moved) {
+                        window._eidos_pan.x = panState.startPanX + dx;
+                        window._eidos_pan.y = panState.startPanY + dy;
+                        applyZoomAndPan();
+                        if (e.cancelable) e.preventDefault();
+                        return;
+                    }
+                }
                 if (dragTarget) mapTouchToMouse(e, 'mousemove');
             }, { passive: false });
 
             stage.addEventListener('touchend', (e) => {
+                if (panState && panState.moved) {
+                    // Ended a pan gesture — suppress the mouse click that would fire.
+                    panState = null;
+                    dragTarget = null;
+                    return;
+                }
+                panState = null;
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
 
             stage.addEventListener('touchcancel', (e) => {
+                panState = null;
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
         }
 
         // ── Document-level 2-finger pinch + pan ───────────────────────────────
-        // Works inside the iframe area because document-level touchstart fires
-        // for every touch regardless of which frame's content was touched.
+        // Works anywhere on the page except the panel UI elements.
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 2) return;
-            // Must originate inside the canvas stage, not on panel UI
             const t0 = e.touches[0];
+            // Exclude panel/nav UI — allow everywhere else (stage, iframe, surrounding area)
             if (t0.target && t0.target.closest('#mobile-bottom-nav, .editor-tools-panel, .editor-minimap')) return;
-            if (!isTouchInsideStage(t0.clientX, t0.clientY)) return;
             e.preventDefault();
+            panState = null; // cancel any in-progress single-finger pan
             if (dragTarget) { dragTarget = null; } // cancel any in-progress single-touch drag
             startPinchFromTouchList(e.touches);
         }, { passive: false });
