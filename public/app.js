@@ -2079,8 +2079,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
 
         try {
-            const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+            const iframeWin = previewIframe.contentWindow;
+            const iframeDoc = previewIframe.contentDocument || iframeWin.document;
+
+            // Deselect any active editor element so the selection box and toolbar
+            // are hidden before we clone — otherwise they end up in the PDF.
+            if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
+
             const clone = iframeDoc.documentElement.cloneNode(true);
+
+            // Strip ALL editor UI that may still be in the DOM after deselect
+            const editorUI = clone.querySelectorAll(
+                '.eidos-selection-box, .eidos-toolbar, .eidos-color-picker, .eidos-guide'
+            );
+            editorUI.forEach(el => el.remove());
 
             const injectedStyles = clone.querySelectorAll('.preview-injected-style');
             injectedStyles.forEach(s => s.remove());
