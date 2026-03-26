@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <title>Eidoslab</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -32,7 +32,11 @@
     <script src="https://unpkg.com/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
     <script src="https://unpkg.com/mobile-drag-drop@2.3.0-rc.2/scroll-behaviour.min.js"></script>
     <script>
-        window.addEventListener('touchmove', function() {}, {passive: true});
+        // Prevent browser-level viewport zoom (pinch gesture) from sticking across reloads.
+        // Non-passive so we can call preventDefault() on multi-touch moves.
+        document.addEventListener('touchmove', function(e) {
+            if (e.touches && e.touches.length > 1) e.preventDefault();
+        }, { passive: false });
         MobileDragDrop.polyfill({
             dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride
         });
