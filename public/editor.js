@@ -416,7 +416,7 @@ function initEditor() {
 
     // Selectors for semantic container elements whose children must never be
     // extracted from them during normalization (card, stat-box, etc.).
-    const CONTAINER_SELECTORS = 'div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"]';
+    const CONTAINER_SELECTORS = 'div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"], blockquote, .quote-block, ul, ol';
 
     function freezeSlideLayout(slide) {
         if (!slide || _isFrozenMap.has(slide)) return;
