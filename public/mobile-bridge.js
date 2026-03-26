@@ -3,7 +3,7 @@
  * Maps touch events to mouse events to enable editor interactivity on mobile
  * without modifying the core desktop-focused editor.js.
  * 
- * Version v=10 - TRANSPARENT OVERLAY: reliable cross-frame touch capture
+ * Version v=11 - SWIPE NAVIGATION + PAN + PINCH via overlay
  */
 (function() {
     // Global navigation toggle for mobile drawers
@@ -197,14 +197,23 @@
         // forwarded to the document-level pinch handler below.
         const overlay = document.getElementById('touch-capture-overlay');
         if (overlay) {
+            // gestureActive: null | 'drag' | 'pan' | 'slide-swipe'
+            // Resolved once movement exceeds 8px threshold.
+            let gestureActive = null;
+            let swipeStartX = 0, swipeStartY = 0;
+
             overlay.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) {
-                    // Multi-touch: cancel drag/pan and let document-level pinch take over.
+                    // Multi-touch: cancel anything in-progress, let document-level pinch take over.
                     if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
                     panState = null;
+                    gestureActive = null;
                     return;
                 }
                 const t = e.touches[0];
+                swipeStartX = t.clientX;
+                swipeStartY = t.clientY;
+                gestureActive = null;
                 if (window._eidos_mobile_zoom > 1) {
                     panState = {
                         startX: t.clientX, startY: t.clientY,
@@ -218,12 +227,15 @@
 
             overlay.addEventListener('touchmove', (e) => {
                 if (e.touches.length > 1) return; // handled by document-level pinch
+                const t = e.touches[0];
+                const dx = t.clientX - swipeStartX;
+                const dy = t.clientY - swipeStartY;
+
+                // ── Zoomed in: pan the view ──────────────────────────────────
                 if (panState) {
-                    const t = e.touches[0];
-                    const dx = t.clientX - panState.startX;
-                    const dy = t.clientY - panState.startY;
                     if (!panState.moved && Math.hypot(dx, dy) > 8) {
                         panState.moved = true;
+                        gestureActive = 'pan';
                         if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
                     }
                     if (panState.moved) {
@@ -234,22 +246,55 @@
                         return;
                     }
                 }
+
+                // ── Normal zoom: resolve gesture type once threshold passed ──
+                if (!gestureActive && Math.hypot(dx, dy) > 8) {
+                    const isHoriz = Math.abs(dx) > Math.abs(dy) * 1.5;
+                    if (isHoriz && window._eidos_mobile_zoom <= 1) {
+                        gestureActive = 'slide-swipe';
+                        // Cancel the mousedown drag that fired on touchstart
+                        if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
+                    } else {
+                        gestureActive = 'drag';
+                    }
+                }
+
+                if (gestureActive === 'slide-swipe') {
+                    if (e.cancelable) e.preventDefault();
+                    return; // don't forward mousemove — we'll navigate on touchend
+                }
+
                 if (dragTarget) mapTouchToMouse(e, 'mousemove');
                 if (e.cancelable) e.preventDefault();
             }, { passive: false });
 
             overlay.addEventListener('touchend', (e) => {
+                const ct = e.changedTouches[0];
+                const dx = ct.clientX - swipeStartX;
+
                 if (panState && panState.moved) {
                     panState = null;
                     dragTarget = null;
+                    gestureActive = null;
                     return;
                 }
                 panState = null;
+
+                if (gestureActive === 'slide-swipe') {
+                    gestureActive = null;
+                    dragTarget = null;
+                    if (dx < -50 && window.eidosNextSlide) window.eidosNextSlide();
+                    else if (dx > 50 && window.eidosPrevSlide) window.eidosPrevSlide();
+                    return;
+                }
+                gestureActive = null;
+
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
 
             overlay.addEventListener('touchcancel', (e) => {
                 panState = null;
+                gestureActive = null;
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
         }
