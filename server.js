@@ -546,7 +546,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
 
         const page = await browser.newPage();
         try {
-            await page.setContent(html, { waitUntil: 'networkidle0' });
+            await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60000 });
             // Wait for Lucide icons to render
             await page.waitForFunction(() => {
                 const pendingIcons = document.querySelectorAll('i[data-lucide]');

@@ -1039,6 +1039,15 @@ document.addEventListener('DOMContentLoaded', () => {
             window.initEditorUI(previewIframe);
         }
 
+        // On mobile: canvas is read-only. Image-slot overlays (parent-frame labels) are
+        // independent of the lock so photo upload still works normally.
+        if (window.innerWidth < 850) {
+            const iw = previewIframe.contentWindow;
+            if (iw && typeof iw.eidosSetLocked === 'function') {
+                iw.eidosSetLocked(true);
+            }
+        }
+
         if (typeof window.initMinimap === 'function' && !minimapAlreadyInit) {
             minimapAlreadyInit = true;
             window.initMinimap(previewIframe);
