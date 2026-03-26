@@ -32,7 +32,7 @@
     }
 
     /* Hide present / undo / redo buttons on mobile (desktop unchanged) */
-    #btn-undo, #btn-redo, #btn-present {
+    #btn-undo, #btn-redo, #btn-present, #canvas-zoom-select {
         display: none !important;
     }
 
@@ -179,7 +179,21 @@
     }
 
     .preview-unified-center {
-        display: none !important; /* Hide slide dots/label on mobile */
+        display: flex !important;
+        flex: 0 0 auto !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* Hide dots, keep only the text counter */
+    .preview-unified-center .slide-dots {
+        display: none !important;
+    }
+
+    .preview-unified-center .slide-label {
+        font-size: 0.85rem !important;
+        color: var(--muted) !important;
+        white-space: nowrap !important;
     }
 
     .preview-unified-right {
