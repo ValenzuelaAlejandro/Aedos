@@ -58,6 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorMessage = document.getElementById('error-message');
     const temaError = document.getElementById('tema-error');
     const scrollySection = document.getElementById('scrolly-three');
+    // True for any phone/tablet — used to permanently hide the scrollytelling section
+    const isMobileDevice = window.innerWidth < 850 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     // Preview elements
     let previewIframe = document.getElementById('preview-iframe');
@@ -743,7 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
             previewContainer.classList.add('hidden');
             window.removeEventListener('resize', scaleIframe);
             chatScreen.classList.remove('hidden');
-            if (scrollySection) scrollySection.classList.remove('hidden');
+            if (scrollySection && !isMobileDevice) scrollySection.classList.remove('hidden');
             window.dispatchEvent(new Event('resize'));
             if (window._eidosScrollytelling) window._eidosScrollytelling.resetScrollTriggers();
             temaInput.focus();
@@ -2149,7 +2151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (refusedContainer) refusedContainer.classList.add('hidden');
         if (previewContainer) previewContainer.classList.add('hidden');
         if (chatScreen) chatScreen.classList.remove('hidden');
-        if (scrollySection) {
+        if (scrollySection && !isMobileDevice) {
             scrollySection.classList.remove('hidden');
             window.dispatchEvent(new Event('resize'));
             if (window._eidosScrollytelling) window._eidosScrollytelling.resetScrollTriggers();
@@ -2529,7 +2531,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function initLandingScrollytelling() {
         // Skip Three.js on mobile — Moto G20-class hardware (Mali-G52, Helio G85) cannot
         // sustain 60fps WebGL + GSAP + Lenis + keyboard input simultaneously.
-        if (window.innerWidth < 850 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return;
+        if (window.innerWidth < 850 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            // Hide the entire scrolly section so it doesn't create dead scroll space on mobile.
+            if (scrollySection) scrollySection.classList.add('hidden');
+            return;
+        }
         window._eidosScrollytelling = new ThreeScrollytelling();
     }
 
