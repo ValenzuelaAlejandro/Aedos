@@ -380,6 +380,32 @@
         }
 
         // Minimap removed on mobile — touch-scrolling handled by desktop minimap only.
+
+        // Dot scroller — when active dot changes, translate the row so the active dot stays centred
+        (function initDotScroller() {
+            const dotsEl = document.getElementById('slide-dots');
+            const centerEl = dotsEl && dotsEl.closest('.preview-unified-center');
+            if (!dotsEl || !centerEl) return;
+
+            function scrollToActiveDot() {
+                const activeDot = dotsEl.querySelector('.slide-dot.active');
+                if (!activeDot) return;
+                const dotIndex = Array.from(dotsEl.children).indexOf(activeDot);
+                const dotW = activeDot.offsetWidth + 5; // dot width + gap
+                const containerW = centerEl.offsetWidth;
+                const dotsW = dotsEl.scrollWidth;
+                // Ideal: centre the active dot inside the container
+                const idealOffset = dotIndex * dotW - containerW / 2 + dotW / 2;
+                const maxOffset = Math.max(0, dotsW - containerW);
+                const clamped = Math.max(0, Math.min(maxOffset, idealOffset));
+                dotsEl.style.transform = `translateX(-${clamped}px)`;
+            }
+
+            // Watch for class changes on child dots (active state)
+            const obs = new MutationObserver(scrollToActiveDot);
+            obs.observe(dotsEl, { subtree: true, attributes: true, attributeFilter: ['class'] });
+            scrollToActiveDot();
+        })();
     }
 
     if (document.readyState === 'loading') {

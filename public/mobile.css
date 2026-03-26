@@ -178,22 +178,27 @@
         display: none !important; /* Hide title input to save space */
     }
 
+    /* Show slide dots on mobile — same as desktop, clipped & scrolled when too many */
     .preview-unified-center {
         display: flex !important;
-        flex: 0 0 auto !important;
+        flex: 1 1 0 !important;
+        max-width: 160px !important;
         align-items: center !important;
         justify-content: center !important;
+        overflow: hidden !important;
     }
 
-    /* Hide dots, keep only the text counter */
+    /* Dots visible; JS will translateX to keep active dot centred */
     .preview-unified-center .slide-dots {
-        display: none !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        will-change: transform;
     }
 
+    /* Hide text label — dots already convey position */
     .preview-unified-center .slide-label {
-        font-size: 0.85rem !important;
-        color: var(--muted) !important;
-        white-space: nowrap !important;
+        display: none !important;
     }
 
     .preview-unified-right {
