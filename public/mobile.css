@@ -70,7 +70,7 @@
         flex: 1 !important;
         margin-top: 0 !important;
         padding: 0 !important;
-        touch-action: none; /* Block browser zoom/pan to use our custom JS-based pinch-to-zoom bridge */
+        touch-action: manipulation; /* Allow native browser zoom/pan everywhere */
     }
 
     .preview-wrapper-scrollable {

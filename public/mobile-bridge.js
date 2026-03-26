@@ -145,35 +145,34 @@
             }
         };
 
-        const bindZoomEvents = (el) => {
-            if (!el) return;
-            el.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 2) handleZoomStart(e);
-                else mapTouchToMouse(e, 'mousedown');
-            }, { passive: false });
+        const bindEvents = (element) => {
+            if (!element) return;
+            element.addEventListener('touchstart', (e) => {
+                // Ignore multi-touch to let native zoom handle it
+                if (e.touches && e.touches.length > 1) return;
+                mapTouchToMouse(e, 'mousedown');
+            }, { passive: true });
 
-            el.addEventListener('touchmove', (e) => {
-                if (e.touches.length === 2) handleZoomMove(e);
-                else if (dragTarget) mapTouchToMouse(e, 'mousemove');
-            }, { passive: false });
+            element.addEventListener('touchmove', (e) => {
+                if (e.touches && e.touches.length > 1) return;
+                if (dragTarget) mapTouchToMouse(e, 'mousemove');
+            }, { passive: true });
 
-            el.addEventListener('touchend', (e) => {
-                if (e.touches.length < 2) initialPinchDist = 0;
+            element.addEventListener('touchend', (e) => {
                 mapTouchToMouse(e, 'mouseup');
-            }, { passive: false });
+            }, { passive: true });
 
-            el.addEventListener('touchcancel', (e) => {
-                initialPinchDist = 0;
+            element.addEventListener('touchcancel', (e) => {
                 mapTouchToMouse(e, 'mouseup');
-            }, { passive: false });
+            }, { passive: true });
         };
 
-        // Bind to both parent stage and iframe document (no bubbling)
-        bindZoomEvents(stage);
+        // Bind for single-touch editing while allowing native zoom
+        bindEvents(stage);
         previewIframe.addEventListener('load', () => {
-            if (previewIframe.contentDocument) bindZoomEvents(previewIframe.contentDocument);
+            if (previewIframe.contentDocument) bindEvents(previewIframe.contentDocument);
         });
-        if (previewIframe.contentDocument) bindZoomEvents(previewIframe.contentDocument);
+        if (previewIframe.contentDocument) bindEvents(previewIframe.contentDocument);
         
         const mobileOverlay = document.getElementById('mobile-overlay');
         const minimap = document.getElementById('editor-minimap');
