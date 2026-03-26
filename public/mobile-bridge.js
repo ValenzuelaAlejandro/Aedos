@@ -3,7 +3,7 @@
  * Maps touch events to mouse events to enable editor interactivity on mobile
  * without modifying the core desktop-focused editor.js.
  * 
- * Version v=11 - SWIPE NAVIGATION + PAN + PINCH via overlay
+ * Version v=12 - LONG-PRESS DRAG + INTENT-BASED GESTURE STATE MACHINE
  */
 (function() {
     // Global navigation toggle for mobile drawers
@@ -133,11 +133,15 @@
             applyZoomAndPan();
         }
 
-        function mapTouchToMouse(e, type) {
-            // Multi-touch is handled by the pinch zoom system above
-            if (e.touches && e.touches.length > 1) return;
+        // mapTouchToMouse can be called with e=null and overrideTouch when
+        // dispatching from the long-press timer (no live touch event available).
+        function mapTouchToMouse(e, type, overrideTouch) {
+            // Multi-touch guard — skip when using overrideTouch (synthetic call)
+            if (!overrideTouch && e && e.touches && e.touches.length > 1) return;
 
-            const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+            const touch = overrideTouch ||
+                (e && e.touches && e.touches[0]) ||
+                (e && e.changedTouches && e.changedTouches[0]);
             if (!touch) return;
 
             const iframe = document.getElementById('preview-iframe');
@@ -187,115 +191,148 @@
 
             // Prevent scroll/gesture interference while dragging or resizing
             if (dragTarget && dragTarget !== iframeDoc.body && dragTarget !== iframeDoc.documentElement) {
-                if (e.cancelable) e.preventDefault();
+                if (e && e.cancelable) e.preventDefault();
             }
         }
 
         // ── Transparent capture overlay (over the iframe in the parent DOM) ────────
         // Sits above the iframe in z-order so ALL touches on the slide area hit this
-        // div — no cross-frame event routing needed.  2-finger events are also
-        // forwarded to the document-level pinch handler below.
+        // div — no cross-frame event routing needed.
+        //
+        // Single-touch gesture state machine:
+        //   'pending'       — touch just started, waiting to classify (< MOVE_THRESHOLD)
+        //   'slide-swipe'   — horizontal swipe detected (zoom=1), will navigate on end
+        //   'longpress-drag'— long press fired, forwarding mouse drag events
+        //   'pan'           — view pan (zoom>1, or vertical swipe)
+        //   'none'          — gesture cancelled / unrecognised, eat touches silently
         const overlay = document.getElementById('touch-capture-overlay');
         if (overlay) {
-            // gestureActive: null | 'drag' | 'pan' | 'slide-swipe'
-            // Resolved once movement exceeds 8px threshold.
-            let gestureActive = null;
-            let swipeStartX = 0, swipeStartY = 0;
+            const LONG_PRESS_MS  = 320;
+            const MOVE_THRESHOLD = 10;
+            const SWIPE_MIN      = 40;
+
+            let mode = null;            // current gesture mode (strings above)
+            let longPressTimer = null;
+            let touchOriginX = 0, touchOriginY = 0;
+            let pendingTouchCoords = null; // stored for longpress synthetic mousedown
+
+            function cancelLP() {
+                if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+            }
 
             overlay.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) {
-                    // Multi-touch: cancel anything in-progress, let document-level pinch take over.
+                    // Multi-touch: abort everything, let document-level pinch take over.
+                    cancelLP();
                     if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
                     panState = null;
-                    gestureActive = null;
+                    mode = null;
                     return;
                 }
                 const t = e.touches[0];
-                swipeStartX = t.clientX;
-                swipeStartY = t.clientY;
-                gestureActive = null;
+                cancelLP();
+                touchOriginX = t.clientX;
+                touchOriginY = t.clientY;
+                pendingTouchCoords = { clientX: t.clientX, clientY: t.clientY,
+                                       screenX: t.screenX,  screenY: t.screenY };
+
                 if (window._eidos_mobile_zoom > 1) {
+                    // Zoomed: always pan, never drag elements (avoids accidental selection).
+                    mode = 'pan';
                     panState = {
-                        startX: t.clientX, startY: t.clientY,
+                        startX: t.clientX,  startY: t.clientY,
                         startPanX: window._eidos_pan.x, startPanY: window._eidos_pan.y,
                         moved: false
                     };
+                } else {
+                    mode = 'pending';
+                    // Start long-press countdown for element dragging.
+                    longPressTimer = setTimeout(() => {
+                        longPressTimer = null;
+                        if (mode !== 'pending') return;
+                        mode = 'longpress-drag';
+                        mapTouchToMouse(null, 'mousedown', pendingTouchCoords);
+                    }, LONG_PRESS_MS);
                 }
-                mapTouchToMouse(e, 'mousedown');
                 if (e.cancelable) e.preventDefault();
             }, { passive: false });
 
             overlay.addEventListener('touchmove', (e) => {
                 if (e.touches.length > 1) return; // handled by document-level pinch
                 const t = e.touches[0];
-                const dx = t.clientX - swipeStartX;
-                const dy = t.clientY - swipeStartY;
+                const dx = t.clientX - touchOriginX;
+                const dy = t.clientY - touchOriginY;
+                const dist = Math.hypot(dx, dy);
 
-                // ── Zoomed in: pan the view ──────────────────────────────────
-                if (panState) {
-                    if (!panState.moved && Math.hypot(dx, dy) > 8) {
-                        panState.moved = true;
-                        gestureActive = 'pan';
-                        if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
-                    }
-                    if (panState.moved) {
-                        window._eidos_pan.x = panState.startPanX + dx;
-                        window._eidos_pan.y = panState.startPanY + dy;
-                        applyZoomAndPan();
-                        if (e.cancelable) e.preventDefault();
-                        return;
-                    }
-                }
-
-                // ── Normal zoom: resolve gesture type once threshold passed ──
-                if (!gestureActive && Math.hypot(dx, dy) > 8) {
-                    const isHoriz = Math.abs(dx) > Math.abs(dy) * 1.5;
-                    if (isHoriz && window._eidos_mobile_zoom <= 1) {
-                        gestureActive = 'slide-swipe';
-                        // Cancel the mousedown drag that fired on touchstart
-                        if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
-                    } else {
-                        gestureActive = 'drag';
-                    }
-                }
-
-                if (gestureActive === 'slide-swipe') {
+                // ── Pan mode (zoom > 1) ──────────────────────────────────────
+                if (mode === 'pan' && panState) {
+                    panState.moved = panState.moved || dist > MOVE_THRESHOLD;
+                    window._eidos_pan.x = panState.startPanX + dx;
+                    window._eidos_pan.y = panState.startPanY + dy;
+                    applyZoomAndPan();
                     if (e.cancelable) e.preventDefault();
-                    return; // don't forward mousemove — we'll navigate on touchend
+                    return;
                 }
 
-                if (dragTarget) mapTouchToMouse(e, 'mousemove');
+                // ── Resolve pending gesture once threshold crossed ───────────
+                if (mode === 'pending' && dist > MOVE_THRESHOLD) {
+                    cancelLP();
+                    const isHoriz = Math.abs(dx) > Math.abs(dy) * 1.4;
+                    mode = isHoriz ? 'slide-swipe' : 'none';
+                }
+
+                // ── Forwarding drag events ───────────────────────────────────
+                if (mode === 'longpress-drag') {
+                    mapTouchToMouse(e, 'mousemove');
+                    if (e.cancelable) e.preventDefault();
+                    return;
+                }
+
+                // All other modes: eat the move silently.
                 if (e.cancelable) e.preventDefault();
             }, { passive: false });
 
             overlay.addEventListener('touchend', (e) => {
+                cancelLP();
                 const ct = e.changedTouches[0];
-                const dx = ct.clientX - swipeStartX;
+                const dx = ct.clientX - touchOriginX;
+                const prevMode = mode;
+                mode = null;
 
-                if (panState && panState.moved) {
+                if (prevMode === 'pan') {
                     panState = null;
                     dragTarget = null;
-                    gestureActive = null;
                     return;
                 }
-                panState = null;
 
-                if (gestureActive === 'slide-swipe') {
-                    gestureActive = null;
+                if (prevMode === 'slide-swipe') {
                     dragTarget = null;
-                    if (dx < -50 && window.eidosNextSlide) window.eidosNextSlide();
-                    else if (dx > 50 && window.eidosPrevSlide) window.eidosPrevSlide();
+                    if (dx < -SWIPE_MIN && window.eidosNextSlide) window.eidosNextSlide();
+                    else if (dx > SWIPE_MIN && window.eidosPrevSlide)  window.eidosPrevSlide();
                     return;
                 }
-                gestureActive = null;
 
+                if (prevMode === 'longpress-drag') {
+                    mapTouchToMouse(e, 'mouseup');
+                    return;
+                }
+
+                if (prevMode === 'pending') {
+                    // Normal tap: send a quick click (mousedown then mouseup).
+                    mapTouchToMouse(e, 'mousedown', pendingTouchCoords);
+                    setTimeout(() => mapTouchToMouse(e, 'mouseup', pendingTouchCoords), 20);
+                    return;
+                }
+
+                // 'none' or fallback
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
 
             overlay.addEventListener('touchcancel', (e) => {
+                cancelLP();
                 panState = null;
-                gestureActive = null;
-                if (dragTarget) mapTouchToMouse(e, 'mouseup');
+                mode = null;
+                if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
             }, { passive: false });
         }
 
