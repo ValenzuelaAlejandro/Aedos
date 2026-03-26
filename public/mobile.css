@@ -30,37 +30,9 @@
         transform: translateX(280px);
     }
 
-    /* 3. Tools Panel as Bottom Sheet */
+    /* 3. Tools Panel: HIDDEN on mobile (no editing tools UI) */
     .editor-tools-panel {
-        position: fixed !important;
-        bottom: -50vh; /* Hidden state */
-        left: 0;
-        right: 0;
-        height: 50vh !important;
-        width: 100vw !important;
-        background: var(--surface);
-        z-index: 5000;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border-top: 1px solid var(--border);
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
-        flex: none !important;
-        padding-bottom: 80px !important;
-    }
-
-    .editor-tools-panel.open {
-        transform: translateY(-50vh);
-    }
-
-    /* Handle for bottom sheet */
-    .editor-tools-panel::before {
-        content: '';
-        display: block;
-        width: 40px;
-        height: 4px;
-        background: rgba(255,255,255,0.2);
-        margin: 10px auto;
-        border-radius: 2px;
+        display: none !important;
     }
 
     /* 4. Preview Stage Occupies 100vw */
