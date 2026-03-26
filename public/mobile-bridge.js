@@ -3,7 +3,7 @@
  * Maps touch events to mouse events to enable editor interactivity on mobile
  * without modifying the core desktop-focused editor.js.
  * 
- * Version v=12 - LONG-PRESS DRAG + INTENT-BASED GESTURE STATE MACHINE
+ * Version v=12 - LONG-PRESS DRAG + INTENT-BASED GESTURE STATE MACHINE + DOUBLE-TAP FIX
  */
 (function() {
     // Global navigation toggle for mobile drawers
@@ -51,20 +51,12 @@
         const isMobile = () => window.innerWidth < 850;
         if (!isMobile()) return;
 
-        // NOTE: app.js replaces the iframe DOM node via cloneNode/replaceChild every
-        // time slides are rendered, so caching the reference leads to a stale pointer.
-        // We always look up the current node dynamically via getElementById.
-
         let dragTarget = null;
-        let panState = null; // single-finger view-pan when zoomed in
+        let panState = null;
 
-        // ── Pinch-to-zoom + 2-finger pan ──────────────────────────────────────
-        // Registered at document level so it fires even when both fingers land
-        // directly on the iframe (those touches go to the iframe document, not
-        // the parent, so a stage-level listener never sees them).
         window._eidos_mobile_zoom = window._eidos_mobile_zoom || 1;
         window._eidos_pan = window._eidos_pan || { x: 0, y: 0 };
-        let pinchState = null; // { startDist, startZoom, lastMidX, lastMidY }
+        let pinchState = null;
 
         function getPinchDist(touches) {
             const dx = touches[0].clientX - touches[1].clientX;
@@ -88,7 +80,6 @@
             wrapper.style.width = `${scaledW}px`;
             wrapper.style.height = `${scaledH}px`;
 
-            // Clamp pan so the slide never goes fully off-screen
             const viewW = (scrollable ? scrollable.clientWidth : 0) || window.innerWidth;
             const viewH = (scrollable ? scrollable.clientHeight : 0) || window.innerHeight;
             const maxPanX = Math.max(0, (scaledW - viewW) / 2);
@@ -133,10 +124,7 @@
             applyZoomAndPan();
         }
 
-        // mapTouchToMouse can be called with e=null and overrideTouch when
-        // dispatching from the long-press timer (no live touch event available).
         function mapTouchToMouse(e, type, overrideTouch) {
-            // Multi-touch guard — skip when using overrideTouch (synthetic call)
             if (!overrideTouch && e && e.touches && e.touches.length > 1) return;
 
             const touch = overrideTouch ||
@@ -151,10 +139,8 @@
             if (!iframeDoc || !iframeWin) return;
 
             const rect = iframe.getBoundingClientRect();
-            // Try to find scale in iframe first (where app.js sets it), then fallback to parent
             const scale = iframeWin._eidosIframeScale || window._eidosIframeScale || 1;
             
-            // Map coordinates relative to INTERNAL iframe document
             const relX = (touch.clientX - rect.left) / scale;
             const relY = (touch.clientY - rect.top) / scale;
 
@@ -174,10 +160,7 @@
             const mouseEvent = new MouseEvent(type, eventInit);
 
             if (type === 'mousedown') {
-                // Precise hit testing inside the iframe
                 dragTarget = iframeDoc.elementFromPoint(relX, relY) || iframeDoc.body;
-                
-                // CRITICAL IMPROVEMENT: If we hit something near a resize handle, give it priority
                 const possibleHandle = dragTarget.closest('.eidos-resize-handle');
                 if (possibleHandle) dragTarget = possibleHandle;
             }
@@ -189,32 +172,21 @@
                 dragTarget = null;
             }
 
-            // Prevent scroll/gesture interference while dragging or resizing
             if (dragTarget && dragTarget !== iframeDoc.body && dragTarget !== iframeDoc.documentElement) {
                 if (e && e.cancelable) e.preventDefault();
             }
         }
 
-        // ── Transparent capture overlay (over the iframe in the parent DOM) ────────
-        // Sits above the iframe in z-order so ALL touches on the slide area hit this
-        // div — no cross-frame event routing needed.
-        //
-        // Single-touch gesture state machine:
-        //   'pending'       — touch just started, waiting to classify (< MOVE_THRESHOLD)
-        //   'slide-swipe'   — horizontal swipe detected (zoom=1), will navigate on end
-        //   'longpress-drag'— long press fired, forwarding mouse drag events
-        //   'pan'           — view pan (zoom>1, or vertical swipe)
-        //   'none'          — gesture cancelled / unrecognised, eat touches silently
         const overlay = document.getElementById('touch-capture-overlay');
         if (overlay) {
             const LONG_PRESS_MS  = 320;
             const MOVE_THRESHOLD = 10;
             const SWIPE_MIN      = 40;
 
-            let mode = null;            // current gesture mode (strings above)
+            let mode = null;
             let longPressTimer = null;
             let touchOriginX = 0, touchOriginY = 0;
-            let pendingTouchCoords = null; // stored for longpress synthetic mousedown
+            let pendingTouchCoords = null;
             let lastTapTime = 0;
             let lastTapCoords = null;
 
@@ -224,7 +196,6 @@
 
             overlay.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) {
-                    // Multi-touch: abort everything, let document-level pinch take over.
                     cancelLP();
                     if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
                     panState = null;
@@ -239,7 +210,6 @@
                                        screenX: t.screenX,  screenY: t.screenY };
 
                 if (window._eidos_mobile_zoom > 1) {
-                    // Zoomed: always pan, never drag elements (avoids accidental selection).
                     mode = 'pan';
                     panState = {
                         startX: t.clientX,  startY: t.clientY,
@@ -248,7 +218,6 @@
                     };
                 } else {
                     mode = 'pending';
-                    // Start long-press countdown for element dragging.
                     longPressTimer = setTimeout(() => {
                         longPressTimer = null;
                         if (mode !== 'pending') return;
@@ -260,13 +229,12 @@
             }, { passive: false });
 
             overlay.addEventListener('touchmove', (e) => {
-                if (e.touches.length > 1) return; // handled by document-level pinch
+                if (e.touches.length > 1) return;
                 const t = e.touches[0];
                 const dx = t.clientX - touchOriginX;
                 const dy = t.clientY - touchOriginY;
                 const dist = Math.hypot(dx, dy);
 
-                // ── Pan mode (zoom > 1) ──────────────────────────────────────
                 if (mode === 'pan' && panState) {
                     panState.moved = panState.moved || dist > MOVE_THRESHOLD;
                     window._eidos_pan.x = panState.startPanX + dx;
@@ -276,21 +244,18 @@
                     return;
                 }
 
-                // ── Resolve pending gesture once threshold crossed ───────────
                 if (mode === 'pending' && dist > MOVE_THRESHOLD) {
                     cancelLP();
                     const isHoriz = Math.abs(dx) > Math.abs(dy) * 1.4;
                     mode = isHoriz ? 'slide-swipe' : 'none';
                 }
 
-                // ── Forwarding drag events ───────────────────────────────────
                 if (mode === 'longpress-drag') {
                     mapTouchToMouse(e, 'mousemove');
                     if (e.cancelable) e.preventDefault();
                     return;
                 }
 
-                // All other modes: eat the move silently.
                 if (e.cancelable) e.preventDefault();
             }, { passive: false });
 
@@ -310,7 +275,7 @@
                 if (prevMode === 'slide-swipe') {
                     dragTarget = null;
                     if (dx < -SWIPE_MIN && window.eidosNextSlide) window.eidosNextSlide();
-                    else if (dx > SWIPE_MIN && window.eidosPrevSlide)  window.eidosPrevSlide();
+                    else if (dx > SWIPE_MIN && window.eidosPrevSlide) window.eidosPrevSlide();
                     return;
                 }
 
@@ -320,66 +285,61 @@
                 }
 
                 if (prevMode === 'pending') {
-                    // Check for double-tap to trigger text editing or image picker
+                    // Double-tap detection for text editing and image picker
                     const now = Date.now();
-                    const isDoubleTap = (now - lastTapTime < 300) &&
+                    const isDoubleTap = (now - lastTapTime < 350) &&
                         lastTapCoords &&
-                        Math.hypot(pendingTouchCoords.clientX - lastTapCoords.x, pendingTouchCoords.clientY - lastTapCoords.y) < 20;
+                        Math.hypot(pendingTouchCoords.clientX - lastTapCoords.x, pendingTouchCoords.clientY - lastTapCoords.y) < 30;
                     
                     lastTapTime = now;
                     lastTapCoords = { x: pendingTouchCoords.clientX, y: pendingTouchCoords.clientY };
 
                     if (isDoubleTap) {
-                        lastTapTime = 0; // Reset to prevent triple-tap
-                        // Dispatch dblclick inside iframe at the tap position
+                        lastTapTime = 0;
                         const iframe = document.getElementById('preview-iframe');
-                        if (iframe && iframe.contentDocument) {
+                        if (iframe && iframe.contentDocument && iframe.contentWindow) {
                             const rect = iframe.getBoundingClientRect();
                             const scale = iframe.contentWindow._eidosIframeScale || 1;
                             const relX = (pendingTouchCoords.clientX - rect.left) / scale;
                             const relY = (pendingTouchCoords.clientY - rect.top) / scale;
-                            const target = iframe.contentDocument.elementFromPoint(relX, relY);
-                            if (target) {
-                                target.dispatchEvent(new MouseEvent('dblclick', {
-                                    bubbles: true,
-                                    cancelable: true,
-                                    view: iframe.contentWindow,
-                                    clientX: relX,
-                                    clientY: relY
-                                }));
-                            }
+                            
+                            const evt = new MouseEvent('dblclick', {
+                                bubbles: true,
+                                cancelable: true,
+                                clientX: relX,
+                                clientY: relY,
+                                screenX: pendingTouchCoords.screenX,
+                                screenY: pendingTouchCoords.screenY,
+                                view: iframe.contentWindow
+                            });
+                            iframe.contentDocument.body.dispatchEvent(evt);
                         }
                         return;
                     }
 
-                    // Single tap: send a quick click (mousedown then mouseup).
                     mapTouchToMouse(null, 'mousedown', pendingTouchCoords);
                     setTimeout(() => mapTouchToMouse(null, 'mouseup', pendingTouchCoords), 20);
                     return;
                 }
 
-                // 'none' or fallback
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
 
             overlay.addEventListener('touchcancel', (e) => {
                 cancelLP();
                 panState = null;
-                mode = null;
+                mode = null;  
                 if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
             }, { passive: false });
         }
 
-        // ── Document-level 2-finger pinch + pan ───────────────────────────────
-        // Works anywhere on the page except the panel UI elements.
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 2) return;
             const t0 = e.touches[0];
-            // Exclude panel/nav UI — allow everywhere else (stage, iframe, surrounding area)
             if (t0.target && t0.target.closest('#mobile-bottom-nav, .editor-tools-panel, .editor-minimap')) return;
             e.preventDefault();
-            panState = null; // cancel any in-progress single-finger pan
-            if (dragTarget) { dragTarget = null; } // cancel any in-progress single-touch drag
+            panState = null;
+            if (dragTarget) { dragTarget = null; }
             startPinchFromTouchList(e.touches);
         }, { passive: false });
 
@@ -394,7 +354,6 @@
         }, { passive: false });
 
         document.addEventListener('touchcancel', () => { pinchState = null; }, { passive: false });
-        // ────────────────────────────────────────────────────────────────────
         
         const mobileOverlay = document.getElementById('mobile-overlay');
         const minimap = document.getElementById('editor-minimap');
@@ -411,7 +370,6 @@
                 mobileOverlay.classList.remove('visible');
                 mobileOverlay.style.pointerEvents = 'none';
                 
-                // Sync nav buttons
                 document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
                     const onclickStr = btn.getAttribute('onclick') || '';
                     btn.classList.toggle('active', onclickStr.includes("'canvas'"));
@@ -420,6 +378,49 @@
             mobileOverlay.addEventListener('mousedown', closeOverlay);
             mobileOverlay.addEventListener('touchstart', closeOverlay, { passive: false });
         }
+
+        // Minimap touch scroll
+        (function initMinimapTouchScroll() {
+            const minimapEl = document.getElementById('editor-minimap');
+            const listEl = document.getElementById('minimap-list');
+            if (!minimapEl || !listEl) return;
+
+            let scrollStartY = null;
+            let scrollStartOffset = 0;
+
+            function getCurrentOffsetY() {
+                const t = listEl.style.transform || '';
+                const m = t.match(/translateY\((-?[\d.]+)px\)/);
+                return m ? parseFloat(m[1]) : 0;
+            }
+
+            function clampOffset(y) {
+                const maxY = minimapEl.clientHeight / 2;
+                const minY = -(Math.max(0, listEl.scrollHeight - minimapEl.clientHeight / 2));
+                return Math.max(minY, Math.min(maxY, y));
+            }
+
+            minimapEl.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                scrollStartY = e.touches[0].clientY;
+                scrollStartOffset = getCurrentOffsetY();
+                listEl.style.transition = 'none';
+                e.stopPropagation();
+            }, { passive: true });
+
+            minimapEl.addEventListener('touchmove', (e) => {
+                if (scrollStartY === null || e.touches.length !== 1) return;
+                const dy = e.touches[0].clientY - scrollStartY;
+                listEl.style.transform = `translateY(${clampOffset(scrollStartOffset + dy)}px)`;
+                e.stopPropagation();
+                if (e.cancelable) e.preventDefault();
+            }, { passive: false });
+
+            minimapEl.addEventListener('touchend', () => {
+                scrollStartY = null;
+                listEl.style.transition = 'transform 380ms cubic-bezier(0.4, 0, 0.2, 1)';
+            }, { passive: true });
+        })();
     }
 
     if (document.readyState === 'loading') {
