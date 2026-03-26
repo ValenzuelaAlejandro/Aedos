@@ -69,7 +69,7 @@
         flex: 1 !important;
         margin-top: 0 !important;
         padding: 0 !important;
-        touch-action: none; /* Disable ALL browser touch gestures to let bridge handle drag/resize */
+        touch-action: pinch-zoom; /* Allow pinch-to-zoom while bridge handles single-finger drag */
     }
 
     .preview-wrapper-scrollable {
@@ -135,59 +135,155 @@
     }
 
     /* Hide desktop-only UI if necessary */
+    /* 5. Header Optimization - Fix cut-off buttons */
     .preview-unified-header {
         position: fixed !important;
         top: 0;
         left: 0;
         right: 0;
+        display: flex !important;
+        grid-template-columns: none !important; /* Force flex on mobile */
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0 0.5rem !important;
+        height: 52px !important;
+        background: var(--bg) !important;
         z-index: 4998;
     }
 
-    /* 6. Logo Adjustment (Esquina Superior Izquierda) */
-    #chat-screen,
-    .chat-container,
-    .app-header {
-        overflow: visible !important;
+    .preview-unified-left {
+        flex: 0 0 auto !important;
+        gap: 0.4rem !important;
+    }
+
+    .preview-unified-left .preview-topic-input {
+        display: none !important; /* Hide title input to save space */
+    }
+
+    .preview-unified-center {
+        display: none !important; /* Hide slide dots/label on mobile */
+    }
+
+    .preview-unified-right {
+        flex: 1 !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        gap: 0.3rem !important;
+        overflow: hidden !important;
+    }
+
+    .preview-unified-right .action-btn {
+        padding: 6px !important;
+        min-width: 36px !important;
+        height: 36px !important;
+        gap: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: transparent !important;
+        border: none !important;
+        color: var(--muted) !important;
+    }
+
+    .preview-unified-right .action-btn span {
+        display: none !important; /* Hide text labels */
+    }
+
+    .preview-unified-right select#canvas-zoom-select {
+        font-size: 0.8rem !important;
+        padding: 0 2px !important;
+        max-width: 50px !important;
+        background: transparent !important;
+        color: var(--muted) !important;
+    }
+
+    .header-v-separator {
+        display: none !important;
+    }
+
+    #finalize-btn, #preview-reset-btn {
+        background: transparent !important;
+        border: none !important;
+        color: var(--muted) !important;
+    }
+
+    /* Fix centering for complex buttons with wrappers */
+    #finalize-btn .btn-content-wrap {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* 6. Centrado de Logo y Chips en Móvil (Manteniendo estilo Desktop) */
+    #chat-screen {
+        padding: 2rem 1.5rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .chat-container {
+        width: 100% !important;
+        max-width: 500px !important;
+        gap: 1.5rem !important;
     }
 
     .app-header {
-        display: flex !important; /* Allow the logo to move freely inside */
+        display: flex !important;
         flex-direction: column !important;
-        align-items: flex-start !important;
-        justify-content: flex-start !important;
-        text-align: left !important;
-        padding: 0 !important;
+        align-items: center !important;
+        text-align: center !important;
     }
 
     body .app-logo {
-        position: fixed !important;
-        top: 20px !important;
-        left: 20px !important;
-        font-size: 1.4rem !important; /* Drastically reduce text-based logo */
-        max-width: none !important;
-        width: auto !important;
-        z-index: 99999 !important; /* SUPER HIGHER Z-INDEX */
-        transform: none !important;
-        margin: 0 !important;
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        font-size: 2.5rem !important;
+        margin-bottom: 0.5rem !important;
         display: flex !important;
-        align-items: center;
-        justify-content: flex-start !important;
-        letter-spacing: -0.01em !important;
-    }
-
-    body .app-logo .dot {
-        width: 6px !important;
-        height: 6px !important;
-        margin-bottom: 2px !important;
+        justify-content: center !important;
     }
 
     body .app-microcopy {
-        margin-top: 55px !important;
-        text-align: left !important;
-        padding-left: 20px !important;
+        margin-top: 0 !important;
+        text-align: center !important;
+        font-size: 0.85rem !important;
+    }
+
+    /* Acomodando las chips como Desktop pero agrupadas */
+    .suggestion-chips {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        margin-top: 1.5rem !important;
         width: 100% !important;
-        font-size: 0.75rem !important;
-        opacity: 0.7 !important; /* Make it subtle */
+        padding: 0 10px !important;
+    }
+
+    .chip {
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        padding: 6px 16px !important;
+        border-radius: 999px !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        background: #1a1a1d !important;
+        color: rgba(255,255,255,0.5) !important;
+        font-size: 13px !important;
+        transition: all 0.15s ease !important;
+        white-space: nowrap !important;
+    }
+
+    .chip:active {
+        border-color: rgba(255,255,255,0.25) !important;
+        color: rgba(255,255,255,0.85) !important;
+        background: #252528 !important;
+        transform: scale(0.96);
     }
 }
 
