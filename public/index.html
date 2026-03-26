@@ -403,15 +403,6 @@
         <!-- Mobile Navigation (Moved inside preview-container stacking context) -->
         <div id="mobile-overlay"></div>
         <nav id="mobile-bottom-nav">
-            <button class="mobile-nav-btn" onclick="toggleMobileDrawer('minimap', event)">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="14" width="7" height="7"></rect>
-                    <rect x="3" y="14" width="7" height="7"></rect>
-                </svg>
-                <span data-i18n="slides">Slides</span>
-            </button>
             <button class="mobile-nav-btn mobile-prev-btn" onclick="if(window.eidosPrevSlide) window.eidosPrevSlide()" aria-label="Previous slide">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="15 18 9 12 15 6"></polyline>
@@ -423,7 +414,7 @@
                     <path d="M3 9h18"></path>
                     <path d="M9 21V9"></path>
                 </svg>
-                <span data-i18n="editor">Editor</span>
+                <span data-i18n="slides">Slides</span>
             </button>
             <button class="mobile-nav-btn mobile-next-btn" onclick="if(window.eidosNextSlide) window.eidosNextSlide()" aria-label="Next slide">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

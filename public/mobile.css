@@ -26,6 +26,16 @@
         flex: none !important;
     }
 
+    /* Completely hide minimap on mobile (user requested full removal) */
+    .editor-minimap {
+        display: none !important;
+    }
+
+    /* Hide present / undo / redo buttons on mobile (desktop unchanged) */
+    #btn-undo, #btn-redo, #btn-present {
+        display: none !important;
+    }
+
     .editor-minimap.open {
         transform: translateX(280px);
     }

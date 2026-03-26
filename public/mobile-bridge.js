@@ -336,7 +336,7 @@
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 2) return;
             const t0 = e.touches[0];
-            if (t0.target && t0.target.closest('#mobile-bottom-nav, .editor-tools-panel, .editor-minimap')) return;
+            if (t0.target && t0.target.closest('#mobile-bottom-nav, .editor-tools-panel')) return;
             e.preventDefault();
             panState = null;
             if (dragTarget) { dragTarget = null; }
@@ -379,48 +379,7 @@
             mobileOverlay.addEventListener('touchstart', closeOverlay, { passive: false });
         }
 
-        // Minimap touch scroll
-        (function initMinimapTouchScroll() {
-            const minimapEl = document.getElementById('editor-minimap');
-            const listEl = document.getElementById('minimap-list');
-            if (!minimapEl || !listEl) return;
-
-            let scrollStartY = null;
-            let scrollStartOffset = 0;
-
-            function getCurrentOffsetY() {
-                const t = listEl.style.transform || '';
-                const m = t.match(/translateY\((-?[\d.]+)px\)/);
-                return m ? parseFloat(m[1]) : 0;
-            }
-
-            function clampOffset(y) {
-                const maxY = minimapEl.clientHeight / 2;
-                const minY = -(Math.max(0, listEl.scrollHeight - minimapEl.clientHeight / 2));
-                return Math.max(minY, Math.min(maxY, y));
-            }
-
-            minimapEl.addEventListener('touchstart', (e) => {
-                if (e.touches.length !== 1) return;
-                scrollStartY = e.touches[0].clientY;
-                scrollStartOffset = getCurrentOffsetY();
-                listEl.style.transition = 'none';
-                e.stopPropagation();
-            }, { passive: true });
-
-            minimapEl.addEventListener('touchmove', (e) => {
-                if (scrollStartY === null || e.touches.length !== 1) return;
-                const dy = e.touches[0].clientY - scrollStartY;
-                listEl.style.transform = `translateY(${clampOffset(scrollStartOffset + dy)}px)`;
-                e.stopPropagation();
-                if (e.cancelable) e.preventDefault();
-            }, { passive: false });
-
-            minimapEl.addEventListener('touchend', () => {
-                scrollStartY = null;
-                listEl.style.transition = 'transform 380ms cubic-bezier(0.4, 0, 0.2, 1)';
-            }, { passive: true });
-        })();
+        // Minimap removed on mobile — touch-scrolling handled by desktop minimap only.
     }
 
     if (document.readyState === 'loading') {
