@@ -73,10 +73,11 @@
     }
 
     .preview-wrapper-scrollable {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden !important; /* Managed by JS bridge for drag */
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow: auto !important; /* Allow panning when zoomed in */
+        -webkit-overflow-scrolling: touch;
     }
 
     /* 5. Mobile UI Elements */
