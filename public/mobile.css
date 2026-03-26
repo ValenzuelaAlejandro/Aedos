@@ -159,6 +159,7 @@
         left: 0;
         right: 0;
         display: flex !important;
+        flex-wrap: nowrap !important;
         flex-direction: row !important;
         grid-template-areas: none !important;
         grid-template-columns: none !important;
@@ -166,18 +167,32 @@
         align-items: center !important;
         justify-content: space-between !important;
         padding: 0 0.5rem !important;
+        gap: 0.45rem !important;
         height: 52px !important;
+        min-height: 52px !important;
         background: var(--bg) !important;
         z-index: 4998;
     }
 
     .preview-unified-left {
-        flex: 0 0 auto !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        display: flex !important;
+        align-items: center !important;
         gap: 0.4rem !important;
     }
 
     .preview-unified-left .preview-topic-input {
-        display: none !important; /* Hide title input to save space */
+        display: block !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        font-size: 0.86rem !important;
+        padding: 0.15rem 0.35rem !important;
     }
 
     /* Hide dots block from header on mobile — they live in the bottom nav now */
@@ -240,6 +255,7 @@
         display: flex !important;
         justify-content: flex-end !important;
         align-items: center !important;
+        min-width: max-content !important;
         gap: 0.3rem !important;
     }
 
