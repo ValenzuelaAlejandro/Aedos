@@ -2195,11 +2195,25 @@ document.addEventListener('DOMContentLoaded', () => {
             this.container.appendChild(this.renderer.domElement);
 
             this.clock = new THREE.Clock();
+            this._animPaused = false;
             this.initLights();
             this.initObjects();
             this.initLenis();
             this.initScrollTrigger();
             this.animate();
+
+            // Pause the render loop while the user is typing — avoids competing for
+            // the main thread with keyboard input on low-end devices.
+            const temaInput = document.getElementById('w-tema');
+            if (temaInput) {
+                temaInput.addEventListener('focus', () => { this._animPaused = true; });
+                temaInput.addEventListener('blur', () => { this._animPaused = false; });
+            }
+
+            // Also pause when the tab is hidden
+            document.addEventListener('visibilitychange', () => {
+                this._animPaused = document.hidden;
+            });
 
             window.addEventListener('resize', () => this.onResize());
         }
@@ -2313,14 +2327,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (this.lenis) this.lenis.raf(time * 1000);
             };
             gsap.ticker.add(this._lenisTickerFn);
-            gsap.ticker.lagSmoothing(0); // evita que GSAP acelere para compensar lag
+            // lagSmoothing(0) disables frame-skip protection — on slow devices GSAP floods
+            // the thread catching up on missed frames. Use default thresholds instead.
+            gsap.ticker.lagSmoothing(500, 33);
         }
 
         initScrollTrigger() {
             gsap.registerPlugin(ScrollTrigger);
 
             // Estabilizar scroll para evitar conflictos con smooth scrolling
-            ScrollTrigger.normalizeScroll(true);
+            // normalizeScroll intercepts ALL touch events on Android — including
+            // keyboard appearance — causing page freezes while typing. Desktop only.
+            if (window.innerWidth >= 850) ScrollTrigger.normalizeScroll(true);
             ScrollTrigger.config({ ignoreMobileResize: true });
 
             const steps = gsap.utils.toArray('.narrative-step');
@@ -2476,7 +2494,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         animate() {
-            requestAnimationFrame(() => this.animate());
+            this._rafId = requestAnimationFrame(() => this.animate());
+            if (this._animPaused) return;
             const time = this.clock.getElapsedTime();
 
             if (this.idleGroup) {
@@ -2508,6 +2527,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initLandingScrollytelling() {
+        // Skip Three.js on mobile — Moto G20-class hardware (Mali-G52, Helio G85) cannot
+        // sustain 60fps WebGL + GSAP + Lenis + keyboard input simultaneously.
+        if (window.innerWidth < 850 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return;
         window._eidosScrollytelling = new ThreeScrollytelling();
     }
 
