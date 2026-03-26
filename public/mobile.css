@@ -79,6 +79,21 @@
         overflow: hidden !important; /* Managed by JS bridge for drag */
     }
 
+    /* Transparent overlay that captures ALL touch events on the slide area.
+       Lives in the parent document so touches never cross the iframe boundary.
+       Must fill the wrapper exactly so it covers the iframe at any zoom level. */
+    .preview-wrapper {
+        position: relative;
+    }
+
+    #touch-capture-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        touch-action: none;
+        /* transparent – no background */
+    }
+
     /* 5. Mobile UI Elements */
     #mobile-bottom-nav {
         display: flex !important;

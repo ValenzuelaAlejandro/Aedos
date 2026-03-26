@@ -3,7 +3,7 @@
  * Maps touch events to mouse events to enable editor interactivity on mobile
  * without modifying the core desktop-focused editor.js.
  * 
- * Version v=9 - FULL-AREA PINCH + SINGLE-FINGER PAN WHEN ZOOMED
+ * Version v=10 - TRANSPARENT OVERLAY: reliable cross-frame touch capture
  */
 (function() {
     // Global navigation toggle for mobile drawers
@@ -51,8 +51,9 @@
         const isMobile = () => window.innerWidth < 850;
         if (!isMobile()) return;
 
-        const previewIframe = document.getElementById('preview-iframe');
-        if (!previewIframe) return;
+        // NOTE: app.js replaces the iframe DOM node via cloneNode/replaceChild every
+        // time slides are rendered, so caching the reference leads to a stale pointer.
+        // We always look up the current node dynamically via getElementById.
 
         let dragTarget = null;
         let panState = null; // single-finger view-pan when zoomed in
@@ -106,13 +107,6 @@
             } catch (e) {}
         }
 
-        function isTouchInsideStage(clientX, clientY) {
-            const stageEl = document.getElementById('preview-stage');
-            if (!stageEl) return false;
-            const sr = stageEl.getBoundingClientRect();
-            return clientX >= sr.left && clientX <= sr.right && clientY >= sr.top && clientY <= sr.bottom;
-        }
-
         function startPinchFromTouchList(touches) {
             if (!touches || touches.length !== 2) return;
             const midX = (touches[0].clientX + touches[1].clientX) / 2;
@@ -139,36 +133,6 @@
             applyZoomAndPan();
         }
 
-        function installIframePinchBridge() {
-            try {
-                const iframeWin = previewIframe.contentWindow;
-                const iframeDoc = previewIframe.contentDocument;
-                if (!iframeWin || !iframeDoc) return;
-                if (iframeWin.__eidosPinchBridgeInstalled) return;
-                iframeWin.__eidosPinchBridgeInstalled = true;
-
-                iframeDoc.addEventListener('touchstart', (e) => {
-                    if (e.touches.length !== 2) return;
-                    e.preventDefault();
-                    if (dragTarget) dragTarget = null;
-                    startPinchFromTouchList(e.touches);
-                }, { passive: false });
-
-                iframeDoc.addEventListener('touchmove', (e) => {
-                    if (!pinchState || e.touches.length !== 2) return;
-                    e.preventDefault();
-                    updatePinchFromTouchList(e.touches);
-                }, { passive: false });
-
-                iframeDoc.addEventListener('touchend', (e) => {
-                    if (pinchState && e.touches.length < 2) pinchState = null;
-                }, { passive: false });
-
-                iframeDoc.addEventListener('touchcancel', () => { pinchState = null; }, { passive: false });
-            } catch (e) {}
-        }
-        // ────────────────────────────────────────────────────────────────────
-
         function mapTouchToMouse(e, type) {
             // Multi-touch is handled by the pinch zoom system above
             if (e.touches && e.touches.length > 1) return;
@@ -176,11 +140,13 @@
             const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
             if (!touch) return;
 
-            const iframeDoc = previewIframe.contentDocument;
-            const iframeWin = previewIframe.contentWindow;
+            const iframe = document.getElementById('preview-iframe');
+            if (!iframe) return;
+            const iframeDoc = iframe.contentDocument;
+            const iframeWin = iframe.contentWindow;
             if (!iframeDoc || !iframeWin) return;
 
-            const rect = previewIframe.getBoundingClientRect();
+            const rect = iframe.getBoundingClientRect();
             // Try to find scale in iframe first (where app.js sets it), then fallback to parent
             const scale = iframeWin._eidosIframeScale || window._eidosIframeScale || 1;
             
@@ -225,22 +191,20 @@
             }
         }
 
-        const stage = document.getElementById('preview-stage');
-        if (stage) {
-            // Single-touch: drag/resize elements inside the iframe OR pan the view when zoomed in.
-            // 2-finger pinch+pan is handled at document level.
-            stage.addEventListener('touchstart', (e) => {
-                if (e.target.closest('#mobile-bottom-nav') || e.target.closest('.editor-tools-panel') || e.target.closest('.editor-minimap')) {
-                    return;
-                }
+        // ── Transparent capture overlay (over the iframe in the parent DOM) ────────
+        // Sits above the iframe in z-order so ALL touches on the slide area hit this
+        // div — no cross-frame event routing needed.  2-finger events are also
+        // forwarded to the document-level pinch handler below.
+        const overlay = document.getElementById('touch-capture-overlay');
+        if (overlay) {
+            overlay.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) {
-                    // Second finger added: cancel any in-progress drag/pan cleanly.
+                    // Multi-touch: cancel drag/pan and let document-level pinch take over.
                     if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
                     panState = null;
                     return;
                 }
                 const t = e.touches[0];
-                // When already zoomed in, track touch for potential pan gesture.
                 if (window._eidos_mobile_zoom > 1) {
                     panState = {
                         startX: t.clientX, startY: t.clientY,
@@ -249,17 +213,17 @@
                     };
                 }
                 mapTouchToMouse(e, 'mousedown');
+                if (e.cancelable) e.preventDefault();
             }, { passive: false });
 
-            stage.addEventListener('touchmove', (e) => {
-                if (e.touches.length > 1) return; // handled by document-level pinch+pan
+            overlay.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 1) return; // handled by document-level pinch
                 if (panState) {
                     const t = e.touches[0];
                     const dx = t.clientX - panState.startX;
                     const dy = t.clientY - panState.startY;
                     if (!panState.moved && Math.hypot(dx, dy) > 8) {
                         panState.moved = true;
-                        // Cancel the drag that started before we knew this was a pan.
                         if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
                     }
                     if (panState.moved) {
@@ -271,11 +235,11 @@
                     }
                 }
                 if (dragTarget) mapTouchToMouse(e, 'mousemove');
+                if (e.cancelable) e.preventDefault();
             }, { passive: false });
 
-            stage.addEventListener('touchend', (e) => {
+            overlay.addEventListener('touchend', (e) => {
                 if (panState && panState.moved) {
-                    // Ended a pan gesture — suppress the mouse click that would fire.
                     panState = null;
                     dragTarget = null;
                     return;
@@ -284,7 +248,7 @@
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
 
-            stage.addEventListener('touchcancel', (e) => {
+            overlay.addEventListener('touchcancel', (e) => {
                 panState = null;
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
@@ -314,8 +278,6 @@
         }, { passive: false });
 
         document.addEventListener('touchcancel', () => { pinchState = null; }, { passive: false });
-        previewIframe.addEventListener('load', installIframePinchBridge);
-        installIframePinchBridge();
         // ────────────────────────────────────────────────────────────────────
         
         const mobileOverlay = document.getElementById('mobile-overlay');
