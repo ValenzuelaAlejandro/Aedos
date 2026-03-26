@@ -2204,15 +2204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.initScrollTrigger();
             this.animate();
 
-            // Pause the render loop while the user is typing — avoids competing for
-            // the main thread with keyboard input on low-end devices.
-            const temaInput = document.getElementById('w-tema');
-            if (temaInput) {
-                temaInput.addEventListener('focus', () => { this._animPaused = true; });
-                temaInput.addEventListener('blur', () => { this._animPaused = false; });
-            }
-
-            // Also pause when the tab is hidden
+            // Pause when the tab is hidden (saves GPU on any device)
             document.addEventListener('visibilitychange', () => {
                 this._animPaused = document.hidden;
             });
