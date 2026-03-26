@@ -56,8 +56,34 @@
 
         let dragTarget = null;
 
+        // ── Pinch-to-zoom (custom, prevents native browser zoom sticking) ──
+        window._eidos_mobile_zoom = window._eidos_mobile_zoom || 1;
+        let pinchState = null;
+
+        function getPinchDist(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        }
+
+        function applyPinchZoom(mobileZoom) {
+            window._eidos_mobile_zoom = mobileZoom;
+            const iframe = document.getElementById('preview-iframe');
+            const wrapper = document.querySelector('.preview-wrapper');
+            if (!iframe || !wrapper) return;
+            const baseScale = window._eidosBaseScale || 1;
+            const totalScale = baseScale * mobileZoom;
+            iframe.style.transform = `scale(${totalScale})`;
+            wrapper.style.height = `${631 * totalScale}px`;
+            wrapper.style.width = `${1122 * totalScale}px`;
+            try {
+                if (iframe.contentWindow) iframe.contentWindow._eidosIframeScale = totalScale;
+            } catch (e) {}
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         function mapTouchToMouse(e, type) {
-            // Allow native pinch zoom (multi-touch)
+            // Multi-touch is handled by the pinch zoom system above
             if (e.touches && e.touches.length > 1) return;
 
             const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
@@ -118,18 +144,40 @@
                 if (e.target.closest('#mobile-bottom-nav') || e.target.closest('.editor-tools-panel') || e.target.closest('.editor-minimap')) {
                     return;
                 }
+                if (e.touches.length === 2) {
+                    // Start custom pinch — prevent native browser zoom
+                    e.preventDefault();
+                    pinchState = {
+                        startDist: getPinchDist(e.touches),
+                        startZoom: window._eidos_mobile_zoom || 1
+                    };
+                    return;
+                }
                 mapTouchToMouse(e, 'mousedown');
             }, { passive: false });
 
             stage.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2 && pinchState) {
+                    e.preventDefault();
+                    const dist = getPinchDist(e.touches);
+                    const ratio = dist / pinchState.startDist;
+                    const newZoom = Math.max(0.25, Math.min(3, pinchState.startZoom * ratio));
+                    applyPinchZoom(newZoom);
+                    return;
+                }
                 if (dragTarget) mapTouchToMouse(e, 'mousemove');
             }, { passive: false });
 
             stage.addEventListener('touchend', (e) => {
+                if (pinchState && e.touches.length < 2) {
+                    pinchState = null;
+                    return;
+                }
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
             
             stage.addEventListener('touchcancel', (e) => {
+                pinchState = null;
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
         }

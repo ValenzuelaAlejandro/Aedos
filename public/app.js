@@ -1261,14 +1261,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (scale > 1) scale = 1; // Don't scale up past 100% by default
         }
 
-        previewIframe.style.transform = `scale(${scale})`;
-        wrapper.style.height = `${iframeNativeHeight * scale}px`;
-        wrapper.style.width = `${iframeNativeWidth * scale}px`;
+        window._eidosBaseScale = scale;
+        const mobileZoom = window._eidos_mobile_zoom || 1;
+        const totalScale = scale * mobileZoom;
+
+        previewIframe.style.transform = `scale(${totalScale})`;
+        wrapper.style.height = `${iframeNativeHeight * totalScale}px`;
+        wrapper.style.width = `${iframeNativeWidth * totalScale}px`;
 
         // Inject scale into iframe for the visual editor's coordinate math
         try {
             const iframeWin = previewIframe.contentWindow;
-            if (iframeWin) iframeWin._eidosIframeScale = scale;
+            if (iframeWin) iframeWin._eidosIframeScale = totalScale;
         } catch (e) { }
 
         // Keep slot overlays aligned after scale change
