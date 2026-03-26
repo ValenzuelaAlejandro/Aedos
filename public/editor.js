@@ -414,17 +414,30 @@ function initEditor() {
     const ignoreSelectors = '.img-replace-overlay, .img-replace-overlay *, .eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-phantom';
     window.editableSelectors = editableSelectors; // Export for UI
 
+    // Selectors for semantic container elements whose children must never be
+    // extracted from them during normalization (card, stat-box, etc.).
+    const CONTAINER_SELECTORS = 'div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"]';
+
     function freezeSlideLayout(slide) {
         if (!slide || _isFrozenMap.has(slide)) return;
         _isFrozenMap.set(slide, true);
 
-        // Filter out system UI elements from the initial list
         const allEditables = getEditableElementsInSlide(slide);
         if (allEditables.length === 0) return;
 
+        // Only normalize top-level editables. Elements that live inside a semantic
+        // container (card, stat-box, etc.) must NOT be independently normalized:
+        // normalizeElement would call slide.appendChild() on them, physically
+        // extracting them from their parent and leaving the container empty.
+        const topLevel = allEditables.filter(el => {
+            const parent = el.parentElement;
+            return !parent || parent === slide || !parent.closest(CONTAINER_SELECTORS);
+        });
+
+        if (topLevel.length === 0) return;
+
         // Capture all positions FIRST before any element is moved
-        const slideRect = slide.getBoundingClientRect();
-        const data = allEditables.map(el => ({
+        const data = topLevel.map(el => ({
             el,
             rect: el.getBoundingClientRect()
         }));
@@ -453,6 +466,16 @@ function initEditor() {
 
     function normalizeElement(el, slide, silent = false, providedRect = null) {
         if (el._normalized) return;
+
+        // Guard: never extract an element from inside a semantic container.
+        // If its direct parent is a container (card, stat-box, etc.), marking it
+        // normalized without mutations is enough — the container itself will be
+        // normalized as a whole and its children stay intact inside it.
+        if (el.parentElement && el.parentElement !== slide && el.parentElement.closest(CONTAINER_SELECTORS)) {
+            el._normalized = true;
+            return;
+        }
+
         el._normalized = true;
         if (!silent) saveState();
 
@@ -724,24 +747,34 @@ function initEditor() {
         const textSelectors = 'h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite';
         const textTarget = e.target.closest(textSelectors);
         if (textTarget && (!textTarget.closest('.eidos-toolbar'))) {
-            // Ensure element is normalized (absolute positioned) so it doesn't push other text
+            // Normalize only if not yet done and only for standalone (non-container) elements.
             if (!textTarget._normalized) {
                 const slide = textTarget.closest('.s') || textTarget.closest('section') || document.body;
                 normalizeElement(textTarget, slide);
             }
 
+            // Whether this element is a standalone absolute element (direct child of
+            // the slide) vs. a flow element nested inside a card/container.
+            // height:auto and grow-upwards logic must ONLY apply to absolute elements:
+            // setting them on flow elements pushes siblings and jumps the selection box.
+            const isAbsoluteEl = textTarget.style.position === 'absolute';
+
             textTarget.contentEditable = "true";
-            textTarget.style.outline = "none"; // Hide browser focus box, use ours
+            textTarget.style.outline = "none";
             textTarget.style.boxShadow = "none";
-            textTarget.style.height = "auto"; // Allow growth during editing
-            textTarget.style.overflow = "visible";
+            if (isAbsoluteEl) {
+                textTarget.style.height = "auto"; // allow upward growth
+                textTarget.style.overflow = "visible";
+            }
             textTarget.focus();
 
-            // Store current bottom point to grow upwards
-            const rect = textTarget.getBoundingClientRect();
-            const slide = textTarget.closest('.s') || document.body;
-            const slideRect = slide.getBoundingClientRect();
-            textTarget._baseBottom = rect.bottom - slideRect.top;
+            // Grow-upwards anchor: only for standalone absolute elements
+            if (isAbsoluteEl) {
+                const rect = textTarget.getBoundingClientRect();
+                const slide = textTarget.closest('.s') || document.body;
+                const slideRect = slide.getBoundingClientRect();
+                textTarget._baseBottom = rect.bottom - slideRect.top;
+            }
 
             // Make selection box non-interactive so we can edit text through it
             selectionBox.style.pointerEvents = "none";
@@ -759,9 +792,12 @@ function initEditor() {
             textTarget.addEventListener('blur', function onBlur() {
                 textTarget.contentEditable = "false";
                 textTarget.style.outline = "";
-                // Use getBoundingClientRect for more accurate height after text change
-                const newHeight = textTarget.getBoundingClientRect().height;
-                textTarget.style.height = newHeight + "px";
+                // Only fix the height for standalone absolute elements.
+                // For container children, leave their CSS height untouched.
+                if (textTarget.style.position === 'absolute') {
+                    const newHeight = textTarget.getBoundingClientRect().height;
+                    textTarget.style.height = newHeight + "px";
+                }
                 delete textTarget._baseBottom;
                 textTarget.removeEventListener('blur', onBlur);
                 window.getSelection().removeAllRanges();
@@ -769,7 +805,7 @@ function initEditor() {
                 selectionBox.style.pointerEvents = "auto";
                 selectionBox.classList.remove('eidos-editing-text');
 
-                saveState(); // Save the new text to history
+                saveState();
             }, { once: true });
         }
     });
@@ -825,28 +861,32 @@ function initEditor() {
         let textTarget = isEditable(selectedElement) ? selectedElement : selectedElement.querySelector('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
 
         if (textTarget && !textTarget.closest('.eidos-toolbar')) {
-            // Ensure element is normalized
+            // Normalize only if not yet done and only for standalone elements.
             if (!textTarget._normalized) {
                 const slide = textTarget.closest('.s') || textTarget.closest('section') || document.body;
                 normalizeElement(textTarget, slide);
             }
 
-            // DO NOT hide selection box anymore, we want it to guide the user
-            // selectionBox.style.display = 'none';
-            // toolbar.style.display = 'none';
+            // Grow-upwards / height:auto only for standalone absolute elements.
+            // Container children (h3/p inside .card etc.) must NOT have their height
+            // changed or their top adjusted — it displaces siblings and jumps the box.
+            const isAbsoluteEl = textTarget.style.position === 'absolute';
 
             textTarget.contentEditable = "true";
             textTarget.style.outline = "none";
             textTarget.style.boxShadow = "none";
-            textTarget.style.height = "auto";
-            textTarget.style.overflow = "visible";
+            if (isAbsoluteEl) {
+                textTarget.style.height = "auto";
+                textTarget.style.overflow = "visible";
+            }
             textTarget.focus();
 
-            // Store current bottom point to grow upwards
-            const rect = textTarget.getBoundingClientRect();
-            const slide = textTarget.closest('.s') || document.body;
-            const slideRect = slide.getBoundingClientRect();
-            textTarget._baseBottom = rect.bottom - slideRect.top;
+            if (isAbsoluteEl) {
+                const rect = textTarget.getBoundingClientRect();
+                const slide = textTarget.closest('.s') || document.body;
+                const slideRect = slide.getBoundingClientRect();
+                textTarget._baseBottom = rect.bottom - slideRect.top;
+            }
 
             selectionBox.style.pointerEvents = "none";
             selectionBox.classList.add('eidos-editing-text');
@@ -861,8 +901,10 @@ function initEditor() {
             textTarget.addEventListener('blur', function onBlur() {
                 textTarget.contentEditable = "false";
                 textTarget.style.outline = "";
-                const newHeight = textTarget.getBoundingClientRect().height;
-                textTarget.style.height = newHeight + "px";
+                if (textTarget.style.position === 'absolute') {
+                    const newHeight = textTarget.getBoundingClientRect().height;
+                    textTarget.style.height = newHeight + "px";
+                }
                 delete textTarget._baseBottom;
                 textTarget.removeEventListener('blur', onBlur);
                 window.getSelection().removeAllRanges();
@@ -870,9 +912,8 @@ function initEditor() {
                 selectionBox.style.pointerEvents = "auto";
                 selectionBox.classList.remove('eidos-editing-text');
 
-                saveState(); // Save the new text to history
+                saveState();
 
-                // restore selection box interaction
                 selectElement(selectedElement);
             }, { once: true });
         }
@@ -1263,8 +1304,12 @@ function initEditor() {
         // Add ResizeObserver for robust layout tracking (growth, text wrapping, etc)
         if (window.ResizeObserver) {
             const resizeObs = new ResizeObserver(() => {
-                // If editing and we want to grow upwards, adjust 'top' based on new height
-                if (el.isContentEditable && el._baseBottom !== undefined) {
+                // Grow-upwards: only for standalone absolute elements that were
+                // normalized as direct children of the slide. Elements that live
+                // inside containers (cards, stat-boxes…) are NOT position:absolute
+                // via our code, so adjusting `top` on them would offset them
+                // relative to their natural flow position, sending them off-screen.
+                if (el.isContentEditable && el._baseBottom !== undefined && el.style.position === 'absolute') {
                     const rect = el.getBoundingClientRect();
                     const slide = el.closest('.s') || document.body;
                     const slideRect = slide.getBoundingClientRect();
@@ -1563,16 +1608,44 @@ function initEditor() {
             } else if (e.key.toLowerCase() === 'c' && !isEditingText) {
                 if (selectedElement) {
                     const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-                    normalizeElement(selectedElement, slide);
-                    
+
+                    // Build a clipboard-ready clone WITHOUT mutating the original element.
+                    // normalizeElement must never be called on the original during copy because
+                    // it calls saveState() and may move the element in the DOM (slide.appendChild),
+                    // which leaves the original parent container visually empty.
+                    function cloneForClipboard(el) {
+                        if (el._normalized) {
+                            // Already absolute-positioned — safe to clone as-is.
+                            return el.cloneNode(true);
+                        }
+                        // Not yet normalized: capture geometry from live DOM, apply to clone.
+                        const elRect = el.getBoundingClientRect();
+                        const slideRect = slide.getBoundingClientRect();
+                        const inherited = getInheritedStyles(el);
+                        const clone = el.cloneNode(true);
+                        clone.style.boxSizing = 'border-box';
+                        clone.style.position = 'absolute';
+                        clone.style.margin = '0';
+                        clone.style.transform = 'none';
+                        clone.style.left = (elRect.left - slideRect.left) + 'px';
+                        clone.style.top = (elRect.top - slideRect.top) + 'px';
+                        clone.style.width = elRect.width + 'px';
+                        clone.style.height = elRect.height + 'px';
+                        clone.style.fontSize = inherited.fontSize;
+                        clone.style.fontFamily = inherited.fontFamily;
+                        clone.style.color = inherited.color;
+                        clone.style.lineHeight = inherited.lineHeight;
+                        clone._normalized = true;
+                        return clone;
+                    }
+
                     const group = collectGroup(selectedElement);
-                    _clipboard = [selectedElement.cloneNode(true)];
+                    _clipboard = [cloneForClipboard(selectedElement)];
                     group.forEach(item => {
-                        normalizeElement(item.el, slide);
-                        _clipboard.push(item.el.cloneNode(true));
+                        _clipboard.push(cloneForClipboard(item.el));
                     });
 
-                    // Show brief visual feedback on main
+                    // Show brief visual feedback — no side effects on the original
                     selectedElement.style.outline = '2px solid rgba(255,255,255,0.6)';
                     setTimeout(() => { if (selectedElement) selectedElement.style.outline = ''; }, 300);
                     e.preventDefault();

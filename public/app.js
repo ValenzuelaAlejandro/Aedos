@@ -17,7 +17,7 @@ function sanitizeModelOutput(html) {
         if (contentMatch) {
             const content = contentMatch[1].trim();
             if (/^lucide\.createIcons\(\s*\{?\}?\s*\);?$/.test(content)) {
-                allowed.push(match);
+                allowed.push('<script>if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();</script>');
                 return `__ALLOWED_SCRIPT_${allowed.length - 1}__`;
             }
         }
