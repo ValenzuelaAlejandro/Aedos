@@ -113,74 +113,26 @@
         }
 
         const stage = document.getElementById('preview-stage');
-        let initialPinchDist = 0;
-        let initialZoomScale = 1;
-
-        const getPinchDist = (e) => {
-            if (e.touches && e.touches.length === 2) {
-                return Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-            }
-            return 0;
-        };
-
-        const handleZoomStart = (e) => {
-            if (e.touches && e.touches.length === 2) {
-                initialPinchDist = getPinchDist(e);
-                const matrix = new DOMMatrix(getComputedStyle(previewIframe).transform);
-                initialZoomScale = matrix.a || 1;
-            }
-        };
-
-        const handleZoomMove = (e) => {
-            if (e.touches && e.touches.length === 2 && initialPinchDist > 0) {
-                const dist = getPinchDist(e);
-                const zoomFactor = dist / initialPinchDist;
-                let newScale = initialZoomScale * zoomFactor;
-                newScale = Math.min(Math.max(newScale, 0.3), 3.0);
-                if (window.eidosSetZoom) window.eidosSetZoom(newScale);
-                if (e.cancelable) e.preventDefault();
-            }
-        };
-
-        const bindEvents = (element) => {
-            if (!element) return;
-            element.addEventListener('touchstart', (e) => {
-                // If 2+ fingers, abort any active drag and exit to let native zoom work
-                if (e.touches && e.touches.length > 1) {
-                    dragTarget = null;
+        if (stage) {
+            stage.addEventListener('touchstart', (e) => {
+                if (e.target.closest('#mobile-bottom-nav') || e.target.closest('.editor-tools-panel') || e.target.closest('.editor-minimap')) {
                     return;
                 }
                 mapTouchToMouse(e, 'mousedown');
-            }, { passive: true });
+            }, { passive: false });
 
-            element.addEventListener('touchmove', (e) => {
-                // If 2+ fingers, abort drag and exit
-                if (e.touches && e.touches.length > 1) {
-                    dragTarget = null;
-                    return;
-                }
+            stage.addEventListener('touchmove', (e) => {
                 if (dragTarget) mapTouchToMouse(e, 'mousemove');
-            }, { passive: true });
+            }, { passive: false });
 
-            element.addEventListener('touchend', (e) => {
-                mapTouchToMouse(e, 'mouseup');
-            }, { passive: true });
-
-            element.addEventListener('touchcancel', (e) => {
-                dragTarget = null;
-                mapTouchToMouse(e, 'mouseup');
-            }, { passive: true });
-        };
-
-        // Bind for single-touch editing while fully respecting native zoom
-        bindEvents(stage);
-        previewIframe.addEventListener('load', () => {
-            if (previewIframe.contentDocument) bindEvents(previewIframe.contentDocument);
-        });
-        if (previewIframe.contentDocument) bindEvents(previewIframe.contentDocument);
+            stage.addEventListener('touchend', (e) => {
+                if (dragTarget) mapTouchToMouse(e, 'mouseup');
+            }, { passive: false });
+            
+            stage.addEventListener('touchcancel', (e) => {
+                if (dragTarget) mapTouchToMouse(e, 'mouseup');
+            }, { passive: false });
+        }
         
         const mobileOverlay = document.getElementById('mobile-overlay');
         const minimap = document.getElementById('editor-minimap');

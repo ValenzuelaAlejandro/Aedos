@@ -8,8 +8,7 @@
     .editor-main-layout {
         flex-direction: column !important;
         height: 100% !important;
-        overflow: auto !important; /* Allow scrolling/panning if layout grows or zooms */
-        -webkit-overflow-scrolling: touch;
+        overflow: hidden;
     }
 
     /* 2. Minimap as Left Drawer */
@@ -70,15 +69,14 @@
         flex: 1 !important;
         margin-top: 0 !important;
         padding: 0 !important;
-        touch-action: auto; /* Absolute browser control over native zoom/pan */
+        touch-action: none; /* Disable ALL browser touch gestures to let bridge handle drag/resize */
     }
 
     .preview-wrapper-scrollable {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        overflow: auto !important; /* Allow panning when zoomed in */
-        -webkit-overflow-scrolling: touch;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden !important; /* Managed by JS bridge for drag */
     }
 
     /* 5. Mobile UI Elements */

@@ -1275,32 +1275,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (_refreshSlotOverlays) _refreshSlotOverlays();
     }
 
-    // --- MOBILE ZOOM BRIDGE HELPER ---
-    window.eidosSetZoom = function(scale) {
-        const select = document.getElementById('canvas-zoom-select');
-        if (select) {
-            // Find closest standard option or just use the scale
-            // To be simple, we'll just set the transform and wrapper size directly if it's a custom scale
-            const iframeNativeWidth = 1122;
-            const iframeNativeHeight = 631;
-            const wrapper = document.querySelector('.preview-wrapper');
-            
-            if (previewIframe && wrapper) {
-                previewIframe.style.transform = `scale(${scale})`;
-                wrapper.style.height = `${iframeNativeHeight * scale}px`;
-                wrapper.style.width = `${iframeNativeWidth * scale}px`;
-                if (_refreshSlotOverlays) _refreshSlotOverlays();
-                
-                // Update select if it matches closely
-                if (Math.abs(scale - 1) < 0.05) select.value = '1';
-                else if (Math.abs(scale - 0.75) < 0.05) select.value = '0.75';
-                else if (Math.abs(scale - 0.5) < 0.05) select.value = '0.5';
-                else select.value = 'fit'; // Use 'fit' as fallback for custom zoom visuals
-            }
-        }
-    };
-    // ---------------------------------
-
     let _buildOverlayForSlot = () => { }; // forward.. declaration, assigned inside injectImageReplacementSystem
 
     function injectImageReplacementSystem(doc, isRestoringFlow = false) {
