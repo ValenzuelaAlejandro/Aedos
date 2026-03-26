@@ -104,6 +104,68 @@
                 if (iframe.contentWindow) iframe.contentWindow._eidosIframeScale = totalScale;
             } catch (e) {}
         }
+
+        function isTouchInsideStage(clientX, clientY) {
+            const stageEl = document.getElementById('preview-stage');
+            if (!stageEl) return false;
+            const sr = stageEl.getBoundingClientRect();
+            return clientX >= sr.left && clientX <= sr.right && clientY >= sr.top && clientY <= sr.bottom;
+        }
+
+        function startPinchFromTouchList(touches) {
+            if (!touches || touches.length !== 2) return;
+            const midX = (touches[0].clientX + touches[1].clientX) / 2;
+            const midY = (touches[0].clientY + touches[1].clientY) / 2;
+            pinchState = {
+                startDist: getPinchDist(touches),
+                startZoom: window._eidos_mobile_zoom || 1,
+                lastMidX: midX,
+                lastMidY: midY
+            };
+        }
+
+        function updatePinchFromTouchList(touches) {
+            if (!pinchState || !touches || touches.length !== 2) return;
+            const dist = getPinchDist(touches);
+            const ratio = dist / pinchState.startDist;
+            window._eidos_mobile_zoom = Math.max(0.5, Math.min(3, pinchState.startZoom * ratio));
+            const midX = (touches[0].clientX + touches[1].clientX) / 2;
+            const midY = (touches[0].clientY + touches[1].clientY) / 2;
+            window._eidos_pan.x += midX - pinchState.lastMidX;
+            window._eidos_pan.y += midY - pinchState.lastMidY;
+            pinchState.lastMidX = midX;
+            pinchState.lastMidY = midY;
+            applyZoomAndPan();
+        }
+
+        function installIframePinchBridge() {
+            try {
+                const iframeWin = previewIframe.contentWindow;
+                const iframeDoc = previewIframe.contentDocument;
+                if (!iframeWin || !iframeDoc) return;
+                if (iframeWin.__eidosPinchBridgeInstalled) return;
+                iframeWin.__eidosPinchBridgeInstalled = true;
+
+                iframeDoc.addEventListener('touchstart', (e) => {
+                    if (e.touches.length !== 2) return;
+                    e.preventDefault();
+                    if (dragTarget) dragTarget = null;
+                    startPinchFromTouchList(e.touches);
+                }, { passive: false });
+
+                iframeDoc.addEventListener('touchmove', (e) => {
+                    if (!pinchState || e.touches.length !== 2) return;
+                    e.preventDefault();
+                    updatePinchFromTouchList(e.touches);
+                }, { passive: false });
+
+                iframeDoc.addEventListener('touchend', (e) => {
+                    if (pinchState && e.touches.length < 2) pinchState = null;
+                }, { passive: false });
+
+                iframeDoc.addEventListener('touchcancel', () => { pinchState = null; }, { passive: false });
+            } catch (e) {}
+        }
         // ────────────────────────────────────────────────────────────────────
 
         function mapTouchToMouse(e, type) {
@@ -197,38 +259,19 @@
         // for every touch regardless of which frame's content was touched.
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 2) return;
-            const stageEl = document.getElementById('preview-stage');
-            if (!stageEl) return;
             // Must originate inside the canvas stage, not on panel UI
             const t0 = e.touches[0];
             if (t0.target && t0.target.closest('#mobile-bottom-nav, .editor-tools-panel, .editor-minimap')) return;
-            const sr = stageEl.getBoundingClientRect();
-            if (t0.clientX < sr.left || t0.clientX > sr.right || t0.clientY < sr.top || t0.clientY > sr.bottom) return;
+            if (!isTouchInsideStage(t0.clientX, t0.clientY)) return;
             e.preventDefault();
             if (dragTarget) { dragTarget = null; } // cancel any in-progress single-touch drag
-            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            pinchState = {
-                startDist: getPinchDist(e.touches),
-                startZoom: window._eidos_mobile_zoom || 1,
-                lastMidX: midX,
-                lastMidY: midY
-            };
+            startPinchFromTouchList(e.touches);
         }, { passive: false });
 
         document.addEventListener('touchmove', (e) => {
             if (!pinchState || e.touches.length !== 2) return;
             e.preventDefault();
-            const dist = getPinchDist(e.touches);
-            const ratio = dist / pinchState.startDist;
-            window._eidos_mobile_zoom = Math.max(0.5, Math.min(3, pinchState.startZoom * ratio));
-            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            window._eidos_pan.x += midX - pinchState.lastMidX;
-            window._eidos_pan.y += midY - pinchState.lastMidY;
-            pinchState.lastMidX = midX;
-            pinchState.lastMidY = midY;
-            applyZoomAndPan();
+            updatePinchFromTouchList(e.touches);
         }, { passive: false });
 
         document.addEventListener('touchend', (e) => {
@@ -236,6 +279,8 @@
         }, { passive: false });
 
         document.addEventListener('touchcancel', () => { pinchState = null; }, { passive: false });
+        previewIframe.addEventListener('load', installIframePinchBridge);
+        installIframePinchBridge();
         // ────────────────────────────────────────────────────────────────────
         
         const mobileOverlay = document.getElementById('mobile-overlay');
