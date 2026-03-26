@@ -112,24 +112,59 @@
             }
         }
 
-        const stage = document.getElementById('preview-stage');
+        let initialPinchDist = 0;
+        let initialZoomScale = 1;
+
         if (stage) {
             stage.addEventListener('touchstart', (e) => {
                 if (e.target.closest('#mobile-bottom-nav') || e.target.closest('.editor-tools-panel') || e.target.closest('.editor-minimap')) {
                     return;
                 }
+
+                // Handle pinch-to-zoom start
+                if (e.touches && e.touches.length === 2) {
+                    initialPinchDist = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                    
+                    // Capture current scale from transform if possible
+                    const matrix = new DOMMatrix(getComputedStyle(previewIframe).transform);
+                    initialZoomScale = matrix.a || 1;
+                    return;
+                }
+
                 mapTouchToMouse(e, 'mousedown');
             }, { passive: false });
 
             stage.addEventListener('touchmove', (e) => {
+                // Support pinch-to-zoom during move
+                if (e.touches && e.touches.length === 2 && initialPinchDist > 0) {
+                    e.preventDefault(); // Block native browser zoom to use our own
+                    const dist = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                    const zoomFactor = dist / initialPinchDist;
+                    let newScale = initialZoomScale * zoomFactor;
+                    
+                    // Clamping for usability
+                    newScale = Math.min(Math.max(newScale, 0.3), 3.0);
+                    
+                    if (window.eidosSetZoom) window.eidosSetZoom(newScale);
+                    return;
+                }
+
                 if (dragTarget) mapTouchToMouse(e, 'mousemove');
             }, { passive: false });
 
             stage.addEventListener('touchend', (e) => {
+                if (e.touches.length < 2) initialPinchDist = 0;
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
             
             stage.addEventListener('touchcancel', (e) => {
+                initialPinchDist = 0;
                 if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
         }
