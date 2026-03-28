@@ -306,16 +306,53 @@
     /* 6. Centrado del nuevo hero en móvil */
     #chat-screen {
         padding: 2rem 1.5rem !important;
+        padding-top: 5.9rem !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
     }
 
+    .top-control-bar {
+        height: auto !important;
+        min-height: 52px !important;
+        padding: 0.32rem 0 !important;
+    }
+
     .chat-container {
         width: 100% !important;
         max-width: 560px !important;
         gap: 1.1rem !important;
+    }
+
+    .top-control-panel {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.55rem !important;
+    }
+
+    .top-brand {
+        justify-content: center !important;
+    }
+
+    .top-controls {
+        width: 100% !important;
+        justify-content: center !important;
+        gap: 0.45rem !important;
+    }
+
+    .control-pill {
+        min-width: 150px !important;
+        justify-content: space-between !important;
+        padding: 0.34rem 0.5rem !important;
+    }
+
+    .theme-toggle-btn {
+        width: 36px !important;
+        min-width: 36px !important;
+        height: 36px !important;
+        border-radius: 10px !important;
+        flex: 0 0 auto !important;
     }
 
     .app-header {

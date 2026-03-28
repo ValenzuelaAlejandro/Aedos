@@ -14,6 +14,17 @@
     --transition-premium: 0.6s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+:root[data-theme="light"] {
+    --bg: #f4f4f1;
+    --surface: #ffffff;
+    --surface2: #f2f2ef;
+    --border: rgba(20, 20, 20, 0.14);
+    --text: #171717;
+    --muted: #616161;
+    --accent: #171717;
+    --accent-light: rgba(23, 23, 23, 0.5);
+}
+
 .flicker-mask {
     opacity: 0.2 !important;
 }
@@ -25,6 +36,11 @@
 select option {
     background-color: #1e1e1e;
     color: #ffffff;
+}
+
+:root[data-theme="light"] select option {
+    background-color: #ffffff;
+    color: #171717;
 }
 
 optgroup {

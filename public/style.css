@@ -359,6 +359,174 @@
     user-select: none;
 }
 
+.top-control-panel {
+    width: min(1240px, calc(100% - 2.4rem));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0 auto;
+}
+
+.top-control-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 220;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    background: color-mix(in srgb, var(--bg) 84%, transparent);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.top-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.top-brand-logo {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+
+.top-brand-name {
+    font-family: 'Plus Jakarta Sans', var(--font-body);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+}
+
+.top-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.theme-toggle-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.theme-toggle-btn:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+    transform: translateY(-1px);
+}
+
+.theme-icon {
+    display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle-btn .icon-moon,
+:root:not([data-theme]) .theme-toggle-btn .icon-moon {
+    display: block;
+}
+
+:root[data-theme="light"] .theme-toggle-btn .icon-sun {
+    display: block;
+}
+
+.control-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.35rem 0.5rem;
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+.control-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.control-select {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.84rem;
+    outline: none;
+    cursor: pointer;
+}
+
+:root[data-theme="light"] .top-control-bar {
+    background: color-mix(in srgb, #ffffff 88%, transparent);
+}
+
+:root[data-theme="light"] .control-pill {
+    background: #ffffff;
+    border-color: rgba(20, 20, 20, 0.16);
+}
+
+:root[data-theme="light"] .theme-toggle-btn {
+    background: #ffffff;
+    border-color: rgba(20, 20, 20, 0.16);
+}
+
+:root[data-theme="light"] .theme-toggle-btn:hover {
+    border-color: rgba(20, 20, 20, 0.3);
+}
+
+:root[data-theme="light"] .chat-input-wrapper {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(24, 24, 24, 0.14);
+    box-shadow: 0 12px 26px rgba(18, 18, 18, 0.08), 0 0 0 1px rgba(216, 119, 88, 0.18), 0 0 20px rgba(216, 119, 88, 0.12);
+}
+
+:root[data-theme="light"] .chat-input {
+    color: #151515;
+}
+
+:root[data-theme="light"] .chat-input::placeholder {
+    color: #7b7b7b;
+}
+
+:root[data-theme="light"] #chat-placeholder {
+    color: #7b7b7b !important;
+}
+
+:root[data-theme="light"] .starter-card {
+    border-color: rgba(24, 24, 24, 0.14);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(247, 247, 244, 0.98) 100%);
+    box-shadow: 0 8px 18px rgba(10, 10, 10, 0.07);
+}
+
+:root[data-theme="light"] .starter-card:hover,
+:root[data-theme="light"] .starter-card.is-hovered {
+    border-color: rgba(24, 24, 24, 0.2);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(241, 241, 238, 1) 100%);
+    box-shadow: 0 10px 22px rgba(10, 10, 10, 0.1);
+}
+
+:root[data-theme="light"] .starter-card-text {
+    color: #1a1a1a;
+}
+
+:root[data-theme="light"] .starter-card-icon {
+    border-color: rgba(20, 20, 20, 0.2);
+    background: rgba(24, 24, 24, 0.03);
+    color: #2a2a2a;
+}
+
 /* ================================================================
    CHAT INTERFACE           
    ================================================================ */
@@ -448,6 +616,7 @@
     z-index: 100; /* Over everything at start */
     background: var(--bg);
     padding: 2rem;
+    padding-top: 5.3rem;
     padding-bottom: 0px; 
     margin: 0;
 }

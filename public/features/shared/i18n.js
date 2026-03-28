@@ -1,5 +1,11 @@
 const translations = {
     en: {
+        "brand_name": "Eidoslab",
+        "theme_label": "Theme",
+        "theme_dark": "Dark",
+        "theme_light": "Light",
+        "theme_toggle": "Toggle theme",
+        "language_label": "Language",
         "app_subtitle": "Generate a full presentation about...",
         "hero_line_1": "What&apos;s cooking today?",
         "hero_line_2": "So... what&apos;s cooking today?",
@@ -132,6 +138,12 @@ const translations = {
         "queued_position": "Waiting in queue — position {pos}"
     },
     es: {
+        "brand_name": "Eidoslab",
+        "theme_label": "Tema",
+        "theme_dark": "Oscuro",
+        "theme_light": "Claro",
+        "theme_toggle": "Cambiar tema",
+        "language_label": "Idioma",
         "app_subtitle": "Genera una presentación completa sobre...",
         "hero_line_1": "¿Qué se está cocinando hoy?",
         "hero_line_2": "Entonces... ¿qué se está cocinando hoy?",
@@ -265,7 +277,7 @@ const translations = {
     }
 };
 
-const currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
+let currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
 window.currentLang = currentLang;
 
 window.__eidos_t = function (key, defaultText = null) {
@@ -280,8 +292,7 @@ window.__eidos_t = function (key, defaultText = null) {
     return result;
 };
 
-// Initialize DOM elements with translations
-document.addEventListener('DOMContentLoaded', () => {
+function applyI18nToDom() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         el.innerHTML = window.__eidos_t(key);
@@ -298,4 +309,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const key = el.getAttribute('data-i18n-val');
         el.value = window.__eidos_t(key);
     });
+}
+
+window.__eidos_setLang = function (lang) {
+    if (!translations[lang]) return;
+    currentLang = lang;
+    window.currentLang = lang;
+    applyI18nToDom();
+};
+
+window.__eidos_applyTranslations = applyI18nToDom;
+
+// Initialize DOM elements with translations
+document.addEventListener('DOMContentLoaded', () => {
+    applyI18nToDom();
 });

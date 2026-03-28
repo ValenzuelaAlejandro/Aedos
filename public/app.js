@@ -147,17 +147,76 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     const heroTitle = document.querySelector('.hero-title-single');
     const heroMessageKeys = Array.from({ length: 20 }, (_, i) => `hero_msg_${i + 1}`);
-    const heroMessages = heroMessageKeys
-        .map((key) => {
-            const resolved = (typeof window.__eidos_t === 'function') ? window.__eidos_t(key) : key;
-            return resolved === key ? null : resolved;
-        })
-        .filter(Boolean);
 
-    if (heroTitle && heroMessages.length > 0) {
+    window.__eidos_applyRandomHeroMessage = function () {
+        if (!heroTitle) return;
+        const heroMessages = heroMessageKeys
+            .map((key) => {
+                const resolved = (typeof window.__eidos_t === 'function') ? window.__eidos_t(key) : key;
+                return resolved === key ? null : resolved;
+            })
+            .filter(Boolean);
+        if (!heroMessages.length) return;
         const randomIndex = Math.floor(Math.random() * heroMessages.length);
         heroTitle.innerHTML = heroMessages[randomIndex];
-    }
+    };
+
+    window.__eidos_applyRandomHeroMessage();
+
+    // =========================================================
+    // TOP PANEL CONTROLS (THEME + LANGUAGE)
+    // =========================================================
+    (function setupTopPanelControls() {
+        const root = document.documentElement;
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        const langSelect = document.getElementById('lang-select');
+
+        function applyTheme(theme) {
+            const nextTheme = theme === 'light' ? 'light' : 'dark';
+            root.setAttribute('data-theme', nextTheme);
+            localStorage.setItem('eidos_theme', nextTheme);
+            if (themeToggleBtn) {
+                const title = (typeof window.__eidos_t === 'function')
+                    ? window.__eidos_t('theme_toggle')
+                    : 'Toggle theme';
+                themeToggleBtn.title = title;
+                themeToggleBtn.setAttribute('aria-label', title);
+            }
+        }
+
+        function applyLang(lang) {
+            const nextLang = lang === 'es' ? 'es' : 'en';
+            if (typeof window.__eidos_setLang === 'function') {
+                window.__eidos_setLang(nextLang);
+            }
+            localStorage.setItem('eidos_lang', nextLang);
+            if (langSelect && langSelect.value !== nextLang) {
+                langSelect.value = nextLang;
+            }
+            if (typeof window.__eidos_applyRandomHeroMessage === 'function') {
+                window.__eidos_applyRandomHeroMessage();
+            }
+        }
+
+        const savedTheme = localStorage.getItem('eidos_theme') || 'dark';
+        const savedLang = localStorage.getItem('eidos_lang') || window.currentLang || 'en';
+
+        applyTheme(savedTheme);
+        applyLang(savedLang);
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+                applyTheme(current === 'light' ? 'dark' : 'light');
+            });
+        }
+
+        if (langSelect) {
+            langSelect.addEventListener('change', (e) => {
+                applyLang(e.target.value);
+            });
+        }
+    })();
 
     // =========================================================
     // MOUSE PHYSICS (HERO + PROMPT CARDS)
