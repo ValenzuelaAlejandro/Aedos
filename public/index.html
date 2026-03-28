@@ -23,8 +23,6 @@
     <script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js"></script>
     <!-- GSAP for premium animations -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
     <!-- Motion Library (vanilla) -->
     <script src="https://unpkg.com/motion@12.38.0/dist/motion.js"></script>
     <!-- HTML5 Drag and Drop polyfill for mobile -->
@@ -51,25 +49,9 @@
             window.currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
         }
     </script>
-    <!-- Three.js & Lenis -->
-    <!-- Three.js & Lenis -->
-    <script type="importmap">
-        {
-          "imports": {
-            "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js"
-          }
-        }
-    </script>
-    <script type="module">
-        import * as THREE from 'three';
-        window.THREE = THREE;
-    </script>
-    <script src="https://unpkg.com/@studio-freight/lenis@1.0.33/dist/lenis.min.js"></script>
 </head>
 
 <body>
-    <!-- 3D Canvas Container -->
-    <div id="scrolly-canvas-container"></div>
     <!-- ======================== -->
     <!-- CHAT INTERFACE           -->
     <!-- ======================== -->
@@ -86,8 +68,8 @@
             </div>
 
             <!-- Chat Input Area -->
-            <div class="chat-input-wrapper" data-lenis-prevent>
-                <div class="chat-input-container" data-lenis-prevent
+            <div class="chat-input-wrapper">
+                <div class="chat-input-container"
                     style="position: relative; flex: 1; display: flex; align-items: center;">
                     <span id="chat-placeholder"
                         style="position: absolute; left: 1.2rem; right: 0.5rem; color: var(--muted); pointer-events: none; white-space: nowrap; user-select: none; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;">
@@ -95,7 +77,7 @@
                             id="chat-typewriter-cursor" class="typewriter-cursor">|</span>
                     </span>
                     <textarea id="w-tema" class="chat-input" autocomplete="off" autofocus rows="1" maxlength="600"
-                        aria-label="Presentation topic" data-lenis-prevent
+                        aria-label="Presentation topic"
                         style="resize: none; min-height: 1.5rem;"></textarea>
                 </div>
                 <div class="chat-actions">
@@ -169,62 +151,6 @@
                 data-i18n="tema_error">Please enter a topic to generate your presentation.</span>
 
 
-        </div>
-    </section>
-
-    <section id="scrolly-three" class="scrolly-three-section">
-        <div class="scrolly-narrative">
-            <!-- Step 1 -->
-            <article class="narrative-step" data-step="0">
-                <div class="step-content">
-                    <span class="step-label" data-i18n="scrolly_step1_label">01 // THE SHORTCUT</span>
-                    <h1 data-i18n="scrolly_step1_title">Prompt & <br><span>Chill.</span></h1>
-                    <p data-i18n="scrolly_step1_desc">Give us a topic, we’ll do the thinking. It’s like having a group project where someone actually does the work.</p>
-                </div>
-            </article>
-
-            <!-- Step 2 -->
-            <article class="narrative-step" data-step="1">
-                <div class="step-content">
-                    <span class="step-label" data-i18n="scrolly_step2_label">02 // THE FLEX</span>
-                    <h1 data-i18n="scrolly_step2_title">Instant <br><span>Main Character.</span></h1>
-                    <p data-i18n="scrolly_step2_desc">Default templates are for people with too much free time. We serve up layouts that make you look like a design prodigy.</p>
-                </div>
-            </article>
-
-            <!-- Step 3 -->
-            <article class="narrative-step" data-step="2">
-                <div class="step-content">
-                    <span class="step-label" data-i18n="scrolly_step3_label">03 // THE CHEF'S KISS</span>
-                    <h1 data-i18n="scrolly_step3_title">Pretend <br><span>You Toiled.</span></h1>
-                    <p data-i18n="scrolly_step3_desc">A pro editor for the finishing touches. Drag a few things around so it looks like you spent hours on this, not seconds.</p>
-                </div>
-            </article>
-
-            <!-- Step 4 -->
-            <article class="narrative-step" data-step="3">
-                <div class="step-content">
-                    <span class="step-label" data-i18n="scrolly_step4_label">04 // THE AUDACITY</span>
-                    <h1 data-i18n="scrolly_step4_title">Ghost <br><span>Protocol.</span></h1>
-                    <p data-i18n="scrolly_step4_desc">High-res PDFs ready to stun. Close your 50 Chrome tabs, act natural, and take all the credit. You earned it (sort of).</p>
-                    <button class="cta-cooking-v3" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" data-i18n="start_cooking">
-                        Start Cooking
-                    </button>
-                </div>
-            </article>
-        </div>
-
-        <!-- Progress Overlay -->
-        <div class="three-ui-overlay">
-            <div class="v-line-progress">
-                <div class="v-fill"></div>
-            </div>
-            <div class="v-numbers">
-                <span>01</span>
-                <span>02</span>
-                <span>03</span>
-                <span>04</span>
-            </div>
         </div>
     </section>
 
@@ -327,7 +253,7 @@
         <!-- Editor Layout -->
         <div class="editor-main-layout">
             <!-- Left Minimap -->
-            <div class="editor-minimap" id="editor-minimap" data-lenis-prevent>
+            <div class="editor-minimap" id="editor-minimap">
                 <div class="minimap-list" id="minimap-list"></div>
                 <button type="button" class="add-slide-btn" id="btn-add-slide" title="Add slide" data-i18n-title="add_slide">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -339,7 +265,7 @@
 
             <!-- Slide viewer (Center) -->
             <div class="preview-stage" id="preview-stage">
-                <div class="preview-wrapper-scrollable" id="preview-wrapper-scrollable" data-lenis-prevent>
+                <div class="preview-wrapper-scrollable" id="preview-wrapper-scrollable">
                     <div class="preview-wrapper" id="preview-wrapper">
                         <iframe id="preview-iframe"></iframe>
                         <!-- Transparent overlay in the parent DOM so touch events
@@ -391,7 +317,7 @@
 
                 <div class="tools-divider"></div>
 
-                <div id="dynamic-tools-container" class="dynamic-tools-container" data-lenis-prevent>
+                <div id="dynamic-tools-container" class="dynamic-tools-container">
                     <div class="empty-tools-state"
                         style="color:var(--muted); font-size: 0.85rem; text-align:center; padding: 2rem 1rem;">
                         <span data-i18n="empty_tools">Select an element on the canvas, or click the background to change global settings.</span>
@@ -467,7 +393,7 @@
             <p class="error-subtitle" id="t-error-subtitle" data-i18n="error_subtitle">The AI service is temporarily unavailable. This is usually resolved quickly.</p>
             <details class="error-details">
                 <summary id="t-error-summary" data-i18n="error_summary">Technical details</summary>
-                <p id="error-message" data-lenis-prevent></p>
+                <p id="error-message"></p>
             </details>
             <button type="button" id="back-btn" class="btn-secondary" data-i18n="try_again">Try again</button>
         </div>
@@ -488,7 +414,7 @@
             </div>
             <h2 id="t-refused-title" data-i18n="refused_title">This topic can't be generated</h2>
             <p class="refused-subtitle" id="t-refused-subtitle" data-i18n="refused_subtitle">The AI declined to create this presentation for safety reasons.</p>
-            <div class="refused-message" id="refused-message" data-lenis-prevent></div>
+            <div class="refused-message" id="refused-message"></div>
             <button type="button" id="refused-back-btn" class="btn-secondary" data-i18n="try_different">Try a different topic</button>
         </div>
     </section>

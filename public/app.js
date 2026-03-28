@@ -92,9 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const backBtn = document.getElementById('back-btn');
     const errorMessage = document.getElementById('error-message');
     const temaError = document.getElementById('tema-error');
-    const scrollySection = document.getElementById('scrolly-three');
-    // True for any phone/tablet — used to permanently hide the scrollytelling section
-    const isMobileDevice = window.innerWidth < 850 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     // Preview elements
     let previewIframe = document.getElementById('preview-iframe');
@@ -266,13 +263,9 @@ document.addEventListener('DOMContentLoaded', () => {
     temaInput.addEventListener('input', () => {
         const val = temaInput.value;
 
-        // NEW: Scroll to top if user starts typing while scrolled down (e.g. in the scrolly section)
+        // Scroll to top if user starts typing while scrolled down
         if (window.scrollY > 200) {
-            if (typeof gsap !== 'undefined') {
-                gsap.to(window, { scrollTo: 0, duration: 0.8, ease: "power2.out" });
-            } else {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Auto-resize vertical expansion
@@ -392,14 +385,10 @@ document.addEventListener('DOMContentLoaded', () => {
             await new Promise(r => setTimeout(r, 1000));
         }
 
-
-        // Freeze Lenis so it doesn't fight scroll state on return
-        if (window._eidosScrollytelling) window._eidosScrollytelling.pauseForPreview();
         window.removeEventListener('resize', scaleIframe); // evita acumulación
 
         // Hide chatScreen when loading
         chatScreen.classList.add('hidden');
-        if (scrollySection) scrollySection.classList.add('hidden');
         previewHeader.classList.remove('slide-down');
         previewContainer.classList.remove('hidden');
 
@@ -780,9 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
             previewContainer.classList.add('hidden');
             window.removeEventListener('resize', scaleIframe);
             chatScreen.classList.remove('hidden');
-            if (scrollySection && !isMobileDevice) scrollySection.classList.remove('hidden');
             window.dispatchEvent(new Event('resize'));
-            if (window._eidosScrollytelling) window._eidosScrollytelling.resetScrollTriggers();
             temaInput.focus();
         });
     }
@@ -2196,11 +2183,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (refusedContainer) refusedContainer.classList.add('hidden');
         if (previewContainer) previewContainer.classList.add('hidden');
         if (chatScreen) chatScreen.classList.remove('hidden');
-        if (scrollySection && !isMobileDevice) {
-            scrollySection.classList.remove('hidden');
-            window.dispatchEvent(new Event('resize'));
-            if (window._eidosScrollytelling) window._eidosScrollytelling.resetScrollTriggers();
-        }
 
         currentSlide = 0;
         totalSlides = 0;
@@ -2225,358 +2207,6 @@ document.addEventListener('DOMContentLoaded', () => {
     backBtn.addEventListener('click', resetUI);
     previewResetBtn.addEventListener('click', resetUI);
     document.getElementById('refused-back-btn').addEventListener('click', resetUI);
-
-    // =========================================================
-    // 11. LANDING SCROLLYTELLING (THREE.JS CINEMATIC)
-    // =========================================================
-    class ThreeScrollytelling {
-        constructor() {
-            this.container = document.getElementById('scrolly-canvas-container');
-            if (!this.container) return;
-
-            this.scene = new THREE.Scene();
-            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            this.container.appendChild(this.renderer.domElement);
-
-            this.clock = new THREE.Clock();
-            this._animPaused = false;
-            this.initLights();
-            this.initObjects();
-            this.initLenis();
-            this.initScrollTrigger();
-            this.animate();
-
-            // Pause when the tab is hidden (saves GPU on any device)
-            document.addEventListener('visibilitychange', () => {
-                this._animPaused = document.hidden;
-            });
-
-            window.addEventListener('resize', () => this.onResize());
-        }
-
-        initLights() {
-            const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-            this.scene.add(ambient);
-
-            this.pointLight = new THREE.PointLight(0xffffff, 2);
-            this.pointLight.position.set(5, 5, 5);
-            this.scene.add(this.pointLight);
-
-            const blueLight = new THREE.PointLight(0x3b82f6, 10, 20);
-            blueLight.position.set(-5, -2, 2);
-            this.scene.add(blueLight);
-        }
-
-        initObjects() {
-            // Step 1: Neural Core (Icosahedron with Wireframe)
-            this.coreGroup = new THREE.Group(); // GSAP-controllable (scroll rotation)
-            this.idleGroup = new THREE.Group(); // Loop-controllable (constant rotation)
-            this.coreGroup.add(this.idleGroup);
-
-            const coreGeom = new THREE.IcosahedronGeometry(2, 2);
-            const coreMat = new THREE.MeshStandardMaterial({
-                color: 0xffffff,
-                wireframe: true,
-                transparent: true,
-                opacity: 1
-            });
-            this.coreMesh = new THREE.Mesh(coreGeom, coreMat);
-            this.idleGroup.add(this.coreMesh);
-
-            const innerGeom = new THREE.IcosahedronGeometry(1.2, 1);
-            const innerMat = new THREE.MeshStandardMaterial({
-                color: 0xffffff,
-                emissive: 0xffffff,
-                emissiveIntensity: 0.5,
-                transparent: true,
-                opacity: 1
-            });
-            this.innerCore = new THREE.Mesh(innerGeom, innerMat);
-            this.idleGroup.add(this.innerCore);
-
-            this.scene.add(this.coreGroup);
-
-            // Step 2 & 3: Particles / Crystals (InstancedMesh for performance)
-            this.particleCount = 500;
-            const partGeom = new THREE.SphereGeometry(0.04, 8, 8);
-            const partMat = new THREE.MeshStandardMaterial({
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0
-            });
-            this.particles = new THREE.InstancedMesh(partGeom, partMat, this.particleCount);
-
-            this.dummy = new THREE.Object3D();
-            this.initialPositions = new Float32Array(this.particleCount * 3);
-            for (let i = 0; i < this.particleCount; i++) {
-                const x = (Math.random() - 0.5) * 20;
-                const y = (Math.random() - 0.5) * 20;
-                const z = (Math.random() - 0.5) * 20;
-                this.initialPositions[i * 3] = x;
-                this.initialPositions[i * 3 + 1] = y;
-                this.initialPositions[i * 3 + 2] = z;
-
-                this.dummy.position.set(x, y, z);
-                this.dummy.updateMatrix();
-                this.particles.setMatrixAt(i, this.dummy.matrix);
-            }
-            this.particles.instanceMatrix.needsUpdate = true;
-            this.particles.visible = false;
-            this.scene.add(this.particles);
-
-            this.camera.position.z = 10;
-        }
-
-        initLenis() {
-            this._createLenis();
-        }
-
-        _createLenis() {
-            // Limpia instancia anterior
-            if (this._lenisTickerFn) {
-                gsap.ticker.remove(this._lenisTickerFn);
-                this._lenisTickerFn = null;
-            }
-            if (this.lenis) {
-                this.lenis.destroy();
-                this.lenis = null;
-                window._eidosLenis = null;
-            }
-
-            if (typeof Lenis === 'undefined') return;
-
-            this.lenis = new Lenis({
-                duration: 1.2,
-                easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-                orientation: 'vertical',
-                smoothWheel: true,
-            });
-            window._eidosLenis = this.lenis;
-
-            // INTEGRACIÓN OFICIAL: Lenis tickea con GSAP, no con rAF manual
-            // Sin esto, Lenis y ScrollTrigger corren desincronizados → el "querer regresar"
-            this.lenis.on('scroll', () => {
-                if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.update();
-            });
-
-            this._lenisTickerFn = (time) => {
-                if (this.lenis) this.lenis.raf(time * 1000);
-            };
-            gsap.ticker.add(this._lenisTickerFn);
-            // lagSmoothing(0) disables frame-skip protection — on slow devices GSAP floods
-            // the thread catching up on missed frames. Use default thresholds instead.
-            gsap.ticker.lagSmoothing(500, 33);
-        }
-
-        initScrollTrigger() {
-            gsap.registerPlugin(ScrollTrigger);
-
-            // Estabilizar scroll para evitar conflictos con smooth scrolling
-            // normalizeScroll intercepts ALL touch events on Android — including
-            // keyboard appearance — causing page freezes while typing. Desktop only.
-            if (window.innerWidth >= 850) ScrollTrigger.normalizeScroll(true);
-            ScrollTrigger.config({ ignoreMobileResize: true });
-
-            const steps = gsap.utils.toArray('.narrative-step');
-            const sections = steps.length;
-            const sectionSelector = '.scrolly-three-section';
-
-            // Global container height based on steps
-            gsap.set(sectionSelector, { height: (sections * 100) + "vh" });
-
-            // Global container fade in
-            gsap.to(this.container, {
-                opacity: 1,
-                scrollTrigger: {
-                    trigger: sectionSelector,
-                    start: "top 80%",
-                    end: "top 20%",
-                    scrub: true
-                }
-            });
-
-            // Master Timeline (Synced with Scroll)
-            const tl = gsap.timeline({
-                scrollTrigger: {
-                    trigger: sectionSelector,
-                    start: "top top",
-                    end: "bottom bottom",
-                    scrub: 1,
-                    onUpdate: (self) => {
-                        const prog = self.progress * 100;
-                        document.querySelector('.v-fill').style.height = prog + '%';
-                        const activeIdx = Math.min(Math.floor(self.progress * sections), sections - 1);
-                        document.querySelectorAll('.v-numbers span').forEach((n, i) => {
-                            n.classList.toggle('active', i === activeIdx);
-                        });
-                    }
-                }
-            });
-
-            // Camera & Object Animation Timeline (Synchronized to avoid pauses)
-            tl.fromTo(this.camera.position, { x: 0, y: 0, z: 10 }, { z: 5, duration: 2.5, ease: "power2.inOut" }, 0)
-                .to(this.coreGroup.rotation, { y: Math.PI * 4, duration: 6, ease: "none" }, 0)
-                .to(this.coreGroup.scale, { x: 8, y: 8, z: 8, duration: 3, ease: "power2.in" }, 1.5)
-                .to([this.coreMesh.material, this.innerCore.material], { opacity: 0, duration: 2 }, 2)
-                .to(this.particles, { visible: true }, 1.5)
-                .to(this.particles.material, { opacity: 1, duration: 2.5, ease: "power2.inOut" }, 1.5)
-                .to(this.camera.position, { y: 2, z: 18, duration: 3.5, ease: "power2.inOut" }, 2.5);
-
-            // Total Duration is now 6 (approx)
-            const totalDur = 6;
-
-            // Narrative Steps Transitions (Sequence to avoid overlap + Distinct animations)
-            const stepDuration = totalDur / sections;
-
-            steps.forEach((step, i) => {
-                const content = step.querySelector('.step-content');
-                const startTime = i * stepDuration;
-
-                // Varied Animation Styles per Step
-                let entranceVars = { opacity: 1, duration: 1.2, ease: "power2.inOut" };
-                let exitVars = { opacity: 0, duration: 1.2, ease: "power2.inOut" };
-
-                if (i === 0) { // Step 1: Horizontal Slide
-                    gsap.set(content, { x: -100, opacity: 0 });
-                    entranceVars.x = 0;
-                    exitVars.x = 50;
-                } else if (i === 1) { // Step 2: Zoom & Blur
-                    gsap.set(content, { scale: 0.8, filter: "blur(10px)", opacity: 0 });
-                    entranceVars.scale = 1;
-                    entranceVars.filter = "blur(0px)";
-                    exitVars.scale = 1.2;
-                    exitVars.filter = "blur(15px)";
-                } else if (i === 2) { // Step 3: 3D Tilt
-                    gsap.set(content, { rotateY: 30, x: 100, opacity: 0 });
-                    entranceVars.rotateY = 0;
-                    entranceVars.x = 0;
-                    exitVars.rotateY = -30;
-                    exitVars.x = -100;
-                } else { // Step 4: Vertical Reveal
-                    gsap.set(content, { y: 100, opacity: 0 });
-                    entranceVars.y = 0;
-                }
-
-                // Add Entrance to Timeline
-                tl.to(content, entranceVars, startTime);
-
-                // Add Exit (Except for the last step)
-                // Overlap exit with next entrance to avoid "cuts"
-                if (i < sections - 1) {
-                    tl.to(content, exitVars, startTime + stepDuration - 0.5);
-                }
-            });
-        }
-
-        resetScrollTriggers() {
-            if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.getAll().forEach(st => st.kill());
-            if (typeof gsap !== 'undefined') {
-                gsap.killTweensOf([
-                    this.camera.position, this.coreGroup.rotation, this.coreGroup.scale,
-                    this.coreMesh.material, this.innerCore.material,
-                    this.particles.material, this.particles,
-                ]);
-                gsap.set(this.camera.position, { x: 0, y: 0, z: 10 });
-                gsap.set(this.coreGroup.rotation, { y: 0 });
-                gsap.set(this.coreGroup.scale, { x: 1, y: 1, z: 1 });
-                gsap.set([this.coreMesh.material, this.innerCore.material], { opacity: 1 });
-                gsap.set(this.particles.material, { opacity: 0 });
-            }
-            if (this.particles) this.particles.visible = false;
-
-            // Destruye Lenis (también remueve del ticker de GSAP)
-            this._createLenis(); // destroy + recreate limpio
-
-            window.scrollTo(0, 0);
-            document.documentElement.scrollTop = 0;
-            document.body.scrollTop = 0;
-
-            // Espera 2 frames para que el browser procese scrollY = 0
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    this.initScrollTrigger();
-                    if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
-                });
-            });
-        }
-
-        pauseForPreview() {
-            if (this._lenisTickerFn) {
-                gsap.ticker.remove(this._lenisTickerFn);
-                this._lenisTickerFn = null;
-            }
-            if (this.lenis) this.lenis.stop();
-        }
-
-        onResize() {
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-
-            // Solo redimensionar si el ancho cambia significativamente 
-            // (evita tirones por barra de direcciones en móvil)
-            if (this._lastW === width && Math.abs(this._lastH - height) < 100) return;
-            this._lastW = width;
-            this._lastH = height;
-
-            this.camera.aspect = width / height;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(width, height);
-
-            // Refrescar ScrollTrigger con un pequeño delay para asegurar layout estable
-            clearTimeout(this._refreshT);
-            this._refreshT = setTimeout(() => {
-                ScrollTrigger.refresh();
-            }, 200);
-        }
-
-        animate() {
-            this._rafId = requestAnimationFrame(() => this.animate());
-            if (this._animPaused) return;
-            const time = this.clock.getElapsedTime();
-
-            if (this.idleGroup) {
-                this.idleGroup.rotation.y += 0.004; // Gentle idle spin
-                this.coreGroup.position.y = Math.sin(time) * 0.15; // Hover effect on parent
-            }
-
-            if (this.particles && this.particles.visible) {
-                for (let i = 0; i < this.particleCount; i++) {
-                    const x = this.initialPositions[i * 3];
-                    const y = this.initialPositions[i * 3 + 1];
-                    const z = this.initialPositions[i * 3 + 2];
-
-                    this.dummy.position.set(
-                        x + Math.sin(time * 0.4 + i) * 0.15,
-                        y + Math.cos(time * 0.3 + i) * 0.15,
-                        z + Math.sin(time * 0.5 + i) * 0.15
-                    );
-                    this.dummy.rotation.x += 0.005;
-                    this.dummy.rotation.y += 0.005;
-                    this.dummy.updateMatrix();
-                    this.particles.setMatrixAt(i, this.dummy.matrix);
-                }
-                this.particles.instanceMatrix.needsUpdate = true;
-            }
-
-            this.renderer.render(this.scene, this.camera);
-        }
-    }
-
-    function initLandingScrollytelling() {
-        // Skip Three.js on mobile — Moto G20-class hardware (Mali-G52, Helio G85) cannot
-        // sustain 60fps WebGL + GSAP + Lenis + keyboard input simultaneously.
-        if (window.innerWidth < 850 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-            // Hide the entire scrolly section so it doesn't create dead scroll space on mobile.
-            if (scrollySection) scrollySection.classList.add('hidden');
-            return;
-        }
-        window._eidosScrollytelling = new ThreeScrollytelling();
-    }
-
-    initLandingScrollytelling();
 
     // =========================================================
     // DESELECT ON CLICK OUTSIDE PREVIEW
@@ -2617,14 +2247,6 @@ document.addEventListener('DOMContentLoaded', () => {
             input.dispatchEvent(new Event('input'));
         }
     };
-
-    // Prevent wheel propagation for data-lenis-prevent elements
-    document.addEventListener('wheel', (e) => {
-        const target = e.target.closest('[data-lenis-prevent]');
-        if (target) {
-            e.stopPropagation();
-        }
-    }, { capture: false, passive: true });
 
     // Scroll is now native; no custom scroll-loop system
 });
