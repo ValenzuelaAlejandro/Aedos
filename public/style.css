@@ -377,10 +377,10 @@
     height: 54px;
     display: flex;
     align-items: center;
-    background: color-mix(in srgb, var(--bg) 84%, transparent);
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: transparent;
+    border-bottom: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 .top-brand {
@@ -390,9 +390,8 @@
 }
 
 .top-brand-logo {
-    width: 20px;
-    height: 20px;
-    object-fit: contain;
+    width: 30px;
+    height: auto;
 }
 
 .top-brand-name {
@@ -469,7 +468,7 @@
 }
 
 :root[data-theme="light"] .top-control-bar {
-    background: color-mix(in srgb, #ffffff 88%, transparent);
+    background: transparent;
 }
 
 :root[data-theme="light"] .control-pill {
@@ -635,6 +634,7 @@
 .chat-input-wrapper {
     display: flex;
     align-items: flex-end;
+    position: relative;
     background: rgba(16, 16, 16, 0.68);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
@@ -644,12 +644,46 @@
     min-height: 116px;
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(216, 119, 88, 0.14), 0 0 24px rgba(216, 119, 88, 0.12);
     animation: neonInputPulse 4s ease-in-out infinite;
-    transition: all 0.3s ease;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.chat-input-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 19px;
+    padding: 2px;
+    background: conic-gradient(
+        from var(--neon-spin),
+        rgba(216, 119, 88, 0.08) 0deg,
+        transparent 40deg 240deg,
+        rgba(216, 119, 88, 0.12) 270deg,
+        rgba(216, 119, 88, 0.38) 295deg,
+        rgba(216, 119, 88, 0.72) 318deg,
+        #ffc9a0 335deg,
+        rgba(216, 119, 88, 0.72) 345deg,
+        rgba(216, 119, 88, 0.38) 355deg,
+        rgba(216, 119, 88, 0.08) 360deg
+    );
+    -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    --neon-spin: 0deg;
+    animation: neonBorderSpin 10s linear infinite;
+    pointer-events: none;
+    filter: drop-shadow(0 0 7px rgba(216, 119, 88, 0.55)) drop-shadow(0 0 18px rgba(216, 119, 88, 0.35)) drop-shadow(0 0 32px rgba(216, 119, 88, 0.2));
 }
 
 .chat-input-wrapper:focus-within {
     border-color: rgba(216, 119, 88, 0.78);
     box-shadow: 0 0 0 1px rgba(216, 119, 88, 0.72), 0 0 30px rgba(216, 119, 88, 0.3), 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+}
+
+.chat-input-wrapper:focus-within::before {
+    filter: drop-shadow(0 0 10px rgba(216, 119, 88, 1)) drop-shadow(0 0 24px rgba(216, 119, 88, 0.75)) drop-shadow(0 0 40px rgba(216, 119, 88, 0.4));
+    animation: neonBorderSpin 6s linear infinite;
 }
 
 .chat-input-wrapper:focus-within #chat-typewriter-cursor {
@@ -753,6 +787,16 @@
     cursor: not-allowed;
     background: transparent !important;
     transform: none !important;
+}
+
+@property --neon-spin {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@keyframes neonBorderSpin {
+    to { --neon-spin: 360deg; }
 }
 
 @keyframes neonInputPulse {
