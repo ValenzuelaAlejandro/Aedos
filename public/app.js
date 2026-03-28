@@ -142,6 +142,191 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- i18n is now handled globally by i18n.js ---
 
+    // =========================================================
+    // HERO MESSAGE (RANDOM ON LOAD)
+    // =========================================================
+    const heroTitle = document.querySelector('.hero-title-single');
+    const heroMessageKeys = Array.from({ length: 20 }, (_, i) => `hero_msg_${i + 1}`);
+    const heroMessages = heroMessageKeys
+        .map((key) => {
+            const resolved = (typeof window.__eidos_t === 'function') ? window.__eidos_t(key) : key;
+            return resolved === key ? null : resolved;
+        })
+        .filter(Boolean);
+
+    if (heroTitle && heroMessages.length > 0) {
+        const randomIndex = Math.floor(Math.random() * heroMessages.length);
+        heroTitle.innerHTML = heroMessages[randomIndex];
+    }
+
+    // =========================================================
+    // MOUSE PHYSICS (HERO + PROMPT CARDS)
+    // =========================================================
+    (function setupMousePhysics() {
+        const physicsTargets = [
+            document.querySelector('.hero-title-single')
+        ].filter(Boolean);
+
+        if (!physicsTargets.length) return;
+
+        const cfg = {
+            radius: 180,
+            force: 0.38,
+            spring: 0.12,
+            damping: 0.83,
+            maxOffset: 12
+        };
+
+        const states = physicsTargets.map((el) => ({ el, x: 0, y: 0, vx: 0, vy: 0 }));
+        const pointer = { x: 0, y: 0, active: false };
+        let rafId = 0;
+
+        function clamp(v, min, max) {
+            return Math.max(min, Math.min(max, v));
+        }
+
+        function tick() {
+            let keepRunning = false;
+
+            states.forEach((s) => {
+                const r = s.el.getBoundingClientRect();
+                const cx = r.left + r.width * 0.5;
+                const cy = r.top + r.height * 0.5;
+
+                if (pointer.active) {
+                    const dx = cx - pointer.x;
+                    const dy = cy - pointer.y;
+                    const dist = Math.hypot(dx, dy) || 1;
+                    if (dist < cfg.radius) {
+                        const push = (1 - dist / cfg.radius) * cfg.force;
+                        s.vx += (dx / dist) * push;
+                        s.vy += (dy / dist) * push;
+                    }
+                }
+
+                // Spring back to origin + damping for soft physical feel
+                s.vx += -s.x * cfg.spring;
+                s.vy += -s.y * cfg.spring;
+                s.vx *= cfg.damping;
+                s.vy *= cfg.damping;
+
+                s.x = clamp(s.x + s.vx, -cfg.maxOffset, cfg.maxOffset);
+                s.y = clamp(s.y + s.vy, -cfg.maxOffset, cfg.maxOffset);
+
+                s.el.style.transform = `translate3d(${s.x.toFixed(2)}px, ${s.y.toFixed(2)}px, 0)`;
+
+                const energy = Math.abs(s.x) + Math.abs(s.y) + Math.abs(s.vx) + Math.abs(s.vy);
+                if (energy > 0.03 || pointer.active) keepRunning = true;
+            });
+
+            if (keepRunning) {
+                rafId = requestAnimationFrame(tick);
+            } else {
+                rafId = 0;
+            }
+        }
+
+        function scheduleTick() {
+            if (!rafId) rafId = requestAnimationFrame(tick);
+        }
+
+        window.addEventListener('pointermove', (e) => {
+            pointer.x = e.clientX;
+            pointer.y = e.clientY;
+            pointer.active = true;
+            scheduleTick();
+        }, { passive: true });
+
+        window.addEventListener('pointerleave', () => {
+            pointer.active = false;
+            scheduleTick();
+        });
+
+        // Start in a settled state and wake up only on interaction
+        scheduleTick();
+    })();
+
+    // =========================================================
+    // STARTER CAROUSEL LOOP (SEAMLESS)
+    // =========================================================
+    (function setupStarterCarousel() {
+        const carousel = document.querySelector('.starter-carousel');
+        const track = document.getElementById('starter-track');
+        if (!carousel || !track || track.dataset.cloned === '1') return;
+
+        const originals = Array.from(track.children);
+        if (!originals.length) return;
+
+        originals.forEach((node) => {
+            const clone = node.cloneNode(true);
+            clone.setAttribute('aria-hidden', 'true');
+            clone.tabIndex = -1;
+            track.appendChild(clone);
+        });
+
+        // We drive the carousel with JS so speed can change on hover without visual jumps.
+        track.style.animation = 'none';
+
+        let loopWidth = 0;
+        let offset = 0;
+        let lastTs = 0;
+        let currentSpeed = 58; // px/s
+        let targetSpeed = 58;  // px/s
+
+        function measureLoopWidth() {
+            loopWidth = track.scrollWidth / 2;
+            if (!Number.isFinite(loopWidth) || loopWidth <= 0) {
+                loopWidth = 1;
+            }
+            offset = offset % loopWidth;
+        }
+
+        function tick(ts) {
+            if (!lastTs) lastTs = ts;
+            const dt = Math.min(64, ts - lastTs) / 1000;
+            lastTs = ts;
+
+            // Smooth easing between normal and slow hover speed.
+            const easing = Math.min(1, dt * 7.5);
+            currentSpeed += (targetSpeed - currentSpeed) * easing;
+
+            offset += currentSpeed * dt;
+            if (offset >= loopWidth) offset -= loopWidth;
+            track.style.transform = `translate3d(${-offset.toFixed(2)}px, 0, 0)`;
+
+            requestAnimationFrame(tick);
+        }
+
+        carousel.addEventListener('pointerenter', () => {
+            targetSpeed = 12;
+        });
+
+        carousel.addEventListener('pointerleave', () => {
+            targetSpeed = 58;
+        });
+
+        // Keep hover highlight pinned to the card under the pointer.
+        let activeHoverCard = null;
+        carousel.addEventListener('pointermove', (e) => {
+            const card = e.target.closest('.starter-card');
+            if (card === activeHoverCard) return;
+            if (activeHoverCard) activeHoverCard.classList.remove('is-hovered');
+            activeHoverCard = card;
+            if (activeHoverCard) activeHoverCard.classList.add('is-hovered');
+        });
+
+        carousel.addEventListener('pointerleave', () => {
+            if (activeHoverCard) activeHoverCard.classList.remove('is-hovered');
+            activeHoverCard = null;
+        });
+
+        window.addEventListener('resize', measureLoopWidth);
+
+        measureLoopWidth();
+        requestAnimationFrame(tick);
+        track.dataset.cloned = '1';
+    })();
+
 
     // =========================================================
     // TYPEWRITER EFFECT
@@ -150,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const typewriterCursor = document.getElementById('chat-typewriter-cursor');
     const chatPlaceholderContainer = document.getElementById('chat-placeholder');
     const topicsEn = [
-        "Human evolution, 6 slides, red with white, author: John Smith",
+        "Human evolution, 6 slides, red and white, visual timeline",
         "Quantum Computing, 10 slides, minimalist black and white",
         "Machine Learning Applications, 5 slides, green, tech style",
         "Space Exploration Timeline, 8 slides, dark theme, balanced",
@@ -161,8 +346,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const topicsEs = [
         "Evolución de la Democracia, 8 slides, azul oscuro, resumido",
         "La Revolución Francesa, 12 slides, rojo y azul, detallado",
-        "Impacto de Redes Sociales, 10 slides, violeta, autor: Jane Doe",
-        "Historia del Arte Moderno, 12 slides, tonos pastel, profesor: H. Lee",
+        "Impacto de Redes Sociales, 10 slides, violeta, enfoque práctico",
+        "Historia del Arte Moderno, 12 slides, tonos pastel, estilo editorial",
         "Inteligencia Artificial en Medicina, 8 slides, minimalista",
         "El Renacimiento Italiano, 7 slides, tonos sepia y dorado"
     ];
@@ -2242,7 +2427,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const translated = (typeof window.__eidos_t === 'function')
                 ? window.__eidos_t(keyOrText)
                 : keyOrText;
-            input.value = translated;
+            // Prompts can come from i18n strings with HTML entities (&apos;, &amp;, etc.).
+            // Decode them before writing to textarea value.
+            const entityDecoder = document.createElement('textarea');
+            entityDecoder.innerHTML = translated;
+            input.value = entityDecoder.value;
             input.focus();
             input.dispatchEvent(new Event('input'));
         }

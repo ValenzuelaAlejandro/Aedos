@@ -59,26 +59,21 @@
         <div class="chat-container">
             <!-- App Header -->
             <div class="app-header">
-                <div class="app-logo">
-                    <span class="logo-eidos">Eidos</span><span class="logo-lab">lab</span>
-                    <div class="dot"></div>
-                </div>
-                <p class="app-microcopy" id="t-app-microcopy" data-i18n="app_microcopy">8–12 slides &middot; Structured content
-                    &middot; Ready to download as PDF</p>
+                <h1 class="hero-title hero-title-single" data-i18n="hero_line_1">What&apos;s cooking today?</h1>
             </div>
 
             <!-- Chat Input Area -->
             <div class="chat-input-wrapper">
                 <div class="chat-input-container"
-                    style="position: relative; flex: 1; display: flex; align-items: center;">
+                    style="position: relative; flex: 1; display: flex; align-items: flex-start;">
                     <span id="chat-placeholder"
-                        style="position: absolute; left: 1.2rem; right: 0.5rem; color: var(--muted); pointer-events: none; white-space: nowrap; user-select: none; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;">
+                        style="position: absolute; top: 1.05rem; left: 1.2rem; right: 0.8rem; color: var(--muted); pointer-events: none; white-space: nowrap; user-select: none; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;">
                         <span id="chat-typewriter-text" style="overflow: hidden; text-overflow: ellipsis;"></span><span
                             id="chat-typewriter-cursor" class="typewriter-cursor">|</span>
                     </span>
                     <textarea id="w-tema" class="chat-input" autocomplete="off" autofocus rows="1" maxlength="600"
                         aria-label="Presentation topic"
-                        style="resize: none; min-height: 1.5rem;"></textarea>
+                        style="resize: none; min-height: 6.5rem;"></textarea>
                 </div>
                 <div class="chat-actions">
                     <button class="btn-generate-chat" id="btn-generate" disabled>
@@ -100,50 +95,72 @@
                 <span id="char-counter">0/600</span>
             </div>
 
-            <div class="suggestion-chips">
-                <button class="chip" onclick="fillInput('chip_roman')">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M3 13V7l5-4 5 4v6" />
-                        <rect x="6" y="9" width="4" height="4" rx="1" />
-                    </svg>
-                    <span data-i18n="chip_roman">Roman Empire</span>
-                </button>
-                <button class="chip" onclick="fillInput('chip_ai')">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="8" cy="8" r="3" />
-                        <path d="M8 1v2M8 13v2M1 8h2M13 8h2" />
-                    </svg>
-                    <span data-i18n="chip_ai">Generative AI</span>
-                </button>
-                <button class="chip" onclick="fillInput('chip_climate')">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M3 10c0-2.8 2.2-5 5-5s5 2.2 5 5" />
-                        <path d="M1 10h14M5 13l3-3 3 3" />
-                    </svg>
-                    <span data-i18n="chip_climate">Climate Change</span>
-                </button>
-                <button class="chip" onclick="fillInput('chip_industrial')">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <rect x="2" y="8" width="4" height="5" />
-                        <rect x="6" y="5" width="4" height="8" />
-                        <rect x="10" y="3" width="4" height="10" />
-                    </svg>
-                    <span data-i18n="chip_industrial">Industrial Revolution</span>
-                </button>
-                <button class="chip" onclick="fillInput('chip_biology')">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <ellipse cx="8" cy="8" rx="6" ry="4" />
-                        <circle cx="8" cy="8" r="2" />
-                    </svg>
-                    <span data-i18n="chip_biology">Cell Biology</span>
-                </button>
-                <button class="chip" onclick="fillInput('chip_blackholes')">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="8" cy="8" r="3" />
-                        <circle cx="8" cy="8" r="6" stroke-dasharray="2 2" />
-                    </svg>
-                    <span data-i18n="chip_blackholes">Black Holes</span>
-                </button>
+            <div class="starter-section">
+                <p class="starter-label" data-i18n="starter_label">Get started with one of these prompts</p>
+                <div class="starter-carousel">
+                    <div class="starter-track" id="starter-track">
+                        <button class="starter-card" onclick="fillInput('starter_prompt_1')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_1">Create a 12-slide fintech pitch. Colors: charcoal and coral. Tone: confident.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22h18"></path><path d="M6 18v-7"></path><path d="M10 18v-9"></path><path d="M14 18v-5"></path><path d="M18 18v-11"></path></svg>
+                            </span>
+                        </button>
+                        <button class="starter-card" onclick="fillInput('starter_prompt_2')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_2">Build 8 slides on climate policy with neutral tone and data-first visuals.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18"></path><path d="M6 16l4-4 3 2 5-6"></path><path d="M18 8h3v3"></path></svg>
+                            </span>
+                        </button>
+                        <button class="starter-card" onclick="fillInput('starter_prompt_3')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_3">Make a product roadmap deck, 10 slides, dark blue palette, executive tone.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"></path><path d="M5 12h14"></path><path d="M5 4h14"></path><circle cx="9" cy="12" r="1.2"></circle><circle cx="15" cy="4" r="1.2"></circle></svg>
+                            </span>
+                        </button>
+                        <button class="starter-card" onclick="fillInput('starter_prompt_4')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_4">Generate a workshop deck, 15 slides, friendly tone, include agenda and recap.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path></svg>
+                            </span>
+                        </button>
+                        <button class="starter-card" onclick="fillInput('starter_prompt_5')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_5">Prepare a medical AI overview, 9 slides, white plus teal, formal tone.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><path d="M3 12h18"></path><circle cx="12" cy="12" r="8"></circle></svg>
+                            </span>
+                        </button>
+                        <button class="starter-card" onclick="fillInput('starter_prompt_6')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_6">Create a sales deck with cover data: company, speaker, date, KPI subtitle.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 8h10"></path><path d="M7 12h10"></path><path d="M7 16h5"></path></svg>
+                            </span>
+                        </button>
+                        <button class="starter-card" onclick="fillInput('starter_prompt_7')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_7">Explain blockchain basics in 7 slides, simple tone, high-contrast colors.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6"></rect><rect x="14" y="4" width="6" height="6"></rect><rect x="4" y="14" width="6" height="6"></rect><rect x="14" y="14" width="6" height="6"></rect></svg>
+                            </span>
+                        </button>
+                        <button class="starter-card" onclick="fillInput('starter_prompt_8')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_8">Draft a research summary, 11 slides, include methodology, results, limitations.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"></path><path d="M8 20V8"></path><path d="M12 20V4"></path><path d="M16 20v-6"></path></svg>
+                            </span>
+                        </button>
+                        <button class="starter-card" onclick="fillInput('starter_prompt_9')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_9">Design onboarding slides, 6 slides, playful tone, orange accents.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3"></circle><path d="M5 20c1.5-3 4-5 7-5s5.5 2 7 5"></path></svg>
+                            </span>
+                        </button>
+                        <button class="starter-card" onclick="fillInput('starter_prompt_10')">
+                            <span class="starter-card-text" data-i18n="starter_prompt_10">Build quarterly report deck, 13 slides, include charts and action items.</span>
+                            <span class="starter-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"></path><path d="M6 16l4-4 3 2 5-6"></path><path d="M19 10h1v1"></path></svg>
+                            </span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
 

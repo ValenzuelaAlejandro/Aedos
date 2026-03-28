@@ -303,7 +303,7 @@
         margin: 0 !important;
     }
 
-    /* 6. Centrado de Logo y Chips en Móvil (Manteniendo estilo Desktop) */
+    /* 6. Centrado del nuevo hero en móvil */
     #chat-screen {
         padding: 2rem 1.5rem !important;
         display: flex !important;
@@ -314,8 +314,8 @@
 
     .chat-container {
         width: 100% !important;
-        max-width: 500px !important;
-        gap: 1.5rem !important;
+        max-width: 560px !important;
+        gap: 1.1rem !important;
     }
 
     .app-header {
@@ -323,54 +323,62 @@
         flex-direction: column !important;
         align-items: center !important;
         text-align: center !important;
+        gap: 0 !important;
     }
 
-    body .app-logo {
-        position: relative !important;
-        top: auto !important;
-        left: auto !important;
-        font-size: 2.5rem !important;
-        margin-bottom: 0.5rem !important;
-        display: flex !important;
-        justify-content: center !important;
+    .hero-title {
+        font-size: 2rem !important;
+        line-height: 1.04 !important;
+        max-width: 15ch !important;
     }
 
     body .app-microcopy {
-        margin-top: 0 !important;
+        margin-top: 0.45rem !important;
         text-align: center !important;
-        font-size: 0.85rem !important;
+        font-size: 0.78rem !important;
     }
 
-    /* Acomodando las chips como Desktop pero agrupadas */
-    .suggestion-chips {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        justify-content: center !important;
-        gap: 8px !important;
-        margin-top: 1.5rem !important;
-        width: 100% !important;
-        padding: 0 10px !important;
+    .starter-label {
+        text-align: center !important;
+        padding-left: 0 !important;
+        margin-bottom: 0.6rem !important;
     }
 
-    .chip {
-        display: flex !important;
-        align-items: center !important;
-        gap: 6px !important;
-        padding: 6px 16px !important;
-        border-radius: 999px !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        background: #1a1a1d !important;
-        color: rgba(255,255,255,0.5) !important;
-        font-size: 13px !important;
-        transition: all 0.15s ease !important;
-        white-space: nowrap !important;
+    .starter-carousel {
+        mask-image: none !important;
+        -webkit-mask-image: none !important;
+        overflow-x: hidden !important;
     }
 
-    .chip:active {
-        border-color: rgba(255,255,255,0.25) !important;
-        color: rgba(255,255,255,0.85) !important;
-        background: #252528 !important;
-        transform: scale(0.96);
+    .starter-track {
+        gap: 0.5rem !important;
+    }
+
+    .starter-card {
+        min-height: 108px !important;
+        flex: 0 0 216px !important;
+        padding: 0.72rem !important;
+        border-radius: 8px !important;
+    }
+
+    .starter-card-text {
+        font-size: 0.82rem !important;
+        line-height: 1.28 !important;
+    }
+
+    .starter-card-icon {
+        width: 20px !important;
+        height: 20px !important;
+    }
+
+    .chat-input-wrapper {
+        min-height: 108px !important;
+        padding: 0.8rem 0.9rem 0.9rem !important;
+    }
+
+    .chat-input {
+        min-height: 84px !important;
+        font-size: 1.02rem !important;
     }
 }
 
