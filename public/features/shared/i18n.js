@@ -136,7 +136,17 @@ const translations = {
         "rate_limit_msg": "You've reached the generation limit. Please wait a few minutes before trying again.",
         "topic_too_long": "The topic is too long. Maximum 600 characters.",
         "queued_position": "Waiting in queue — position {pos}",
-        "generate_presentation": "Generate presentation"
+        "generate_presentation": "Generate presentation",
+        "gen_loading_1": "Channeling your idea to the AI...",
+        "gen_loading_2": "Parsing what makes this topic tick...",
+        "gen_loading_3": "Mapping out the perfect narrative...",
+        "gen_loading_4": "Sketching slides in the void...",
+        "gen_loading_5": "Consulting the neural oracle...",
+        "gen_loading_6": "Forging your deck, slide by slide...",
+        "gen_loading_7": "Choosing words that actually land...",
+        "gen_loading_8": "Polishing the rough edges...",
+        "gen_loading_9": "The last sparks are flying...",
+        "gen_loading_final": "Any moment now..."
     },
     es: {
         "brand_name": "Eidoslab",
@@ -275,7 +285,17 @@ const translations = {
         "rate_limit_msg": "Has alcanzado el límite de generaciones. Espera unos minutos e inténtalo de nuevo.",
         "topic_too_long": "El tema es demasiado largo. Máximo 600 caracteres.",
         "queued_position": "En cola — posición {pos}",
-        "generate_presentation": "Generar presentación"
+        "generate_presentation": "Generar presentación",
+        "gen_loading_1": "Canalizando tu idea a la IA...",
+        "gen_loading_2": "Descubriendo lo que hace especial este tema...",
+        "gen_loading_3": "Trazando la narrativa perfecta...",
+        "gen_loading_4": "Dibujando diapositivas desde cero...",
+        "gen_loading_5": "Consultando el oráculo neuronal...",
+        "gen_loading_6": "Forjando tu deck, diapositiva a diapositiva...",
+        "gen_loading_7": "Eligiendo las palabras que realmente conectan...",
+        "gen_loading_8": "Puliendo los últimos detalles...",
+        "gen_loading_9": "Las últimas chispas están volando...",
+        "gen_loading_final": "Ya mero..."
     }
 };
 

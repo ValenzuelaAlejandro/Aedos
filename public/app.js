@@ -112,6 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let _refreshSlotOverlays = null; // assigned in injectImageReplacementSystem
     let _overlayMap = new Map(); // slotEl -> { input, label }
 
+    // Called once the first slide is visible in the skeleton — set by handleGenerate
+    let _pendingTransitionFn = null;
+
     // Listen for messages from iframe during skeleton generation
     window.addEventListener('message', (e) => {
         if (!e.data) return;
@@ -123,6 +126,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
             }
             currentSlide = count - 1;
+
+            // Trigger chat→preview transition on the first real slide
+            if (_pendingTransitionFn) {
+                const fn = _pendingTransitionFn;
+                _pendingTransitionFn = null;
+                fn();
+            }
 
             // Rebuild dots and minimap skeletons during generation
             if (typeof buildDots === 'function') buildDots();
@@ -495,6 +505,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendIcon = document.getElementById('btn-icon-send');
     const loaderIcon = document.getElementById('btn-icon-loader');
 
+    // ── Button cycling message state ──────────────────────────────────────
+    const BTN_LOADING_KEYS = [
+        'gen_loading_1', 'gen_loading_2', 'gen_loading_3', 'gen_loading_4',
+        'gen_loading_5', 'gen_loading_6', 'gen_loading_7', 'gen_loading_8',
+        'gen_loading_9', 'gen_loading_final'
+    ];
+    let _btnMsgTimer = null;
+    let _btnMsgIndex = 0;
+
+    function _scheduleNextBtnMsg() {
+        if (_btnMsgIndex >= BTN_LOADING_KEYS.length - 1) return;
+        _btnMsgTimer = setTimeout(() => {
+            _btnMsgIndex++;
+            const label = generateBtn.querySelector('.btn-generate-label');
+            if (label) label.textContent = window.__eidos_t(BTN_LOADING_KEYS[_btnMsgIndex]);
+            _scheduleNextBtnMsg();
+        }, 1900);
+    }
+
+    function startBtnMessages() {
+        _btnMsgIndex = 0;
+        _btnMsgTimer = null;
+        const label = generateBtn.querySelector('.btn-generate-label');
+        if (label) label.textContent = window.__eidos_t(BTN_LOADING_KEYS[0]);
+        _scheduleNextBtnMsg();
+    }
+
+    function pauseBtnMessages() {
+        if (_btnMsgTimer) { clearTimeout(_btnMsgTimer); _btnMsgTimer = null; }
+    }
+
+    function resumeBtnMessages() {
+        if (!_btnMsgTimer) _scheduleNextBtnMsg();
+    }
+
+    function stopBtnMessages() {
+        pauseBtnMessages();
+        _btnMsgIndex = 0;
+        const label = generateBtn.querySelector('.btn-generate-label');
+        if (label) label.textContent = window.__eidos_t('generate_presentation', 'Generate presentation');
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     function toggleGenerateLoading(isLoading) {
         const editorControls = [
             ...Array.from(document.querySelectorAll('.preview-unified-header button, .preview-unified-header select, .preview-unified-header input')),
@@ -507,6 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (sendIcon) sendIcon.classList.add('hidden');
             if (loaderIcon) loaderIcon.classList.remove('hidden');
             stopTypewriter();
+            startBtnMessages();
 
             // Disable editor buttons/controls during generation
             editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = true; });
@@ -516,6 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (sendIcon) sendIcon.classList.remove('hidden');
             if (loaderIcon) loaderIcon.classList.add('hidden');
             if (typewriterCursor) typewriterCursor.style.display = '';
+            stopBtnMessages();
 
             // Enable editor buttons/controls after generation (or error)
             editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = false; });
@@ -544,28 +599,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toggleGenerateLoading(true);
 
-        const liquid = document.getElementById('liquid-transition');
-        if (liquid) {
-            document.body.classList.add('no-scroll'); // Problem 1: Prevent scrollbars
-            liquid.classList.remove('hidden', 'empty-out');
-            liquid.classList.add('active', 'fill-up');
-            // Wait for water to fill
-            await new Promise(r => setTimeout(r, 1000));
-        }
-
         window.removeEventListener('resize', scaleIframe); // evita acumulación
 
-        // Hide chatScreen when loading
-        chatScreen.classList.add('hidden');
-        previewHeader.classList.remove('slide-down');
-        previewContainer.classList.remove('hidden');
-        // Enter generating state: collapse side panels, show only skeleton
-        previewContainer.classList.remove('reveal-chrome');
-        previewContainer.classList.add('is-generating');
-
-        // Scale iframe after browser has processed the collapsed panel layout
-        requestAnimationFrame(() => scaleIframe());
-        window.addEventListener('resize', scaleIframe);
+        // Transition: called once on first AI chunk, slides from chat → live skeleton
+        let _hasTransitioned = false;
+        function doTransitionToPreview() {
+            if (_hasTransitioned) return;
+            _hasTransitioned = true;
+            stopBtnMessages();
+            // Fade chat screen out (it's covered by fixed preview-container, but still clean)
+            chatScreen.style.cssText = 'opacity:0;transition:opacity 0.35s ease;pointer-events:none;';
+            setTimeout(() => {
+                chatScreen.classList.add('hidden');
+                chatScreen.style.cssText = '';
+            }, 380);
+            // Reveal preview (sectionFadeIn animation kicks in automatically)
+            previewHeader.classList.remove('slide-down');
+            previewContainer.classList.remove('hidden', 'reveal-chrome');
+            previewContainer.classList.add('is-generating');
+            document.body.classList.add('no-scroll');
+            requestAnimationFrame(() => scaleIframe());
+            window.addEventListener('resize', scaleIframe);
+        }
 
         // Reset the iframe completely by injecting a fresh DOM node
         minimapAlreadyInit = false;
@@ -588,42 +643,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (slideDots) slideDots.innerHTML = '';
 
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
-        iframeDoc.open();
-        const loadingMsg = window.__eidos_t ? window.__eidos_t('loading-text', "Loading presentation structure...") : "Loading presentation structure...";
         const G_FONTS = `
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">`;
         const loadingHtml = `
-
         ${G_FONTS}
         <style class="skeleton-injector">
-            body { background: #121212; margin: 0; padding: 0; font-family: sans-serif; }
-            .loader-overlay {
-                position: fixed; inset: 0; z-index: 99999; background: #121212; 
-                display: flex; flex-direction: column; align-items: center; justify-content: center; color: #e0e0e0;
-            }
-            .loader-spinner {
-                width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.1); border-left-color: #f0f0f0;
-                border-radius: 50%; animation: ld-spin 1s linear infinite; margin-bottom: 20px;
-            }
-            @keyframes ld-spin { 100% { transform: rotate(360deg); } }
-            .loader-text {
-                font-size: 1.2rem; letter-spacing: 0.5px; opacity: 0.8; animation: ld-pulse 2s ease-in-out infinite;
-                font-weight: 500;
-            }
-            @keyframes ld-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+            body { background: #121212; margin: 0; padding: 0; }
         </style>
-        <div id="temp-skeleton" class="loader-overlay">
-            <div class="loader-spinner"></div>
-            <div class="loader-text">${loadingMsg}</div>
-        </div>
         <link rel="stylesheet" href="editor.css?v=3">
         <script src="editor.js?v=3"></script>
         `;
-
-        // Wait for the AI's first chunk with a loading screen
-        iframeDoc.write('<!DOCTYPE html>' + loadingHtml);
 
         // Immediately update preview label
         const previewLabel = document.getElementById('preview-topic-label');
@@ -635,16 +666,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         slideLabel.textContent = "1 / 1";
         updateMinimapSkeleton(1);
-
-        if (liquid) {
-            liquid.classList.replace('fill-up', 'empty-out');
-            setTimeout(() => {
-                liquid.classList.remove('empty-out', 'active');
-                // document.body.classList.remove('no-scroll'); // FIXED: Keep no-scroll active until we explicitly close preview
-            }, 5000); // Wait for the wave to actually leave the screen
-        }
-
-
 
         try {
             const response = await fetch('/generate', {
@@ -681,25 +702,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         try { parsed = JSON.parse(dataStr); } catch (e) { continue; }
 
                         if (parsed.queued === true) {
-                            const loaderText = iframeDoc.querySelector('.loader-text');
-                            if (loaderText) {
-                                let msg = window.__eidos_t("queued_position", "Waiting in queue — position {pos}");
-                                loaderText.textContent = msg.replace('{pos}', parsed.position);
+                            pauseBtnMessages();
+                            const label = generateBtn.querySelector('.btn-generate-label');
+                            if (label) {
+                                const msg = window.__eidos_t("queued_position", "Waiting in queue — position {pos}");
+                                label.textContent = msg.replace('{pos}', parsed.position);
                             }
                             continue;
                         }
                         if (parsed.queued === false) {
-                            const loaderText = iframeDoc.querySelector('.loader-text');
-                            if (loaderText) {
-                                loaderText.textContent = window.__eidos_t("loading-text", "Shaping your ideas...");
-                            }
+                            resumeBtnMessages();
                             continue;
                         }
 
                         if (parsed.chunk) {
                             if (firstWrite) {
-                                iframeDoc.open();
                                 firstWrite = false;
+                                // Schedule transition for when the first real slide renders
+                                _pendingTransitionFn = doTransitionToPreview;
+                                iframeDoc.open();
                                 const skelStyle = `
                                 <style class="skeleton-injector">
                                     html.skeleton-active {
@@ -798,7 +819,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             iframeDoc.write(sanitizeModelOutput(parsed.chunk));
                         }
                         if (parsed.refused) {
-                            chatScreen.classList.add('hidden');
+                            _pendingTransitionFn = null;
+                            chatScreen.style.cssText = '';
+                            chatScreen.classList.remove('hidden');
                             refusedMessage.textContent = parsed.message || (window.__eidos_t ? window.__eidos_t('refused_msg', "This topic cannot be generated.") : "This topic cannot be generated.");
                             refusedContainer.classList.remove('hidden');
                             previewContainer.classList.add('hidden');
@@ -929,10 +952,14 @@ document.addEventListener('DOMContentLoaded', () => {
             errorMessage.textContent = error.message;
             errorContainer.classList.remove('hidden');
             previewContainer.classList.add('hidden');
+            // Clean up any in-progress chat→preview transition
+            chatScreen.style.cssText = '';
+            if (!_hasTransitioned) chatScreen.classList.remove('hidden');
             iframeDoc.close();
         } finally {
             toggleGenerateLoading(false);
             // Safety: always clear generating state in case of early exit
+            _pendingTransitionFn = null;
             previewContainer.classList.remove('is-generating');
         }
     }
@@ -2367,7 +2394,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (errorContainer) errorContainer.classList.add('hidden');
         if (refusedContainer) refusedContainer.classList.add('hidden');
         if (previewContainer) previewContainer.classList.add('hidden');
-        if (chatScreen) chatScreen.classList.remove('hidden');
+        if (chatScreen) {
+            chatScreen.style.cssText = ''; // clear any in-progress fade
+            chatScreen.classList.remove('hidden');
+        }
 
         currentSlide = 0;
         totalSlides = 0;
