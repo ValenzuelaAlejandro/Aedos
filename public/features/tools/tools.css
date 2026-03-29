@@ -147,7 +147,7 @@
 }
 
 .tool-input {
-    background: rgba(0, 0, 0, 0.2) !important;
+    background: var(--surface2) !important;
     border: 1px solid var(--border) !important;
     color: var(--text) !important;
     padding: 0.4rem 0.6rem !important;
@@ -191,8 +191,7 @@ select.tool-input {
     justify-content: center;
     overflow: visible;
     border-radius: 50%;
-    background: #111;
-    /* Dark background behind the picker */
+    background: var(--surface);
 }
 
 /* RGB Animated Border Glow */
@@ -271,7 +270,7 @@ select.tool-input {
 
 .tool-btn-group {
     display: flex;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface2);
     border-radius: 4px;
     overflow: hidden;
     border: 1px solid var(--border);

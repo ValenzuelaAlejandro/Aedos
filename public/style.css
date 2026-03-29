@@ -56,10 +56,10 @@
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    background: #1a1a1a;
-    border: 1px solid rgba(255,255,255,0.12);
+    background: var(--surface2);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12);
     z-index: 9999;
     max-height: 260px;
     overflow-y: auto;
@@ -101,8 +101,9 @@
 }
 
 .fpicker-option:hover {
-    background: rgba(255,255,255,0.08);
-    color: #fff;
+    /* Use theme-aware surface and text so hover remains readable in light/dark themes */
+    background: color-mix(in srgb, var(--surface2) 86%, transparent);
+    color: var(--text);
 }
 
 
@@ -512,6 +513,9 @@
 
 :root[data-theme="light"] .top-control-bar {
     background: transparent;
+    /* subtle separator so header reads against light editor panels */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    backdrop-filter: none;
 }
 
 :root[data-theme="light"] .control-pill {
@@ -587,6 +591,79 @@
     border-color: rgba(20, 20, 20, 0.2);
     background: rgba(24, 24, 24, 0.03);
     color: #2a2a2a;
+}
+
+/* Light-theme specific placeholder/readability fixes for editor controls */
+:root[data-theme="light"] .settings-textarea-borderless::placeholder {
+    color: rgba(23, 23, 23, 0.45);
+}
+
+:root[data-theme="light"] .fpicker-dropdown {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.06);
+}
+
+:root[data-theme="light"] .tool-input {
+    background: var(--surface2) !important;
+    color: var(--text) !important;
+}
+
+:root[data-theme="light"] .tool-btn-group {
+    background: var(--surface2);
+}
+
+/* ========== Light-mode editor-specific fixes ========== */
+/* Improve contrast for right tools panel, minimap, dots and PDF animation */
+:root[data-theme="light"] {
+    /* Make tools panel and minimap slightly off-white instead of pure white */
+}
+
+/* Slide dots: use muted color in light mode so they remain visible */
+:root[data-theme="light"] .slide-dot {
+    background: var(--muted);
+}
+
+/* Active dot glow should use the accent (dark) rather than white */
+:root[data-theme="light"] .slide-dot.active {
+    background: var(--accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* PDF / primary pulse button: avoid white border/glow in light mode */
+:root[data-theme="light"] .pulse-btn,
+:root[data-theme="light"] .btn-primary {
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+}
+
+:root[data-theme="light"] .pulse-btn:hover,
+:root[data-theme="light"] .btn-primary:hover {
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+    filter: brightness(0.98);
+}
+
+/* Error and refused panels: ensure text is dark in light mode and icon backgrounds are subtle */
+:root[data-theme="light"] .error-icon-wrap,
+:root[data-theme="light"] .refused-icon-wrap {
+    background: rgba(0,0,0,0.04);
+}
+
+:root[data-theme="light"] .error-icon,
+:root[data-theme="light"] .refused-icon {
+    color: var(--accent);
+}
+
+:root[data-theme="light"] #error-message {
+    color: var(--text);
+    background: var(--bg);
+    border-color: var(--border);
+}
+
+/* Tools panel: prefer the slightly toned surface2 in light mode to reduce glare */
+:root[data-theme="light"] .editor-tools-panel {
+    background: var(--surface2);
+    border-left-color: var(--border);
 }
 
 /* ================================================================
@@ -1987,6 +2064,16 @@ section.s.active > * {
     background: rgba(255, 255, 255, 0.1);
     margin: 0 0.5rem;
     flex-shrink: 0;
+}
+
+:root[data-theme="light"] .preview-unified-header {
+    background: var(--surface2);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+:root[data-theme="light"] .header-v-separator {
+    background: rgba(0, 0, 0, 0.06);
 }
 
 .nav-group {
