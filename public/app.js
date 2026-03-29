@@ -615,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 380);
             // Reveal preview (sectionFadeIn animation kicks in automatically)
             previewHeader.classList.remove('slide-down');
-            previewContainer.classList.remove('hidden', 'reveal-chrome');
+            previewContainer.classList.remove('hidden', 'reveal-chrome', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
             previewContainer.classList.add('is-generating');
             document.body.classList.add('no-scroll');
             requestAnimationFrame(() => scaleIframe());
@@ -906,11 +906,52 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (stage) stage.classList.remove('flicker-mask');
                     if (minimapPanel) minimapPanel.classList.remove('flicker-mask');
 
-                    // Reveal the UI chrome with smooth animations
+                    // Reveal the UI chrome with a staggered sequence (header -> minimap -> tools)
                     previewContainer.classList.remove('is-generating');
-                    previewContainer.classList.add('reveal-chrome');
-                    // Recalculate iframe scale once panels have finished sliding in
-                    setTimeout(() => scaleIframe(), 800);
+                    previewContainer.classList.add('reveal-sequence');
+
+                    // Ensure header slide is present (setupPreviewInteractions usually adds this)
+                    if (previewHeader) previewHeader.classList.add('slide-down');
+
+                    const revealAfterHeader = () => {
+                        // Reveal minimap first (slide in from left)
+                        previewContainer.classList.add('reveal-minimap');
+                        // Give minimap a more noticeable duration before revealing the tools
+                        setTimeout(() => {
+                            previewContainer.classList.add('reveal-tools');
+                            // After tools animation settles, add legacy class and final scale
+                            setTimeout(() => {
+                                previewContainer.classList.add('reveal-chrome');
+                                // Clean up reveal helpers so panels return to natural state
+                                previewContainer.classList.remove('reveal-sequence', 'reveal-minimap', 'reveal-tools');
+                                scaleIframe();
+                            }, 900);
+                        }, 700);
+                        // A mid-phase scale to keep layout responsive
+                        setTimeout(() => scaleIframe(), 520);
+                    };
+
+                    // Wait for header transition to end, then start reveal. Fallback to timeout.
+                    let headerHandled = false;
+                    if (previewHeader) {
+                        const onHeaderEnd = (ev) => {
+                            if (ev && ev.propertyName && ev.propertyName !== 'transform' && ev.propertyName !== 'opacity') return;
+                            if (headerHandled) return;
+                            headerHandled = true;
+                            revealAfterHeader();
+                        };
+                        previewHeader.addEventListener('transitionend', onHeaderEnd, { once: true });
+                        // Fallback in case transitionend doesn't fire
+                        setTimeout(() => {
+                            if (!headerHandled) {
+                                headerHandled = true;
+                                revealAfterHeader();
+                            }
+                        }, 1200);
+                    } else {
+                        // No header: reveal immediately
+                        revealAfterHeader();
+                    }
                 }, 100);
             });
 
@@ -951,6 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             errorMessage.textContent = error.message;
             errorContainer.classList.remove('hidden');
+            previewContainer.classList.remove('is-generating', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
             previewContainer.classList.add('hidden');
             // Clean up any in-progress chat→preview transition
             chatScreen.style.cssText = '';
@@ -958,9 +1000,9 @@ document.addEventListener('DOMContentLoaded', () => {
             iframeDoc.close();
         } finally {
             toggleGenerateLoading(false);
-            // Safety: always clear generating state in case of early exit
+            // is-generating is cleared by the reveal callback (success) or catch block (error).
+            // Do NOT remove it here — that would cause panels to flash before the reveal animation.
             _pendingTransitionFn = null;
-            previewContainer.classList.remove('is-generating');
         }
     }
 

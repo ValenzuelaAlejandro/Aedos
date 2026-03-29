@@ -2529,30 +2529,71 @@ section.s.active > * {
 }
 
 /* Reveal animation — applied via .reveal-chrome on the container */
-#preview-container.reveal-chrome .editor-minimap {
+/* Reveal: staggered sequence helpers
+   We animate header, then minimap, then tools with small delays to feel less chaotic. */
+
+/* Minimap reveal (trigger by adding `reveal-minimap` on the container) */
+/* Start the panels slightly offset and invisible when the reveal sequence begins */
+#preview-container.reveal-sequence .editor-minimap {
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border-right: none !important;
+    overflow: hidden !important;
+    transform: translateX(-28px);
+    opacity: 0;
+    transition: none !important;
+}
+
+/* Minimap reveal (trigger by adding `reveal-minimap` on the container) */
+#preview-container.reveal-minimap .editor-minimap {
+    width: 180px !important;
+    min-width: 180px !important;
+    transform: translateX(0) !important;
+    opacity: 1 !important;
+    overflow: hidden !important;
     transition:
-        width 0.75s cubic-bezier(0.16, 1, 0.3, 1),
-        min-width 0.75s cubic-bezier(0.16, 1, 0.3, 1),
-        opacity 0.6s ease,
-        padding 0.5s ease,
+        transform 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 0.65s ease,
+        width 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+        min-width 0.85s cubic-bezier(0.16, 1, 0.3, 1),
         border-right 0.3s ease !important;
 }
 
-#preview-container.reveal-chrome .editor-tools-panel {
-    transition:
-        width 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.12s,
-        min-width 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.12s,
-        opacity 0.6s ease 0.12s,
-        padding 0.5s ease 0.12s,
-        border-left 0.3s ease 0.12s !important;
+/* Tools start offset to the right during the sequence */
+#preview-container.reveal-sequence .editor-tools-panel {
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border-left: none !important;
+    overflow: hidden !important;
+    transform: translateX(28px);
+    opacity: 0;
+    transition: none !important;
 }
 
-/* The header slide-down already has its own transition.
-   Add a small delay for staggered feel. */
-#preview-container.reveal-chrome .preview-unified-header {
+/* Tools reveal (trigger by adding `reveal-tools` on the container) */
+#preview-container.reveal-tools .editor-tools-panel {
+    width: 260px !important;
+    min-width: 260px !important;
+    padding: 1rem !important;
+    transform: translateX(0) !important;
+    opacity: 1 !important;
+    overflow: hidden !important;
     transition:
-        transform 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0s,
-        opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0s !important;
+        transform 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 0.65s ease,
+        width 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+        min-width 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+        padding 0.55s ease,
+        border-left 0.3s ease !important;
+}
+
+/* The header slide-down already has its own transition. Keep explicit timings to match sequence. */
+#preview-container.reveal-sequence .preview-unified-header {
+    transition:
+        transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0s,
+        opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0s !important;
 }
 
 /* ================================================================
