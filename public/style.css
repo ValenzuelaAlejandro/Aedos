@@ -543,6 +543,25 @@
     color: #151515;
 }
 
+:root[data-theme="light"] .btn-generate-chat {
+    background: #0f0f0f;
+    color: #f8f8f8;
+    border-color: rgba(15, 15, 15, 0.85);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme="light"] .btn-generate-chat:hover:not(:disabled) {
+    background: #000;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+}
+
+:root[data-theme="light"] .btn-generate-chat:disabled {
+    background: #111111 !important;
+    color: #ffffff !important;
+    border-color: rgba(17, 17, 17, 0.9) !important;
+    opacity: 0.7;
+}
+
 :root[data-theme="light"] .chat-input::placeholder {
     color: #7b7b7b;
 }
@@ -677,15 +696,16 @@
 
 .chat-input-wrapper {
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
+    align-items: stretch;
     position: relative;
     background: rgba(12, 12, 12, 0.8);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 18px;
-    padding: 0.95rem 1.05rem 1.05rem;
-    min-height: 116px;
+    padding: 0.62rem 0.82rem 0.74rem;
+    min-height: 0;
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 102, 255, 0.14), 0 0 24px rgba(0, 102, 255, 0.12);
     animation: neonInputPulse 4s ease-in-out infinite;
     transition: box-shadow 0.3s ease, border-color 0.3s ease;
@@ -755,8 +775,8 @@
     color: var(--text);
     font-family: var(--font-body);
     font-size: 1.12rem;
-    padding: 0.45rem 0.35rem 0.35rem;
-    min-height: 96px;
+    padding: 0.25rem 0.25rem 0.3rem;
+    min-height: 50px;
     resize: none;
     outline: none;
     max-height: 250px;
@@ -769,10 +789,9 @@
 
 .chat-actions {
     display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    margin-left: 0.45rem;
-    margin-bottom: 0.15rem;
+    align-items: stretch;
+    width: 100%;
+    margin-top: 0.6rem;
 }
 
 .btn-settings {
@@ -819,32 +838,71 @@
 }
 
 .btn-generate-chat {
-    position: relative;
-    background: transparent;
-    color: var(--accent);
-    border: none;
-    border-radius: 50%;
-    width: 42px;
-    height: 42px;
+    background: #ffffff;
+    color: #101010;
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    border-radius: 12px;
+    width: 100%;
+    min-height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 0.6rem;
+    padding: 0.8rem 1rem;
+    font-family: var(--font-body);
+    font-size: 0.98rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
     cursor: pointer;
-    transition: all 0.25s ease;
-    z-index: 1;
-    /* Esto es CLAVE para que el efecto ::before no se oculte detrás del fondo */
+    opacity: 1;
+    filter: brightness(1) saturate(1);
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.24s ease, filter 0.28s ease;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.btn-generate-chat:not(:disabled) {
+    animation: generateWarmOn 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .btn-generate-chat:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.15);
-    transform: scale(1.05);
+    background: #f1f1f1;
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34);
 }
 
 .btn-generate-chat:disabled {
-    opacity: 0.4;
+    opacity: 0.72;
     cursor: not-allowed;
-    background: transparent !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+    border-color: rgba(255, 255, 255, 0.74) !important;
+    filter: brightness(0.88) saturate(0.9);
     transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn-generate-label {
+    line-height: 1;
+}
+
+@keyframes generateWarmOn {
+    0% {
+        filter: brightness(0.88) saturate(0.9);
+    }
+
+    62% {
+        filter: brightness(1.06) saturate(1.04);
+    }
+
+    100% {
+        filter: brightness(1) saturate(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn-generate-chat:not(:disabled) {
+        animation: none;
+    }
 }
 
 @property --neon-spin {
@@ -881,7 +939,7 @@
 
 .loader-icon {
     animation: spin 1s linear infinite;
-    color: var(--accent);
+    color: currentColor;
 }
 
 @keyframes spin {

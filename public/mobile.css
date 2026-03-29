@@ -418,13 +418,24 @@
     }
 
     .chat-input-wrapper {
-        min-height: 108px !important;
-        padding: 0.8rem 0.9rem 0.9rem !important;
+        min-height: 80px !important;
+        padding: 0.68rem 0.82rem 0.82rem !important;
     }
 
     .chat-input {
-        min-height: 84px !important;
+        min-height: 56px !important;
         font-size: 1.02rem !important;
+    }
+
+    .chat-actions {
+        margin-top: 0.62rem !important;
+    }
+
+    .btn-generate-chat {
+        min-height: 46px !important;
+        border-radius: 10px !important;
+        font-size: 0.92rem !important;
+        padding: 0.7rem 0.85rem !important;
     }
 }
 
