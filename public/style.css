@@ -2185,7 +2185,7 @@ section.s.active > * {
     top: 0;
     bottom: 0;
     width: 0%;
-    background: white;
+    background: var(--accent);
     z-index: 0;
     transition: width 0.3s ease;
 }
