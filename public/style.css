@@ -484,6 +484,14 @@
     justify-content: center;
     gap: 0;
     overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.control-pill-icon:hover,
+.control-pill-icon:focus-within {
+    border-color: rgba(255, 255, 255, 0.28);
+    transform: translateY(-1px);
 }
 
 .control-icon {
@@ -517,6 +525,11 @@
 }
 
 :root[data-theme="light"] .theme-toggle-btn:hover {
+    border-color: rgba(20, 20, 20, 0.3);
+}
+
+:root[data-theme="light"] .control-pill-icon:hover,
+:root[data-theme="light"] .control-pill-icon:focus-within {
     border-color: rgba(20, 20, 20, 0.3);
 }
 
