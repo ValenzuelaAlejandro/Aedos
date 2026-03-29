@@ -559,9 +559,12 @@ document.addEventListener('DOMContentLoaded', () => {
         chatScreen.classList.add('hidden');
         previewHeader.classList.remove('slide-down');
         previewContainer.classList.remove('hidden');
+        // Enter generating state: collapse side panels, show only skeleton
+        previewContainer.classList.remove('reveal-chrome');
+        previewContainer.classList.add('is-generating');
 
-        // Scale iframe immediately so the skeleton doesn't overflow/look zoomed in
-        scaleIframe();
+        // Scale iframe after browser has processed the collapsed panel layout
+        requestAnimationFrame(() => scaleIframe());
         window.addEventListener('resize', scaleIframe);
 
         // Reset the iframe completely by injecting a fresh DOM node
@@ -879,6 +882,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     if (stage) stage.classList.remove('flicker-mask');
                     if (minimapPanel) minimapPanel.classList.remove('flicker-mask');
+
+                    // Reveal the UI chrome with smooth animations
+                    previewContainer.classList.remove('is-generating');
+                    previewContainer.classList.add('reveal-chrome');
+                    // Recalculate iframe scale once panels have finished sliding in
+                    setTimeout(() => scaleIframe(), 800);
                 }, 100);
             });
 
@@ -923,6 +932,8 @@ document.addEventListener('DOMContentLoaded', () => {
             iframeDoc.close();
         } finally {
             toggleGenerateLoading(false);
+            // Safety: always clear generating state in case of early exit
+            previewContainer.classList.remove('is-generating');
         }
     }
 
