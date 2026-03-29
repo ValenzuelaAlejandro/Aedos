@@ -464,14 +464,15 @@ function initEditor() {
         };
     }
 
-    function normalizeElement(el, slide, silent = false, providedRect = null) {
+    function normalizeElement(el, slide, silent = false, providedRect = null, force = false) {
         if (el._normalized) return;
 
         // Guard: never extract an element from inside a semantic container.
         // If its direct parent is a container (card, stat-box, etc.), marking it
         // normalized without mutations is enough — the container itself will be
         // normalized as a whole and its children stay intact inside it.
-        if (el.parentElement && el.parentElement !== slide && el.parentElement.closest(CONTAINER_SELECTORS)) {
+        // Pass force=true to bypass this (e.g. when the user explicitly drags a child out).
+        if (!force && el.parentElement && el.parentElement !== slide && el.parentElement.closest(CONTAINER_SELECTORS)) {
             el._normalized = true;
             return;
         }
@@ -996,6 +997,28 @@ function initEditor() {
             // NORMALIZATION ON DEMAND: Rip out of DOM when user actually starts transforming.
             if (!selectedElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
                 normalizeElement(selectedElement, slide);
+
+                // If the element is a child of a container (card, stat-box, etc.) the guard
+                // in normalizeElement sets _normalized=true but leaves it in normal flow —
+                // setting style.left/top has no visual effect. Force-re-normalize to extract
+                // it from the container so it becomes absolutely positioned and draggable.
+                if (selectedElement.style.position !== 'absolute') {
+                    const _container = selectedElement.parentElement;
+                    if (_container && _container !== slide) {
+                        // Snapshot ALL siblings' positions BEFORE any DOM mutation.
+                        // If we extract the dragged element first, siblings reflow upward.
+                        // By snapshotting and extracting siblings first, nothing shifts.
+                        const _siblings = Array.from(_container.querySelectorAll(editableSelectors))
+                            .filter(s => s !== selectedElement && !s.closest(ignoreSelectors));
+                        const _snapshots = _siblings.map(s => ({ el: s, rect: s.getBoundingClientRect() }));
+                        _snapshots.forEach(({ el: s, rect: r }) => {
+                            s._normalized = false;
+                            normalizeElement(s, slide, true, r, true);
+                        });
+                    }
+                    selectedElement._normalized = false;
+                    normalizeElement(selectedElement, slide, false, null, true);
+                }
 
                 // Also normalize everything in the group
                 dragGroup.forEach(item => {
