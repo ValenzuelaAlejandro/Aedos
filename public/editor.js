@@ -1004,10 +1004,12 @@ function initEditor() {
                 // it from the container so it becomes absolutely positioned and draggable.
                 if (selectedElement.style.position !== 'absolute') {
                     const _container = selectedElement.parentElement;
+                    // Snapshot the dragged element's rect FIRST, before any DOM mutation.
+                    // Extracting siblings changes the container layout which shifts the
+                    // dragged element's getBoundingClientRect — causing the visual offset.
+                    const _draggedRect = selectedElement.getBoundingClientRect();
                     if (_container && _container !== slide) {
-                        // Snapshot ALL siblings' positions BEFORE any DOM mutation.
-                        // If we extract the dragged element first, siblings reflow upward.
-                        // By snapshotting and extracting siblings first, nothing shifts.
+                        // Now snapshot and extract ALL siblings.
                         const _siblings = Array.from(_container.querySelectorAll(editableSelectors))
                             .filter(s => s !== selectedElement && !s.closest(ignoreSelectors));
                         const _snapshots = _siblings.map(s => ({ el: s, rect: s.getBoundingClientRect() }));
@@ -1017,7 +1019,8 @@ function initEditor() {
                         });
                     }
                     selectedElement._normalized = false;
-                    normalizeElement(selectedElement, slide, false, null, true);
+                    // Pass the pre-mutation rect so the element lands at exactly its visual position.
+                    normalizeElement(selectedElement, slide, false, _draggedRect, true);
                 }
 
                 // Also normalize everything in the group
