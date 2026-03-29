@@ -99,6 +99,38 @@ function initMinimap(iframe) {
             }
         }
 
+        const minimapContainer = document.getElementById('editor-minimap');
+
+        function recalcThumbsAndCenter() {
+            if (!minimapList) return;
+            minimapList.querySelectorAll('iframe').forEach(ifr => {
+                const itemWidth = ifr.parentElement.clientWidth;
+                const scale = (itemWidth > 0 ? itemWidth : 188) / 1122;
+                ifr.style.width = '1122px';
+                ifr.style.height = '631px';
+                ifr.style.transform = `scale(${scale})`;
+            });
+            requestAnimationFrame(() => centerActiveMinimapItem());
+        }
+
+        let minimapResizeObserver = null;
+        if (window.ResizeObserver && minimapContainer) {
+            minimapResizeObserver = new ResizeObserver(() => {
+                if (minimapUpdateTimeout) clearTimeout(minimapUpdateTimeout);
+                minimapUpdateTimeout = setTimeout(() => {
+                    recalcThumbsAndCenter();
+                }, 60);
+            });
+            minimapResizeObserver.observe(minimapContainer);
+            minimapResizeObserver.observe(minimapList);
+        } else if (minimapContainer) {
+            minimapContainer.addEventListener('transitionend', (e) => {
+                if (e.propertyName === 'width' || e.propertyName === 'min-width' || e.propertyName === 'transform') {
+                    recalcThumbsAndCenter();
+                }
+            });
+        }
+
         // --- DETECT PRIMARY COLOR ---
         let detectionAttempts = 0;
         function detectAndApplyAccent() {
@@ -306,16 +338,8 @@ function initMinimap(iframe) {
             }
         });
 
-        // Add proper scaling to thumb iframes
-        setTimeout(() => {
-            minimapList.querySelectorAll('iframe').forEach(ifr => {
-                const itemWidth = ifr.parentElement.clientWidth;
-                const scale = (itemWidth > 0 ? itemWidth : 188) / 1122;
-                ifr.style.width = '1122px';
-                ifr.style.height = '631px';
-                ifr.style.transform = `scale(${scale})`;
-            });
-        }, 50);
+        // Add proper scaling to thumb iframes (use ResizeObserver / recalculation)
+        recalcThumbsAndCenter();
 
         if (window.regenerateDotsCount) window.regenerateDotsCount();
 
@@ -366,6 +390,8 @@ function initMinimap(iframe) {
         clone.style.transform = 'none';
 
         ifr.srcdoc = localizedHtml.split('[CONTENT]').join(clone.outerHTML);
+        // Ensure thumbnail scale/centering in case layout changed
+        recalcThumbsAndCenter();
     }
 
     const minimapObserver = new MutationObserver((mutationsList) => {
