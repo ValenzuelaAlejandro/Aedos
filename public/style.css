@@ -615,9 +615,7 @@
 
 /* ========== Light-mode editor-specific fixes ========== */
 /* Improve contrast for right tools panel, minimap, dots and PDF animation */
-:root[data-theme="light"] {
-    /* Make tools panel and minimap slightly off-white instead of pure white */
-}
+
 
 /* Slide dots: use muted color in light mode so they remain visible */
 :root[data-theme="light"] .slide-dot {
@@ -812,6 +810,9 @@
         transparent 255deg 360deg
     );
     -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    mask:
         linear-gradient(#fff 0 0) content-box,
         linear-gradient(#fff 0 0);
     mask-composite: exclude;
@@ -2025,6 +2026,50 @@ section.s.active > * {
     align-items: center;
     justify-content: flex-end;
     gap: 0.75rem;
+}
+
+/* Make theme button in the preview header icon-only (no visible border) */
+.preview-unified-right .theme-toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    padding: 0.5rem;
+    border-radius: 6px;
+    width: auto;
+    height: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-unified-right .theme-toggle-btn:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+    transform: none;
+}
+
+/* Ensure preview header theme toggle is icon-only across themes and overrides theme-specific rules */
+:root[data-theme="light"] .preview-unified-right .action-btn.icon-only.theme-toggle-btn,
+:root[data-theme="dark"] .preview-unified-right .action-btn.icon-only.theme-toggle-btn,
+.preview-unified-right .action-btn.icon-only.theme-toggle-btn {
+    background: transparent !important;
+    border: none !important;
+    color: var(--muted) !important;
+    padding: 0.5rem !important;
+    border-radius: 6px !important;
+    width: auto !important;
+    height: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: none !important;
+}
+
+:root[data-theme="light"] .preview-unified-right .action-btn.icon-only.theme-toggle-btn:hover,
+:root[data-theme="dark"] .preview-unified-right .action-btn.icon-only.theme-toggle-btn:hover,
+.preview-unified-right .action-btn.icon-only.theme-toggle-btn:hover {
+    color: var(--text) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
 }
 
 

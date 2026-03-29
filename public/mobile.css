@@ -256,7 +256,7 @@
         justify-content: flex-end !important;
         align-items: center !important;
         min-width: max-content !important;
-        gap: 0.3rem !important;
+        gap: 0.6rem !important;
     }
 
     .preview-unified-right .action-btn {

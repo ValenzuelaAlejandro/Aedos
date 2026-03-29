@@ -169,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     (function setupTopPanelControls() {
         const root = document.documentElement;
         const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        const previewThemeToggleBtn = document.getElementById('preview-theme-toggle-btn');
         const langSelect = document.getElementById('lang-select');
 
         function applyInputPlaceholder(lang) {
@@ -183,12 +184,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextTheme = theme === 'light' ? 'light' : 'dark';
             root.setAttribute('data-theme', nextTheme);
             localStorage.setItem('eidos_theme', nextTheme);
+            const title = (typeof window.__eidos_t === 'function')
+                ? window.__eidos_t('theme_toggle')
+                : 'Toggle theme';
             if (themeToggleBtn) {
-                const title = (typeof window.__eidos_t === 'function')
-                    ? window.__eidos_t('theme_toggle')
-                    : 'Toggle theme';
                 themeToggleBtn.title = title;
                 themeToggleBtn.setAttribute('aria-label', title);
+            }
+            if (previewThemeToggleBtn) {
+                previewThemeToggleBtn.title = title;
+                previewThemeToggleBtn.setAttribute('aria-label', title);
+            }
+            // Propagate theme into live preview iframe (if present)
+            try {
+                const doc = previewIframe && (previewIframe.contentDocument || (previewIframe.contentWindow && previewIframe.contentWindow.document));
+                if (doc && doc.documentElement) {
+                    doc.documentElement.setAttribute('data-theme', nextTheme);
+                }
+            } catch (e) {
+                // ignore cross-origin or not-yet-ready iframe
             }
         }
 
@@ -215,6 +229,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (themeToggleBtn) {
             themeToggleBtn.addEventListener('click', () => {
+                const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+                applyTheme(current === 'light' ? 'dark' : 'light');
+            });
+        }
+        if (previewThemeToggleBtn) {
+            previewThemeToggleBtn.addEventListener('click', () => {
                 const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
                 applyTheme(current === 'light' ? 'dark' : 'light');
             });
@@ -990,6 +1010,12 @@ document.addEventListener('DOMContentLoaded', () => {
             doc.open();
             doc.write('<!DOCTYPE html>' + html);
             doc.close();
+            try {
+                const theme = document.documentElement.getAttribute('data-theme') || localStorage.getItem('eidos_theme') || 'dark';
+                if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                // ignore
+            }
             console.log('initPreview: updated iframe with final HTML');
         }
 
