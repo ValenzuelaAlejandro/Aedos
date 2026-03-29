@@ -1,7 +1,7 @@
 :root {
-    --bg: #121212;
-    --surface: #1e1e1e;
-    --surface2: #262626;
+    --bg: #080808;
+    --surface: #111111;
+    --surface2: #171717;
     --border: rgba(255, 255, 255, 0.1);
     --text: #e0e0e0;
     --muted: #a0a0a0;
@@ -34,7 +34,7 @@
 }
 
 select option {
-    background-color: #1e1e1e;
+    background-color: #111111;
     color: #ffffff;
 }
 
@@ -44,7 +44,7 @@ select option {
 }
 
 optgroup {
-    background-color: #121212;
+    background-color: #080808;
     color: var(--muted);
     font-size: 0.75rem;
     font-style: normal;
