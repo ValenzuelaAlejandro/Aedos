@@ -326,8 +326,9 @@
     }
 
     .top-control-panel {
-        flex-direction: column !important;
-        align-items: stretch !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
         gap: 0.55rem !important;
     }
 
@@ -336,8 +337,8 @@
     }
 
     .top-controls {
-        width: 100% !important;
-        justify-content: center !important;
+        width: auto !important;
+        justify-content: flex-end !important;
         gap: 0.45rem !important;
     }
 
@@ -345,6 +346,14 @@
         min-width: 150px !important;
         justify-content: space-between !important;
         padding: 0.34rem 0.5rem !important;
+    }
+
+    .control-pill.control-pill-icon {
+        min-width: 36px !important;
+        width: 36px !important;
+        height: 36px !important;
+        padding: 0 !important;
+        justify-content: center !important;
     }
 
     .theme-toggle-btn {

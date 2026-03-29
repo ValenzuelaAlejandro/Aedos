@@ -171,6 +171,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const themeToggleBtn = document.getElementById('theme-toggle-btn');
         const langSelect = document.getElementById('lang-select');
 
+        function applyInputPlaceholder(lang) {
+            const input = document.getElementById('w-tema');
+            if (!input) return;
+            input.placeholder = lang === 'es'
+                ? 'Escribe el tema de tu presentacion...'
+                : 'Describe your presentation topic...';
+        }
+
         function applyTheme(theme) {
             const nextTheme = theme === 'light' ? 'light' : 'dark';
             root.setAttribute('data-theme', nextTheme);
@@ -189,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof window.__eidos_setLang === 'function') {
                 window.__eidos_setLang(nextLang);
             }
+            applyInputPlaceholder(nextLang);
             localStorage.setItem('eidos_lang', nextLang);
             if (langSelect && langSelect.value !== nextLang) {
                 langSelect.value = nextLang;
@@ -217,6 +226,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     })();
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+    }
 
     // =========================================================
     // MOUSE PHYSICS (HERO + PROMPT CARDS)
@@ -388,111 +401,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // TYPEWRITER EFFECT
+    // INPUT PLACEHOLDER (NATIVE)
     // =========================================================
-    const typewriterElChat = document.getElementById('chat-typewriter-text');
-    const typewriterCursor = document.getElementById('chat-typewriter-cursor');
-    const chatPlaceholderContainer = document.getElementById('chat-placeholder');
-    const topicsEn = [
-        "Human evolution, 6 slides, red and white, visual timeline",
-        "Quantum Computing, 10 slides, minimalist black and white",
-        "Machine Learning Applications, 5 slides, green, tech style",
-        "Space Exploration Timeline, 8 slides, dark theme, balanced",
-        "Global Economic Trends, 5 slides, blue and yellow",
-        "Sustainable City Planning, 10 slides, eco green, summarized"
-    ];
-
-    const topicsEs = [
-        "Evolución de la Democracia, 8 slides, azul oscuro, resumido",
-        "La Revolución Francesa, 12 slides, rojo y azul, detallado",
-        "Impacto de Redes Sociales, 10 slides, violeta, enfoque práctico",
-        "Historia del Arte Moderno, 12 slides, tonos pastel, estilo editorial",
-        "Inteligencia Artificial en Medicina, 8 slides, minimalista",
-        "El Renacimiento Italiano, 7 slides, tonos sepia y dorado"
-    ];
-
-    const topics = window.currentLang === 'es' ? topicsEs : topicsEn;
-
-    // Randomize topics so everyone gets a different experience
-    for (let i = topics.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [topics[i], topics[j]] = [topics[j], topics[i]];
-    }
+    const typewriterCursor = null;
+    const chatPlaceholderContainer = null;
     let typewriterRunning = false;
-    let topicIndex = 0;
-    let typeCharIndex = 0;
-    let isDeleting = false;
-    let typewriterTimeout = null;
-
-    function typewriterStep() {
-        if (!typewriterRunning) return;
-
-        const text = topics[topicIndex];
-
-        // Show cursor while typing/deleting
-        if (typewriterCursor) typewriterCursor.style.opacity = '1';
-
-        if (isDeleting) {
-            // Delete character
-            typeCharIndex--;
-            updateText(text.slice(0, typeCharIndex));
-
-            if (typeCharIndex === 0) {
-                isDeleting = false;
-                topicIndex = (topicIndex + 1) % topics.length;
-                typewriterTimeout = setTimeout(typewriterStep, 400); // Wait before next topic
-            } else {
-                typewriterTimeout = setTimeout(typewriterStep, 25); // Deletion speed
-            }
-        } else {
-            // Type character
-            typeCharIndex++;
-            updateText(text.slice(0, typeCharIndex));
-
-            if (typeCharIndex === text.length) {
-                // Done typing topic, pause and blink cursor
-                isDeleting = true;
-
-                // Blink cursor trick before deleting
-                if (typewriterCursor) typewriterCursor.style.opacity = '0';
-                setTimeout(() => { if (typewriterRunning && typewriterCursor) typewriterCursor.style.opacity = '1'; }, 500);
-                setTimeout(() => { if (typewriterRunning && typewriterCursor) typewriterCursor.style.opacity = '0'; }, 1000);
-                setTimeout(() => { if (typewriterRunning && typewriterCursor) typewriterCursor.style.opacity = '1'; }, 1500);
-
-                // Wait 2 seconds total before deleting
-                typewriterTimeout = setTimeout(typewriterStep, 2000);
-            } else {
-                typewriterTimeout = setTimeout(typewriterStep, 55 + Math.random() * 35); // Typing speed
-            }
-        }
-    }
-
-    function updateText(content) {
-        if (typewriterElChat) typewriterElChat.textContent = content;
-    }
-
-    function startTypewriter() {
-        if (typewriterRunning) return; // Prevent multiple instances
-        typewriterRunning = true;
-        isDeleting = false;
-        topicIndex = 0;
-        typeCharIndex = 0;
-        updateText('');
-        clearTimeout(typewriterTimeout);
-        typewriterStep();
-    }
-
-    function stopTypewriter() {
-        typewriterRunning = false;
-        clearTimeout(typewriterTimeout);
-    }
-
-    // Start typewriter after a brief delay
-    setTimeout(() => {
-        if (chatPlaceholderContainer && document.getElementById('w-tema').value.trim() === '') {
-            startTypewriter();
-        }
-    }, 1000);
+    function startTypewriter() {}
+    function stopTypewriter() {}
 
     // Handle browser back/forward button
     window.addEventListener('popstate', (e) => {
@@ -536,11 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (val.length > 0) {
             temaError.classList.remove('visible');
-            if (chatPlaceholderContainer) chatPlaceholderContainer.style.display = 'none';
-            stopTypewriter(); // user is typing, stop anim
-        } else {
-            if (chatPlaceholderContainer) chatPlaceholderContainer.style.display = '';
-            if (!typewriterRunning) startTypewriter(); // restart anim if empty
         }
 
         btnGenerate.disabled = val.trim().length < 4;
@@ -590,13 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Enable editor buttons/controls after generation (or error)
             editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = false; });
 
-            if (temaInput.value.trim() && chatPlaceholderContainer) {
-                chatPlaceholderContainer.style.display = 'none';
-            }
-
-            if (temaInput.value.trim() === '' && !typewriterRunning) {
-                startTypewriter();
-            }
+            // Native textarea placeholder handles empty state.
         }
     }
 

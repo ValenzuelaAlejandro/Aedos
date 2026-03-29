@@ -337,6 +337,13 @@
     background: rgba(255, 255, 255, 0.03);
 }
 
+.starter-card-icon .lucide,
+.starter-card-icon svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+}
+
 @keyframes pulse {
 
     0%,
@@ -469,6 +476,32 @@
     cursor: pointer;
 }
 
+.control-pill-icon {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+    overflow: hidden;
+}
+
+.control-icon {
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.control-select-overlay {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
 :root[data-theme="light"] .top-control-bar {
     background: transparent;
 }
@@ -499,10 +532,6 @@
 
 :root[data-theme="light"] .chat-input::placeholder {
     color: #7b7b7b;
-}
-
-:root[data-theme="light"] #chat-placeholder {
-    color: #7b7b7b !important;
 }
 
 :root[data-theme="light"] .starter-card {
