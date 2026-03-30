@@ -557,10 +557,17 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
 
         const page = await browser.newPage();
         try {
+            // Step 1: parse the DOM immediately (never hangs on slow/unavailable resources)
             await page.setContent(processedHtml, { waitUntil: 'domcontentloaded', timeout: 60000 });
-            // Wait for web fonts (Google Fonts) to finish loading so text metrics
-            // match the preview exactly. Without this, fallback fonts are used and
-            // text can wrap differently, causing absolute-positioned siblings to overlap.
+
+            // Step 2: wait up to 12s for network (CSS @import + .woff2 font files) to settle.
+            // Using a separate waitForNetworkIdle with .catch() instead of 'networkidle2' in
+            // setContent so it NEVER hangs the request — it gracefully skips on timeout.
+            await page.waitForNetworkIdle({ idleTime: 500, timeout: 12000 }).catch(() => {
+                console.warn('Network did not reach idle before timeout — rendering with available fonts');
+            });
+
+            // Step 3: wait for FontFaceSet to confirm fonts are ready after the network settled
             await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {
                 console.warn('Font loading check failed (non-fatal)');
             });
@@ -571,12 +578,14 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
             }, { timeout: 8000 }).catch(() => {
                 console.warn('Lucide icons may not have fully rendered (timeout)');
             });
-            // Prevent trailing blank page
+            // Prevent trailing blank page; also lock big-number against wrapping
+            // (font metrics in Puppeteer can differ enough to push '30%' to 2 lines)
             await page.addStyleTag({
                 content: `
                     section.s:last-of-type { page-break-after: avoid !important; }
                     body { overflow: hidden; }
                     body > script { display: none; }
+                    .big-number { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; word-break: normal !important; overflow-wrap: normal !important; }
                 `
             });
             await page.pdf({
