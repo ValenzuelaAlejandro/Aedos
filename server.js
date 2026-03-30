@@ -558,6 +558,12 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
         const page = await browser.newPage();
         try {
             await page.setContent(processedHtml, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            // Wait for web fonts (Google Fonts) to finish loading so text metrics
+            // match the preview exactly. Without this, fallback fonts are used and
+            // text can wrap differently, causing absolute-positioned siblings to overlap.
+            await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {
+                console.warn('Font loading check failed (non-fatal)');
+            });
             // Wait for Lucide icons to render
             await page.waitForFunction(() => {
                 const pendingIcons = document.querySelectorAll('i[data-lucide]');
