@@ -724,8 +724,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const skelStyle = `
                                 <style class="skeleton-injector">
                                     html.skeleton-active {
-                                        --skel-bg: rgba(255,255,255,0.06) !important;
-                                        --skel-hi: rgba(255,255,255,0.12) !important;
+                                        --skel-bg: #a8adb8 !important;
+                                        --skel-hi: #c8cdd8 !important;
                                         overflow-x: auto !important;
                                         overflow-y: hidden !important;
                                         scroll-behavior: smooth !important;
@@ -1061,7 +1061,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     overflow: hidden !important; 
                     margin: 0 !important; 
                     padding: 0 !important; 
-                    background: transparent !important; 
                 }
             </style>`;
             if (!html.includes('eidos-anti-flicker')) {

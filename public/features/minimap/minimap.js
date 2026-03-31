@@ -70,6 +70,18 @@ function initMinimap(iframe) {
         }, { margin: "0px 0px -10% 0px" });
     }
 
+    function recalcThumbsAndCenter() {
+        if (!minimapList) return;
+        minimapList.querySelectorAll('iframe').forEach(ifr => {
+            const itemWidth = ifr.parentElement.clientWidth;
+            const scale = (itemWidth > 0 ? itemWidth : 188) / 1122;
+            ifr.style.width = '1122px';
+            ifr.style.height = '631px';
+            ifr.style.transform = `scale(${scale})`;
+        });
+        requestAnimationFrame(() => centerActiveMinimapItem());
+    }
+
     function buildMinimap() {
         if (!minimapList) return;
         
@@ -100,18 +112,6 @@ function initMinimap(iframe) {
         }
 
         const minimapContainer = document.getElementById('editor-minimap');
-
-        function recalcThumbsAndCenter() {
-            if (!minimapList) return;
-            minimapList.querySelectorAll('iframe').forEach(ifr => {
-                const itemWidth = ifr.parentElement.clientWidth;
-                const scale = (itemWidth > 0 ? itemWidth : 188) / 1122;
-                ifr.style.width = '1122px';
-                ifr.style.height = '631px';
-                ifr.style.transform = `scale(${scale})`;
-            });
-            requestAnimationFrame(() => centerActiveMinimapItem());
-        }
 
         let minimapResizeObserver = null;
         if (window.ResizeObserver && minimapContainer) {
