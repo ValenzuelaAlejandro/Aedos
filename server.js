@@ -694,6 +694,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
         }
 
         const safeTitle = title ? title.replace(/[\/\\?%*:|<|>]/g, '-').trim() : 'Presentacion';
+        res.set('Cache-Control', 'no-store');
         res.json({ pdfUrl: `/download/${pdfFilename}?name=${encodeURIComponent(safeTitle)}` });
 
         setTimeout(() => {
@@ -724,6 +725,7 @@ app.get('/download/:filename', (req, res) => {
     }
 
     // Send it with res.download() and delete it afterwards
+    res.set('Cache-Control', 'no-store');
     let downloadName = req.query.name ? req.query.name : filename;
     if (!downloadName.toLowerCase().endsWith('.pdf')) {
         downloadName += '.pdf';
