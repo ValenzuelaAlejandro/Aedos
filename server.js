@@ -376,6 +376,10 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             c = c.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
             c = c.replace(/<script[^>]*>/gi, '');
             c = c.replace(/<script\b[^>]*/gi, ''); // partial tag with no closing >
+            // Also strip orphaned </script> closing tags whose opener was stripped
+            // from a previous chunk. Stray </script> is harmless in HTML5 but
+            // renders as visible artefact text in the streaming iframe.
+            c = c.replace(/<\/script>/gi, '');
             // Strip Google Fonts link tags (complete)
             c = c.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
             // Strip partial Google Fonts link tags (split across chunks)

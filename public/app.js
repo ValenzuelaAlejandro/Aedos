@@ -6,6 +6,7 @@ function sanitizeModelOutput(html) {
     html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // strip scripts with content
     html = html.replace(/<script[^>]*>/gi, ''); // strip complete opening tags
     html = html.replace(/<script\b[^>]*/gi, ''); // strip partial tags split across SSE chunks
+    html = html.replace(/<\/script>/gi, '');     // strip orphaned closing tags from stripped split-chunk scripts
     html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
     html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
     html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
@@ -682,10 +683,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const decoder = new TextDecoder("utf-8");
             let buffer = "";
             let firstWrite = true;
+            // Safety timeout: if no SSE data arrives within 90s, abort to prevent
+            // an infinite hang when the server closes without sending {done:true}.
+            let sseWatchdog;
+            const resetWatchdog = () => {
+                clearTimeout(sseWatchdog);
+                sseWatchdog = setTimeout(() => {
+                    reader.cancel();
+                }, 90000);
+            };
+            resetWatchdog();
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
+                resetWatchdog();
 
                 buffer += decoder.decode(value, { stream: true });
                 let lines = buffer.split('\n\n');
@@ -800,6 +812,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+
+            clearTimeout(sseWatchdog);
 
             // End of while(true)
             if (buffer.trim()) {
