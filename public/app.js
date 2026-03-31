@@ -723,14 +723,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 iframeDoc.open();
                                 const skelStyle = `
                                 <style class="skeleton-injector">
-                                    html.skeleton-active {
-                                        --skel-bg: #a8adb8 !important;
-                                        --skel-hi: #c8cdd8 !important;
+                                    html {
                                         overflow-x: auto !important;
                                         overflow-y: hidden !important;
                                         scroll-behavior: smooth !important;
                                     }
-                                    html.skeleton-active body {
+                                    html body {
                                         display: flex !important;
                                         flex-direction: row !important;
                                         width: max-content !important;
@@ -738,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         margin: 0 !important;
                                         padding: 0 !important;
                                     }
-                                    html.skeleton-active section.s, html.skeleton-active section[class*="slide"] {
+                                    html section.s, html section[class*="slide"] {
                                         flex: 0 0 100vw !important;
                                         width: 100vw !important;
                                         height: 100vh !important;
@@ -746,41 +744,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                         box-sizing: border-box !important;
                                         margin: 0 !important;
                                     }
-                                    html.skeleton-active ::-webkit-scrollbar { display: none !important; }
-                                    html.skeleton-active h1, html.skeleton-active h2, html.skeleton-active h3, 
-                                    html.skeleton-active p, html.skeleton-active li, html.skeleton-active span, 
-                                    html.skeleton-active b, html.skeleton-active strong, html.skeleton-active em, 
-                                    html.skeleton-active i {
-                                        color: transparent !important;
-                                        background: linear-gradient(90deg, var(--skel-bg) 25%, var(--skel-hi) 50%, var(--skel-bg) 75%) !important;
-                                        background-size: 200% 100% !important;
-                                        animation: sk-shimmer 1.5s infinite linear !important;
-                                        border-radius: 4px !important;
-                                        border-color: transparent !important;
-                                        text-shadow: none !important;
-                                        box-shadow: none !important;
-                                    }
-                                    html.skeleton-active [data-image-slot] > div {
-                                        background: linear-gradient(90deg, var(--skel-bg) 25%, var(--skel-hi) 50%, var(--skel-bg) 75%) !important;
-                                        background-size: 200% 100% !important;
-                                        animation: sk-shimmer 1.5s infinite linear !important;
-                                    }
-                                    html.skeleton-active img, html.skeleton-active svg {
-                                        opacity: 0 !important;
-                                    }
-                                    @keyframes sk-shimmer {
-                                        0% { background-position: 200% 0; }
-                                        100% { background-position: -200% 0; }
-                                    }
+                                    html ::-webkit-scrollbar { display: none !important; }
                                 </style>
                                 ${G_FONTS}
                                 ${loadingHtml}
                                 <script class="skeleton-injector">
-                                    document.documentElement.classList.add('skeleton-active');
                                     let skelLastCount = 0;
                                     let sentTitle = false;
                                     const skelObs = new MutationObserver(() => {
-                                        if (!document.documentElement.classList.contains('skeleton-active')) return;
                                         if (!sentTitle) {
                                             const h1 = document.querySelector('h1');
                                             if (h1 && h1.textContent.trim().length > 3) {
