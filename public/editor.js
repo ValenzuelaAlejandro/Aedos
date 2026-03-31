@@ -495,6 +495,11 @@ function initEditor() {
             if (currentZ) el.style.zIndex = currentZ; // preserve
 
             const isText = el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
+            // Text-containing containers (cards, stat-boxes, etc.) use height:auto so
+            // their content is never clipped when fonts render with slightly different
+            // metrics in the PDF. overflow stays 'hidden' to keep card visual appearance.
+            const isTextContainer = el.matches('div.card, div.stat-box, div.step-item, div.timeline-item, [class*="card"], .quote-block, ul, ol');
+            const isFlexible = isText || isTextContainer;
 
             el.style.boxSizing = 'border-box';
             el.style.position = 'absolute';
@@ -503,7 +508,8 @@ function initEditor() {
             el.style.minHeight = '0';
             el.style.minWidth = '0';
             el.style.width = rect.width + 'px';
-            el.style.height = rect.height + 'px';
+            el.style.height = isFlexible ? 'auto' : (rect.height + 'px');
+            el.style.minHeight = isFlexible ? (rect.height + 'px') : '0';
             el.style.left = (rect.left - slideRect.left) + 'px';
             el.style.top = (rect.top - slideRect.top) + 'px';
             el.style.transform = 'none';
@@ -511,13 +517,16 @@ function initEditor() {
             // Already absolute - DO NOT move in DOM, only update coordinates
             // Moving in DOM would break the z-order established by Send to Back/Front
             const isText = el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
+            const isTextContainer = el.matches('div.card, div.stat-box, div.step-item, div.timeline-item, [class*="card"], .quote-block, ul, ol');
+            const isFlexible = isText || isTextContainer;
             el.style.boxSizing = 'border-box';
             el.style.margin = '0';
             el.style.overflow = isText ? 'visible' : 'hidden';
             el.style.minHeight = '0';
             el.style.minWidth = '0';
             el.style.width = rect.width + 'px';
-            el.style.height = rect.height + 'px';
+            el.style.height = isFlexible ? 'auto' : (rect.height + 'px');
+            el.style.minHeight = isFlexible ? (rect.height + 'px') : '0';
             el.style.left = (rect.left - slideRect.left) + 'px';
             el.style.top = (rect.top - slideRect.top) + 'px';
             el.style.transform = 'none';
