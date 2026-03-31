@@ -483,7 +483,10 @@ function initEditor() {
             lineHeight: style.lineHeight,
             textAlign: style.textAlign,
             fontWeight: style.fontWeight,
-            letterSpacing: style.letterSpacing
+            letterSpacing: style.letterSpacing,
+            textTransform: style.textTransform,
+            fontVariant: style.fontVariant,
+            fontStyle: style.fontStyle
         };
     }
 
@@ -523,6 +526,11 @@ function initEditor() {
             // metrics in the PDF. overflow stays 'hidden' to keep card visual appearance.
             const isTextContainer = el.matches('div.card, div.stat-box, div.step-item, div.timeline-item, [class*="card"], .quote-block, ul, ol');
             const isFlexible = isText || isTextContainer;
+            // Single-line heading heuristic: height fits within ~1.5 line-heights.
+            // Use nowrap to prevent sub-pixel font-metric drift from splitting words.
+            const lhPx = parseFloat(inherited.lineHeight) || parseFloat(inherited.fontSize) * 1.2;
+            const isHeading = el.matches('h1, h2, h3, h4, .big-number, .big-label, .tag');
+            const isSingleLine = isHeading && rect.height <= lhPx * 1.8;
 
             el.style.boxSizing = 'border-box';
             el.style.position = 'absolute';
@@ -530,35 +538,48 @@ function initEditor() {
             el.style.overflow = isText ? 'visible' : 'hidden';
             el.style.minHeight = '0';
             el.style.minWidth = '0';
-            el.style.width = rect.width + 'px';
+            // Add a small buffer to text width to absorb sub-pixel rendering differences
+            // after the element is extracted from its original CSS context.
+            el.style.width = isText ? (rect.width + 4) + 'px' : rect.width + 'px';
             el.style.height = isFlexible ? 'auto' : (rect.height + 'px');
             el.style.minHeight = isFlexible ? (rect.height + 'px') : '0';
             el.style.left = (rect.left - slideRect.left) + 'px';
             el.style.top = (rect.top - slideRect.top) + 'px';
             el.style.transform = 'none';
+            if (isSingleLine) el.style.whiteSpace = 'nowrap';
         } else {
             // Already absolute - DO NOT move in DOM, only update coordinates
             // Moving in DOM would break the z-order established by Send to Back/Front
             const isText = el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
             const isTextContainer = el.matches('div.card, div.stat-box, div.step-item, div.timeline-item, [class*="card"], .quote-block, ul, ol');
             const isFlexible = isText || isTextContainer;
+            const lhPx = parseFloat(inherited.lineHeight) || parseFloat(inherited.fontSize) * 1.2;
+            const isHeading = el.matches('h1, h2, h3, h4, .big-number, .big-label, .tag');
+            const isSingleLine = isHeading && rect.height <= lhPx * 1.8;
+
             el.style.boxSizing = 'border-box';
             el.style.margin = '0';
             el.style.overflow = isText ? 'visible' : 'hidden';
             el.style.minHeight = '0';
             el.style.minWidth = '0';
-            el.style.width = rect.width + 'px';
+            el.style.width = isText ? (rect.width + 4) + 'px' : rect.width + 'px';
             el.style.height = isFlexible ? 'auto' : (rect.height + 'px');
             el.style.minHeight = isFlexible ? (rect.height + 'px') : '0';
             el.style.left = (rect.left - slideRect.left) + 'px';
             el.style.top = (rect.top - slideRect.top) + 'px';
             el.style.transform = 'none';
+            if (isSingleLine) el.style.whiteSpace = 'nowrap';
         }
 
         el.style.fontSize = inherited.fontSize;
         el.style.fontFamily = inherited.fontFamily;
         el.style.color = inherited.color;
         el.style.lineHeight = inherited.lineHeight;
+        el.style.fontWeight = inherited.fontWeight;
+        el.style.letterSpacing = inherited.letterSpacing;
+        el.style.textTransform = inherited.textTransform;
+        el.style.fontVariant = inherited.fontVariant;
+        el.style.fontStyle = inherited.fontStyle;
 
         const textElements = el.querySelectorAll('h1, h2, h3, h4, p, span, li, .big-number, .big-label, .tag');
         textElements.forEach(item => {
