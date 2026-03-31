@@ -387,6 +387,13 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 fullHtml += chunkText;
 
                 let cleanChunk = chunkText.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+                // Strip any Google Fonts <link> tags from individual SSE chunks.
+                // The browser's HTML parser fires network requests the moment a <link> tag
+                // is written via doc.write(), before any JS can sanitize the DOM. Removing
+                // them here (server side, per chunk) prevents the request entirely.
+                // Handles both complete tags and partial tags split at a chunk boundary.
+                cleanChunk = cleanChunk.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
+                cleanChunk = cleanChunk.replace(/<link\b[^>]*fonts\.googleapis\.com[^>]*/gi, '');
 
                 if (!hasStartedValidContent) {
                     const matchIdx = fullHtml.indexOf('<!-- CONFIG');

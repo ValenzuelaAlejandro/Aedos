@@ -14,6 +14,11 @@ function sanitizeModelOutput(html) {
     // Strip them entirely; initPreview() always uses server-processed HTML with
     // correct font links already injected by the server.
     html = html.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
+    // ALSO strip partial/unclosed link tags that span two SSE chunks:
+    //   chunk N ends with: <link ... href="url('https://fonts.googleapis.com/css2?fa
+    //   chunk N+1 starts:  mily=Syne...')">
+    // [^>]* stops at >, so if there is no > the regex matches to end of chunk.
+    html = html.replace(/<link\b[^>]*fonts\.googleapis\.com[^>]*/gi, '');
     // Fallback: fix any remaining url()-wrapped href that slipped past the strip
     html = html.replace(
         /<link([^>]*)href\s*=\s*(["'])url\s*\(\s*['"]?(https?[^'")\s]+)['"]?\s*\)\s*\2([^>]*)>/gi,
