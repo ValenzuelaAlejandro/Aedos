@@ -451,6 +451,29 @@ function initEditor() {
         });
     }
 
+    // Exposed for parent frame: freeze all slides before PDF export without
+    // polluting the undo history. Slides already frozen are skipped.
+    window.eidosFreezeAllSlides = function () {
+        document.querySelectorAll('section.s').forEach(slide => {
+            if (_isFrozenMap.has(slide)) return;
+            _isFrozenMap.set(slide, true);
+
+            const allEditables = getEditableElementsInSlide(slide);
+            if (allEditables.length === 0) return;
+
+            const topLevel = allEditables.filter(el => {
+                const parent = el.parentElement;
+                return !parent || parent === slide || !parent.closest(CONTAINER_SELECTORS);
+            });
+            if (topLevel.length === 0) return;
+
+            // Capture positions before any DOM mutation
+            const data = topLevel.map(el => ({ el, rect: el.getBoundingClientRect() }));
+            // Normalize silently — do NOT call saveState() to avoid polluting undo history
+            data.forEach(({ el, rect }) => normalizeElement(el, slide, true, rect));
+        });
+    };
+
     function getInheritedStyles(el) {
         const style = window.getComputedStyle(el);
         return {

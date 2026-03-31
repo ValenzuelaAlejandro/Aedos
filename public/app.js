@@ -2311,7 +2311,56 @@ document.addEventListener('DOMContentLoaded', () => {
             // are hidden before we clone — otherwise they end up in the PDF.
             if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
 
+            // ── Step 1: Freeze all slides ─────────────────────────────────────────
+            // Unedited slides have never been through normalizeElement, so their
+            // children are still in CSS grid/flex flow. Puppeteer recalculates that
+            // layout with its own font metrics and can produce different widths.
+            // eidosFreezeAllSlides converts every slide to absolute coordinates
+            // using getBoundingClientRect() from the live browser without saving
+            // any undo state.
+            if (iframeWin.eidosFreezeAllSlides) iframeWin.eidosFreezeAllSlides();
+
+            // ── Step 2: Snapshot text-child widths inside layout containers ──────
+            // Children of card/stat-box containers (big-label, p, h3 …) are
+            // intentionally kept inside their container by normalizeElement
+            // and therefore have no inline width constraint. When Puppeteer
+            // renders the same font with slightly different metrics (~1-2 px per
+            // glyph) a label that fits on 1 line in the browser can wrap to 2.
+            // Solution: measure each child NOW in the live browser, set its exact
+            // pixel width as an inline style, and for single-line elements also
+            // set white-space:nowrap so font-metric drift cannot cause a wrap.
+            // We restore the live doc immediately after cloneNode.
+            const _PDF_CONTAINER_SEL = 'div.stat-box, div.card, div.step-item, div.timeline-item, .quote-block, blockquote, ul, ol, [class*="card"], [class*="box"]';
+            const _PDF_TEXT_SEL = 'h1,h2,h3,h4,p,span,.big-number,.big-label,.tag,li,cite';
+            const _pdfSnapshots = [];
+            const _iframeView = iframeDoc.defaultView;
+            iframeDoc.querySelectorAll(_PDF_CONTAINER_SEL).forEach(container => {
+                container.querySelectorAll(_PDF_TEXT_SEL).forEach(child => {
+                    const rect = child.getBoundingClientRect();
+                    if (!rect.width || !rect.height) return;
+                    const comp = _iframeView.getComputedStyle(child);
+                    const lineH = parseFloat(comp.lineHeight) || parseFloat(comp.fontSize) * 1.2;
+                    const isSingleLine = rect.height <= lineH * 1.8;
+                    _pdfSnapshots.push({
+                        el: child,
+                        prevWidth: child.style.width,
+                        prevMinWidth: child.style.minWidth,
+                        prevWhiteSpace: child.style.whiteSpace
+                    });
+                    child.style.width = rect.width + 'px';
+                    child.style.minWidth = rect.width + 'px';
+                    if (isSingleLine) child.style.whiteSpace = 'nowrap';
+                });
+            });
+
             const clone = iframeDoc.documentElement.cloneNode(true);
+
+            // Restore live document immediately — snapshots only needed for the clone
+            _pdfSnapshots.forEach(({ el, prevWidth, prevMinWidth, prevWhiteSpace }) => {
+                el.style.width = prevWidth;
+                el.style.minWidth = prevMinWidth;
+                el.style.whiteSpace = prevWhiteSpace;
+            });
 
             // Strip ALL editor UI that may still be in the DOM after deselect
             const editorUI = clone.querySelectorAll(
