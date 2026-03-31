@@ -365,6 +365,24 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
 
         let fullHtml = '';
         let hasStartedValidContent = false;
+
+        // Strip backticks AND Google Fonts <link> tags from SSE chunks.
+        // The browser fires network requests the moment a <link> tag is
+        // written via doc.write(), so we must strip them server-side.
+        function cleanSSEChunk(text) {
+            let c = text.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+            // Strip inline scripts (complete pairs, then remaining openers, then partials
+            // split across SSE chunk boundaries — same problem as with <link> tags).
+            c = c.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+            c = c.replace(/<script[^>]*>/gi, '');
+            c = c.replace(/<script\b[^>]*/gi, ''); // partial tag with no closing >
+            // Strip Google Fonts link tags (complete)
+            c = c.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
+            // Strip partial Google Fonts link tags (split across chunks)
+            c = c.replace(/<link\b[^>]*fonts\.googleapis\.com[^>]*/gi, '');
+            return c;
+        }
+
         try {
             for await (const chunk of result.stream) {
                 if (cancelled) {
@@ -386,14 +404,7 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
 
                 fullHtml += chunkText;
 
-                let cleanChunk = chunkText.replace(/```html\n?/g, '').replace(/```\n?/g, '');
-                // Strip any Google Fonts <link> tags from individual SSE chunks.
-                // The browser's HTML parser fires network requests the moment a <link> tag
-                // is written via doc.write(), before any JS can sanitize the DOM. Removing
-                // them here (server side, per chunk) prevents the request entirely.
-                // Handles both complete tags and partial tags split at a chunk boundary.
-                cleanChunk = cleanChunk.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
-                cleanChunk = cleanChunk.replace(/<link\b[^>]*fonts\.googleapis\.com[^>]*/gi, '');
+                let cleanChunk = cleanSSEChunk(chunkText);
 
                 if (!hasStartedValidContent) {
                     const matchIdx = fullHtml.indexOf('<!-- CONFIG');
@@ -402,17 +413,17 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                     if (matchIdx !== -1) {
                         hasStartedValidContent = true;
                         const validContentStart = fullHtml.substring(matchIdx);
-                        cleanChunk = validContentStart.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+                        cleanChunk = cleanSSEChunk(validContentStart);
                         res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
                     } else if (htmlIdx !== -1) {
                         hasStartedValidContent = true;
                         const validContentStart = fullHtml.substring(htmlIdx);
-                        cleanChunk = validContentStart.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+                        cleanChunk = cleanSSEChunk(validContentStart);
                         res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
                     } else if (fullHtml.length > 500) {
                         // Fallback just in case we never find CONFIG or html tag early on
                         hasStartedValidContent = true;
-                        cleanChunk = fullHtml.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+                        cleanChunk = cleanSSEChunk(fullHtml);
                         res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
                     }
                 } else {

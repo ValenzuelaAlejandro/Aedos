@@ -4,7 +4,8 @@ function sanitizeModelOutput(html) {
     // External scripts (<script src="...">) are allowed through but subject to CSP script-src.
     html = html.replace(/<script[^>]*>(\s*)<\/script>/gi, '$1'); // keep empty external wrappers
     html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // strip scripts with content
-    html = html.replace(/<script[^>]*>/gi, ''); // strip unclosed opening tags
+    html = html.replace(/<script[^>]*>/gi, ''); // strip complete opening tags
+    html = html.replace(/<script\b[^>]*/gi, ''); // strip partial tags split across SSE chunks
     html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
     html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
     html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
