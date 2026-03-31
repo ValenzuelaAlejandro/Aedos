@@ -136,7 +136,7 @@ ul li { font-size:var(--base-p); line-height:1.6; color:var(--white-dim); margin
 .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
 .tag::before { content:''; width:2rem; height:2px; background:var(--accent); border-radius:2px; flex-shrink:0; }
 .subtitle { font-size:calc(var(--base-p)*1.25); font-weight:400; color:var(--white-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; overflow-wrap:break-word; }
-.big-number { font-size:min(8rem, 20cqi); font-weight:800; color:var(--accent); line-height:1; font-family:'[heading]',serif; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.big-number { font-size:min(8rem, 20cqi); font-weight:800; color:var(--accent); line-height:1; font-family:'[heading]',serif; overflow-wrap:break-word; word-wrap:break-word; word-break:break-all; max-width:100%; }
 .big-label { font-size:1.4rem; color:var(--white-dim); margin-top:.5rem; overflow-wrap:break-word; }
 .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; overflow-wrap:break-word; }
 .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--white); margin:0 0 .8rem; line-height:1.4; }
