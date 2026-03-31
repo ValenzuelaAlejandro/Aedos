@@ -10,22 +10,13 @@ function sanitizeModelOutput(html) {
     html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
     html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
     html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
-    // Remove any Google Fonts <link> tags from AI chunks.
-    // Streaming chunks go directly to doc.write() — a malformed href="url('...')"
-    // fires a network request immediately and cannot be intercepted after the fact.
-    // Strip them entirely; initPreview() always uses server-processed HTML with
-    // correct font links already injected by the server.
-    html = html.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
-    // ALSO strip partial/unclosed link tags that span two SSE chunks:
-    //   chunk N ends with: <link ... href="url('https://fonts.googleapis.com/css2?fa
-    //   chunk N+1 starts:  mily=Syne...')">
-    // [^>]* stops at >, so if there is no > the regex matches to end of chunk.
-    html = html.replace(/<link\b[^>]*fonts\.googleapis\.com[^>]*/gi, '');
-    // Fallback: fix any remaining url()-wrapped href that slipped past the strip
-    html = html.replace(
-        /<link([^>]*)href\s*=\s*(["'])url\s*\(\s*['"]?(https?[^'")\s]+)['"]?\s*\)\s*\2([^>]*)>/gi,
-        '<link$1href="$3"$4>'
-    );
+    // Strip ALL <link> tags from streaming chunks — same rationale as server-side cleanSSEChunk.
+    // A <link href="url('https://fonts...."> can split across two SSE chunks so any regex that
+    // targets 'fonts.googleapis.com' will miss it when that string straddles a chunk boundary.
+    // Stripping all <link> tags is safe: the streaming iframe is visual-only and initPreview()
+    // always writes the server-sanitized final HTML which already has correct font links injected.
+    html = html.replace(/<link[^>]*\/?>/gi, '');   // complete link tags
+    html = html.replace(/<link\b[^>]*/gi, '');      // partial/unclosed link tags (cross-chunk)
     return html;
 }
 
@@ -1046,6 +1037,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     html += '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script>';
                 }
             }
+            // Strip all AI-generated googleapis link tags (may have malformed url() hrefs).
+            // Both complete and partial/unclosed tags are removed so the correct G_FONTS
+            // block below is always the sole font source.
+            html = html.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
+            html = html.replace(/<link\b[^>]*fonts\.googleapis\.com[^>]*/gi, '');
+
             // Ensure fonts are present
             if (!html.includes('family=Archivo+Black')) {
                 const G_FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet"><style>section.s > *, .card, .flex-row, .grid-2, .grid-3, h1, h2, h3, p, .tag, .img-slot { position: relative; z-index: 1; }</style>`;
@@ -1055,15 +1052,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     html = G_FONTS + html;
                 }
             }
-
-            // Fix any malformed <link href="url('https://...')"> the AI may have generated.
-            // The browser treats url('...') as a relative path → requests /url('...') from the
-            // server → gets HTML back → MIME-type error. Strip the url() wrapper here as the
-            // final client-side safety net (server already does the same in sanitizeGeneratedHtml).
-            html = html.replace(
-                /<link([^>]*)href\s*=\s*(["'])url\s*\(\s*['"']?(https?[^'"')\s]+)['"']?\s*\)\s*\2([^>]*)>/gi,
-                '<link$1href="$3"$4>'
-            );
 
             const doc = previewIframe.contentDocument || previewIframe.contentWindow.document;
             doc.open();

@@ -382,10 +382,15 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             // from a previous chunk. Stray </script> is harmless in HTML5 but
             // renders as visible artefact text in the streaming iframe.
             c = c.replace(/<\/script>/gi, '');
-            // Strip Google Fonts link tags (complete)
-            c = c.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
-            // Strip partial Google Fonts link tags (split across chunks)
-            c = c.replace(/<link\b[^>]*fonts\.googleapis\.com[^>]*/gi, '');
+            // Strip ALL <link> tags from streaming chunks.
+            // The AI sometimes generates <link href="url('https://fonts.googleapis.com/...')">  which
+            // confuses url() CSS syntax with an HTML attribute. Because the tag can span two
+            // chunks (<link href="url('https://fonts.> ... googleapis.com/...')">), per-tag regexes
+            // are unreliable when googleapis.com lands in a different chunk than <link.
+            // Stripping all <link> tags is safe: the streaming iframe is visual-only, and
+            // initPreview() always writes the server-sanitized final HTML with correct font links.
+            c = c.replace(/<link[^>]*\/?>/gi, '');   // complete link tags
+            c = c.replace(/<link\b[^>]*/gi, '');      // partial/unclosed link tags (cross-chunk)
             return c;
         }
 
