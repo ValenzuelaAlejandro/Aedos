@@ -579,7 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function handleGenerate(regenerateTema = null) {
+    async function handleGenerate(regenerateTema = null, isRegenerating = false) {
         generatedHtml = ''; // Reset state for a fresh start
         currentSlide = 0;
         totalSlides = 0;
@@ -596,6 +596,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const requestData = {
             tema: tema
         };
+
+        // If regenerating: immediately ensure panels are visible — strip every class
+        // that could be hiding them, regardless of what previous animation cycle left behind.
+        if (isRegenerating) {
+            previewContainer.classList.remove('is-generating', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+        }
 
         toggleGenerateLoading(true);
 
@@ -718,8 +724,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (parsed.chunk) {
                             if (firstWrite) {
                                 firstWrite = false;
-                                // Schedule transition for when the first real slide renders
-                                _pendingTransitionFn = doTransitionToPreview;
+                                // Schedule chat→preview transition only when coming from the chat screen
+                                if (!isRegenerating) {
+                                    _pendingTransitionFn = doTransitionToPreview;
+                                }
                                 iframeDoc.open();
                                 const skelStyle = `
                                 <style class="skeleton-injector">
@@ -877,6 +885,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (stage) stage.classList.remove('flicker-mask');
                     if (minimapPanel) minimapPanel.classList.remove('flicker-mask');
 
+                    if (isRegenerating) {
+                        // Panels were never hidden — just rescale and we're done.
+                        if (previewHeader) previewHeader.classList.add('slide-down');
+                        scaleIframe();
+                        return;
+                    }
+
                     // Reveal the UI chrome with a staggered sequence (header -> minimap -> tools)
                     previewContainer.classList.remove('is-generating');
                     previewContainer.classList.add('reveal-sequence');
@@ -1006,8 +1021,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRegenerate = document.getElementById('btn-regenerate');
     if (btnRegenerate) {
         btnRegenerate.addEventListener('click', () => {
-            // Problem 5: Don't hide preview or show chat, just trigger generation
-            handleGenerate(temaInput.value.trim());
+            handleGenerate(temaInput.value.trim(), true);
         });
     }
 
