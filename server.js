@@ -180,6 +180,15 @@ function sanitizeGeneratedHtml(html) {
     html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
     // Remove javascript: URLs in href / src / action attributes
     html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
+    // Fix malformed Google Fonts <link> tags where the AI writes:
+    //   href="url('https://fonts.googleapis.com/...')"  ← CSS url() syntax inside an HTML attribute
+    // The browser treats url('https://...') as a relative path, requesting
+    // /url('https://...') from this server, which returns HTML → MIME-type error.
+    // Strip the url() wrapper so the href becomes a plain absolute URL.
+    html = html.replace(
+        /<link([^>]*)href\s*=\s*(["'])url\s*\(\s*['"]?(https?[^'")\s]+)['"]?\s*\)\s*\2([^>]*)>/gi,
+        '<link$1href="$3"$4>'
+    );
     return html;
 }
 

@@ -8,6 +8,11 @@ function sanitizeModelOutput(html) {
     html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
     html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
     html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
+    // Fix malformed font <link> tags where AI writes href="url('https://...')" instead of href="https://..."
+    html = html.replace(
+        /<link([^>]*)href\s*=\s*(["'])url\s*\(\s*['"]?(https?[^'")\s]+)['"]?\s*\)\s*\2([^>]*)>/gi,
+        '<link$1href="$3"$4>'
+    );
     return html;
 }
 
