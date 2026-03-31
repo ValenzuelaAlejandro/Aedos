@@ -616,7 +616,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
                     section.s:last-of-type { page-break-after: avoid !important; }
                     body { overflow: hidden; }
                     body > script { display: none; }
-                    .big-number { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; word-break: normal !important; overflow-wrap: normal !important; }
+                    .big-number { white-space: nowrap !important; overflow: visible !important; text-overflow: clip !important; word-break: normal !important; overflow-wrap: normal !important; }
                 `
             });
             await page.pdf({
