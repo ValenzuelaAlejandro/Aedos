@@ -810,6 +810,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             iframeDoc.close();
 
+            // Fix malformed <link href="url('...')"> that may have slipped through per-chunk
+            // sanitization (the tag could be split across two chunks). Uses DOM manipulation
+            // since the document is already live at this point.
+            try {
+                if (iframeDoc && iframeDoc.querySelectorAll) {
+                    iframeDoc.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+                        const raw = link.getAttribute('href') || '';
+                        const m = raw.match(/^url\s*\(\s*['"']?(https?[^'"')\s]+)['"']?\s*\)/i);
+                        if (m) link.href = m[1];
+                    });
+                }
+            } catch (e) { /* cross-origin guard */ }
+
             // --- FLICKER GATE: Fade out shortly before final reload ---
             const stage = document.getElementById('preview-stage');
             if (stage) stage.classList.add('flicker-mask');
@@ -1016,6 +1029,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     html = G_FONTS + html;
                 }
             }
+
+            // Fix any malformed <link href="url('https://...')"> the AI may have generated.
+            // The browser treats url('...') as a relative path → requests /url('...') from the
+            // server → gets HTML back → MIME-type error. Strip the url() wrapper here as the
+            // final client-side safety net (server already does the same in sanitizeGeneratedHtml).
+            html = html.replace(
+                /<link([^>]*)href\s*=\s*(["'])url\s*\(\s*['"']?(https?[^'"')\s]+)['"']?\s*\)\s*\2([^>]*)>/gi,
+                '<link$1href="$3"$4>'
+            );
 
             const doc = previewIframe.contentDocument || previewIframe.contentWindow.document;
             doc.open();
