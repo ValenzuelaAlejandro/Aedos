@@ -11,6 +11,8 @@ const buildPrompt = require('./prompts/base');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+// Remove server fingerprint header
+app.disable('x-powered-by');
 // Trust Render's proxy to get real client IPs for rate limiting
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
@@ -136,6 +138,8 @@ app.use((req, res, next) => {
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
     // Content Security Policy
     // External resources used: Google Fonts, unpkg (Lucide, Motion, mobile-drag-drop), cdnjs (GSAP)
+    // NOTE: 'unsafe-inline' in style-src is required for AI-generated slide HTML loaded via
+    // iframe srcdoc — those slides contain extensive inline styles that cannot be pre-hashed.
     res.setHeader(
         'Content-Security-Policy',
         [
@@ -145,6 +149,9 @@ app.use((req, res, next) => {
             "font-src 'self' https://fonts.gstatic.com",
             "img-src 'self' data: blob:",
             "connect-src 'self' https://unpkg.com",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
             "frame-ancestors 'self'"
         ].join('; ')
     );

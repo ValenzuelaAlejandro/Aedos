@@ -102,6 +102,13 @@
     scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
+.empty-tools-state {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
 .tool-section {
     display: flex;
     flex-direction: column;
