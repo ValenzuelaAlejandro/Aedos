@@ -2347,9 +2347,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         prevMinWidth: child.style.minWidth,
                         prevWhiteSpace: child.style.whiteSpace
                     });
-                    child.style.width = rect.width + 'px';
-                    child.style.minWidth = rect.width + 'px';
-                    if (isSingleLine) child.style.whiteSpace = 'nowrap';
+                    if (isSingleLine) {
+                        // For single-line elements only set white-space:nowrap —
+                        // a fixed width is unnecessary (nowrap alone prevents wrapping)
+                        // and a too-tight px value can cause Puppeteer to clip when
+                        // its font metrics are 1-2px wider than the browser's.
+                        child.style.whiteSpace = 'nowrap';
+                    } else {
+                        // Multi-line: lock width so Puppeteer can't reflow to more lines
+                        child.style.width = rect.width + 'px';
+                        child.style.minWidth = rect.width + 'px';
+                    }
                 });
             });
 

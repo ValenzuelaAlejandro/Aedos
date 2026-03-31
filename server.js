@@ -619,6 +619,42 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
                     .big-number { white-space: nowrap !important; overflow: visible !important; text-overflow: clip !important; word-break: normal !important; overflow-wrap: normal !important; }
                 `
             });
+
+            // Step 5: Puppeteer-side layout normalization.
+            // Runs AFTER fonts are loaded, using Puppeteer's own metrics — immune to
+            // browser-vs-Puppeteer font-metric drift.
+            // - Locks every text element's font-size/line-height to computed px values
+            //   (eliminates cqi / rem / min() re-computation during PDF render).
+            // - Applies white-space:nowrap to elements that render as a single line
+            //   in Puppeteer, so they cannot reflow during the print pass.
+            await page.evaluate(() => {
+                const CONTAINERS = [
+                    'div.stat-box', 'div.card', 'div.step-item', 'div.timeline-item',
+                    '.stat-grid', '.grid-2', '.grid-3', '.flex-col', '.flex-row',
+                    '.quote-block', 'blockquote', 'ul', 'ol',
+                    '[class*="card"]', '[class*="box"]'
+                ].join(',');
+                const TEXT = 'h1,h2,h3,h4,p,span,li,cite,.big-number,.big-label,.tag';
+                document.querySelectorAll(CONTAINERS).forEach(container => {
+                    container.querySelectorAll(TEXT).forEach(el => {
+                        const comp = window.getComputedStyle(el);
+                        const rect = el.getBoundingClientRect();
+                        if (!rect.width || !rect.height) return;
+                        // Lock font-size and line-height to absolute px (removes cqi/rem/min())
+                        el.style.setProperty('font-size', comp.fontSize, 'important');
+                        el.style.setProperty('line-height', comp.lineHeight, 'important');
+                        // If it renders as a single line in Puppeteer, prevent wrapping
+                        const lh = parseFloat(comp.lineHeight) || parseFloat(comp.fontSize) * 1.2;
+                        if (rect.height <= lh * 1.8) {
+                            el.style.setProperty('white-space', 'nowrap', 'important');
+                            el.style.setProperty('word-break', 'normal', 'important');
+                            el.style.setProperty('overflow-wrap', 'normal', 'important');
+                        }
+                    });
+                });
+            }).catch(() => {
+                console.warn('Puppeteer-side layout normalization failed (non-fatal)');
+            });
             await page.pdf({
                 path: pdfPath,
                 width: '29.7cm',
