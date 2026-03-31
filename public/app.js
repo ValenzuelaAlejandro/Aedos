@@ -1,38 +1,13 @@
 function sanitizeModelOutput(html) {
     if (typeof html !== 'string') return html;
-    
-    const allowed = [];
-    html = html.replace(/<script[\s\S]*?<\/script>/gi, (match) => {
-        if (/class=["']skeleton-injector["']/i.test(match)) {
-            allowed.push(match);
-            return `__ALLOWED_SCRIPT_${allowed.length - 1}__`;
-        }
-        
-        if (/src=["'][^"']*lucide[^"']*["']/i.test(match)) {
-            allowed.push(match);
-            return `__ALLOWED_SCRIPT_${allowed.length - 1}__`;
-        }
-        
-        const contentMatch = match.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
-        if (contentMatch) {
-            const content = contentMatch[1].trim();
-            if (/^lucide\.createIcons\(\s*\{?\}?\s*\);?$/.test(content)) {
-                allowed.push('<script>if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();</script>');
-                return `__ALLOWED_SCRIPT_${allowed.length - 1}__`;
-            }
-        }
-        return '';
-    });
-    
-    html = html.replace(/<script[^>]*>/gi, '');
+    // Strip ALL inline script blocks from AI-generated content.
+    // External scripts (<script src="...">) are allowed through but subject to CSP script-src.
+    html = html.replace(/<script[^>]*>(\s*)<\/script>/gi, '$1'); // keep empty external wrappers
+    html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // strip scripts with content
+    html = html.replace(/<script[^>]*>/gi, ''); // strip unclosed opening tags
     html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
     html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
     html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
-    
-    allowed.forEach((script, i) => {
-        html = html.replace(`__ALLOWED_SCRIPT_${i}__`, script);
-    });
-    
     return html;
 }
 
@@ -756,44 +731,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </style>
                                 ${G_FONTS}
                                 ${loadingHtml}
-                                <script class="skeleton-injector">
-                                    let skelLastCount = 0;
-                                    let sentTitle = false;
-                                    const skelObs = new MutationObserver(() => {
-                                        if (!sentTitle) {
-                                            const h1 = document.querySelector('h1');
-                                            if (h1 && h1.textContent.trim().length > 3) {
-                                                sentTitle = true;
-                                                window.parent.postMessage({ type: 'titleUpdate', title: h1.textContent.trim() }, '*');
-                                            } else {
-                                                const titleTag = document.querySelector('title');
-                                                if (titleTag && titleTag.textContent.trim() && titleTag.textContent.trim() !== 'Document') {
-                                                    sentTitle = true;
-                                                    window.parent.postMessage({ type: 'titleUpdate', title: titleTag.textContent.trim() }, '*');
-                                                }
-                                            }
-                                        }
-                                        let slides = document.querySelectorAll('section.s');
-                                        if (slides.length === 0) slides = document.querySelectorAll('section[class*="slide"]');
-                                        if (slides.length === 0) slides = document.querySelectorAll('body > section');
-                                        if (slides.length > 0) {
-                                            const tempSkel = document.getElementById('temp-skeleton');
-                                            if (tempSkel) tempSkel.remove();
-                                        }
-                                        if (slides.length > 0 && slides.length > skelLastCount) {
-                                            skelLastCount = slides.length;
-                                            window.parent.postMessage({ type: 'slideUpdate', count: skelLastCount }, '*');
-                                            setTimeout(() => {
-                                                if(slides[slides.length-1]) {
-                                                    slides[slides.length-1].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-                                                }
-                                            }, 100);
-                                        }
-                                    });
-                                    skelObs.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-                                </script>
+                                <script src="/features/skeleton/skeleton-injector.js"></script>
                                 `;
-                                parsed.chunk = skelStyle + parsed.chunk;
+                                // Write our trusted skeleton markup directly (no sanitization needed).
+                                // Only AI chunks go through sanitizeModelOutput.
+                                iframeDoc.write(skelStyle);
                             }
                             iframeDoc.write(sanitizeModelOutput(parsed.chunk));
                         }

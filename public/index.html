@@ -29,26 +29,10 @@
     <link rel="stylesheet" href="https://unpkg.com/mobile-drag-drop@2.3.0-rc.2/default.css" />
     <script src="https://unpkg.com/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
     <script src="https://unpkg.com/mobile-drag-drop@2.3.0-rc.2/scroll-behaviour.min.js"></script>
-    <script>
-        // Prevent browser-level viewport zoom (pinch gesture) from sticking across reloads.
-        // Non-passive so we can call preventDefault() on multi-touch moves.
-        document.addEventListener('touchmove', function(e) {
-            if (e.touches && e.touches.length > 1) e.preventDefault();
-        }, { passive: false });
-        MobileDragDrop.polyfill({
-            dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride
-        });
-    </script>
     <!-- i18n Translation System -->
     <script src="features/shared/i18n.js?v=3"></script>
     <script src="features/minimap/minimap.js?v=3"></script>
-    <script>
-        // Safety fallback if i18n.js fails to load
-        if (!window.__eidos_t) {
-            window.__eidos_t = (k, d) => d || k;
-            window.currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
-        }
-    </script>
+    <script src="features/shared/init.js?v=1"></script>
 </head>
 
 <body>
@@ -131,61 +115,61 @@
                 <p class="starter-label" data-i18n="starter_label">Get started with one of these prompts</p>
                 <div class="starter-carousel">
                     <div class="starter-track" id="starter-track">
-                        <button class="starter-card" onclick="fillInput('starter_prompt_1')">
+                        <button class="starter-card" data-fill-key="starter_prompt_1">
                             <span class="starter-card-text" data-i18n="starter_prompt_1">Create a 12-slide fintech pitch. Colors: charcoal and coral. Tone: confident.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="bar-chart-3"></i>
                             </span>
                         </button>
-                        <button class="starter-card" onclick="fillInput('starter_prompt_2')">
+                        <button class="starter-card" data-fill-key="starter_prompt_2">
                             <span class="starter-card-text" data-i18n="starter_prompt_2">Build 8 slides on climate policy with neutral tone and data-first visuals.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="line-chart"></i>
                             </span>
                         </button>
-                        <button class="starter-card" onclick="fillInput('starter_prompt_3')">
+                        <button class="starter-card" data-fill-key="starter_prompt_3">
                             <span class="starter-card-text" data-i18n="starter_prompt_3">Make a product roadmap deck, 10 slides, dark blue palette, executive tone.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="route"></i>
                             </span>
                         </button>
-                        <button class="starter-card" onclick="fillInput('starter_prompt_4')">
+                        <button class="starter-card" data-fill-key="starter_prompt_4">
                             <span class="starter-card-text" data-i18n="starter_prompt_4">Generate a workshop deck, 15 slides, friendly tone, include agenda and recap.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="calendar-days"></i>
                             </span>
                         </button>
-                        <button class="starter-card" onclick="fillInput('starter_prompt_5')">
+                        <button class="starter-card" data-fill-key="starter_prompt_5">
                             <span class="starter-card-text" data-i18n="starter_prompt_5">Prepare a medical AI overview, 9 slides, white plus teal, formal tone.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="stethoscope"></i>
                             </span>
                         </button>
-                        <button class="starter-card" onclick="fillInput('starter_prompt_6')">
+                        <button class="starter-card" data-fill-key="starter_prompt_6">
                             <span class="starter-card-text" data-i18n="starter_prompt_6">Create a sales deck with cover data: company, speaker, date, KPI subtitle.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="file-text"></i>
                             </span>
                         </button>
-                        <button class="starter-card" onclick="fillInput('starter_prompt_7')">
+                        <button class="starter-card" data-fill-key="starter_prompt_7">
                             <span class="starter-card-text" data-i18n="starter_prompt_7">Explain blockchain basics in 7 slides, simple tone, high-contrast colors.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="blocks"></i>
                             </span>
                         </button>
-                        <button class="starter-card" onclick="fillInput('starter_prompt_8')">
+                        <button class="starter-card" data-fill-key="starter_prompt_8">
                             <span class="starter-card-text" data-i18n="starter_prompt_8">Draft a research summary, 11 slides, include methodology, results, limitations.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="flask-conical"></i>
                             </span>
                         </button>
-                        <button class="starter-card" onclick="fillInput('starter_prompt_9')">
+                        <button class="starter-card" data-fill-key="starter_prompt_9">
                             <span class="starter-card-text" data-i18n="starter_prompt_9">Design onboarding slides, 6 slides, playful tone, orange accents.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="users"></i>
                             </span>
                         </button>
-                        <button class="starter-card" onclick="fillInput('starter_prompt_10')">
+                        <button class="starter-card" data-fill-key="starter_prompt_10">
                             <span class="starter-card-text" data-i18n="starter_prompt_10">Build quarterly report deck, 13 slides, include charts and action items.</span>
                             <span class="starter-card-icon" aria-hidden="true">
                                 <i data-lucide="presentation"></i>
@@ -390,7 +374,7 @@
         <!-- Mobile Navigation (Moved inside preview-container stacking context) -->
         <div id="mobile-overlay"></div>
         <nav id="mobile-bottom-nav">
-            <button class="mobile-nav-btn mobile-prev-btn" onclick="if(window.eidosPrevSlide) window.eidosPrevSlide()" aria-label="Previous slide">
+            <button class="mobile-nav-btn mobile-prev-btn" aria-label="Previous slide">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
@@ -399,7 +383,7 @@
                 <div id="mobile-slide-dots" class="mobile-slide-dots"></div>
                 <span id="mobile-slide-label" class="mobile-slide-label">1 / 1</span>
             </div>
-            <button class="mobile-nav-btn mobile-next-btn" onclick="if(window.eidosNextSlide) window.eidosNextSlide()" aria-label="Next slide">
+            <button class="mobile-nav-btn mobile-next-btn" aria-label="Next slide">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>

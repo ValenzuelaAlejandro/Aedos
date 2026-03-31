@@ -140,11 +140,11 @@ app.use((req, res, next) => {
         'Content-Security-Policy',
         [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com",
+            "script-src 'self' https://unpkg.com https://cdnjs.cloudflare.com",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
             "font-src 'self' https://fonts.gstatic.com",
             "img-src 'self' data: blob:",
-            "connect-src 'self'",
+            "connect-src 'self' https://unpkg.com",
             "frame-ancestors 'self'"
         ].join('; ')
     );
@@ -157,6 +157,23 @@ app.use(express.static('public'));
 // Create /tmp/ folder if it doesn't exist
 if (!fs.existsSync(TMP_DIR)) {
     fs.mkdirSync(TMP_DIR, { recursive: true });
+}
+
+// Strips <script> blocks, inline event handlers, and javascript: URLs from
+// AI-generated HTML before it is sent to the client. Defense-in-depth layer
+// complementing the identical sanitization already done on the client side.
+function sanitizeGeneratedHtml(html) {
+    if (typeof html !== 'string') return html;
+    // Remove all <script>...</script> blocks — server re-injects only known-safe ones
+    html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+    // Remove orphan opening script tags
+    html = html.replace(/<script[^>]*>/gi, '');
+    // Remove inline event handlers (onclick, onload, onerror, onmouseover, …)
+    html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
+    html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
+    // Remove javascript: URLs in href / src / action attributes
+    html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
+    return html;
 }
 
 // Models tried in order — each has its own independent free-tier quota
@@ -465,6 +482,10 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 console.log('Sanitizer: moved loose @import into <style> block');
             }
 
+            // Server-side HTML sanitization: strip scripts/handlers injected by the AI
+            // before we inject our own known-safe resources below.
+            cleanedOutput = sanitizeGeneratedHtml(cleanedOutput);
+
             const lucideSrc = 'https://unpkg.com/lucide@0.577.0/dist/umd/lucide.js';
             const fontsLink = `
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -503,21 +524,15 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected fonts link`);
             }
 
-            // 2. Ensure lucide.createIcons() call is present
-            if (!cleanedOutput.includes('lucide.createIcons')) {
-                const call = `<script>
-                    function tryLucide(a) { 
-                        if(window.lucide) { lucide.createIcons(); } 
-                        else if(a > 0) { setTimeout(() => tryLucide(a-1), 100); }
-                    }
-                    tryLucide(20);
-                </script>`;
+            // 2. Ensure lucide.createIcons() call is present (via external script, no inline needed)
+            if (!cleanedOutput.includes('lucide-init.js') && !cleanedOutput.includes('lucide.createIcons')) {
+                const call = '<script src="/features/shared/lucide-init.js"></script>';
                 if (cleanedOutput.includes('</body>')) {
                     cleanedOutput = cleanedOutput.replace(/<\/body>/i, `${call}\n</body>`);
                 } else {
                     cleanedOutput = cleanedOutput + `\n${call}`;
                 }
-                console.log('Sanitizer: injected missing lucide.createIcons() call');
+                console.log('Sanitizer: injected lucide-init.js');
             }
 
             // 3. Ensure DOCTYPE remains at the start
@@ -578,7 +593,12 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
         // Replace animated GIFs with a 1×1 transparent placeholder so Puppeteer
         // doesn't time-out or crash while trying to load/decode animation frames.
         const TRANSPARENT_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
-        const processedHtml = html
+        // Add a <base> tag so root-relative paths like /features/shared/lucide-init.js resolve to this server.
+        // Puppeteer uses page.setContent() which has no inherent base URL.
+        const baseTag = `<base href="http://localhost:${PORT}/">`;
+        let processedHtml = html.includes('<base') ? html : html.replace(/(<head[^>]*>)/i, `$1\n${baseTag}`);
+        // Replace animated GIFs with a 1×1 transparent placeholder
+        processedHtml = processedHtml
             // img src pointing to a .gif URL (not already a data-URI)
             .replace(/(<img\b[^>]*?)\bsrc\s*=\s*(["'])(?!data:)[^"']*\.gif[^"']*\2/gi,
                 `$1src="${TRANSPARENT_GIF}"`)
