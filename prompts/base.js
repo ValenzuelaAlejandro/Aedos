@@ -107,7 +107,8 @@ BACKGROUND MODES – derive CSS variables from bg_mode and bg_hex:
   mid-tone  → --bg medium    --surface +6%L  --surface2 +12%L  --white:#e2e8f0  --white-dim:#8892a4  --border:rgba(255,255,255,.10)
   light     → --bg:#fafafa   --surface:#f3f4f6  --surface2:#e5e7eb  --white:#111827  --white-dim:#4b5563  --border:rgba(0,0,0,.12)
 
-CSS BLOCK — place ALL of this inside a single <style> tag in <head>. The @import MUST be the very first line inside <style>:
+CSS BLOCK — place ALL of this inside a single <style> tag in <head>. The @import MUST be the very first line inside <style>.
+IMPORTANT: Load fonts ONLY via @import inside <style>. Do NOT use <link> tags for Google Fonts.
 <style>
   @import url('[font pair url from FONTS section above]');
   :root {

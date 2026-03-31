@@ -8,7 +8,13 @@ function sanitizeModelOutput(html) {
     html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
     html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
     html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
-    // Fix malformed font <link> tags where AI writes href="url('https://...')" instead of href="https://..."
+    // Remove any Google Fonts <link> tags from AI chunks.
+    // Streaming chunks go directly to doc.write() — a malformed href="url('...')"
+    // fires a network request immediately and cannot be intercepted after the fact.
+    // Strip them entirely; initPreview() always uses server-processed HTML with
+    // correct font links already injected by the server.
+    html = html.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
+    // Fallback: fix any remaining url()-wrapped href that slipped past the strip
     html = html.replace(
         /<link([^>]*)href\s*=\s*(["'])url\s*\(\s*['"]?(https?[^'")\s]+)['"]?\s*\)\s*\2([^>]*)>/gi,
         '<link$1href="$3"$4>'
