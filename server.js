@@ -149,6 +149,8 @@ app.use((req, res, next) => {
             "font-src 'self' https://fonts.gstatic.com",
             "img-src 'self' data: blob:",
             "connect-src 'self' https://unpkg.com",
+            "frame-src 'self'",
+            "worker-src 'none'",
             "object-src 'none'",
             "base-uri 'self'",
             "form-action 'self'",
@@ -521,7 +523,8 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             // before we inject our own known-safe resources below.
             cleanedOutput = sanitizeGeneratedHtml(cleanedOutput);
 
-            const lucideSrc = 'https://unpkg.com/lucide@0.577.0/dist/umd/lucide.js';
+            const lucideSrc = 'https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js';
+            const lucideIntegrity = 'sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei';
             const fontsLink = `
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -541,12 +544,12 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             // 1. Ensure Lucide library is present
             if (!cleanedOutput.includes(lucideSrc)) {
                 if (cleanedOutput.includes('</head>')) {
-                    cleanedOutput = cleanedOutput.replace(/<\/head>/i, `${fontsLink}\n<script src="${lucideSrc}"></script>\n</head>`);
+                    cleanedOutput = cleanedOutput.replace(/<\/head>/i, `${fontsLink}\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>\n</head>`);
                 } else if (cleanedOutput.includes('<head>')) {
-                    cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n${fontsLink}\n<script src="${lucideSrc}"></script>`);
+                    cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n${fontsLink}\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>`);
                 } else {
                     // Prepend if no head found
-                    cleanedOutput = fontsLink + `\n<script src="${lucideSrc}"></script>\n` + cleanedOutput;
+                    cleanedOutput = fontsLink + `\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>\n` + cleanedOutput;
                 }
                 console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected fonts and Lucide`);
             } else if (!cleanedOutput.includes('family=Archivo+Black')) {
@@ -577,8 +580,6 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
 
             res.write(`data: ${JSON.stringify({ done: true, html: cleanedOutput })}\n\n`);
         }
-        // 8. Save debug copy for HTML structure inspection (saving the cleaned version)
-
 
         completed = true;
         res.end();
