@@ -58,32 +58,47 @@
         window._eidos_pan = window._eidos_pan || { x: 0, y: 0 };
         let pinchState = null;
 
+        // Cached DOM refs — resolved once, reused every frame
+        let _cachedIframe = null;
+        let _cachedWrapper = null;
+        let _cachedScrollable = null;
+        let _lastTotalScale = -1;
+        let _rafZoomPending = false;
+
+        function _resolveDOMRefs() {
+            if (!_cachedIframe)    _cachedIframe    = document.getElementById('preview-iframe');
+            if (!_cachedWrapper)   _cachedWrapper   = document.querySelector('.preview-wrapper');
+            if (!_cachedScrollable) _cachedScrollable = document.getElementById('preview-wrapper-scrollable');
+        }
+
         function getPinchDist(touches) {
             const dx = touches[0].clientX - touches[1].clientX;
             const dy = touches[0].clientY - touches[1].clientY;
             return Math.hypot(dx, dy);
         }
 
-        function applyZoomAndPan() {
-            const iframe = document.getElementById('preview-iframe');
-            const wrapper = document.querySelector('.preview-wrapper');
-            const scrollable = document.getElementById('preview-wrapper-scrollable');
+        function _doApplyZoomAndPan() {
+            _rafZoomPending = false;
+            _resolveDOMRefs();
+            const iframe = _cachedIframe;
+            const wrapper = _cachedWrapper;
+            const scrollable = _cachedScrollable;
             if (!iframe || !wrapper) return;
 
             const baseScale = window._eidosBaseScale || 1;
             const mobileZoom = window._eidos_mobile_zoom || 1;
             const totalScale = baseScale * mobileZoom;
 
-            iframe.style.transform = `scale(${totalScale})`;
-            const scaledW = 1122 * totalScale;
-            const scaledH = 631 * totalScale;
-            wrapper.style.width = `${scaledW}px`;
-            wrapper.style.height = `${scaledH}px`;
-
+            // Batch all reads before any writes
             const viewW = (scrollable ? scrollable.clientWidth : 0) || window.innerWidth;
             const viewH = (scrollable ? scrollable.clientHeight : 0) || window.innerHeight;
+
+            // Writes
+            const scaledW = 1122 * totalScale;
+            const scaledH = 631 * totalScale;
             const maxPanX = Math.max(0, (scaledW - viewW) / 2);
             const maxPanY = Math.max(0, (scaledH - viewH) / 2);
+
             if (mobileZoom <= 1) {
                 window._eidos_pan.x = 0;
                 window._eidos_pan.y = 0;
@@ -91,11 +106,24 @@
                 window._eidos_pan.x = Math.max(-maxPanX, Math.min(maxPanX, window._eidos_pan.x));
                 window._eidos_pan.y = Math.max(-maxPanY, Math.min(maxPanY, window._eidos_pan.y));
             }
-            wrapper.style.transform = `translate(${window._eidos_pan.x}px, ${window._eidos_pan.y}px)`;
 
-            try {
-                if (iframe.contentWindow) iframe.contentWindow._eidosIframeScale = totalScale;
-            } catch (e) {}
+            // Only update width/height when zoom actually changes (avoids layout on pure pan)
+            if (totalScale !== _lastTotalScale) {
+                _lastTotalScale = totalScale;
+                iframe.style.transform = `scale(${totalScale})`;
+                wrapper.style.width  = `${scaledW}px`;
+                wrapper.style.height = `${scaledH}px`;
+                try { if (iframe.contentWindow) iframe.contentWindow._eidosIframeScale = totalScale; } catch (_) {}
+            }
+
+            // Pan: transform-only, no layout
+            wrapper.style.transform = `translate(${window._eidos_pan.x}px, ${window._eidos_pan.y}px)`;
+        }
+
+        function applyZoomAndPan() {
+            if (_rafZoomPending) return;
+            _rafZoomPending = true;
+            requestAnimationFrame(_doApplyZoomAndPan);
         }
 
         function startPinchFromTouchList(touches) {

@@ -2,9 +2,11 @@
 // Must be loaded AFTER: mobile-drag-drop scripts, i18n.js, minimap.js
 
 // 1. Prevent pinch-zoom viewport lock across reloads.
-//    Non-passive so we can call preventDefault() on multi-touch moves.
+//    viewport meta already sets user-scalable=no; this listener is only needed
+//    as a belt-and-suspenders for older browsers that ignore the meta.
+//    Use passive:true so the browser can still fast-path scroll/touch handling.
 document.addEventListener('touchmove', function (e) {
-    if (e.touches && e.touches.length > 1) e.preventDefault();
+    if (e.touches && e.touches.length > 1 && e.cancelable) e.preventDefault();
 }, { passive: false });
 
 // 2. MobileDragDrop polyfill (library is synchronously loaded above in <head>)
