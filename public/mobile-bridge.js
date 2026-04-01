@@ -252,12 +252,7 @@
                     };
                 } else {
                     mode = 'pending';
-                    longPressTimer = setTimeout(() => {
-                        longPressTimer = null;
-                        if (mode !== 'pending') return;
-                        mode = 'longpress-drag';
-                        mapTouchToMouse(null, 'mousedown', pendingTouchCoords);
-                    }, LONG_PRESS_MS);
+                    // No long-press-drag: canvas is read-only on mobile
                 }
                 if (e.cancelable) e.preventDefault();
             }, { passive: false });
@@ -330,29 +325,36 @@
 
                     if (isDoubleTap) {
                         lastTapTime = 0;
-                        const iframe = document.getElementById('preview-iframe');
-                        if (iframe && iframe.contentDocument && iframe.contentWindow) {
-                            const rect = iframe.getBoundingClientRect();
-                            const scale = iframe.contentWindow._eidosIframeScale || 1;
-                            const relX = (pendingTouchCoords.clientX - rect.left) / scale;
-                            const relY = (pendingTouchCoords.clientY - rect.top) / scale;
-                            
-                            const evt = new MouseEvent('dblclick', {
-                                bubbles: true,
-                                cancelable: true,
-                                clientX: relX,
-                                clientY: relY,
-                                screenX: pendingTouchCoords.screenX,
-                                screenY: pendingTouchCoords.screenY,
-                                view: iframe.contentWindow
-                            });
-                            iframe.contentDocument.body.dispatchEvent(evt);
+                        // Double-tap on mobile: only trigger file picker if on an img-slot
+                        const dtIframe = document.getElementById('preview-iframe');
+                        if (dtIframe && dtIframe.contentDocument && dtIframe.contentWindow) {
+                            const dtRect = dtIframe.getBoundingClientRect();
+                            const dtScale = dtIframe.contentWindow._eidosIframeScale || 1;
+                            const dtRelX = (pendingTouchCoords.clientX - dtRect.left) / dtScale;
+                            const dtRelY = (pendingTouchCoords.clientY - dtRect.top) / dtScale;
+                            const dtEl = dtIframe.contentDocument.elementFromPoint(dtRelX, dtRelY);
+                            const dtSlot = dtEl && dtEl.closest('[data-image-slot]');
+                            if (dtSlot && window._eidosTriggerImagePicker) {
+                                window._eidosTriggerImagePicker(dtSlot);
+                            }
                         }
                         return;
                     }
 
-                    mapTouchToMouse(null, 'mousedown', pendingTouchCoords);
-                    setTimeout(() => mapTouchToMouse(null, 'mouseup', pendingTouchCoords), 20);
+                    // Single tap: only open file picker if tapping on an img-slot
+                    const tapIframe = document.getElementById('preview-iframe');
+                    if (tapIframe && tapIframe.contentDocument && tapIframe.contentWindow) {
+                        const tapRect = tapIframe.getBoundingClientRect();
+                        const tapScale = tapIframe.contentWindow._eidosIframeScale || 1;
+                        const tapRelX = (pendingTouchCoords.clientX - tapRect.left) / tapScale;
+                        const tapRelY = (pendingTouchCoords.clientY - tapRect.top) / tapScale;
+                        const tapEl = tapIframe.contentDocument.elementFromPoint(tapRelX, tapRelY);
+                        const tapSlot = tapEl && tapEl.closest('[data-image-slot]');
+                        if (tapSlot && window._eidosTriggerImagePicker) {
+                            window._eidosTriggerImagePicker(tapSlot);
+                        }
+                    }
+                    // Do NOT dispatch mousedown/mouseup — canvas is read-only on mobile
                     return;
                 }
 

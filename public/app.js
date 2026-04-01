@@ -1812,7 +1812,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <circle cx="8.5" cy="8.5" r="1.5"></circle>
                             <polyline points="21 15 16 10 5 21"></polyline>
                         </svg>
-                        <span>${window.__eidos_t('click_drop')}</span>
+                        <span>${window.innerWidth < 850 ? window.__eidos_t('click_drop_mobile') : window.__eidos_t('click_drop')}</span>
                     </div>
                 `;
             }
