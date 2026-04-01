@@ -66,9 +66,15 @@
         let _rafZoomPending = false;
 
         function _resolveDOMRefs() {
-            if (!_cachedIframe)    _cachedIframe    = document.getElementById('preview-iframe');
-            if (!_cachedWrapper)   _cachedWrapper   = document.querySelector('.preview-wrapper');
-            if (!_cachedScrollable) _cachedScrollable = document.getElementById('preview-wrapper-scrollable');
+            // Always re-query the DOM and update cached refs when elements change.
+            // This handles the case where app.js replaces the preview iframe at runtime.
+            const iframeEl = document.getElementById('preview-iframe');
+            const wrapperEl = document.querySelector('.preview-wrapper');
+            const scrollableEl = document.getElementById('preview-wrapper-scrollable');
+
+            if (iframeEl !== _cachedIframe) _cachedIframe = iframeEl;
+            if (wrapperEl !== _cachedWrapper) _cachedWrapper = wrapperEl;
+            if (scrollableEl !== _cachedScrollable) _cachedScrollable = scrollableEl;
         }
 
         function getPinchDist(touches) {
