@@ -1755,6 +1755,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.click();
             });
 
+            // Mobile: direct touch opens file picker without going through the
+            // touch-capture-overlay (which calls preventDefault on touchstart,
+            // tainting the gesture and blocking input.click() on iOS).
+            label.addEventListener('touchstart', (e) => {
+                e.stopPropagation(); // Don't let the touch-capture-overlay see this touch
+            }, { passive: true });
+            label.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                input.click();
+            }, { passive: false });
+
             // Hover sync via live ref
             label.addEventListener('mouseenter', () => slotRef.current.classList.add('is-hovered'));
             label.addEventListener('mouseleave', () => slotRef.current.classList.remove('is-hovered'));
@@ -1915,6 +1927,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!isVisible) {
                     label.style.display = 'none';
+                    label.style.pointerEvents = 'none';
                     return;
                 }
 
@@ -1924,6 +1937,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 label.style.top = (fr.top + r.top * scale) + 'px';
                 label.style.width = (r.width * scale) + 'px';
                 label.style.height = (r.height * scale) + 'px';
+                // On mobile, make label interactive so touch events go directly
+                // to the label (above the touch-capture-overlay in z-order),
+                // bypassing the overlay's preventDefault that would block input.click()
+                if (window.innerWidth < 850) {
+                    label.style.pointerEvents = 'auto';
+                }
             });
         }
 

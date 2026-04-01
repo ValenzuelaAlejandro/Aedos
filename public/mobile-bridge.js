@@ -221,8 +221,6 @@
             let longPressTimer = null;
             let touchOriginX = 0, touchOriginY = 0;
             let pendingTouchCoords = null;
-            let lastTapTime = 0;
-            let lastTapCoords = null;
 
             function cancelLP() {
                 if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
@@ -314,47 +312,10 @@
                 }
 
                 if (prevMode === 'pending') {
-                    // Double-tap detection for text editing and image picker
-                    const now = Date.now();
-                    const isDoubleTap = (now - lastTapTime < 350) &&
-                        lastTapCoords &&
-                        Math.hypot(pendingTouchCoords.clientX - lastTapCoords.x, pendingTouchCoords.clientY - lastTapCoords.y) < 30;
-                    
-                    lastTapTime = now;
-                    lastTapCoords = { x: pendingTouchCoords.clientX, y: pendingTouchCoords.clientY };
-
-                    if (isDoubleTap) {
-                        lastTapTime = 0;
-                        // Double-tap on mobile: only trigger file picker if on an img-slot
-                        const dtIframe = document.getElementById('preview-iframe');
-                        if (dtIframe && dtIframe.contentDocument && dtIframe.contentWindow) {
-                            const dtRect = dtIframe.getBoundingClientRect();
-                            const dtScale = dtIframe.contentWindow._eidosIframeScale || 1;
-                            const dtRelX = (pendingTouchCoords.clientX - dtRect.left) / dtScale;
-                            const dtRelY = (pendingTouchCoords.clientY - dtRect.top) / dtScale;
-                            const dtEl = dtIframe.contentDocument.elementFromPoint(dtRelX, dtRelY);
-                            const dtSlot = dtEl && dtEl.closest('[data-image-slot]');
-                            if (dtSlot && window._eidosTriggerImagePicker) {
-                                window._eidosTriggerImagePicker(dtSlot);
-                            }
-                        }
-                        return;
-                    }
-
-                    // Single tap: only open file picker if tapping on an img-slot
-                    const tapIframe = document.getElementById('preview-iframe');
-                    if (tapIframe && tapIframe.contentDocument && tapIframe.contentWindow) {
-                        const tapRect = tapIframe.getBoundingClientRect();
-                        const tapScale = tapIframe.contentWindow._eidosIframeScale || 1;
-                        const tapRelX = (pendingTouchCoords.clientX - tapRect.left) / tapScale;
-                        const tapRelY = (pendingTouchCoords.clientY - tapRect.top) / tapScale;
-                        const tapEl = tapIframe.contentDocument.elementFromPoint(tapRelX, tapRelY);
-                        const tapSlot = tapEl && tapEl.closest('[data-image-slot]');
-                        if (tapSlot && window._eidosTriggerImagePicker) {
-                            window._eidosTriggerImagePicker(tapSlot);
-                        }
-                    }
-                    // Do NOT dispatch mousedown/mouseup — canvas is read-only on mobile
+                    // Canvas is read-only on mobile.
+                    // img-slot touches are handled directly by the positioned overlay labels
+                    // (pointer-events:auto on mobile, z-index above the touch-capture-overlay)
+                    // so they never reach this handler. Nothing else to do.
                     return;
                 }
 
