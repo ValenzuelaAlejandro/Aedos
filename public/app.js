@@ -249,6 +249,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // MOUSE PHYSICS (HERO + PROMPT CARDS)
     // =========================================================
     (function setupMousePhysics() {
+        // Pointer physics only make sense on desktop — skip entirely on touch/mobile
+        if (window.innerWidth < 850 || window.matchMedia('(pointer: coarse)').matches) return;
+
         const physicsTargets = [
             document.querySelector('.hero-title-single')
         ].filter(Boolean);
@@ -358,6 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let lastTs = 0;
         let currentSpeed = 58; // px/s
         let targetSpeed = 58;  // px/s
+        let carouselRafId = null;
 
         function measureLoopWidth() {
             loopWidth = track.scrollWidth / 2;
@@ -368,14 +372,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function tick(ts) {
-            // Pause when chat screen is hidden (e.g. user is in the editor).
-            // offsetParent is null whenever any ancestor has display:none.
-            if (!carousel.offsetParent) {
-                lastTs = 0; // reset so there's no jump when it becomes visible again
-                requestAnimationFrame(tick);
-                return;
-            }
-
             if (!lastTs) lastTs = ts;
             const dt = Math.min(64, ts - lastTs) / 1000;
             lastTs = ts;
@@ -388,8 +384,41 @@ document.addEventListener('DOMContentLoaded', () => {
             if (offset >= loopWidth) offset -= loopWidth;
             track.style.transform = `translate3d(${-offset.toFixed(2)}px, 0, 0)`;
 
-            requestAnimationFrame(tick);
+            carouselRafId = requestAnimationFrame(tick);
         }
+
+        function startCarousel() {
+            if (carouselRafId) return;
+            lastTs = 0;
+            carouselRafId = requestAnimationFrame(tick);
+        }
+
+        function stopCarousel() {
+            if (carouselRafId) {
+                cancelAnimationFrame(carouselRafId);
+                carouselRafId = null;
+            }
+            lastTs = 0;
+        }
+
+        // Watch the chat-screen class to truly stop/start the RAF loop
+        const chatScreenEl = document.getElementById('chat-screen');
+        if (chatScreenEl) {
+            const visObserver = new MutationObserver(() => {
+                if (chatScreenEl.classList.contains('hidden')) {
+                    stopCarousel();
+                } else {
+                    startCarousel();
+                }
+            });
+            visObserver.observe(chatScreenEl, { attributeFilter: ['class'] });
+        }
+
+        // Also pause when the browser tab is backgrounded
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) stopCarousel();
+            else if (!chatScreenEl || !chatScreenEl.classList.contains('hidden')) startCarousel();
+        });
 
         carousel.addEventListener('pointerenter', () => {
             targetSpeed = 12;
@@ -417,7 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('resize', measureLoopWidth);
 
         measureLoopWidth();
-        requestAnimationFrame(tick);
+        startCarousel();
         track.dataset.cloned = '1';
     })();
 

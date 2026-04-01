@@ -443,3 +443,57 @@
 #mobile-bottom-nav, #mobile-overlay {
     display: none;
 }
+
+/* ============================================================
+   MOBILE PERFORMANCE: kill expensive animations & effects
+   that destroy frame rate on low-power GPUs
+   ============================================================ */
+@media (max-width: 850px) {
+    /* 1. The neon border spin uses @property + conic-gradient repainted 60fps.
+          The ::before drop-shadow triples the cost. Kill both. */
+    .chat-input-wrapper::before {
+        animation: none !important;
+        filter: none !important;
+        background: rgba(0, 102, 255, 0.15) !important;
+        -webkit-mask: none !important;
+        mask: none !important;
+        border-radius: 19px !important;
+        inset: -1px !important;
+        padding: 0 !important;
+        opacity: 0.6 !important;
+    }
+
+    /* 2. The input box pulsing box-shadow animation — triggers composite + repaint */
+    .chat-input-wrapper {
+        animation: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: rgba(12, 12, 12, 0.95) !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 102, 255, 0.2) !important;
+    }
+
+    /* 3. Hero title glow animation */
+    .hero-title {
+        animation: none !important;
+    }
+
+    /* 4. Logo shimmer (background-position animated 60fps) */
+    .logo-eidos {
+        animation: none !important;
+        background: none !important;
+        -webkit-text-fill-color: var(--text) !important;
+        color: var(--text) !important;
+        filter: none !important;
+    }
+
+    /* 5. Dot pulse */
+    .app-logo .dot {
+        animation: none !important;
+    }
+
+    /* 6. Top control bar backdrop-filter */
+    .top-control-panel {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+}
