@@ -368,6 +368,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function tick(ts) {
+            // Pause when chat screen is hidden (e.g. user is in the editor).
+            // offsetParent is null whenever any ancestor has display:none.
+            if (!carousel.offsetParent) {
+                lastTs = 0; // reset so there's no jump when it becomes visible again
+                requestAnimationFrame(tick);
+                return;
+            }
+
             if (!lastTs) lastTs = ts;
             const dt = Math.min(64, ts - lastTs) / 1000;
             lastTs = ts;
