@@ -407,6 +407,29 @@
         border-radius: 8px !important;
     }
 
+    /* Mobile: make starter cards visually transparent to match page background
+       and avoid distinct gradient blocks that clash with the surrounding BG. */
+    .starter-card {
+        background: transparent !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: none !important;
+        min-height: 108px !important;
+        flex: 0 0 216px !important;
+        padding: 0.72rem !important;
+        border-radius: 8px !important;
+    }
+
+    .starter-card:hover,
+    .starter-card.is-hovered {
+        background: transparent !important;
+        border-color: var(--border) !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.06) !important;
+    }
+
+    .starter-card-text {
+        color: var(--text) !important;
+    }
+
     .starter-card-text {
         font-size: 0.82rem !important;
         line-height: 1.28 !important;
