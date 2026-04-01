@@ -191,12 +191,14 @@ function sanitizeGeneratedHtml(html) {
     return html;
 }
 
-// Models tried in order — each has its own independent free-tier quota
+// Models tried in order — each has its own independent free-tier quota.
+// gemini-2.5-flash-lite is last: being the smallest model it occasionally generates
+// HTML sections without a <style> block, producing CSS-free (instant-loading) slides.
 const MODELS = [
-    "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
     "gemini-2.0-flash",
-    "gemini-2.5-pro"
+    "gemini-2.5-pro",
+    "gemini-2.5-flash-lite"
 ];
 
 const SAFETY = [
@@ -446,7 +448,17 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             const isParseError = streamErr.message && streamErr.message.includes('parse stream');
             if (isParseError && fullHtml.length > 200) {
                 // Stream ended abruptly but we have usable content — treat as a clean finish
-                console.warn(`Stream parse error recovered — processing ${fullHtml.length} chars received so far`);
+                // only if the output contains a CSS style block (not just bare sections).
+                const hasStyleBlock = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(fullHtml)
+                    || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(fullHtml);
+                if (hasStyleBlock) {
+                    console.warn(`Stream parse error recovered — processing ${fullHtml.length} chars (CSS present)`);
+                } else {
+                    console.warn(`Stream parse error: no design CSS found in ${fullHtml.length} chars — aborting`);
+                    res.write(`data: ${JSON.stringify({ error: 'Stream ended before CSS was generated. Please try again.' })}\n\n`);
+                    res.end();
+                    return;
+                }
             } else {
                 console.error('Error streaming the presentation:', streamErr);
                 res.write(`data: ${JSON.stringify({ error: streamErr.message })}\n\n`);
@@ -522,6 +534,18 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 cleanedOutput = cleanedOutput.replace(/[ \t\n]*@import\s+url\([^)]+\);[ \t\n]*/gi, '\n');
                 cleanedOutput = cleanedOutput.replace(/<style>/i, '<style>\n    ' + importLine);
                 console.log('Sanitizer: moved loose @import into <style> block');
+            }
+
+            // Guard: if the AI generated HTML without a design <style> block (e.g. flash-lite
+            // occasionally emits only section HTML with no CSS), reject it so the user sees
+            // a retry-able error instead of an instant-loading unstyled presentation.
+            const hasDesignCss = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(cleanedOutput)
+                || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(cleanedOutput);
+            if (!hasDesignCss) {
+                console.warn(`[${new Date().toLocaleTimeString()}] Sanitizer: AI output has no design CSS — rejecting (length: ${cleanedOutput.length})`);
+                res.write(`data: ${JSON.stringify({ error: 'The AI generated a presentation without CSS design. Please try again.' })}\n\n`);
+                res.end();
+                return;
             }
 
             // Server-side HTML sanitization: strip scripts/handlers injected by the AI
