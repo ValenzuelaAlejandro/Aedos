@@ -496,4 +496,37 @@
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
+
+    /* ---- Input box: sin azul, borde gris, fondo oscuro 80% ---- */
+    /* Dark mode (por defecto) */
+    .chat-input-wrapper {
+        background: rgba(18, 18, 18, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+        animation: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        transition: border-color 0.2s ease !important;
+    }
+
+    .chat-input-wrapper:focus-within {
+        border-color: rgba(255, 255, 255, 0.38) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    .chat-input-wrapper::before {
+        display: none !important;
+    }
+
+    /* Light mode */
+    :root[data-theme="light"] .chat-input-wrapper {
+        background: rgba(255, 255, 255, 0.8) !important;
+        border: 1px solid rgba(0, 0, 0, 0.18) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    :root[data-theme="light"] .chat-input-wrapper:focus-within {
+        border-color: rgba(0, 0, 0, 0.35) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    }
 }
