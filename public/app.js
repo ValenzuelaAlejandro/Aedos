@@ -753,6 +753,21 @@ document.addEventListener('DOMContentLoaded', () => {
                             continue;
                         }
 
+                        // Pipeline stage progress events
+                        if (parsed.pipeline) {
+                            pauseBtnMessages();
+                            const label = generateBtn.querySelector('.btn-generate-label');
+                            if (label) {
+                                const stageLabels = {
+                                    content: window.__eidos_t ? window.__eidos_t("stage_content", "Analyzing content...") : "Analyzing content...",
+                                    design: window.__eidos_t ? window.__eidos_t("stage_design", "Resolving design...") : "Resolving design...",
+                                    compositing: window.__eidos_t ? window.__eidos_t("stage_compositing", "Composing slides...") : "Composing slides..."
+                                };
+                                label.textContent = stageLabels[parsed.stage] || parsed.stage;
+                            }
+                            continue;
+                        }
+
                         if (parsed.chunk) {
                             if (firstWrite) {
                                 firstWrite = false;
@@ -1047,10 +1062,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function initPreview(html, callback) {
         let setupDone = false;
 
-        // Set onload BEFORE writing so we don't miss the event
-        previewIframe.onload = () => {
-            console.log('initPreview: iframe onload event fired');
-            setTimeout(doSetup, 300);
+        const doSetup = () => {
+            if (setupDone) return;
+            // Guard: if called before the HTML is parsed (e.g. triggered by the
+            // about:blank load of the freshly-cloned iframe), bail out and let
+            // the poll retry — do NOT set setupDone so the real load can win.
+            const iDoc = previewIframe.contentDocument ||
+                (previewIframe.contentWindow && previewIframe.contentWindow.document);
+            if (iDoc && iDoc.body && findSlides(iDoc).length === 0) return;
+            setupDone = true;
+            setupPreviewInteractions();
+            if (typeof callback === 'function') callback();
         };
 
         if (html) {
@@ -1091,7 +1113,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const doc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+            // Call doc.open() first to cancel any pending about:blank navigation on
+            // the freshly-cloned iframe before we attach the onload handler.
+            // If onload were set before doc.open(), the blank-document load event
+            // could fire our handler 300ms later on an empty document, setting
+            // setupDone=true and permanently locking out the real setup.
             doc.open();
+            previewIframe.onload = () => {
+                console.log('initPreview: iframe onload event fired');
+                setTimeout(doSetup, 300);
+            };
             doc.write('<!DOCTYPE html>' + html);
             doc.close();
             try {
@@ -1102,13 +1133,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             console.log('initPreview: updated iframe with final HTML');
         }
-
-        const doSetup = () => {
-            if (setupDone) return;
-            setupDone = true;
-            setupPreviewInteractions();
-            if (typeof callback === 'function') callback();
-        };
 
         // Try to detect if already loaded (sync srcdoc or manual write)
         const doc = previewIframe.contentDocument;
@@ -1133,7 +1157,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(poll, 250); // retry every 250ms, up to 10s
             } else {
                 console.warn('findSlides: gave up polling, using fallback');
-                doSetup(); // give up, use whatever we found
+                // Force-complete setup even if slides aren't found yet
+                // (avoids hanging forever if the HTML has an unexpected structure).
+                if (!setupDone) {
+                    setupDone = true;
+                    setupPreviewInteractions();
+                    if (typeof callback === 'function') callback();
+                }
             }
         };
         setTimeout(poll, 300);

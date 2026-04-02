@@ -6,7 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const buildPrompt = require('./prompts/base');
+const { runPipeline, buildLegacyPrompt } = require('./prompts/pipeline');
+const buildPrompt = require('./prompts/base'); // kept for fallback
 
 const rateLimit = require('express-rate-limit');
 
@@ -21,6 +22,13 @@ const TMP_DIR = path.join(__dirname, 'tmp');
 // Queue System State
 let activeGenerations = 0;
 const queue = [];
+
+// OpenRouter model list — comma-separated in env var OPENROUTER_MODEL_LIST
+// or single model via OPENROUTER_MODEL. Defaults to qwen free-tier.
+const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus:free')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
 
 function processQueue() {
     if (activeGenerations < 3 && queue.length > 0) {
@@ -107,8 +115,8 @@ function validateEnvironment() {
         { key: 'PORT', value: process.env.PORT, fallback: '3000' },
     ];
     
-    if (!process.env.GEMINI_API_KEY) {
-        throw new Error('[FATAL] GEMINI_API_KEY must be set.');
+    if (!process.env.GEMINI_API_KEY && !(process.env.GEMINI_API_KEY_1 && process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_3)) {
+        throw new Error('[FATAL] Set either GEMINI_API_KEY or all three of GEMINI_API_KEY_1/2/3.');
     }
 
     console.log('[BOOT] Environment validation:');
@@ -118,6 +126,11 @@ function validateEnvironment() {
         console.log(`  ${symbol} ${key}: ${val}${!value ? ' (using default)' : ''}`);
     });
     console.log('  ✓ API key: present');
+    if (process.env.OPENROUTER_API_KEY) {
+        console.log(`  ✓ OPENROUTER_API_KEY: present (models: ${OPENROUTER_MODEL_LIST.join(', ')})`);
+    } else {
+        console.warn(`  ⚠ OPENROUTER_API_KEY: not set — quota fallback disabled`);
+    }
 }
 
 validateEnvironment();
@@ -191,16 +204,6 @@ function sanitizeGeneratedHtml(html) {
     return html;
 }
 
-// Models tried in order — each has its own independent free-tier quota.
-// gemini-2.5-flash-lite is last: being the smallest model it occasionally generates
-// HTML sections without a <style> block, producing CSS-free (instant-loading) slides.
-const MODELS = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-2.5-pro",
-    "gemini-2.5-flash-lite"
-];
-
 const SAFETY = [
     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
     { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -208,27 +211,118 @@ const SAFETY = [
     { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
 ];
 
-async function tryModels(prompt) {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    for (const modelName of MODELS) {
-        console.log(`[${new Date().toLocaleTimeString()}] Trying: ${modelName}`);
-        try {
-            const gemini = genAI.getGenerativeModel({ model: modelName, safetySettings: SAFETY });
-            const result = await gemini.generateContentStream(prompt);
-            if (result && result.response) result.response.catch(() => { });
-            console.log(`[${new Date().toLocaleTimeString()}] OK: ${modelName}`);
-            return result;
-        } catch (err) {
-            const msg = err.message || '';
-            const isQuota = msg.includes('429') || msg.toLowerCase().includes('quota');
-            const is404 = msg.includes('404');
-            if (isQuota) { console.warn(`   Quota exhausted for ${modelName}, trying next...`); continue; }
-            if (is404) { console.warn(`   Model unavailable: ${modelName}, trying next...`); continue; }
-            throw err;
+// Per-stage API keys — each stage gets its own key so quotas are independent.
+// Falls back to GEMINI_API_KEY if a stage-specific key is not set.
+// Stage 1+2: always flash-lite (cheap JSON, no quality loss)
+// Stage 3:   always flash (higher quality HTML compositor)
+const KEY1 = process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY;
+const KEY2 = process.env.GEMINI_API_KEY_2 || process.env.GEMINI_API_KEY;
+const KEY3 = process.env.GEMINI_API_KEY_3 || process.env.GEMINI_API_KEY;
+
+// ── OpenRouter fallback (try a list of models sequentially) ───────────────────
+async function* openRouterSSEToChunks(response) {
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for await (const bytes of response.body) {
+        buffer += decoder.decode(bytes, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') return;
+            try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content || parsed.choices?.[0]?.content?.[0];
+                if (content) {
+                    yield {
+                        candidates: [{ content: { parts: [{ text: content }] } }],
+                        text: () => content
+                    };
+                }
+            } catch (_) { /* skip malformed SSE frames */ }
         }
     }
+}
+
+async function callOpenRouter(prompt, stageName) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error('QUOTA_EXHAUSTED'); // no key → surface original error
+
+    const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
+
+    // Try each model in the configured list until one responds
+    for (const model of OPENROUTER_MODEL_LIST) {
+        console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Fallback → OpenRouter (${model})`);
+        try {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': process.env.APP_URL || 'https://eidoslab.app',
+                    'X-Title': 'EidosLab'
+                },
+                body: JSON.stringify({
+                    model,
+                    messages: [{ role: 'user', content: promptText }],
+                    stream: true
+                })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                console.warn(`   [OpenRouter] model ${model} failed: ${response.status} ${errText}`);
+                continue;
+            }
+
+            console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] OpenRouter OK (${model})`);
+            return { stream: openRouterSSEToChunks(response) };
+        } catch (err) {
+            console.warn(`   [OpenRouter] fetch error for ${model}: ${err.message}`);
+            continue;
+        }
+    }
+
     throw new Error('QUOTA_EXHAUSTED');
 }
+// ────────────────────────────────────────────────────────────────────────────
+
+function makeCallerFn(apiKey, modelList, stageName) {
+    return async function(prompt) {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        for (const modelName of modelList) {
+            console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Trying: ${modelName}`);
+            try {
+                const gemini = genAI.getGenerativeModel({ model: modelName, safetySettings: SAFETY });
+                const result = await gemini.generateContentStream(prompt);
+                if (result && result.response) result.response.catch(() => {});
+                console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] OK: ${modelName}`);
+                return result;
+            } catch (err) {
+                const msg = err.message || '';
+                const isQuota = msg.includes('429') || msg.toLowerCase().includes('quota');
+                const is404 = msg.includes('404');
+                if (isQuota) { console.warn(`   [${stageName}] Quota exhausted for ${modelName}, trying next...`); continue; }
+                if (is404) { console.warn(`   [${stageName}] Model unavailable: ${modelName}, trying next...`); continue; }
+                throw err;
+            }
+        }
+        // All Gemini models exhausted → try OpenRouter free-tier fallback
+        console.warn(`   [${stageName}] All Gemini quotas exhausted — trying OpenRouter fallback`);
+        return callOpenRouter(prompt, stageName);
+    };
+}
+
+// Stage 1 & 2: flash-lite only (JSON output, fast and cheap)
+// Stage 3: force flash-lite as well — compositor should use the same predictable model
+const tryModelsStage1 = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage1');
+const tryModelsStage2 = makeCallerFn(KEY2, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage2');
+const tryModelsStage3 = makeCallerFn(KEY3, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage3');
+
+// Legacy single-prompt path reuses Stage 3 caller
+const tryModels = tryModelsStage3;
 
 
 // Global Puppeteer Browser Instance
@@ -338,11 +432,12 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             });
         }
 
-        if (!process.env.GEMINI_API_KEY) {
+        if (!process.env.GEMINI_API_KEY && !(process.env.GEMINI_API_KEY_1 && process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_3)) {
             return res.status(500).json({ error: 'Gemini API Key is not configured in .env' });
         }
 
-        const prompt = buildPrompt(opciones);
+        // Determine pipeline mode: 'pipeline' (default) or 'legacy'
+        const useLegacy = req.body.mode === 'pipeline';
 
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache');
@@ -364,35 +459,49 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             activeGenerations++;
         }
 
+        // ────────────────────────────────────────────────
+        // Choose generation path: Pipeline (3-stage) or Legacy (single prompt)
+        // ────────────────────────────────────────────────
+        let result;
+        if (useLegacy) {
+            // Legacy single-prompt path
+            const prompt = buildPrompt(opciones);
+            result = await tryModels(prompt);
+        } else {
+            // 3-Stage Pipeline: Content → Design → HTML
+            res.write(`data: ${JSON.stringify({ pipeline: true, stage: 'content', status: 'running' })}\n\n`);
 
-        const result = await tryModels(prompt);
+            const pipelineResult = await runPipeline({
+                rawInput: opciones.tema,
+                tryModelsStage1,
+                tryModelsStage2,
+                tryModelsStage3,
+                onStageUpdate: (stage, data) => {
+                    if (!cancelled) {
+                        const stageNames = { stage1: 'content', stage2: 'design', stage3: 'compositing' };
+                        res.write(`data: ${JSON.stringify({ pipeline: true, stage: stageNames[stage] || stage, ...data })}\n\n`);
+                    }
+                }
+            });
+
+            if (cancelled) { res.end(); return; }
+
+            result = pipelineResult.stage3Stream;
+            console.log(`[Pipeline] Stage 3 stream ready — beginning HTML streaming to client`);
+        }
 
         let fullHtml = '';
         let hasStartedValidContent = false;
 
         // Strip backticks AND Google Fonts <link> tags from SSE chunks.
-        // The browser fires network requests the moment a <link> tag is
-        // written via doc.write(), so we must strip them server-side.
         function cleanSSEChunk(text) {
             let c = text.replace(/```html\n?/g, '').replace(/```\n?/g, '');
-            // Strip inline scripts (complete pairs, then remaining openers, then partials
-            // split across SSE chunk boundaries — same problem as with <link> tags).
             c = c.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
             c = c.replace(/<script[^>]*>/gi, '');
-            c = c.replace(/<script\b[^>]*/gi, ''); // partial tag with no closing >
-            // Also strip orphaned </script> closing tags whose opener was stripped
-            // from a previous chunk. Stray </script> is harmless in HTML5 but
-            // renders as visible artefact text in the streaming iframe.
+            c = c.replace(/<script\b[^>]*/gi, '');
             c = c.replace(/<\/script>/gi, '');
-            // Strip ALL <link> tags from streaming chunks.
-            // The AI sometimes generates <link href="url('https://fonts.googleapis.com/...')">  which
-            // confuses url() CSS syntax with an HTML attribute. Because the tag can span two
-            // chunks (<link href="url('https://fonts.> ... googleapis.com/...')">), per-tag regexes
-            // are unreliable when googleapis.com lands in a different chunk than <link.
-            // Stripping all <link> tags is safe: the streaming iframe is visual-only, and
-            // initPreview() always writes the server-sanitized final HTML with correct font links.
-            c = c.replace(/<link[^>]*\/?>/gi, '');   // complete link tags
-            c = c.replace(/<link\b[^>]*/gi, '');      // partial/unclosed link tags (cross-chunk)
+            c = c.replace(/<link[^>]*\/?>/gi, '');
+            c = c.replace(/<link\b[^>]*/gi, '');
             return c;
         }
 
@@ -404,7 +513,6 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 }
                 let chunkText = "";
                 try {
-                    // Only try to get text if candidates exist and have content
                     if (chunk.candidates && chunk.candidates[0].content && chunk.candidates[0].content.parts[0].text) {
                         chunkText = chunk.text();
                     }
@@ -434,7 +542,6 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                         cleanChunk = cleanSSEChunk(validContentStart);
                         res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
                     } else if (fullHtml.length > 500) {
-                        // Fallback just in case we never find CONFIG or html tag early on
                         hasStartedValidContent = true;
                         cleanChunk = cleanSSEChunk(fullHtml);
                         res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
@@ -447,8 +554,6 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
         } catch (streamErr) {
             const isParseError = streamErr.message && streamErr.message.includes('parse stream');
             if (isParseError && fullHtml.length > 200) {
-                // Stream ended abruptly but we have usable content — treat as a clean finish
-                // only if the output contains a CSS style block (not just bare sections).
                 const hasStyleBlock = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(fullHtml)
                     || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(fullHtml);
                 if (hasStyleBlock) {
@@ -518,15 +623,33 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             const slideMatches = [...cleanedOutput.matchAll(slideTagRe)];
             if (slideMatches.length > MAX_SLIDES) {
                 const cutIndex = slideMatches[MAX_SLIDES].index;
-                // Find where the </body> starts so we can reattach it
                 const bodyClose = cleanedOutput.lastIndexOf('</body>');
                 const scripts = bodyClose !== -1 ? cleanedOutput.slice(bodyClose) : '</body></html>';
                 cleanedOutput = cleanedOutput.slice(0, cutIndex) + '\n' + scripts;
                 console.log(`Sanitizer: trimmed presentation from ${slideMatches.length} to ${MAX_SLIDES} slides`);
             }
 
+            // Safety net: strip overflow-y:auto/scroll from inner containers.
+            // Slides are static — scrollable inner regions produce invisible hidden content.
+            // Replace with overflow:hidden so the AI's scale-down rules apply instead.
+            const overflowScrollRe = /\boverflow-y\s*:\s*(auto|scroll)\b/gi;
+            const overflowShorthandRe = /\boverflow\s*:\s*(auto|scroll)\b/gi;
+            if (overflowScrollRe.test(cleanedOutput) || overflowShorthandRe.test(cleanedOutput)) {
+                cleanedOutput = cleanedOutput.replace(/\boverflow-y\s*:\s*(auto|scroll)\b/gi, 'overflow-y:hidden');
+                cleanedOutput = cleanedOutput.replace(/\boverflow\s*:\s*(auto|scroll)\b/gi, 'overflow:hidden');
+                console.log('Sanitizer: stripped overflow-y:auto/scroll → overflow:hidden');
+            }
+
+            // Safety net: fix collapsed flex siblings — a div with a custom class but no inline flex:
+            // sizing inside a flex-row collapses to 0px width (text renders one char per line).
+            // Detect the pattern: sibling of flex:1;min-width:0 that has only a class and width:100%.
+            // We can't fully fix the layout here, but we can add flex:1;min-width:0 to stabilize it.
+            cleanedOutput = cleanedOutput.replace(
+                /(<div\s+class="[^"]*slide-\d+-[^"]*"\s*>)/gi,
+                '<div style="flex:1;min-width:0;overflow:hidden;">'
+            );
+
             // Safety net: fix @import placed as raw text outside <style>
-            // The AI sometimes puts @import between <link> tags instead of inside <style>.
             const looseImportRe = />[ \t\n]*(@import\s+url\([^)]+\);)[ \t\n]*</;
             const looseImport = cleanedOutput.match(looseImportRe);
             if (looseImport) {
@@ -536,9 +659,7 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 console.log('Sanitizer: moved loose @import into <style> block');
             }
 
-            // Guard: if the AI generated HTML without a design <style> block (e.g. flash-lite
-            // occasionally emits only section HTML with no CSS), reject it so the user sees
-            // a retry-able error instead of an instant-loading unstyled presentation.
+            // Guard: reject HTML without design CSS
             const hasDesignCss = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(cleanedOutput)
                 || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(cleanedOutput);
             if (!hasDesignCss) {
@@ -548,21 +669,23 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 return;
             }
 
-            // Server-side HTML sanitization: strip scripts/handlers injected by the AI
-            // before we inject our own known-safe resources below.
+            // Server-side HTML sanitization
             cleanedOutput = sanitizeGeneratedHtml(cleanedOutput);
 
             const lucideSrc = 'https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js';
             const lucideIntegrity = 'sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei';
+            // Strip any @import the AI put for Google Fonts — the server injects the definitive
+            // 23-family link below. Removing duplicates avoids double-downloading font CSS.
+            cleanedOutput = cleanedOutput.replace(/@import\s+url\(['"]?https:\/\/fonts\.googleapis\.com\/[^'"\)]+['"]?\)\s*;?\s*/gi, '');
+
+            // The editor's font picker (tools.js) applies any of 23 Google Fonts to elements
+            // INSIDE the iframe. All 23 must be available in the iframe document.
+            // One canonical <link> here replaces whatever @import the AI had.
             const fontsLink = `
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Serif:wght@600;700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap">
 <style>
-  :root {
-    --font-display: 'Syne', sans-serif;
-    --font-body: 'DM Sans', sans-serif;
-  }
   /* Layering fix: Ensure all primary content elements are positioned so Z-INDEX works. */
   section.s > *, .card, .flex-row, .grid-2, .grid-3, h1, h2, h3, p, .tag, .img-slot { 
     position: relative; 
@@ -577,21 +700,12 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 } else if (cleanedOutput.includes('<head>')) {
                     cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n${fontsLink}\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>`);
                 } else {
-                    // Prepend if no head found
                     cleanedOutput = fontsLink + `\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>\n` + cleanedOutput;
                 }
-                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected fonts and Lucide`);
-            } else if (!cleanedOutput.includes('family=Archivo+Black')) {
-                // Lucide present but fonts missing
-                if (cleanedOutput.includes('<head>')) {
-                    cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n${fontsLink}`);
-                } else {
-                    cleanedOutput = fontsLink + cleanedOutput;
-                }
-                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected fonts link`);
+                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected Lucide and layering CSS`);
             }
 
-            // 2. Ensure lucide.createIcons() call is present (via external script, no inline needed)
+            // 2. Ensure lucide.createIcons() call is present
             if (!cleanedOutput.includes('lucide-init.js') && !cleanedOutput.includes('lucide.createIcons')) {
                 const call = '<script src="/features/shared/lucide-init.js"></script>';
                 if (cleanedOutput.includes('</body>')) {
@@ -607,6 +721,15 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 cleanedOutput = '<!DOCTYPE html>\n' + cleanedOutput;
             }
 
+            // 4. Dev-only: save generated HTML to tmp/ for easier debugging
+            if ((process.env.NODE_ENV || 'development') !== 'production') {
+                const debugPath = path.join(TMP_DIR, 'last_generated.html');
+                fs.writeFile(debugPath, cleanedOutput, 'utf8', (err) => {
+                    if (err) console.warn('[DEV] Failed to save debug HTML:', err.message);
+                    else console.log(`[DEV] Saved generated HTML → ${debugPath}`);
+                });
+            }
+
             res.write(`data: ${JSON.stringify({ done: true, html: cleanedOutput })}\n\n`);
         }
 
@@ -615,12 +738,23 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
 
     } catch (error) {
         const isQuotaError = error.message === 'QUOTA_EXHAUSTED';
-        const userMessage = isQuotaError
-            ? 'The AI service has reached its usage limit. Please try again in a few minutes.'
-            : 'Something went wrong. Please try again.';
-
-        if (isQuotaError) console.warn('All models quota exhausted.');
-        else console.error('Error generating the presentation:', error);
+        const isPipelineError = error.message && (
+            error.message.startsWith('STAGE1_') || 
+            error.message.startsWith('STAGE2_') || 
+            error.message.startsWith('CONTENT_REJECTED')
+        );
+        
+        let userMessage;
+        if (isQuotaError) {
+            userMessage = 'The AI service has reached its usage limit. Please try again in a few minutes.';
+            console.warn('All models quota exhausted.');
+        } else if (isPipelineError) {
+            userMessage = 'The AI had trouble understanding the request. Please try rephrasing or adding more detail.';
+            console.error('Pipeline error:', error.message);
+        } else {
+            userMessage = 'Something went wrong. Please try again.';
+            console.error('Error generating the presentation:', error);
+        }
 
         if (!res.headersSent) {
             res.status(isQuotaError ? 429 : 500).json({ error: userMessage });
