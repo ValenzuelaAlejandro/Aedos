@@ -711,14 +711,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const decoder = new TextDecoder("utf-8");
             let buffer = "";
             let firstWrite = true;
-            // Safety timeout: if no SSE data arrives within 90s, abort to prevent
+            // Safety timeout: if no SSE data arrives within ~6.5 minutes, abort to prevent
             // an infinite hang when the server closes without sending {done:true}.
+            // Increased for slower Qwen/OpenRouter generations.
+            const SSE_WATCHDOG_MS = 390000;
             let sseWatchdog;
             const resetWatchdog = () => {
                 clearTimeout(sseWatchdog);
                 sseWatchdog = setTimeout(() => {
+                    console.warn(`SSE watchdog fired after ${SSE_WATCHDOG_MS}ms without activity`);
                     reader.cancel();
-                }, 90000);
+                }, SSE_WATCHDOG_MS);
             };
             resetWatchdog();
 

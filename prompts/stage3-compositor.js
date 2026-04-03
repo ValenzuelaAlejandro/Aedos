@@ -108,6 +108,20 @@ CONTENT BUDGET AND SCALING:
          <div style="flex:1;padding:4rem 5rem;...">  ← wrapper provides the padding
   WRONG: <section class="s"> (keeps 4rem 5rem) + <div style="...padding:4rem 5rem..."> = double padding.
 
+  CARD LAYOUTS — MANDATORY HORIZONTAL GRID (NEVER VERTICAL STACK):
+  3+ cards stacked vertically in flex-column is ALWAYS broken. Here is the math:
+    tag(~31px) + h2(~82px) + gaps(50px) + 3 cards×(padding50px+icon40px+title23px+text21px) ≈ 625px
+    That fills the entire slide. Each card gets only ~129px but needs ~154px → CLIPPED at bottom.
+  RULE: 2+ cards MUST use a horizontal grid, not flex-direction:column.
+    • 2 cards → <div class="grid-2"> (side by side, each ~480px wide, ~180px tall — fits easily)
+    • 3 cards → <div class="grid-3"> (side by side, each ~320px wide, ~160px tall — fits easily)
+    • 4 cards → <div class="grid-2"> with grid-template-rows:auto auto (2×2 grid)
+    • If only 2 cards are absolutely required in a column, reduce padding to 1.5rem and gap to 1rem.
+  NEVER write: <div style="flex:1;display:flex;flex-direction:column;gap:2.5rem;"> wrapping 3 cards.
+  ALWAYS write: <div class="grid-3" style="flex:1;min-height:0;align-content:start;"> for 3 concept cards.
+  The horizontal grid naturally limits each card height to its intrinsic content size (150–170px),
+  leaving ample vertical space for the title block above without any overflow.
+
   INCLUDE ALL CONTENT — DO NOT REMOVE OR SHORTEN KEY POINTS.
   Instead, SCALE DOWN to fit:
     • 3-4 list items → font-size:1.4rem, gap:1rem   (fits in ~280px)

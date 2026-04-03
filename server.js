@@ -213,8 +213,7 @@ const SAFETY = [
 
 // Per-stage API keys — each stage gets its own key so quotas are independent.
 // Falls back to GEMINI_API_KEY if a stage-specific key is not set.
-// Stage 1+2: always flash-lite (cheap JSON, no quality loss)
-// Stage 3:   always flash (higher quality HTML compositor)
+// Stage 1+2 prefer Gemini 2.5 Flash-Lite; Stage 3 prefers Qwen/OpenRouter.
 const KEY1 = process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY;
 const KEY2 = process.env.GEMINI_API_KEY_2 || process.env.GEMINI_API_KEY;
 const KEY3 = process.env.GEMINI_API_KEY_3 || process.env.GEMINI_API_KEY;
@@ -252,9 +251,9 @@ async function callOpenRouter(prompt, stageName) {
 
     const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
 
-    // Try each model in the configured list until one responds
+    // Try each configured OpenRouter model until one responds
     for (const model of OPENROUTER_MODEL_LIST) {
-        console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Fallback → OpenRouter (${model})`);
+        console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Trying OpenRouter first → ${model}`);
         try {
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
@@ -289,37 +288,59 @@ async function callOpenRouter(prompt, stageName) {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
-function makeCallerFn(apiKey, modelList, stageName) {
+async function callGemini(apiKey, modelList, prompt, stageName) {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    for (const modelName of modelList) {
+        console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Trying Gemini: ${modelName}`);
+        try {
+            const gemini = genAI.getGenerativeModel({ model: modelName, safetySettings: SAFETY });
+            const result = await gemini.generateContentStream(prompt);
+            if (result && result.response) result.response.catch(() => {});
+            console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Gemini OK: ${modelName}`);
+            return result;
+        } catch (err) {
+            const msg = err.message || '';
+            const isQuota = msg.includes('429') || msg.toLowerCase().includes('quota');
+            const is404 = msg.includes('404');
+            if (isQuota) { console.warn(`   [${stageName}] Gemini quota exhausted for ${modelName}, trying next...`); continue; }
+            if (is404) { console.warn(`   [${stageName}] Gemini model unavailable: ${modelName}, trying next...`); continue; }
+            throw err;
+        }
+    }
+    throw new Error('QUOTA_EXHAUSTED');
+}
+
+function makeCallerFn(apiKey, modelList, stageName, preferredProvider = 'openrouter') {
     return async function(prompt) {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        for (const modelName of modelList) {
-            console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Trying: ${modelName}`);
+        const providerOrder = preferredProvider === 'gemini'
+            ? ['gemini', 'openrouter']
+            : ['openrouter', 'gemini'];
+
+        let lastError = null;
+
+        for (const provider of providerOrder) {
             try {
-                const gemini = genAI.getGenerativeModel({ model: modelName, safetySettings: SAFETY });
-                const result = await gemini.generateContentStream(prompt);
-                if (result && result.response) result.response.catch(() => {});
-                console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] OK: ${modelName}`);
-                return result;
+                if (provider === 'gemini') {
+                    return await callGemini(apiKey, modelList, prompt, stageName);
+                }
+                return await callOpenRouter(prompt, stageName);
             } catch (err) {
-                const msg = err.message || '';
-                const isQuota = msg.includes('429') || msg.toLowerCase().includes('quota');
-                const is404 = msg.includes('404');
-                if (isQuota) { console.warn(`   [${stageName}] Quota exhausted for ${modelName}, trying next...`); continue; }
-                if (is404) { console.warn(`   [${stageName}] Model unavailable: ${modelName}, trying next...`); continue; }
-                throw err;
+                lastError = err;
+                const msg = err?.message || `unknown ${provider} error`;
+                console.warn(`   [${stageName}] ${provider} unavailable or exhausted — trying next provider (${msg})`);
             }
         }
-        // All Gemini models exhausted → try OpenRouter free-tier fallback
-        console.warn(`   [${stageName}] All Gemini quotas exhausted — trying OpenRouter fallback`);
-        return callOpenRouter(prompt, stageName);
+
+        throw lastError || new Error('QUOTA_EXHAUSTED');
     };
 }
 
-// Stage 1 & 2: flash-lite only (JSON output, fast and cheap)
-// Stage 3: force flash-lite as well — compositor should use the same predictable model
-const tryModelsStage1 = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage1');
-const tryModelsStage2 = makeCallerFn(KEY2, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage2');
-const tryModelsStage3 = makeCallerFn(KEY3, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage3');
+// Stage routing:
+// - Stage 1 & 2: prefer Gemini 2.5 Flash-Lite, fall back to Qwen/OpenRouter if Gemini quota ends.
+// - Stage 3: prefer Qwen/OpenRouter, fall back to Gemini if Qwen/OpenRouter is unavailable.
+const tryModelsStage1 = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage1', 'gemini');
+const tryModelsStage2 = makeCallerFn(KEY2, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage2', 'gemini');
+const tryModelsStage3 = makeCallerFn(KEY3, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage3', 'openrouter');
 
 // Legacy single-prompt path reuses Stage 3 caller
 const tryModels = tryModelsStage3;
@@ -396,6 +417,7 @@ function sanitizeTema(input) {
 app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, res) => {
     let cancelled = false;
     let completed = false;
+    let sseKeepAlive = null;
 
     res.on('close', () => {
         if (!completed) {
@@ -442,6 +464,14 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
+
+        // Keep the SSE stream alive during slow model responses so the browser/proxy
+        // does not assume the request stalled while OpenRouter is still generating.
+        sseKeepAlive = setInterval(() => {
+            if (!completed && !cancelled && !res.writableEnded) {
+                res.write(`data: ${JSON.stringify({ heartbeat: true })}\n\n`);
+            }
+        }, 25000);
 
         // Manage Entry to the Queue
         if (activeGenerations >= 3) {
@@ -763,6 +793,7 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             res.end();
         }
     } finally {
+        if (sseKeepAlive) clearInterval(sseKeepAlive);
         activeGenerations--;
         processQueue();
     }
@@ -935,9 +966,13 @@ app.get('/download/:filename', (req, res) => {
 });
 
 if (require.main === module) {
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
         console.log(`Eidoslab running at http://localhost:${PORT}`);
     });
+
+    // Allow long-running AI generations before Node gives up on the request.
+    server.requestTimeout = 10 * 60 * 1000;
+    server.headersTimeout = 11 * 60 * 1000;
 }
 
 module.exports = { sanitizeTema, buildPrompt };
