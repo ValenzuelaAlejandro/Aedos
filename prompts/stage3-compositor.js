@@ -152,7 +152,13 @@ CONTENT BUDGET AND SCALING:
     </section>
   WRONG: h1(6rem,3 lines) + p(2rem) + margin-bottom:3.5rem + 4×p(1.5rem) + margin-bottom:4rem + CTA → OVERFLOWS.
   CORRECT pattern for a list container:
-    <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:0.8rem;">
+    <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1.5rem;justify-content:flex-start;">
+  
+  DEFAULT SPACING & BALANCED DESIGNS:
+    ✓ By default, use balanced spacing (e.g. justify-content: flex-start with gap: 1.5rem-2.5rem).
+    ✗ Do NOT use justify-content: space-between on lists or text blocks by default, as it creates huge unnatural gaps when there are few items.
+    ✗ Avoid leaving massive empty vertical areas on slides (like dropping two numbers at the bottom of an otherwise blank slide) UNLESS the user explicitly requested minimalism, clean designs, lots of spacing, or img-slots. Balance the content organically.
+
   IMAGE VS TEXT PRIORITY:
     If a slide is text-dense, TEXT wins.
     Dense slide + side image = forbidden unless the image is only decorative background.
@@ -193,29 +199,36 @@ CSS CORRECTNESS — THREE COMMON HALLUCINATIONS — READ BEFORE WRITING ANY CSS:
 TIMELINE LAYOUTS — MANDATORY HORIZONTAL ONLY:
   timelines MUST be horizontal with 3-4 nodes connected by lines. NO VERTICAL TIMELINES.
   PATTERN (COPY THIS STRUCTURE):
-  <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center;">
-    <!-- connecting track with nodes -->
-    <div style="display:flex;align-items:center;gap:0;margin-bottom:1.6rem;">
-      <div style="width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0;box-shadow:0 0 8px var(--accent);"></div>
-      <div style="flex:1;height:1px;background:linear-gradient(90deg,var(--accent),var(--accent-2));"></div>
-      <div style="width:10px;height:10px;border-radius:50%;background:var(--accent-2);flex-shrink:0;box-shadow:0 0 8px var(--accent-2);"></div>
-      <!-- repeat div with gradient + dot for each additional node (max 4 total) -->
-    </div>
-    <!-- timeline items: exactly 3-4 flex columns, equal width -->
-    <div style="display:flex;gap:0;width:100%;">
-      <div style="flex:1;padding-right:2rem;">
-        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">1971 · First</p>
-        <div style="font-size:3.5rem;font-weight:600;color:var(--accent);line-height:1;margin-bottom:.8rem;">Label</div>
+  (DO NOT invent new CSS classes like .timeline-node or .timeline-connector. Use this robust inline structure, though you may adjust padding/gap and colors according to the user's specific design requests for spacing/minimalism).
+  <div style="flex:1;min-height:0;display:flex;justify-content:center;flex-direction:column;">
+    <div style="display:flex;width:100%;gap:2rem;">
+      <!-- node 1 -->
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;box-shadow:0 0 8px var(--accent);"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">Step 1</p>
+        <div style="font-size:2.5rem;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Label</div>
         <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Description text.</p>
       </div>
-      <div style="flex:1;padding-right:2rem;">
-        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">2008 · Second</p>
-        <div style="font-size:3.5rem;font-weight:600;color:var(--accent-2);line-height:1;margin-bottom:.8rem;">Label</div>
+      <!-- node 2 -->
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;box-shadow:0 0 8px var(--accent);"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">Step 2</p>
+        <div style="font-size:2.5rem;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Label</div>
         <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Description text.</p>
       </div>
-      <div style="flex:1;">
-        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">2021 · Third</p>
-        <div style="font-size:3.5rem;font-weight:600;color:var(--accent);line-height:1;margin-bottom:.8rem;">Label</div>
+      <!-- node 3 (last node has no extending line) -->
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;box-shadow:0 0 8px var(--accent);"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">Step 3</p>
+        <div style="font-size:2.5rem;font-weight:600;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Label</div>
         <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Description text.</p>
       </div>
     </div>
@@ -343,8 +356,7 @@ UTILITY CLASSES (use these as shortcuts, but ALSO write custom CSS per slide):
 YOU ARE NOT LIMITED TO THESE — write custom CSS. Examples of custom compositions you should create:
   /* Asymmetric split */
   .split-38-62 { display:grid; grid-template-columns:38% 62%; gap:3rem; }
-  /* Ghost background text — must be inline style, NOT a class (position:absolute in classes is overridden by server).
-     Correct pattern: <div style="position:absolute;font-size:15rem;font-weight:800;opacity:.03;top:-2rem;right:-3rem;line-height:1;z-index:0;pointer-events:none;">WORD</div> */
+
   /* Stat with dramatic sizing */
   .mega-stat { font-size:8rem; font-weight:800; color:var(--accent); line-height:.9; }
   .mini-stat { font-size:3rem; font-weight:700; color:var(--accent-2); }
@@ -381,7 +393,7 @@ These are the available patterns — pick from this list for each slide (primiti
   <div style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2228%22 height=%2228%22%3E%3Ccircle cx=%221%22 cy=%221%22 r=%221%22 fill=%22rgba(255%2C255%2C255%2C0.05)%22/%3E%3C/svg%3E');pointer-events:none;z-index:0;"></div>
 
   <!-- PATTERN: vertical scanlines (terminal/hacker/CRT) -->
-  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,transparent,transparent 3px,rgba(0,0,0,.08) 3px,rgba(0,0,0,.08) 4px);pointer-events:none;z-index:0;"></div>
+  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,transparent,transparent 7px,rgba(255,255,255,.015) 7px,rgba(255,255,255,.015) 8px);pointer-events:none;z-index:0;"></div>
 
   <!-- PATTERN: diagonal crosshatch (mechanical/blueprint/technical) -->
   <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px),repeating-linear-gradient(-45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px);pointer-events:none;z-index:0;"></div>
@@ -509,9 +521,9 @@ Lucide icons are injected by the server. DO NOT include any <script>. Just write
 USAGE: <div class="icon-wrapper"><i data-lucide="brain"></i></div>
 Place this at the TOP of each feature card, before the h3 title.
 allow MULTIPLE icon styles: .icon-wrapper (default accent bg) or .icon-wrapper style="background:var(--accent-2-dim)" for alternating cards.
-
 ALLOWED ICONS: brain rocket shield target zap check-circle star heart lightbulb trending-up users globe lock search calendar clock activity box layers book award briefcase file-text bar-chart cpu database sun moon camera music mic settings tool anchor flag compass map-pin eye droplet wifi cloud
 
+WARNING: DO NOT invent or hallucinate icon names (like 'wave-square', 'laptop', etc). If the user's creative direction or instruction implies an icon that isn't on this list, YOU MUST pick the closest conceptual match from THIS EXACT LIST. Using an unlisted icon will cause the HTML to fail and render empty!
 MANDATORY RULE: Every deck MUST use icons on at least 2 slides.
 - Any slide with 2+ feature/concept cards → USE ICONS on every card
 - The Stage 2 creative direction specifies icon_names per slide — follow those exactly

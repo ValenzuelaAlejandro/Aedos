@@ -26,7 +26,7 @@ This is your creative starting point. Ask: what does that physical object ACTUAL
 HOW TO DERIVE — EXAMPLES OF THE REASONING PROCESS:
 → "concert tour poster on black paper" → bold compressed or condensed headline font, deep-dark bg near pure black, ultra-high contrast, coarse screen-print texture feel, band-logo energy
 → "museum fine art catalog" → warm archival serif (Cormorant/Playfair), rich-dark near-brown bg, gold/amber accent, thin ruled horizontal lines, wide margins and breathing room
-→ "hacker terminal printout green-on-black" → deep-dark or pure black bg, neon green (#00ff9d) accent, JetBrains Mono prominent everywhere, scanline atmosphere, hex fragment ghost text
+→ "hacker terminal printout green-on-black" → deep-dark or pure black bg, neon green (#00ff9d) accent, JetBrains Mono prominent everywhere, scanline atmosphere
 → "race weekend program booklet" → ultra-compressed or bebas-style headlines, bold saturated color, speed-line energy, sponsor-badge visual fragment elements
 → "artisan recipe/food journal" → rich-dark warm bg, terracotta/cream palette, organic serif body, printed texture, generous whitespace with handcrafted feel
 → "academic physics textbook" → deep neutral dark, teal or precise blue, IBM Plex Serif, structured precision, margin-annotation visual elements, axis reference lines
@@ -140,7 +140,7 @@ The composition_literal field is a code spec, not a mood description.
 Stage 3 follows it directly — it does not make creative decisions of its own.
 
 BAD:  "Clean editorial layout with hero title and supporting text"
-GOOD: "section flex-col. Tag top-left. H2 at 5.5rem/-0.02em/white, 2 lines max, line 2 in accent italic. Body 1.3rem/dim/max-width:55rem. Ghost word 'GUERRA' at 14rem/3% opacity/absolute right-edge. Counter absolute bottom-right."
+GOOD: "section flex-col. Tag top-left. H2 at 5.5rem/-0.02em/white, 2 lines max, line 2 in accent italic. Body 1.3rem/dim/max-width:55rem. Counter absolute bottom-right."
 
 FOR EVERY SLIDE, work through these 7 decisions and write them in composition_literal:
 
@@ -360,15 +360,14 @@ JSON STRUCTURE TO RETURN:
   "cover_archetype": "split-hero | poster-center | label-strip | image-monolith",
   "conclusion_archetype": "manifesto | recap-strip | quote-close | callout-corner",
   "mood_global": "2-4 word feel (e.g. 'terminal meets boardroom')",
-  "domain_atmosphere": "Specific CSS atmospheric effects derived from the real_world_analog — written as prose instructions for Stage 3. Example A: 'thin horizontal ruled lines every 60px at 3% opacity, warm amber radial glow bottom-left corner'. Example B: 'vertical scanlines repeating 4px, neon green radial glow top-right, hex digit ghost text'. Example C: 'dot-grid 28px spacing at 10% opacity, diagonal coarse noise texture overlay, no grid mesh'. MUST match the topic's physical world — do NOT default to grid-mesh + sidebar for every deck.",
+  "domain_atmosphere": "Specific CSS atmospheric effects derived from the real_world_analog — written as prose instructions for Stage 3. Example A: 'thin horizontal ruled lines every 60px at 3% opacity, warm amber radial glow bottom-left corner'. Example B: 'vertical scanlines repeating 4px, neon green radial glow top-right'. Example C: 'dot-grid 28px spacing at 10% opacity, diagonal coarse noise texture overlay, no grid mesh'. MUST match the topic's physical world — do NOT default to grid-mesh + sidebar for every deck.",
   "slides": [
     {
       "index": 1,
       "mood": "What this slide should feel like — one sentence",
       "layout_family": "hero | split | editorial | stats | comparison | process | timeline | quote | cards | manifesto",
       "density_strategy": "airy | compact-single-column | compact-two-column | split-panel | stat-dominant",
-      "composition_literal": "Developer spec for Stage 3. Example: 'section flex-col. Tag top-left. H1 at 8rem/-0.03em, line 1 white, line 2 accent italic. Subtitle 1.4rem/dim, max 12 words. Ghost word TOPIC at 14rem/3% opacity/absolute right-edge. Counter 01/N absolute bottom-right. NOTHING ELSE.'",
-      "ghost_text": "Word or number for oversized ghost background text — or null",
+      "composition_literal": "Developer spec for Stage 3. Example: 'section flex-col. Tag top-left. H1 at 8rem/-0.03em, line 1 white, line 2 accent italic. Subtitle 1.4rem/dim, max 12 words. Counter 01/N absolute bottom-right. NOTHING ELSE.'",
       "color_use": "Which elements get accent color — be specific (e.g. 'second word of title in accent, stats in accent, rest neutral')",
       "typography_notes": "Sizes and weights (e.g. 'title 6rem/800, subtitle 1.3rem/400, body 1.5rem/400')",
       "has_image_slot": false,
