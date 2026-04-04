@@ -30,10 +30,23 @@ HOW TO DERIVE — EXAMPLES OF THE REASONING PROCESS:
 → "race weekend program booklet" → ultra-compressed or bebas-style headlines, bold saturated color, speed-line energy, sponsor-badge visual fragment elements
 → "artisan recipe/food journal" → rich-dark warm bg, terracotta/cream palette, organic serif body, printed texture, generous whitespace with handcrafted feel
 → "academic physics textbook" → deep neutral dark, teal or precise blue, IBM Plex Serif, structured precision, margin-annotation visual elements, axis reference lines
-→ "vinyl record inner sleeve" → pure black bg, minimal layout, high typographic contrast, possible noise texture, photography-ready
+→ "vinyl record inner sleeve" → pure black bg, minimal layout, high typographic contrast; if hip-hop/soul/jazz era → warm gold or amber accent, NOT cyan/blue
 → "sports broadcast graphics" → rich-dark, bold geometric sans, vivid accent, ticker-strip elements, data overlay patterns
+→ "classic hip-hop tour poster on matte black with chain-gold lettering" → jet-black bg, warm gold (#C5A028 or #D4AF37) accent, deep crimson or brick-orange accent-2, Bebas Neue compressed headline, diagonal screen-print grain; NEVER default to cyan/purple for rap/hip-hop
+→ "90s rap record inner sleeve with graffiti typography" → near-black bg, acid-yellow or bold warm gold accent, high-contrast monochrome energy, aggressive compressed type
+→ "jazz album on earthy matte sleeve with amber and rust tones" → deep warm charcoal bg, dusty amber/rust (#B8622A) primary, organic serif (Cormorant), horizontal ruled texture
+→ "rock/metal concert program bleach-white on charcoal" → near-black bg, stark white or blood-red (#CC1111) accent, aggressive condensed/bold type
+→ "nature documentary coffee-table book" → deep forest/olive bg, muted sage green or warm cream accent, soft organic serif, handcrafted feel
+→ "luxury fashion editorial spread on coated black" → deep black bg, pale gold or rose/champagne accent, extreme whitespace, ultra-thin elegant serif
+→ "retro video game box art bold colors" → dark bg, saturated electric accent (red or yellow), blocky compressed type
 
-APPLY THE SAME LOGIC TO ANY TOPIC — no lookup table, pure derivation. "Historia de Metallica" derives differently from "Ciberseguridad" even though both could be dark.
+COLOR DERIVATION IS MANDATORY — before writing any hex value, ask yourself:
+"What are the 2 most visually iconic, culturally recognizable colors of the physical artifact I just described?"
+THOSE become your accent_hex and accent2_hex. No exceptions, no shortcuts.
+
+APPLY THE SAME LOGIC TO ANY TOPIC — pure derivation, no category shortcuts.
+"Historia del Rap 90s" and "Historia de la Segunda Guerra Mundial" are both "history" but their artifacts are completely different: a gold-lettered concert poster vs. an archival newsreel document. Completely different palettes.
+A topic is not a category. The artifact it evokes is your color source.
 
 DECK VARIATION SYSTEM:
 - You are designing ONE specific deck, not a reusable template.
@@ -329,23 +342,34 @@ KEY_POINTS COUNT RULE:
 
 ═══════════════════════════════════════════════
 
-FONT PAIRS (choose based on topic mood):
-- syne+dm-sans → modern, geometric, tech
-- playfair+lato → elegant, editorial, classic
-- space-grotesk+inter → clean, technical, readable
-- bebas+dm-sans → bold, impactful, headlines
-- ibm-plex-serif+ibm-plex-sans → professional, academic
-- cormorant+dm-sans → documentary, serene, environmental, literary
+FONT PAIRS (derive from real_world_analog AND topic mood — not just topic domain):
+- syne+dm-sans → modern, geometric, digital-native, contemporary minimal
+- playfair+lato → elegant, editorial, literary, fine-press, timeless cultural
+- space-grotesk+inter → clean, technical, structured, readable, data-forward
+- bebas+dm-sans → bold, compressed, poster-energy, street/sports/music/culture, concert program, hip-hop, urban
+- ibm-plex-serif+ibm-plex-sans → professional, academic, institutional, formal publication
+- cormorant+dm-sans → documentary, archival, environmental, literary, serene, fine arts
+
+TYPOGRAPHY DERIVATION: Use bebas+dm-sans for ANY topic whose real_world_analog is a poster, flyer, concert program, record sleeve, or street-culture artifact — regardless of whether the topic is explicitly labeled "design". A 90s hip-hop presentation derives from a concert poster → bebas+dm-sans. A cybersecurity presentation derives from a terminal printout → space-grotesk+inter.
 
 MONO ACCENT FONT: For technical topics, suggest adding JetBrains Mono for code snippets,
 hash values, terminal commands, and source citations.
 
-COLOR: Pick accent colors that fit the topic's emotional register:
-- Tech/security → cyan, electric green, blue (#00ff9d, #3b82f6, #06b6d4)
-- History/culture → gold, amber, terracotta (#c9a84c, #d97706, #8b3a2a)
-- Business/corporate → blue, indigo, gray (#6366f1, #3b82f6)
-- Science → teal, precise blue (#14b8a6, #0ea5e9)
-- Creative → rich unexpected combos (#f97316 + #8b5cf6)
+COLOR — DERIVE FROM real_world_analog, NO CATEGORY SHORTCUTS:
+The color lookup table has been removed. Domain category reasoning is FORBIDDEN.
+Your palette comes ONLY from the visual_world.real_world_analog from Stage 1.
+
+Step 1: Read real_world_analog carefully.
+Step 2: What are the 2 most visually dominant, culturally iconic colors of that specific physical object?
+Step 3: Those 2 colors are your accent_hex and accent2_hex.
+
+WRONG: "This topic relates to music history → I'll use cyan or purple." (category shortcut)
+RIGHT: "real_world_analog says 'hip-hop tour poster on matte black with gold lettering' → accent = warm gold #C5A028, accent-2 = deep crimson #8B1A1A."
+
+SATURATION CALIBRATION — match the artifact's energy:
+- High-energy artifacts (concert posters, street art, race programs, sport graphics) → SATURATED, VIVID accents
+- Quiet/archival artifacts (museum catalogs, academic texts, manuscripts) → DESATURATED, WARM-EARTHY accents
+- Precision/technical artifacts (terminals, schematics, medical/scientific) → EXACT, COOL, TECHNICAL accents
 
 JSON STRUCTURE TO RETURN:
 {
@@ -353,7 +377,8 @@ JSON STRUCTURE TO RETURN:
     "accent_hex": "#hexcolor",
     "accent2_hex": "#hexcolor — must contrast with primary",
     "bg_hex": "#hex or null (only if user requested specific bg color)",
-    "bg_mode": "deep-dark | rich-dark | mid-tone | light (default: rich-dark)"
+    "bg_mode": "deep-dark | rich-dark | mid-tone | light (default: rich-dark)",
+    "color_rationale": "One sentence connecting real_world_analog → palette. e.g. 'Gold chain lettering on classic hip-hop tour posters → warm gold #C5A028 accent; concert backdrop crimson → accent-2 #8B1A1A.' This field is MANDATORY and must cite the specific artifact element."
   },
   "font_pair": "one of the pairs above",
   "deck_signature": "short visual phrase describing this deck's specific identity",

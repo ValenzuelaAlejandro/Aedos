@@ -260,6 +260,20 @@ CREATIVE DIRECTION (from Stage 2)
 ═══════════════════════════════════════
 ${JSON.stringify(designJson, null, 2)}
 
+ARTISTIC REGISTER — READ THIS BEFORE BUILDING ANY SLIDE:
+  deck_signature: "${designJson.deck_signature}" — the specific cultural/visual identity of this deck.
+  mood_global: "${designJson.mood_global}" — the emotional/aesthetic register.
+  color_rationale: "${designJson.palette?.color_rationale || ''}" — WHY these specific colors.
+
+  These are not metadata. They are instructions for every micro-decision beyond layout:
+  • A deck with "hip-hop tour editorial" signature → bolder type weights (font-weight:900), stronger letter-spacing negative, higher-contrast accent use, harder edges, fewer soft gradients
+  • A deck with "museum catalog elegance" signature → restraint, thin weights (font-weight:300-400), generous breathing room, warm understatement
+  • A deck with "terminal hacker zine" signature → monospaced fonts prominent, tight mechanical spacing, data-forward minimal ornament
+  • A deck with "race weekend program" signature → compressed type, speed-line decorative elements, saturated fills
+
+  Do NOT default to "tech-startup editorial" when the topic lives in a different cultural world.
+  The accent color and font are the foundation — the structural energy, weight choices, and atmosphere must match the same register.
+
 ═══════════════════════════════════════
 ═══════════════════════════════════════
 INPUT PROCESSING — CRITICAL TRANSFORMATIONS
