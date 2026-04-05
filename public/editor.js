@@ -40,6 +40,7 @@ function initEditor() {
     let currentHandle = null;
     let snapLinesX = [];
     let snapLinesY = [];
+    let activeDragTarget = null;
 
     // History for Undo/Redo
     const history = [];
@@ -61,10 +62,10 @@ function initEditor() {
      */
     function collectGroup(target) {
         const group = [];
-        const isContainer = target.matches('div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"]');
+        const slide = target.closest('.s') || target.closest('section') || document.body;
+        const isContainer = isSemanticContainer(target, slide);
         if (!isContainer) return group;
 
-        const slide = target.closest('.s') || target.closest('section') || document.body;
         const rect = target.getBoundingClientRect();
         const slideRect = slide.getBoundingClientRect();
         const others = getEditableElementsInSlide(slide, target);
@@ -169,8 +170,8 @@ function initEditor() {
 
         let dragGroup = [];
 
-        const isImage = selectedElement.matches('img, .img-slot') || selectedElement.dataset.imageSlot !== undefined;
-        const isText = selectedElement.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
+        const isImage = selectedElement.matches('img') || isImageSlotElement(selectedElement);
+        const isText = isTextEditableElement(selectedElement);
 
         let toolsHTML = '';
 
@@ -298,7 +299,7 @@ function initEditor() {
                 if (selectedElement) {
                     saveState();
                     const color = swatch.dataset.color;
-                    if (selectedElement.matches('h1, h2, h3, h4, p, span, li, button, .tag, .big-number, .big-label, .subtitle, .step-num, .timeline-year, i, svg, [data-lucide], .lucide, .lucide-icon')) {
+                    if (isTextEditableElement(selectedElement) || selectedElement.matches('button, i, svg, [data-lucide], .lucide, .lucide-icon')) {
                         selectedElement.style.color = color;
                         selectedElement.style.webkitTextFillColor = color;
                         // For SVGs, also try setting fill and stroke if they don't use currentColor
@@ -410,13 +411,254 @@ function initEditor() {
 
 
     // Editable Elements Target Mapping
-    const editableSelectors = 'h1, h2, h3, h4, p, span, li, blockquote, div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, .tag, .stat-box, .step-item, .quote-block, .timeline-item, .lucide-icon, svg[data-lucide], .big-number, .big-label, .accent-bar, .subtitle, .step-num, .timeline-year, [class*="card"], [class*="box"], [class*="item"]';
+    const TEXT_EDITABLE_SELECTORS = 'h1, h2, h3, h4, p, li, blockquote, .tag, .subtitle, cite, [class*="title"], [class*="desc"], [class*="stat"], [class*="label"], [class*="val"], [class*="num"], [class*="caption"], .code-line';
+    const HEADING_LIKE_SELECTORS = 'h1, h2, h3, h4, .tag, [class*="title"], [class*="stat"], [class*="num"]';
+    const LEAF_VISUAL_SELECTORS = '.lucide-icon, svg[data-lucide], .accent-bar';
+    const KNOWN_CONTAINER_SELECTORS = 'div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [data-image-slot], .quote-block, ul, ol, [class*="card"], [class*="box"], [class*="item"]';
+    const editableSelectors = `${TEXT_EDITABLE_SELECTORS}, ${LEAF_VISUAL_SELECTORS}, .img-slot, [data-image-slot], .quote-block, .card, .stat-box, .step-item, .timeline-item, .flex-row, .flex-col, .grid-2, .grid-3, [class*="card"], [class*="box"], [class*="item"], [data-eidos-container="true"]`;
     const ignoreSelectors = '.img-replace-overlay, .img-replace-overlay *, .eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-phantom';
     window.editableSelectors = editableSelectors; // Export for UI
 
-    // Selectors for semantic container elements whose children must never be
-    // extracted from them during normalization (card, stat-box, etc.).
-    const CONTAINER_SELECTORS = 'div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"], blockquote, .quote-block, ul, ol';
+    function getSlideRoot(node) {
+        return node?.closest('.s') || node?.closest('section') || document.body;
+    }
+
+    function isIgnoredElement(el) {
+        return !!(el && (el.matches(ignoreSelectors) || el.closest(ignoreSelectors)));
+    }
+
+    function isTransparentColor(value) {
+        if (!value) return true;
+        const normalized = value.replace(/\s+/g, '').toLowerCase();
+        return normalized === 'transparent' || normalized === 'rgba(0,0,0,0)' || normalized === 'hsla(0,0%,0%,0)';
+    }
+
+    function hasVisibleBackground(style) {
+        return style.backgroundImage !== 'none' || !isTransparentColor(style.backgroundColor);
+    }
+
+    function hasVisibleBorder(style) {
+        const sides = ['Top', 'Right', 'Bottom', 'Left'];
+        return sides.some(side => {
+            const width = parseFloat(style[`border${side}Width`]) || 0;
+            return width > 0 && style[`border${side}Style`] !== 'none' && !isTransparentColor(style[`border${side}Color`]);
+        });
+    }
+
+    function hasPadding(style) {
+        return ['Top', 'Right', 'Bottom', 'Left']
+            .reduce((sum, side) => sum + (parseFloat(style[`padding${side}`]) || 0), 0) > 0.5;
+    }
+
+    function hasMeaningfulInlineText(el) {
+        return Array.from(el.childNodes || []).some(node => (
+            node.nodeType === Node.TEXT_NODE && node.textContent && node.textContent.trim().length > 0
+        ));
+    }
+
+    function isTextEditableElement(el) {
+        return !!(el && el.matches(TEXT_EDITABLE_SELECTORS));
+    }
+
+    function isHeadingLikeElement(el) {
+        return !!(el && el.matches(HEADING_LIKE_SELECTORS));
+    }
+
+    function isVisualLeafElement(el) {
+        if (!el || !(el instanceof Element)) return false;
+        if (el.matches(LEAF_VISUAL_SELECTORS)) return true;
+        
+        // Auto-detect dynamic CSS shapes generated by the 3-stage LLM (bullets, horizontal lines, badges).
+        const style = window.getComputedStyle(el);
+        const hasBgOrBorder = hasVisibleBackground(style) || hasVisibleBorder(style);
+        
+        // An element is a graphic shape if it is completely empty of text/children, but visually painted.
+        if (hasBgOrBorder && el.children.length === 0 && !hasMeaningfulInlineText(el)) {
+            // Ignore large atmospheric or background overlays 
+            if (style.pointerEvents === 'none' && style.position === 'absolute') return false;
+            return true;
+        }
+        
+        return false;
+    }
+
+    function isImageSlotElement(el) {
+        return !!(el && el.matches('.img-slot, [data-image-slot]'));
+    }
+
+    function markSemanticContainer(el, isContainer) {
+        if (!el || !el.dataset) return;
+        if (isContainer) el.dataset.eidosContainer = 'true';
+        else delete el.dataset.eidosContainer;
+    }
+
+    function isSemanticContainer(el, slide = null) {
+        if (!el || !(el instanceof Element)) return false;
+
+        const hostSlide = slide || getSlideRoot(el);
+        if (!hostSlide || el === hostSlide || el === document.body || el === document.documentElement) {
+            return false;
+        }
+
+        if (isIgnoredElement(el)) return false;
+        if (isTextEditableElement(el) || isVisualLeafElement(el)) {
+            markSemanticContainer(el, false);
+            return false;
+        }
+        if (isImageSlotElement(el) || el.matches(KNOWN_CONTAINER_SELECTORS)) {
+            markSemanticContainer(el, true);
+            return true;
+        }
+
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        if (!rect.width || !rect.height || style.display === 'none' || style.visibility === 'hidden') {
+            markSemanticContainer(el, false);
+            return false;
+        }
+
+        const hasDescendantText = hasMeaningfulInlineText(el) || !!el.querySelector(TEXT_EDITABLE_SELECTORS);
+        const hasDescendantSlot = !!el.querySelector('.img-slot, [data-image-slot]');
+        const hasStructuredChildren = el.children.length > 1;
+        const isLayoutWrapper = ['flex', 'inline-flex', 'grid', 'inline-grid'].includes(style.display);
+        const isDecorated = hasVisibleBackground(style) || hasVisibleBorder(style);
+        const isTinyUtility = rect.width <= 72 && rect.height <= 72 && !hasDescendantText && !hasDescendantSlot;
+        const isDivider = (rect.width <= 10 || rect.height <= 10) && !hasDescendantText && !hasDescendantSlot;
+        const isOverlay = style.pointerEvents === 'none' && style.position === 'absolute' && !hasDescendantText && !hasDescendantSlot;
+
+        const isContainer = !isTinyUtility
+            && !isDivider
+            && !isOverlay
+            && (hasDescendantText || hasDescendantSlot || hasStructuredChildren)
+            && isDecorated;
+
+        markSemanticContainer(el, isContainer);
+        return isContainer;
+    }
+
+    function getNearestSemanticContainerAncestor(el, slide = null) {
+        const hostSlide = slide || getSlideRoot(el);
+        let current = el?.parentElement;
+
+        while (current && current !== hostSlide && current !== document.body) {
+            if (isSemanticContainer(current, hostSlide)) return current;
+            current = current.parentElement;
+        }
+
+        return null;
+    }
+
+    function isTextContainerElement(el, slide = null) {
+        return isSemanticContainer(el, slide) && (hasMeaningfulInlineText(el) || !!el.querySelector(TEXT_EDITABLE_SELECTORS));
+    }
+
+    function isEditableElement(el, slide = null) {
+        if (!el || !(el instanceof Element)) return false;
+        if (isIgnoredElement(el)) return false;
+
+        const hostSlide = slide || getSlideRoot(el);
+        const style = window.getComputedStyle(el);
+        if (!hostSlide || style.display === 'none' || style.visibility === 'hidden') return false;
+
+        if (isTextEditableElement(el) || isImageSlotElement(el) || isVisualLeafElement(el)) return true;
+
+        return isSemanticContainer(el, hostSlide);
+    }
+
+    function getEditableElementsInNode(root, excludeEl) {
+        if (!root || !(root instanceof Element)) return [];
+
+        const hostSlide = getSlideRoot(root);
+        const candidates = [root, ...root.querySelectorAll('*')];
+        const seen = new Set();
+
+        return candidates.filter(el => {
+            if (!(el instanceof Element) || seen.has(el)) return false;
+            seen.add(el);
+
+            if (!isEditableElement(el, hostSlide)) return false;
+            if (excludeEl && (excludeEl.contains(el) || el.contains(excludeEl))) return false;
+
+            return true;
+        });
+    }
+
+    function getTopLevelEditableElements(root, excludeEl, includeRoot = false) {
+        if (!root || !(root instanceof Element)) return [];
+
+        const hostSlide = getSlideRoot(root);
+        return getEditableElementsInNode(root, excludeEl).filter(el => {
+            if (!includeRoot && el === root) return false;
+            const container = getNearestSemanticContainerAncestor(el, hostSlide);
+            return !container || container === root;
+        });
+    }
+
+    function getAllEditableElements() {
+        const slideRoots = Array.from(document.querySelectorAll('section.s, section'));
+        const roots = slideRoots.length ? slideRoots : [document.body];
+        const seen = new Set();
+        const all = [];
+
+        roots.forEach(root => {
+            getEditableElementsInNode(root).forEach(el => {
+                if (seen.has(el)) return;
+                seen.add(el);
+                all.push(el);
+            });
+        });
+
+        return all;
+    }
+
+    function findEditableTarget(startEl) {
+        const origin = startEl?.nodeType === Node.ELEMENT_NODE ? startEl : startEl?.parentElement;
+        if (!origin) return null;
+
+        const slide = getSlideRoot(origin);
+        let current = origin;
+        let fallback = null;
+
+        while (current && current !== slide && current !== document.body) {
+            if (isIgnoredElement(current)) return null;
+            if (isTextEditableElement(current) || isImageSlotElement(current) || isVisualLeafElement(current)) {
+                return current;
+            }
+            if (!fallback && isSemanticContainer(current, slide)) {
+                fallback = current;
+            }
+            current = current.parentElement;
+        }
+
+        return fallback;
+    }
+
+    function getStableDragTarget(el, slide = null) {
+        if (!el || !(el instanceof Element)) return el;
+
+        const hostSlide = slide || getSlideRoot(el);
+        if (!hostSlide || el.style.position === 'absolute') return el;
+
+        const chain = [];
+        let current = isSemanticContainer(el, hostSlide) ? el : getNearestSemanticContainerAncestor(el, hostSlide);
+
+        while (current) {
+            chain.push(current);
+            current = getNearestSemanticContainerAncestor(current, hostSlide);
+        }
+
+        if (!chain.length) return el;
+
+        let stableTarget = chain[0];
+        chain.forEach(candidate => {
+            const parent = candidate.parentElement;
+            if (!parent || parent === hostSlide || !isSemanticContainer(parent, hostSlide)) {
+                stableTarget = candidate;
+            }
+        });
+
+        return stableTarget;
+    }
 
     function freezeSlideLayout(slide) {
         if (!slide || _isFrozenMap.has(slide)) return;
@@ -426,13 +668,10 @@ function initEditor() {
         if (allEditables.length === 0) return;
 
         // Only normalize top-level editables. Elements that live inside a semantic
-        // container (card, stat-box, etc.) must NOT be independently normalized:
-        // normalizeElement would call slide.appendChild() on them, physically
-        // extracting them from their parent and leaving the container empty.
-        const topLevel = allEditables.filter(el => {
-            const parent = el.parentElement;
-            return !parent || parent === slide || !parent.closest(CONTAINER_SELECTORS);
-        });
+        // container must NOT be independently normalized: normalizeElement would
+        // call slide.appendChild() on them, physically extracting them from their
+        // parent and leaving the container empty.
+        const topLevel = getTopLevelEditableElements(slide);
 
         if (topLevel.length === 0) return;
 
@@ -461,10 +700,7 @@ function initEditor() {
             const allEditables = getEditableElementsInSlide(slide);
             if (allEditables.length === 0) return;
 
-            const topLevel = allEditables.filter(el => {
-                const parent = el.parentElement;
-                return !parent || parent === slide || !parent.closest(CONTAINER_SELECTORS);
-            });
+            const topLevel = getTopLevelEditableElements(slide);
             if (topLevel.length === 0) return;
 
             // Capture positions before any DOM mutation
@@ -498,7 +734,7 @@ function initEditor() {
         // normalized without mutations is enough — the container itself will be
         // normalized as a whole and its children stay intact inside it.
         // Pass force=true to bypass this (e.g. when the user explicitly drags a child out).
-        if (!force && el.parentElement && el.parentElement !== slide && el.parentElement.closest(CONTAINER_SELECTORS)) {
+        if (!force && getNearestSemanticContainerAncestor(el, slide)) {
             el._normalized = true;
             return;
         }
@@ -520,16 +756,16 @@ function initEditor() {
             if (el.parentElement !== slide) slide.appendChild(el);
             if (currentZ) el.style.zIndex = currentZ; // preserve
 
-            const isText = el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
+            const isText = isTextEditableElement(el);
             // Text-containing containers (cards, stat-boxes, etc.) use height:auto so
             // their content is never clipped when fonts render with slightly different
             // metrics in the PDF. overflow stays 'hidden' to keep card visual appearance.
-            const isTextContainer = el.matches('div.card, div.stat-box, div.step-item, div.timeline-item, [class*="card"], .quote-block, ul, ol');
+            const isTextContainer = isTextContainerElement(el, slide);
             const isFlexible = isText || isTextContainer;
             // Single-line heading heuristic: height fits within ~1.5 line-heights.
             // Use nowrap to prevent sub-pixel font-metric drift from splitting words.
             const lhPx = parseFloat(inherited.lineHeight) || parseFloat(inherited.fontSize) * 1.2;
-            const isHeading = el.matches('h1, h2, h3, h4, .big-number, .big-label, .tag');
+            const isHeading = isHeadingLikeElement(el);
             const isSingleLine = isHeading && rect.height <= lhPx * 1.8;
 
             el.style.boxSizing = 'border-box';
@@ -540,7 +776,7 @@ function initEditor() {
             el.style.minWidth = '0';
             // Add a small buffer to text width to absorb sub-pixel rendering differences
             // after the element is extracted from its original CSS context.
-            el.style.width = isText ? (rect.width + 4) + 'px' : rect.width + 'px';
+            el.style.width = rect.width + 'px';
             el.style.height = isFlexible ? 'auto' : (rect.height + 'px');
             el.style.minHeight = isFlexible ? (rect.height + 'px') : '0';
             el.style.left = (rect.left - slideRect.left) + 'px';
@@ -550,11 +786,11 @@ function initEditor() {
         } else {
             // Already absolute - DO NOT move in DOM, only update coordinates
             // Moving in DOM would break the z-order established by Send to Back/Front
-            const isText = el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
-            const isTextContainer = el.matches('div.card, div.stat-box, div.step-item, div.timeline-item, [class*="card"], .quote-block, ul, ol');
+            const isText = isTextEditableElement(el);
+            const isTextContainer = isTextContainerElement(el, slide);
             const isFlexible = isText || isTextContainer;
             const lhPx = parseFloat(inherited.lineHeight) || parseFloat(inherited.fontSize) * 1.2;
-            const isHeading = el.matches('h1, h2, h3, h4, .big-number, .big-label, .tag');
+            const isHeading = isHeadingLikeElement(el);
             const isSingleLine = isHeading && rect.height <= lhPx * 1.8;
 
             el.style.boxSizing = 'border-box';
@@ -581,7 +817,7 @@ function initEditor() {
         el.style.fontVariant = inherited.fontVariant;
         el.style.fontStyle = inherited.fontStyle;
 
-        const textElements = el.querySelectorAll('h1, h2, h3, h4, p, span, li, .big-number, .big-label, .tag');
+        const textElements = el.querySelectorAll(TEXT_EDITABLE_SELECTORS);
         textElements.forEach(item => {
             const comp = window.getComputedStyle(item);
             item.style.fontSize = comp.fontSize;
@@ -597,7 +833,7 @@ function initEditor() {
      */
     function getEditableElementsInSlide(slide, excludeEl) {
         if (!slide) return [];
-        return Array.from(slide.querySelectorAll(window.editableSelectors || editableSelectors))
+        return getEditableElementsInNode(slide, excludeEl)
             .filter(el => {
                 if (el === excludeEl) return false;
                 if (el.style.display === 'none' || el.style.visibility === 'hidden') return false;
@@ -692,13 +928,13 @@ function initEditor() {
 
         // Find the best target: prefer the topmost editable that matches,
         // but if the user clicked directly on an editable (e.target), use that first.
-        let target = e.target.closest(editableSelectors);
+        let target = findEditableTarget(e.target);
 
         // If no target found via native hit-test, scan all elements at this point
         if (!target) {
             for (const el of allUnderCursor) {
                 if (el.closest('.eidos-selection-box') || el.closest('.eidos-toolbar')) continue;
-                const match = el.closest(editableSelectors);
+                const match = findEditableTarget(el);
                 if (match) {
                     target = match;
                     break;
@@ -712,20 +948,19 @@ function initEditor() {
 
             isDragging = true;
             dragGroup = [];
-            startX = e.clientX;
-            startY = e.clientY;
+            activeDragTarget = getStableDragTarget(target);
 
             // We don't normalize (rip out of DOM) immediately on click.
             // We wait until the mouse actually moves to avoid breaking layouts on simple clicks.
-            const rect = target.getBoundingClientRect();
-            const slide = target.closest('.s') || target.closest('section') || document.body;
+            const rect = activeDragTarget.getBoundingClientRect();
+            const slide = activeDragTarget.closest('.s') || activeDragTarget.closest('section') || document.body;
             const slideRect = slide.getBoundingClientRect();
+
+            startX = e.clientX;
+            startY = e.clientY;
 
             startLeft = rect.left - slideRect.left;
             startTop = rect.top - slideRect.top;
-
-            // Grouping Logic: Find elements inside this one
-            dragGroup = collectGroup(target);
 
             // Build snap targets
             snapLinesX = [];
@@ -745,9 +980,9 @@ function initEditor() {
                 snapLinesY.push({ val: padding });
                 snapLinesY.push({ val: sRect.height - padding });
 
-                const others = slide.querySelectorAll(editableSelectors);
+                const others = getEditableElementsInSlide(slide, activeDragTarget);
                 others.forEach(el => {
-                    if (el === target || el.classList.contains('eidos-phantom')) return;
+                    if (el === activeDragTarget || el.classList.contains('eidos-phantom')) return;
                     const oRect = el.getBoundingClientRect();
                     const rL = oRect.left - sRect.left;
                     const rT = oRect.top - sRect.top;
@@ -776,6 +1011,7 @@ function initEditor() {
         isResizing = false;
         currentHandle = null;
         dragGroup = [];
+        activeDragTarget = null;
         guideH.style.display = 'none';
         guideV.style.display = 'none';
 
@@ -785,7 +1021,7 @@ function initEditor() {
         }
 
         // Reset the flag for the next mousedown
-        const allEditables = document.querySelectorAll(editableSelectors);
+        const allEditables = getAllEditableElements();
         allEditables.forEach(el => delete el._stateSavedSinceMousedown);
     });
 
@@ -796,7 +1032,7 @@ function initEditor() {
     // Handle double-click to edit text
     document.body.addEventListener('dblclick', (e) => {
         if (_isLocked) return;
-        const textSelectors = 'h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite';
+        const textSelectors = TEXT_EDITABLE_SELECTORS;
         const textTarget = e.target.closest(textSelectors);
         if (textTarget && (!textTarget.closest('.eidos-toolbar'))) {
             // Normalize only if not yet done and only for standalone (non-container) elements.
@@ -909,8 +1145,8 @@ function initEditor() {
         }
 
         // Find if the selected element is editable text or contains editable text
-        const isEditable = (el) => el && el.matches('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
-        let textTarget = isEditable(selectedElement) ? selectedElement : selectedElement.querySelector('h1, h2, h3, h4, p, span, li, blockquote, .tag, .big-number, .big-label, cite');
+        const isEditable = (el) => isTextEditableElement(el);
+        let textTarget = isEditable(selectedElement) ? selectedElement : selectedElement.querySelector(TEXT_EDITABLE_SELECTORS);
 
         if (textTarget && !textTarget.closest('.eidos-toolbar')) {
             // Normalize only if not yet done and only for standalone elements.
@@ -1001,35 +1237,17 @@ function initEditor() {
 
             isDragging = true;
             dragGroup = [];
+            activeDragTarget = getStableDragTarget(selectedElement);
+
+            const rect = activeDragTarget.getBoundingClientRect();
+            const slide = activeDragTarget.closest('.s') || activeDragTarget.closest('section') || document.body;
+            const slideRect = slide.getBoundingClientRect();
+
             startX = e.clientX;
             startY = e.clientY;
 
-            const rect = selectedElement.getBoundingClientRect();
-            const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-            const slideRect = slide.getBoundingClientRect();
-
             startLeft = rect.left - slideRect.left;
             startTop = rect.top - slideRect.top;
-
-            // Grouping Logic for Proxy Drag
-            const isContainer = selectedElement.matches('div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [class*="card"], [class*="box"]');
-            if (isContainer) {
-                const others = getEditableElementsInSlide(slide, selectedElement);
-                others.forEach(other => {
-                    const otherRect = other.getBoundingClientRect();
-                    if (otherRect.left >= rect.left &&
-                        otherRect.right <= rect.right &&
-                        otherRect.top >= rect.top &&
-                        otherRect.bottom <= rect.bottom) {
-
-                        dragGroup.push({
-                            el: other,
-                            startLeft: otherRect.left - slideRect.left,
-                            startTop: otherRect.top - slideRect.top
-                        });
-                    }
-                });
-            }
 
             e.preventDefault();
         }
@@ -1037,61 +1255,39 @@ function initEditor() {
 
 
     document.addEventListener('mousemove', (e) => {
-        if (!selectedElement) return;
+        const currentElement = activeDragTarget || selectedElement;
+        if (!currentElement) return;
 
-        const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
+        const slide = currentElement.closest('.s') || currentElement.closest('section') || document.body;
 
         if (isDragging || isResizing) {
             const dx = (e.clientX - startX);
             const dy = (e.clientY - startY);
 
             // NORMALIZATION ON DEMAND: Rip out of DOM when user actually starts transforming.
-            if (!selectedElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
-                normalizeElement(selectedElement, slide);
-
-                // If the element is a child of a container (card, stat-box, etc.) the guard
-                // in normalizeElement sets _normalized=true but leaves it in normal flow —
-                // setting style.left/top has no visual effect. Force-re-normalize to extract
-                // it from the container so it becomes absolutely positioned and draggable.
-                if (selectedElement.style.position !== 'absolute') {
-                    const _container = selectedElement.parentElement;
-                    // Snapshot the dragged element's rect FIRST, before any DOM mutation.
-                    // Extracting siblings changes the container layout which shifts the
-                    // dragged element's getBoundingClientRect — causing the visual offset.
-                    const _draggedRect = selectedElement.getBoundingClientRect();
-                    if (_container && _container !== slide) {
-                        // Now snapshot and extract ALL siblings.
-                        const _siblings = Array.from(_container.querySelectorAll(editableSelectors))
-                            .filter(s => s !== selectedElement && !s.closest(ignoreSelectors));
-                        const _snapshots = _siblings.map(s => ({ el: s, rect: s.getBoundingClientRect() }));
-                        _snapshots.forEach(({ el: s, rect: r }) => {
-                            s._normalized = false;
-                            normalizeElement(s, slide, true, r, true);
-                        });
-                    }
-                    selectedElement._normalized = false;
-                    // Pass the pre-mutation rect so the element lands at exactly its visual position.
-                    normalizeElement(selectedElement, slide, false, _draggedRect, true);
+            if (!currentElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+                if (isDragging && activeDragTarget && activeDragTarget !== selectedElement) {
+                    selectElement(activeDragTarget);
                 }
 
-                // Also normalize everything in the group
-                dragGroup.forEach(item => {
-                    if (!item.el._normalized) normalizeElement(item.el, slide);
-                });
+                normalizeElement(currentElement, slide);
+
+                // If the chosen drag target still isn't absolutely positioned, abort the drag.
+                // This keeps unrelated elements untouched instead of extracting siblings.
+                if (currentElement.style.position !== 'absolute') {
+                    isDragging = false;
+                    activeDragTarget = null;
+                    updateSelectionBox();
+                    return;
+                }
 
                 // After normalization, we MUST reset the base values because style.left/top
                 // might differ from the visual start coordinates captured in mousedown.
-                startWidth = parseFloat(selectedElement.style.width);
-                const _rawH = parseFloat(selectedElement.style.height);
-                startHeight = isNaN(_rawH) ? selectedElement.getBoundingClientRect().height : _rawH;
-                startLeft = parseFloat(selectedElement.style.left);
-                startTop = parseFloat(selectedElement.style.top);
-
-                // Update start group positions based on normalized state
-                dragGroup.forEach(item => {
-                    item.startLeft = parseFloat(item.el.style.left);
-                    item.startTop = parseFloat(item.el.style.top);
-                });
+                startWidth = parseFloat(currentElement.style.width);
+                const _rawH = parseFloat(currentElement.style.height);
+                startHeight = isNaN(_rawH) ? currentElement.getBoundingClientRect().height : _rawH;
+                startLeft = parseFloat(currentElement.style.left);
+                startTop = parseFloat(currentElement.style.top);
 
                 startX = e.clientX;
                 startY = e.clientY;
@@ -1099,13 +1295,13 @@ function initEditor() {
         }
 
         if (isDragging) {
-            if (!selectedElement._normalized) return;
+            if (!currentElement._normalized) return;
 
             let newLeft = startLeft + (e.clientX - startX);
             let newTop = startTop + (e.clientY - startY);
 
             // 1. Resolve Collision
-            const eRect = selectedElement.getBoundingClientRect();
+            const eRect = currentElement.getBoundingClientRect();
             const resolved = resolveDragCollision({
                 left: newLeft,
                 top: newTop,
@@ -1173,16 +1369,8 @@ function initEditor() {
                 }
             }
 
-            selectedElement.style.left = `${newLeft}px`;
-            selectedElement.style.top = `${newTop}px`;
-
-            // Apply same offset to drag group
-            const groupDx = newLeft - startLeft;
-            const groupDy = newTop - startTop;
-            dragGroup.forEach(item => {
-                item.el.style.left = (item.startLeft + groupDx) + 'px';
-                item.el.style.top = (item.startTop + groupDy) + 'px';
-            });
+            currentElement.style.left = `${newLeft}px`;
+            currentElement.style.top = `${newTop}px`;
 
             updateSelectionBox();
 
@@ -1742,18 +1930,26 @@ function initEditor() {
                 }
             } else if (e.key.toLowerCase() === 'x' && !isEditingText) {
                 if (selectedElement) {
-                    const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-                    normalizeElement(selectedElement, slide);
+                    // Context-aware target selection:
+                    // If we're inside or are an image slot, we always want to cut the whole block
+                    // as it's a logical visual unit with complex internal layers (gradients).
+                    // For other things (cards), we respect the granular selection.
+                    const isInsideImgSlot = selectedElement.matches('.img-slot, [data-image-slot]') || selectedElement.closest('.img-slot, [data-image-slot]');
+                    const target = isInsideImgSlot ? getStableDragTarget(selectedElement) : selectedElement;
                     
-                    const group = collectGroup(selectedElement);
-                    _clipboard = [selectedElement.cloneNode(true)];
+                    const slide = target.closest('.s') || target.closest('section') || document.body;
+                    
+                    normalizeElement(target, slide);
+                    
+                    const group = collectGroup(target);
+                    _clipboard = [target.cloneNode(true)];
                     group.forEach(item => {
                         normalizeElement(item.el, slide);
                         _clipboard.push(item.el.cloneNode(true));
                         item.el.remove();
                     });
                     
-                    deleteElement(selectedElement);
+                    deleteElement(target);
                     e.preventDefault();
                 }
             } else if (e.key.toLowerCase() === 'v' && !isEditingText) {
