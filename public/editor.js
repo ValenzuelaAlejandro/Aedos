@@ -968,6 +968,20 @@ function initEditor() {
         // but if the user clicked directly on an editable (e.target), use that first.
         let target = findEditableTarget(e.target);
 
+        // Special case: img-slots used as full-bleed backgrounds sit beneath
+        // content wrappers (z-index:3), so findEditableTarget never reaches them.
+        // If the direct click didn't land on a text element or an img-slot, scan
+        // allUnderCursor and prefer any img-slot found there.
+        if (!isImageSlotElement(target) && !isTextEditableElement(e.target)) {
+            for (const el of allUnderCursor) {
+                if (el.closest('.eidos-selection-box') || el.closest('.eidos-toolbar')) continue;
+                if (isImageSlotElement(el)) {
+                    target = el;
+                    break;
+                }
+            }
+        }
+
         // If no target found via native hit-test, scan all elements at this point
         if (!target) {
             for (const el of allUnderCursor) {

@@ -59,7 +59,16 @@ These are NOT suggestions. These MUST NOT appear in your output, ever:
   designJson.slides[N].atmosphere_pattern specifies the EXACT pattern for each slide
   ✓ Slide 1 might have "grid mesh", Slide 2 "ruled lines", Slide 3 "dot grid", etc.
   ✓ Each slide MUST use designJson.slides[slideIndex].atmosphere_pattern (not designJson.domain_atmosphere)
-  ✓ NEVER reuse the same pattern on consecutive slides unless explicitly specified
+  ✓ NEVER reuse the same pattern on ANY two slides — each pattern must be unique per deck
+  ✓ If you see the same pattern name twice in designJson.slides[], that is a BUG — verify and alert
+  
+  VERIFICATION BEFORE OUTPUT:
+  Before outputting HTML, count unique atmosphere_pattern values in designJson.slides[]:
+    - For 8 slides, you should see 8 different pattern names (or strategic 1-2 repeats if >8 slides)
+    - If you count "grid-mesh" twice, STOP and note: "Pattern rotation violation detected"
+    - Apply each pattern from Atmosphere Toolkit according to its exact name
+    - If designJson.slides[0].atmosphere_pattern = "scanlines", use the scanlines CSS from Toolkit
+    - If designJson.slides[5].atmosphere_pattern = "ruled-lines", use the ruled-lines CSS
 
 ═══════════════════════════════════════
 HARD TECHNICAL CONSTRAINTS
@@ -421,9 +430,6 @@ These are the available patterns — pick from this list for each slide (primiti
   <!-- PATTERN: dot grid (design/magazine/editorial) — uses SVG data URL, NOT radial-gradient -->
   <div style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2228%22 height=%2228%22%3E%3Ccircle cx=%221%22 cy=%221%22 r=%221%22 fill=%22rgba(255%2C255%2C255%2C0.05)%22/%3E%3C/svg%3E');pointer-events:none;z-index:0;"></div>
 
-  <!-- PATTERN: vertical scanlines (terminal/hacker/CRT) -->
-  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,transparent,transparent 7px,rgba(255,255,255,.015) 7px,rgba(255,255,255,.015) 8px);pointer-events:none;z-index:0;"></div>
-
   <!-- PATTERN: diagonal crosshatch (mechanical/blueprint/technical) -->
   <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px),repeating-linear-gradient(-45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px);pointer-events:none;z-index:0;"></div>
 
@@ -491,8 +497,8 @@ IMG-SLOT PLACEMENT RULES — STRICTLY ENFORCED:
 IMG-SLOT CSS (MUST be in your <style>):
   .img-slot { position:relative; overflow:hidden; border-radius:12px; }
   /* ↑ NO width:100%, NO min-height, NO flex:1 — ALL sizing set via inline style per layout pattern */
-  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim) 0%,var(--bg) 60%,var(--accent-2-dim) 100%); }
-  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim) 0%,var(--bg) 60%,var(--accent-2-dim) 100%); pointer-events:none; }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); pointer-events:none; }
 
 WHEN TO USE IMAGE SLOTS:
 - Use a side image slot only when the slide has short to medium text density.
