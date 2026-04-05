@@ -411,8 +411,8 @@ function initEditor() {
 
 
     // Editable Elements Target Mapping
-    const TEXT_EDITABLE_SELECTORS = 'h1, h2, h3, h4, p, li, blockquote, .tag, .subtitle, cite, [class*="title"], [class*="desc"], [class*="stat"], [class*="label"], [class*="val"], [class*="num"], [class*="caption"], .code-line';
-    const HEADING_LIKE_SELECTORS = 'h1, h2, h3, h4, .tag, [class*="title"], [class*="stat"], [class*="num"]';
+    const TEXT_EDITABLE_SELECTORS = 'h1, h2, h3, h4, p, li, blockquote, .tag, .subtitle, cite, [class*="title"], [class*="desc"], [class*="stat"], [class*="label"], [class*="val"], [class*="num"], [class*="caption"], [class*="source"], [class*="cite"], [class*="footnote"], [class*="meta"], .code-line';
+    const HEADING_LIKE_SELECTORS = 'h1, h2, h3, h4, .tag, [class*="title"], [class*="stat"], [class*="num"], [class*="source"]';
     const LEAF_VISUAL_SELECTORS = '.lucide-icon, svg[data-lucide], .accent-bar';
     const KNOWN_CONTAINER_SELECTORS = 'div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [data-image-slot], .quote-block, ul, ol, [class*="card"], [class*="box"], [class*="item"]';
     const editableSelectors = `${TEXT_EDITABLE_SELECTORS}, ${LEAF_VISUAL_SELECTORS}, .img-slot, [data-image-slot], .quote-block, .card, .stat-box, .step-item, .timeline-item, .flex-row, .flex-col, .grid-2, .grid-3, [class*="card"], [class*="box"], [class*="item"], [data-eidos-container="true"]`;
@@ -431,6 +431,52 @@ function initEditor() {
         if (!value) return true;
         const normalized = value.replace(/\s+/g, '').toLowerCase();
         return normalized === 'transparent' || normalized === 'rgba(0,0,0,0)' || normalized === 'hsla(0,0%,0%,0)';
+    }
+
+    const TEXT_EDITABLE_TAGS = 'h1, h2, h3, h4, h5, h6, p, li, blockquote, cite, .tag, .subtitle, .code-line';
+    const HEADING_LIKE_TAGS = 'h1, h2, h3, h4, .tag';
+    
+    function hasDirectTextNodes(el) {
+        if (!el || !el.childNodes) return false;
+        // Optimization: skip elements with children that are also blocks, 
+        // to avoid double-detection of containers as text.
+        const hasBlockChildren = Array.from(el.children).some(child => {
+            const display = window.getComputedStyle(child).display;
+            return !display.includes('inline');
+        });
+        if (hasBlockChildren) return false;
+
+        return Array.from(el.childNodes).some(node => 
+            node.nodeType === Node.TEXT_NODE && node.textContent && node.textContent.trim().length > 0
+        );
+    }
+    
+    function isTextEditableElement(el) {
+        if (!el || !(el instanceof Element)) return false;
+        
+        // CRITICAL: Never normalize INLINE elements (spans, links, bold) individually.
+        // Doing so rips them out of their parent block and collapses the layout.
+        const style = window.getComputedStyle(el);
+        if (style.display.includes('inline') && !style.display.includes('block')) {
+            return false;
+        }
+
+        if (el.matches(TEXT_EDITABLE_TAGS)) return true;
+        
+        // Auto-detect ANY element that is a terminal leaf for text.
+        return hasDirectTextNodes(el);
+    }
+
+    function isHeadingLikeElement(el) {
+        if (!el || !(el instanceof Element)) return false;
+        if (el.matches(HEADING_LIKE_TAGS)) return true;
+        
+        // If it's a direct text container with big font, treat as heading for UI normalization
+        if (hasDirectTextNodes(el)) {
+            const fs = parseFloat(window.getComputedStyle(el).fontSize);
+            return fs >= 24; // 1.5rem approx
+        }
+        return false;
     }
 
     function hasVisibleBackground(style) {
@@ -454,14 +500,6 @@ function initEditor() {
         return Array.from(el.childNodes || []).some(node => (
             node.nodeType === Node.TEXT_NODE && node.textContent && node.textContent.trim().length > 0
         ));
-    }
-
-    function isTextEditableElement(el) {
-        return !!(el && el.matches(TEXT_EDITABLE_SELECTORS));
-    }
-
-    function isHeadingLikeElement(el) {
-        return !!(el && el.matches(HEADING_LIKE_SELECTORS));
     }
 
     function isVisualLeafElement(el) {
