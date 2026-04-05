@@ -568,7 +568,7 @@ function initEditor() {
             && !isDivider
             && !isOverlay
             && (hasDescendantText || hasDescendantSlot || hasStructuredChildren)
-            && isDecorated;
+            && (isDecorated || (hasStructuredChildren && !isLayoutWrapper));
 
         markSemanticContainer(el, isContainer);
         return isContainer;
