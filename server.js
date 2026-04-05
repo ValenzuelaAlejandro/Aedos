@@ -380,6 +380,20 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+if ((process.env.NODE_ENV || 'development') !== 'production') {
+    app.get('/__dev__/last-generated', (req, res) => {
+        const debugPath = path.join(TMP_DIR, 'last_generated.html');
+
+        if (!fs.existsSync(debugPath)) {
+            return res.status(404).json({ error: 'tmp/last_generated.html not found' });
+        }
+
+        res.set('Cache-Control', 'no-store');
+        res.type('html');
+        res.send(fs.readFileSync(debugPath, 'utf8'));
+    });
+}
+
 
 
 function sanitizeTema(input) {
@@ -879,12 +893,13 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
             //   in Puppeteer, so they cannot reflow during the print pass.
             await page.evaluate(() => {
                 const CONTAINERS = [
+                    '[data-eidos-container="true"]',
                     'div.stat-box', 'div.card', 'div.step-item', 'div.timeline-item',
                     '.stat-grid', '.grid-2', '.grid-3', '.flex-col', '.flex-row',
                     '.quote-block', 'blockquote', 'ul', 'ol',
                     '[class*="card"]', '[class*="box"]'
                 ].join(',');
-                const TEXT = 'h1,h2,h3,h4,p,span,li,cite,.big-number,.big-label,.tag';
+                const TEXT = 'h1,h2,h3,h4,p,span,blockquote,li,cite,.big-number,.big-label,.tag,.subtitle,.step-num,.timeline-year';
                 document.querySelectorAll(CONTAINERS).forEach(container => {
                     container.querySelectorAll(TEXT).forEach(el => {
                         const comp = window.getComputedStyle(el);

@@ -170,6 +170,21 @@ CONTENT BUDGET AND SCALING:
 
 CSS CORRECTNESS — THREE COMMON HALLUCINATIONS — READ BEFORE WRITING ANY CSS:
 
+  BUG 0 — TEXT COLOR ON LIGHT BACKGROUNDS (ACCESSIBILITY FAILURE):
+    ✗ WRONG: <div style="background:rgba(255,255,255,.95);color:var(--text);"> ← white text on white = invisible
+    ✓ RIGHT: <div style="background:rgba(255,255,255,.95);color:#111111;"> ← dark text on white
+    INSPECTION RULE: Before outputting ANY element with a light background (white, cream, light gray):
+      1. Check: Is the background rgba(255,255,255,X) where X > 0.85? OR is it a light hex like #f0f0f0?
+      2. If yes: Is the text color using var(--text) or var(--text-dim)? (both are light)
+      3. If yes to both: THIS IS A BUG. Change text color to a DARK value: #111111, #1a1a1a, or rgba(0,0,0,.8)
+    AUTOMATIC FIX: Search your HTML for "rgba(255,255,255" or "rgba(255, 255, 255" in background properties.
+    For each match, check if the alpha > 0.85. If yes, verify the text color in that element or its children.
+    If standard light text (var(--text), var(--text-dim), #eee, #f0f0f0, etc.), CHANGE IT to dark.
+    DESIGN INTENT: If you are creating a light section, you EITHER:
+      a) Design the entire slide dark with accent-color blocks (never white backgrounds on dark slides)
+      b) Switch to full light-mode slide (entire slide's bg changes, all text becomes dark globally)
+      c) Use a full-bleed image with text overlay — ensure overlay has sufficient contrast
+
   BUG 1 — line: IS NOT A CSS PROPERTY:
     ✗ WRONG: style="font-size:1.3rem;line:1.5;color:var(--text-dim);"
     ✓ RIGHT: style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);"

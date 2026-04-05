@@ -406,6 +406,38 @@ JSON STRUCTURE TO RETURN:
 
 NOTE on icon_names: Set to an array of 2-3 Lucide icon name strings (e.g. ["brain","rocket","shield"]) for ANY slide that has feature/concept/pillar/step cards. Set to null for cover, data/stats, conclusion, and image-split slides. Allowed names: brain rocket shield target zap check-circle star heart lightbulb trending-up users globe lock search calendar clock activity box layers book award briefcase file-text bar-chart cpu database sun moon camera music mic settings tool anchor flag compass map-pin eye droplet wifi cloud
 
+═══════════════════════════════════════════════
+TEXT COLOR CONTRAST — ACCESSIBILITY MANDATE
+═══════════════════════════════════════════════
+THIS IS A CRITICAL GATE. NO SLIDE CAN HAVE WHITE TEXT ON WHITE/LIGHT BACKGROUNDS.
+
+RULE: Whenever you specify any background color or gradient in composition_literal that is LIGHT (rgba with >80% alpha of white, or explicit light hex like #e8e8e8, #f5f5f5, etc.):
+  YOU MUST specify in composition_literal: "text_color: var(--bg)" or "text_color: dark-gray"
+  This overrides the default var(--text) which is light.
+
+EXAMPLES OF PROBLEMATIC PATTERNS:
+  ✗ "background:linear-gradient(to right, var(--bg) 34%, rgba(255,255,255,.95) 35%)" + default text color
+     → Right side is white, text is light gray/white → INVISIBLE
+  ✗ "background:rgba(255,255,255,.9)" + default text color
+     → Light background, light text → UNREADABLE
+
+CORRECT APPROACH:
+  ✓ "Left panel: bg var(--bg), text var(--text). Right panel: bg rgba(255,255,255,.95), text_color: #111111 or var(--bg)"
+  ✓ Write in composition_literal: "Right section background-color:rgba(255,255,255,.9) with text-color:#111 or #222"
+  ✓ If you use accent_hex as a background color, ensure it has sufficient darkness or specify light text explicitly
+
+STAGE 3 MUST:
+  - Read composition_literal for EXPLICIT text_color overrides
+  - If a background becomes light (rgba white >.85 or light hex), apply dark text automatically if not specified
+  - Never allow light text on light background combinations
+
+RECOMMENDATION FOR DESIGN:
+  If you want a split design with one light section, avoid it entirely and use:
+    • Both sections remain dark (--bg or darker surface)
+    • Use accent color BLOCKS instead of white/light backgrounds (accent_hex as bg with light text)
+    • Or use full-bleed image with color overlay + light text overlay on the image
+  Light sections on dark-mode decks are RARELY necessary and almost always cause contrast failures.
+
 CRITICAL RULES:
 - slides array must have exactly ${contentJson.slide_count} items matching the content JSON
 - Every composition must be SPECIFIC — spatial positions, sizes, ratios. "Clean layout" = FAILURE

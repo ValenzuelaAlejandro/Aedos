@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backBtn = document.getElementById('back-btn');
     const errorMessage = document.getElementById('error-message');
     const temaError = document.getElementById('tema-error');
+    const debugLastGeneratedBtn = document.getElementById('btn-debug-last-generated');
 
     // Preview elements
     let previewIframe = document.getElementById('preview-iframe');
@@ -600,6 +601,144 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function resetPreviewSurface() {
+        window.removeEventListener('resize', scaleIframe);
+
+        minimapAlreadyInit = false;
+        toolsAlreadyInit = false;
+        const rawIframe = previewIframe.cloneNode();
+        previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
+        previewIframe = rawIframe;
+
+        const minimapList = document.getElementById('minimap-list');
+        if (minimapList) {
+            minimapList.innerHTML = '';
+            minimapList.style.transform = 'none';
+            const mmContainer = document.getElementById('editor-minimap');
+            if (mmContainer) {
+                mmContainer.style.removeProperty('--presentation-accent');
+                mmContainer.style.removeProperty('--accent');
+            }
+        }
+
+        if (slideDots) slideDots.innerHTML = '';
+        slideContainer = null;
+        _refreshSlotOverlays = null;
+        _overlayMap = new Map();
+    }
+
+    function setPreviewTitle(title) {
+        const previewLabel = document.getElementById('preview-topic-label');
+        if (!previewLabel) return;
+
+        if (previewLabel.tagName === 'INPUT') previewLabel.value = title;
+        else previewLabel.textContent = title;
+    }
+
+    function extractPreviewTitleFromHtml(html, fallbackTitle = 'Debug Canvas') {
+        if (!html || typeof html !== 'string') return fallbackTitle;
+
+        const configMatch = html.match(/<!--\s*CONFIG\s*([\s\S]*?)\s*-->/i);
+        if (configMatch) {
+            try {
+                const configObj = JSON.parse(configMatch[1]);
+                if (configObj.Clean_Topic) return configObj.Clean_Topic;
+                if (configObj.topic) return configObj.topic;
+            } catch (e) {}
+        }
+
+        const titleMatch = html.match(/<title>\s*(.*?)\s*<\/title>/i);
+        if (titleMatch && titleMatch[1]) return titleMatch[1];
+
+        const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+        if (h1Match && h1Match[1]) {
+            const cleanTitle = h1Match[1].replace(/<[^>]+>/g, '').trim();
+            if (cleanTitle) return cleanTitle;
+        }
+
+        return fallbackTitle;
+    }
+
+    function openPreviewFromExistingHtml(html, title) {
+        if (!html || typeof html !== 'string') {
+            throw new Error('Debug HTML is empty or invalid.');
+        }
+
+        generatedHtml = html;
+        currentSlide = 0;
+        totalSlides = 0;
+        window.eidosCurrentSlide = 0;
+        currentTitle = title;
+        _pendingTransitionFn = null;
+
+        if (resultContainer) resultContainer.classList.add('hidden');
+        if (errorContainer) errorContainer.classList.add('hidden');
+        if (refusedContainer) refusedContainer.classList.add('hidden');
+
+        previewContainer.classList.remove('hidden', 'is-generating', 'reveal-sequence', 'reveal-minimap', 'reveal-tools', 'reveal-chrome');
+        chatScreen.style.cssText = '';
+        chatScreen.classList.add('hidden');
+        document.body.classList.add('no-scroll');
+
+        resetPreviewSurface();
+        setPreviewTitle(title);
+
+        slideLabel.textContent = '1 / 1';
+        updateMinimapSkeleton(1);
+
+        previewHeader.classList.remove('slide-down');
+        initPreview(html, () => {
+            previewContainer.classList.remove('is-generating', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+            previewHeader.classList.add('slide-down');
+            scaleIframe();
+        });
+    }
+
+    async function openLastGeneratedDebugCanvas() {
+        if (debugLastGeneratedBtn) debugLastGeneratedBtn.disabled = true;
+
+        try {
+            const response = await fetch('/__dev__/last-generated', { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error('No debug HTML available in tmp/last_generated.html.');
+            }
+
+            const html = await response.text();
+            const title = extractPreviewTitleFromHtml(html, 'Debug Canvas');
+            openPreviewFromExistingHtml(html, title);
+        } catch (error) {
+            if (previewContainer) previewContainer.classList.add('hidden');
+            if (chatScreen) {
+                chatScreen.style.cssText = '';
+                chatScreen.classList.remove('hidden');
+            }
+            if (errorMessage) errorMessage.textContent = error.message;
+            if (errorContainer) errorContainer.classList.remove('hidden');
+            document.body.classList.remove('no-scroll');
+        } finally {
+            if (debugLastGeneratedBtn) debugLastGeneratedBtn.disabled = false;
+        }
+    }
+
+    async function setupDevelopmentDebugMode() {
+        if (!debugLastGeneratedBtn) return;
+
+        try {
+            const response = await fetch('/__dev__/last-generated', { method: 'HEAD', cache: 'no-store' });
+            if (!response.ok) return;
+
+            debugLastGeneratedBtn.hidden = false;
+            debugLastGeneratedBtn.addEventListener('click', () => openLastGeneratedDebugCanvas());
+
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('debug') === 'last') {
+                openLastGeneratedDebugCanvas();
+            }
+        } catch (error) {
+            debugLastGeneratedBtn.hidden = true;
+        }
+    }
+
     async function handleGenerate(regenerateTema = null, isRegenerating = false) {
         generatedHtml = ''; // Reset state for a fresh start
         currentSlide = 0;
@@ -1025,6 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     generateBtn.addEventListener('click', () => handleGenerate(null));
+    setupDevelopmentDebugMode();
 
 
 
@@ -2402,8 +2542,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // pixel width as an inline style, and for single-line elements also
             // set white-space:nowrap so font-metric drift cannot cause a wrap.
             // We restore the live doc immediately after cloneNode.
-            const _PDF_CONTAINER_SEL = 'div.stat-box, div.card, div.step-item, div.timeline-item, .quote-block, blockquote, ul, ol, [class*="card"], [class*="box"]';
-            const _PDF_TEXT_SEL = 'h1,h2,h3,h4,p,span,.big-number,.big-label,.tag,li,cite';
+            const _PDF_CONTAINER_SEL = '[data-eidos-container="true"], div.stat-box, div.card, div.step-item, div.timeline-item, .quote-block, blockquote, ul, ol, .flex-row, .flex-col, .grid-2, .grid-3, [class*="card"], [class*="box"]';
+            const _PDF_TEXT_SEL = 'h1,h2,h3,h4,p,span,blockquote,.big-number,.big-label,.tag,.subtitle,.step-num,.timeline-year,li,cite';
             const _pdfSnapshots = [];
             const _iframeView = iframeDoc.defaultView;
             iframeDoc.querySelectorAll(_PDF_CONTAINER_SEL).forEach(container => {
