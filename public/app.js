@@ -97,8 +97,57 @@ document.addEventListener('DOMContentLoaded', () => {
     let _refreshSlotOverlays = null; // assigned in injectImageReplacementSystem
     let _overlayMap = new Map(); // slotEl -> { input, label }
 
-    // Called once the first slide is visible in the skeleton — set by handleGenerate
-    let _pendingTransitionFn = null;
+    // Mode toggle: false = Flash (default), true = Pro (3-stage pipeline)
+    let proModeEnabled = false;
+
+    // ── Mode Toggle Button ─────────────────────────────────────────────
+    const modeToggleBtn = document.getElementById('btn-mode-toggle');
+    const chatInputWrapper = document.querySelector('.chat-input-wrapper');
+    const generateBtnLabel = document.querySelector('#btn-generate .btn-generate-label');
+
+    function syncModeToggleI18n() {
+        // Set the initial tooltip via i18n (empty string in HTML, filled here after i18n loads)
+        if (modeToggleBtn) {
+            modeToggleBtn.setAttribute('data-tooltip', window.__eidos_t(
+                proModeEnabled ? 'mode_tooltip_flash' : 'mode_tooltip_pro'
+            ));
+        }
+        // Sync generate button label
+        if (generateBtnLabel) {
+            const key = proModeEnabled ? 'generate_pro_presentation' : 'generate_presentation';
+            generateBtnLabel.setAttribute('data-i18n', key);
+            generateBtnLabel.textContent = window.__eidos_t(key);
+        }
+    }
+
+    if (modeToggleBtn) {
+        const modeLabel = modeToggleBtn.querySelector('.btn-mode-label');
+
+        // Set initial tooltip
+        syncModeToggleI18n();
+
+        modeToggleBtn.addEventListener('click', () => {
+            proModeEnabled = !proModeEnabled;
+            modeToggleBtn.setAttribute('aria-pressed', String(proModeEnabled));
+            modeToggleBtn.classList.toggle('is-active', proModeEnabled);
+            modeToggleBtn.classList.add('is-animating');
+            setTimeout(() => modeToggleBtn.classList.remove('is-animating'), 400);
+
+            // Toggle neon glow on input wrapper
+            if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', proModeEnabled);
+
+            // Update mode label (button shows opposite mode — "Flash" when Pro is on)
+            if (modeLabel) {
+                const labelKey = proModeEnabled ? 'mode_label_flash' : 'mode_label_pro';
+                modeLabel.setAttribute('data-i18n', labelKey);
+                modeLabel.textContent = window.__eidos_t(labelKey);
+            }
+
+            // Update tooltip and generate button label via i18n
+            syncModeToggleI18n();
+        });
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     // Listen for messages from iframe during skeleton generation
     window.addEventListener('message', (e) => {
@@ -214,6 +263,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof window.__eidos_applyRandomHeroMessage === 'function') {
                 window.__eidos_applyRandomHeroMessage();
             }
+            // Re-sync mode toggle tooltip (not covered by data-i18n DOM scan)
+            if (typeof syncModeToggleI18n === 'function') syncModeToggleI18n();
         }
 
         const savedTheme = localStorage.getItem('eidos_theme') || 'dark';
@@ -579,6 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isLoading) {
             temaInput.disabled = true;
             generateBtn.disabled = true;
+            modeToggleBtn.disabled = true;  // Disable mode toggle during generation
             if (sendIcon) sendIcon.classList.add('hidden');
             if (loaderIcon) loaderIcon.classList.remove('hidden');
             stopTypewriter();
@@ -589,6 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             temaInput.disabled = false;
             generateBtn.disabled = temaInput.value.trim().length < 4;
+            modeToggleBtn.disabled = false;  // Enable mode toggle after generation
             if (sendIcon) sendIcon.classList.remove('hidden');
             if (loaderIcon) loaderIcon.classList.add('hidden');
             if (typewriterCursor) typewriterCursor.style.display = '';
@@ -754,7 +807,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Everything the AI needs comes from the raw chat text.
         // The prompt handles extraction of: slide count, metadata, style, colors, language, etc.
         const requestData = {
-            tema: tema
+            tema: tema,
+            ...(proModeEnabled ? { mode: 'pro' } : {})
         };
 
         // If regenerating: immediately ensure panels are visible — strip every class
@@ -850,10 +904,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const decoder = new TextDecoder("utf-8");
             let buffer = "";
             let firstWrite = true;
-            // Safety timeout: if no SSE data arrives within ~6.5 minutes, abort to prevent
+            // Safety timeout: if no SSE data arrives within a period, abort to prevent
             // an infinite hang when the server closes without sending {done:true}.
-            // Increased for slower Qwen/OpenRouter generations.
-            const SSE_WATCHDOG_MS = 390000;
+            // Pro mode (3-stage pipeline) can take longer, so use a longer timeout that also
+            // resets when we receive pipeline stage updates (not just HTML chunks).
+            const SSE_WATCHDOG_MS = 600000; // 10 minutes total, enough for all 3 Pro stages
             let sseWatchdog;
             const resetWatchdog = () => {
                 clearTimeout(sseWatchdog);
@@ -1016,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (!generatedHtml || generatedHtml.trim().length < 50) {
-                throw new Error("Sorry, could not generate the presentation correctly.");
+                throw new Error(window.__eidos_t ? window.__eidos_t('error_generation_failed', "Sorry, could not generate the presentation correctly.") : "Sorry, could not generate the presentation correctly.");
             }
 
             iframeDoc.close();

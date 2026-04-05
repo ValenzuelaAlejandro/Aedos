@@ -336,14 +336,16 @@ function makeCallerFn(apiKey, modelList, stageName, preferredProvider = 'openrou
 }
 
 // Stage routing:
-// - Stage 1 & 2: prefer Gemini 2.5 Flash-Lite, fall back to Qwen/OpenRouter if Gemini quota ends.
-// - Stage 3: prefer Qwen/OpenRouter, fall back to Gemini if Qwen/OpenRouter is unavailable.
+// - Flash (legacy single-prompt): prefer Gemini 2.5 Flash-Lite, fall back to OpenRouter.
+// - Stage 1 & 2 (Pro pipeline): prefer Gemini 2.5 Flash-Lite, fall back to OpenRouter.
+// - Stage 3 (Pro pipeline HTML compositor): prefer OpenRouter, fall back to Gemini.
+const tryModelsFlash  = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Flash',  'gemini');
 const tryModelsStage1 = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage1', 'gemini');
 const tryModelsStage2 = makeCallerFn(KEY2, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage2', 'gemini');
 const tryModelsStage3 = makeCallerFn(KEY3, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage3', 'openrouter');
 
-// Legacy single-prompt path reuses Stage 3 caller
-const tryModels = tryModelsStage3;
+// Legacy alias kept for any remaining references
+const tryModels = tryModelsFlash;
 
 
 // Global Puppeteer Browser Instance
@@ -472,8 +474,8 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             return res.status(500).json({ error: 'Gemini API Key is not configured in .env' });
         }
 
-        // Determine pipeline mode: 'pipeline' (default) or 'legacy'
-        const useLegacy = req.body.mode === 'pipeline';
+        // Flash mode (single-prompt, default) vs Pro mode (3-stage pipeline)
+        const usePipeline = req.body.mode === 'pro';
 
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache');
@@ -504,15 +506,15 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
         }
 
         // ────────────────────────────────────────────────
-        // Choose generation path: Pipeline (3-stage) or Legacy (single prompt)
+        // Choose generation path: Flash (single-prompt) or Pro (3-stage pipeline)
         // ────────────────────────────────────────────────
         let result;
-        if (useLegacy) {
-            // Legacy single-prompt path
+        if (!usePipeline) {
+            // Flash mode — single-prompt path (default)
             const prompt = buildPrompt(opciones);
             result = await tryModels(prompt);
         } else {
-            // 3-Stage Pipeline: Content → Design → HTML
+            // Pro mode — 3-Stage Pipeline: Content → Design → HTML
             res.write(`data: ${JSON.stringify({ pipeline: true, stage: 'content', status: 'running' })}\n\n`);
 
             const pipelineResult = await runPipeline({

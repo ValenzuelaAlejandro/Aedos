@@ -12,6 +12,11 @@ module.exports = function buildStage2Prompt(rawInput, contentJson) {
 
 OUTPUT: ONLY a valid JSON object. No markdown, no fences, no explanations.
 
+CRITICAL BEFORE OUTPUTTING JSON:
+Before you output the slides array, WRITE IN A CODE COMMENT your atmosphere_pattern rotation plan.
+Example: // PATTERN PLAN: Slide1=grid-mesh, Slide2=ruled-lines, Slide3=dot-grid, Slide4=crosshatch, Slide5=diagonal-grain, Slide6=none, Slide7=scanlines, Slide8=grid-mesh
+Then VERIFY no pattern appears twice. If it does, FIX it before output. This will be checked.
+
 ORIGINAL USER REQUEST: "${rawInput}"
 
 CONTENT (from extraction):
@@ -442,16 +447,28 @@ CRITICAL RULES:
 - slides array must have exactly ${contentJson.slide_count} items matching the content JSON
 - Every composition must be SPECIFIC — spatial positions, sizes, ratios. "Clean layout" = FAILURE
 - No two consecutive slides can have the same structure
-- ATMOSPHERE PATTERN VARIETY (MANDATORY):
-  Each slide MUST have a DIFFERENT atmosphere_pattern from the previous one.
-  Available patterns: "grid-mesh" (digital/tech), "ruled-lines" (archival/print), "dot-grid" (editorial/design), "scanlines" (terminal/hacker), "crosshatch" (mechanical/blueprint), "diagonal-grain" (printed/screen-print), "none" (minimal/clean).
-  Assignment rule: Stagger the patterns across slides so no two consecutive slides are identical:
-    Slide 1 (cover): "grid-mesh" or "none"
-    Slide 2: "ruled-lines" or "dot-grid"
-    Slide 3: "scanlines" or "crosshatch"
-    Slide 4: back to "grid-mesh" or "diagonal-grain"
-    ...continue rotating
-  DO NOT use "grid-mesh" on all 8 slides. DO NOT reuse the same pattern twice in a row.
+- ATMOSPHERE PATTERN ROTATION (MANDATORY — NON-NEGOTIABLE):
+  ✗ FORBIDDEN: Using the same atmosphere_pattern on ANY two slides
+  ✓ REQUIRED: Create a COMPLETE rotation matrix BEFORE filling JSON. Write it as a comment first.
+  
+  EXAMPLE ROTATION LOGIC (apply to any deck size):
+    Pattern A (grid-mesh) → Pattern B (ruled-lines) → Pattern C (dot-grid) → Pattern D (crosshatch) → Pattern E (diagonal-grain) → Pattern F (none) → repeat
+    Assign sequential slides to sequential patterns from the cycle. Never reuse same pattern.
+  
+  RULES TO FOLLOW:
+  1. Write your rotation plan explicitly in a code comment at the top of your JSON output
+  2. VERIFY: Before outputting, count each pattern name in designJson.slides[]. NO DUPLICATES allowed.
+  3. Position "none" on slides that are data-heavy (numbers, minimal design) or cover/conclusion
+  4. Never place two heavy-texture slides back-to-back (e.g., crosshatch + diagonal-grain immediately sequential)
+  
+  Available patterns:
+    "grid-mesh" → digital/tech/science (horizontal + vertical grid)
+    "ruled-lines" → archival/academic/editorial (horizontal lines)
+    "dot-grid" → design/magazine/creative (subtle dot pattern)
+    "crosshatch" → mechanical/blueprint/technical (diagonal grid)
+    "diagonal-grain" → printed/screen-print/poster (coarse diagonal)
+    "none" → minimal/data-driven/clean (no background pattern)
+  
   Stage 3 will apply these patterns as CSS background-image overlays. Variety = visual richness.
 - NO RADIAL GRADIENTS / ORBS:
   domain_atmosphere and atmosphere_pattern MUST NOT include "radial glow", "orb", "bloom", "halo", or any radial-gradient effect.
