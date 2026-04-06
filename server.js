@@ -25,7 +25,7 @@ const queue = [];
 
 // OpenRouter model list — comma-separated in env var OPENROUTER_MODEL_LIST
 // or single model via OPENROUTER_MODEL. Defaults to qwen free-tier.
-const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus:free')
+const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus:free,minimax/minimax-m2.5:free')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
@@ -55,7 +55,7 @@ const finalizeLimiter = rateLimit({
 function buildCorsOptions() {
     const env = process.env.NODE_ENV || 'development';
     const rawOrigins = process.env.ALLOWED_ORIGINS || '';
-    
+
     let allowedOrigins = [];
 
     if (env === 'production') {
@@ -66,7 +66,7 @@ function buildCorsOptions() {
             );
         }
         allowedOrigins = rawOrigins.split(',').map(o => o.trim()).filter(Boolean);
-        
+
         // Validate each origin
         for (const origin of allowedOrigins) {
             if (!origin.startsWith('https://') || origin.endsWith('/') || origin.includes('*')) {
@@ -114,7 +114,7 @@ function validateEnvironment() {
         { key: 'NODE_ENV', value: process.env.NODE_ENV, fallback: 'development' },
         { key: 'PORT', value: process.env.PORT, fallback: '3000' },
     ];
-    
+
     if (!process.env.GEMINI_API_KEY && !(process.env.GEMINI_API_KEY_1 && process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_3)) {
         throw new Error('[FATAL] Set either GEMINI_API_KEY or all three of GEMINI_API_KEY_1/2/3.');
     }
@@ -295,15 +295,23 @@ async function callGemini(apiKey, modelList, prompt, stageName) {
         try {
             const gemini = genAI.getGenerativeModel({ model: modelName, safetySettings: SAFETY });
             const result = await gemini.generateContentStream(prompt);
-            if (result && result.response) result.response.catch(() => {});
+            if (result && result.response) result.response.catch(() => { });
             console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Gemini OK: ${modelName}`);
             return result;
         } catch (err) {
-            const msg = err.message || '';
-            const isQuota = msg.includes('429') || msg.toLowerCase().includes('quota');
-            const is404 = msg.includes('404');
-            if (isQuota) { console.warn(`   [${stageName}] Gemini quota exhausted for ${modelName}, trying next...`); continue; }
-            if (is404) { console.warn(`   [${stageName}] Gemini model unavailable: ${modelName}, trying next...`); continue; }
+            const rawMsg = err.message || 'Unknown error';
+            const isQuota = rawMsg.includes('429') || rawMsg.toLowerCase().includes('quota');
+            const is404 = rawMsg.includes('404') || rawMsg.toLowerCase().includes('not found') || rawMsg.toLowerCase().includes('not available');
+
+            if (isQuota) {
+                console.warn(`   [${stageName}] Gemini QUOTA EXHAUSTED for ${modelName}: ${rawMsg}`);
+                continue;
+            }
+            if (is404) {
+                console.warn(`   [${stageName}] Gemini MODEL UNAVAILABLE for ${modelName}: ${rawMsg}`);
+                continue;
+            }
+            console.error(`   [${stageName}] Gemini UNKNOWN ERROR for ${modelName}: ${rawMsg}`);
             throw err;
         }
     }
@@ -311,7 +319,7 @@ async function callGemini(apiKey, modelList, prompt, stageName) {
 }
 
 function makeCallerFn(apiKey, modelList, stageName, preferredProvider = 'openrouter') {
-    return async function(prompt) {
+    return async function (prompt) {
         const providerOrder = preferredProvider === 'gemini'
             ? ['gemini', 'openrouter']
             : ['openrouter', 'gemini'];
@@ -339,10 +347,10 @@ function makeCallerFn(apiKey, modelList, stageName, preferredProvider = 'openrou
 // - Flash (legacy single-prompt): prefer Gemini 2.5 Flash-Lite, fall back to OpenRouter.
 // - Stage 1 & 2 (Pro pipeline): prefer Gemini 2.5 Flash-Lite, fall back to OpenRouter.
 // - Stage 3 (Pro pipeline HTML compositor): prefer OpenRouter, fall back to Gemini.
-const tryModelsFlash  = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Flash',  'gemini');
+const tryModelsFlash = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Flash', 'gemini');
 const tryModelsStage1 = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage1', 'gemini');
 const tryModelsStage2 = makeCallerFn(KEY2, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage2', 'gemini');
-const tryModelsStage3 = makeCallerFn(KEY3, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage3', 'openrouter');
+const tryModelsStage3 = makeCallerFn(KEY3, ['gemini-2.5-flash', 'gemini-2.5-flash-lite'], 'Stage3', 'openrouter');
 
 // Legacy alias kept for any remaining references
 const tryModels = tryModelsFlash;
@@ -400,15 +408,15 @@ if ((process.env.NODE_ENV || 'development') !== 'production') {
 
 function sanitizeTema(input) {
     if (typeof input !== 'string') return { valid: false, reason: "Topic must be a string" };
-    
-    if (/<[^>]+>/.test(input) || 
-        /javascript:/i.test(input) || 
-        /onerror\s*=/i.test(input) || 
-        /onload\s*=/i.test(input) || 
-        /eval\s*\(/i.test(input) || 
-        /document\.cookie/i.test(input) || 
-        /window\.location/i.test(input) || 
-        /fetch\s*\(/i.test(input) || 
+
+    if (/<[^>]+>/.test(input) ||
+        /javascript:/i.test(input) ||
+        /onerror\s*=/i.test(input) ||
+        /onload\s*=/i.test(input) ||
+        /eval\s*\(/i.test(input) ||
+        /document\.cookie/i.test(input) ||
+        /window\.location/i.test(input) ||
+        /fetch\s*\(/i.test(input) ||
         /innerHTML/i.test(input)) {
         return { valid: false, reason: "HTML/script content not allowed" };
     }
@@ -450,7 +458,7 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
         if (!sanitizeResult.valid) {
             return res.status(400).json({ error: `Invalid topic: ${sanitizeResult.reason}` });
         }
-        
+
         opciones.tema = sanitizeResult.tema;
 
         const slidesNum = req.body.slides !== undefined ? parseInt(req.body.slides, 10) : 5;
@@ -727,28 +735,16 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
             // The editor's font picker (tools.js) applies any of 23 Google Fonts to elements
             // INSIDE the iframe. All 23 must be available in the iframe document.
             // One canonical <link> here replaces whatever @import the AI had.
-            const fontsLink = `
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap">
-<style>
-  /* Layering fix: Ensure all primary content elements are positioned so Z-INDEX works. */
-  section.s > *, .card, .flex-row, .grid-2, .grid-3, h1, h2, h3, p, .tag, .img-slot { 
-    position: relative; 
-    z-index: 1; 
-  }
-</style>`;
-            
             // 1. Ensure Lucide library is present
             if (!cleanedOutput.includes(lucideSrc)) {
                 if (cleanedOutput.includes('</head>')) {
-                    cleanedOutput = cleanedOutput.replace(/<\/head>/i, `${fontsLink}\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>\n</head>`);
+                    cleanedOutput = cleanedOutput.replace(/<\/head>/i, `<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>\n</head>`);
                 } else if (cleanedOutput.includes('<head>')) {
-                    cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n${fontsLink}\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>`);
+                    cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>`);
                 } else {
-                    cleanedOutput = fontsLink + `\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>\n` + cleanedOutput;
+                    cleanedOutput = `<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>\n` + cleanedOutput;
                 }
-                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected Lucide and layering CSS`);
+                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected Lucide library`);
             }
 
             // 2. Ensure lucide.createIcons() call is present
@@ -762,7 +758,26 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 console.log('Sanitizer: injected lucide-init.js');
             }
 
-            // 3. Ensure DOCTYPE remains at the start
+            // 3. Safety Closer: If the AI output ends abruptly (e.g. cut off in mid-comment or mid-tag),
+            // force-close them so they don't break the following scripts or icons.
+            let safetyCloser = "";
+            const openComments = (cleanedOutput.match(/<!--/g) || []).length;
+            const closedComments = (cleanedOutput.match(/-->/g) || []).length;
+            if (openComments > closedComments) safetyCloser += " -->";
+
+            const openSections = (cleanedOutput.match(/<section/g) || []).length;
+            const closedSections = (cleanedOutput.match(/<\/section>/g) || []).length;
+            if (openSections > closedSections) safetyCloser += "</section>";
+
+            if (!cleanedOutput.includes('</body>')) safetyCloser += "</body>";
+            if (!cleanedOutput.includes('</html>')) safetyCloser += "</html>";
+
+            if (safetyCloser) {
+                cleanedOutput += safetyCloser;
+                console.log(`Sanitizer: added safety closers: ${safetyCloser}`);
+            }
+
+            // 4. Ensure DOCTYPE remains at the start
             if (!cleanedOutput.trim().toLowerCase().startsWith('<!doctype html')) {
                 cleanedOutput = '<!DOCTYPE html>\n' + cleanedOutput;
             }
@@ -785,11 +800,11 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
     } catch (error) {
         const isQuotaError = error.message === 'QUOTA_EXHAUSTED';
         const isPipelineError = error.message && (
-            error.message.startsWith('STAGE1_') || 
-            error.message.startsWith('STAGE2_') || 
+            error.message.startsWith('STAGE1_') ||
+            error.message.startsWith('STAGE2_') ||
             error.message.startsWith('CONTENT_REJECTED')
         );
-        
+
         let userMessage;
         if (isQuotaError) {
             userMessage = 'The AI service has reached its usage limit. Please try again in a few minutes.';
@@ -939,7 +954,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
 
         setTimeout(() => {
             if (fs.existsSync(pdfPath)) {
-                fs.unlink(pdfPath, () => {});
+                fs.unlink(pdfPath, () => { });
                 console.log(`Auto-deleted unclaimed PDF: ${pdfFilename}`);
             }
         }, 10 * 60 * 1000);

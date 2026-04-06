@@ -1097,11 +1097,11 @@
     flex-shrink: 0;
 }
 
-/* Default state: show brain (pro), hide lightning (flash) */
+/* Default state: show diamond (pro), hide lightning (flash) */
 .btn-mode-icon--pro  { display: flex; }
 .btn-mode-icon--flash { display: none; }
 
-/* Active state: show lightning (flash), hide brain (pro) */
+/* Active state: show lightning (flash), hide diamond (pro) */
 .btn-mode-toggle.is-active .btn-mode-icon--pro  { display: none; }
 .btn-mode-toggle.is-active .btn-mode-icon--flash { display: flex; }
 

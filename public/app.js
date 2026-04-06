@@ -1302,12 +1302,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Ensure fonts are present
             if (!html.includes('family=Archivo+Black')) {
-                const G_FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet"><style>section.s > *, .card, .flex-row, .grid-2, .grid-3, h1, h2, h3, p, .tag, .img-slot { position: relative; z-index: 1; }</style>`;
+                const G_FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">`;
                 if (html.includes('<head>')) {
                     html = html.replace('<head>', '<head>' + G_FONTS);
                 } else {
                     html = G_FONTS + html;
                 }
+            }
+
+            // Safety Closer: If the AI output ends abruptly (e.g. cut off in mid-comment or mid-tag),
+            // force-close them so they don't break the following scripts or icons.
+            let safetyCloser = "";
+            const openComments = (html.match(/<!--/g) || []).length;
+            const closedComments = (html.match(/-->/g) || []).length;
+            if (openComments > closedComments) safetyCloser += " -->";
+
+            const openSections = (html.match(/<section/g) || []).length;
+            const closedSections = (html.match(/<\/section>/g) || []).length;
+            if (openSections > closedSections) safetyCloser += "</section>";
+
+            if (!html.includes('</body>')) safetyCloser += "</body>";
+            if (!html.includes('</html>')) safetyCloser += "</html>";
+
+            if (safetyCloser) {
+                html += safetyCloser;
             }
 
             const doc = previewIframe.contentDocument || previewIframe.contentWindow.document;

@@ -141,6 +141,8 @@ async function runPipeline({ rawInput, tryModelsStage1, tryModelsStage2, tryMode
   onStageUpdate('stage3', { status: 'running' });
   
   const stage3Prompt = buildStage3Prompt(rawInput, contentJson, designJson);
+  console.log(`[Pipeline] Starting Stage 3 (HTML Compositor) — waiting 2.5s for rate limit reset...`);
+  await new Promise(r => setTimeout(r, 2500));
   console.log(`[Pipeline] Starting Stage 3 (HTML Compositor) — streaming...`);
   
   const stage3Stream = await callStage3(stage3Prompt);

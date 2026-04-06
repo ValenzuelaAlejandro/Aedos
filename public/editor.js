@@ -760,7 +760,8 @@ function initEditor() {
             letterSpacing: style.letterSpacing,
             textTransform: style.textTransform,
             fontVariant: style.fontVariant,
-            fontStyle: style.fontStyle
+            fontStyle: style.fontStyle,
+            textDecoration: style.textDecoration
         };
     }
 
@@ -836,7 +837,8 @@ function initEditor() {
             el.style.overflow = isText ? 'visible' : 'hidden';
             el.style.minHeight = '0';
             el.style.minWidth = '0';
-            el.style.width = isText ? (rect.width + 4) + 'px' : rect.width + 'px';
+            // Use a 10px buffer for absolute text to absorb sub-pixel rendering differences
+            el.style.width = isText ? (rect.width + 10) + 'px' : rect.width + 'px';
             el.style.height = isFlexible ? 'auto' : (rect.height + 'px');
             el.style.minHeight = isFlexible ? (rect.height + 'px') : '0';
             el.style.left = (rect.left - slideRect.left) + 'px';
@@ -845,15 +847,19 @@ function initEditor() {
             if (isSingleLine) el.style.whiteSpace = 'nowrap';
         }
 
-        el.style.fontSize = inherited.fontSize;
-        el.style.fontFamily = inherited.fontFamily;
-        el.style.color = inherited.color;
-        el.style.lineHeight = inherited.lineHeight;
-        el.style.fontWeight = inherited.fontWeight;
-        el.style.letterSpacing = inherited.letterSpacing;
-        el.style.textTransform = inherited.textTransform;
-        el.style.fontVariant = inherited.fontVariant;
-        el.style.fontStyle = inherited.fontStyle;
+        if (inherited) {
+            el.style.fontSize = inherited.fontSize;
+            el.style.fontFamily = inherited.fontFamily;
+            el.style.color = inherited.color;
+            el.style.lineHeight = inherited.lineHeight;
+            el.style.textAlign = inherited.textAlign;
+            el.style.fontWeight = inherited.fontWeight;
+            el.style.letterSpacing = inherited.letterSpacing;
+            el.style.textTransform = inherited.textTransform;
+            el.style.fontVariant = inherited.fontVariant;
+            el.style.fontStyle = inherited.fontStyle;
+            el.style.textDecoration = inherited.textDecoration;
+        }
 
         const textElements = el.querySelectorAll(TEXT_EDITABLE_SELECTORS);
         textElements.forEach(item => {
