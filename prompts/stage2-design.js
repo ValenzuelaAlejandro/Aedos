@@ -109,7 +109,7 @@ BEFORE WRITING ANY COLORS, FONTS, OR PATTERNS — ANSWER THESE 7 QUESTIONS:
    • Hip-hop poster (gold/warm accent) — NOT cool purples
    • Medical/scientific (teal/precision blue) — NOT soft pastels
    • Racing (red/yellow saturation) — NOT desaturated muted tones
-   The answer is your accent_hex and accent2_hex. DERIVE them, don't pick them from a palette.
+   The answer is your array of 1 to 7 colors. DERIVE them, don't pick them from a generic palette.
 
 5. LINE LANGUAGE & TEXTURE: What visual "gestures" are inherent in the artifact?
    • Museum: thin ruled lines, frame borders, precise spacing
@@ -136,7 +136,7 @@ DO think: "this history is about [specific era/place/culture] → what artifact 
 Example correct reasoning:
   Topic: "Historia del Hip-Hop en los 90s"
   Artifact: "concert tour poster on glossy black with gold chain lettering and spray-paint texture"
-  → Color derivation: Hip-hop era = GOLD (#D4AF37) warm + deep crimson (#8B0000) accent-2 (not purple, not cyan)
+  → Color derivation: Hip-hop era = GOLD (#D4AF37) warm + deep crimson (#8B0000) (not purple, not cyan)
   → Font: Bebas Neue (compressed, aggressive) + DM Sans (clean body text)
   → Texture: coarse-grain pattern (screen-print imitation), NOT digital grid
   → Typography energy: aggressive, high weight (900), negative letter-spacing
@@ -241,7 +241,7 @@ FOCAL POINTS & VISUAL WEIGHT — MANDATORY
 You MUST specify in each slide's composition:
 - What is the PRIMARY focal point (the thing the eye lands on first)?
 - How big? (size in rem or relative: 3x/4x/5x larger than body text)
-- What color? (accent or accent-2)
+- What color? (specify which color index to use)
 - What is SECONDARY focal point? (smaller, supporting)
 
 EXAMPLES of strong focal points:
@@ -259,8 +259,8 @@ EXAMPLES of WEAK focal points:
 
 YOUR JOB:
 In the composition field, explicitly state:
-"Nehalem (5rem, accent) is the primary focal point. Year 2008 (2rem, accent-2) is secondary."
-"Card 1 (icon+title, accent-dim bg) and Card 2 (icon+title, accent-2-dim bg) share visual weight equally."
+"Nehalem (5rem, color 1) is the primary focal point. Year 2008 (2rem, color 2) is secondary."
+"Card 1 (icon+title, color 1 bg) and Card 2 (icon+title, color 2 bg) share visual weight equally."
 "Stat: 1,000,000 (7rem, accent) dominates. Label (1.2rem, dim) supports below."
 
 Stage 3 will INTERPRET this and build the layout accordingly.
@@ -312,7 +312,7 @@ FOR EVERY SLIDE, work through these 7 decisions and write them in composition_li
 
 ━━━ 6. ACCENT BUDGET ━━━
   Max 3 accent uses per slide. Free uses (don't count): .tag + decorative structural lines.
-  Write in color_use: "accent: second word in h2 title + stat value. Budget: 2/3."
+  Write in color_use: "use color 1 on second word in h2 title + stat value. Budget: 2/3."
   "accent on important things" = FAILURE — be explicit about exactly which elements.
 
 ━━━ 7. COVER CONTENT BUDGET ━━━
@@ -382,8 +382,8 @@ CARDS (features/concepts) — layout_family: "cards"
   Structure: 3–4 feature cards in a grid (2x2 or 3x1 asymmetric).
   Each card: icon (16-22px lucide icon) + h3 title (2rem) + 1-2 sentence description (1.2rem body).
   Card styling: semi-transparent surface (rgba(255,255,255,.03)), thin border, 12px radius.
-  Use accent colors: 2 cards one color, 2 cards accent-2 color (or staggered).
-  Composition: "Card 1 top-left with [icon name], Card 2 top-right with [icon name], Card 3 bottom with [icon name]..."
+  Use accent colors: alternate colors from the palette across the cards.
+  Composition: "Card 1 top-left with [icon name], Card 2 top-right with [icon name]"
   Spacing: grid-gap 2-2.5rem, not touching edges.
   This is HIGH visual density but STRUCTURED.
 
@@ -479,9 +479,12 @@ COLOR — DERIVE FROM real_world_analog, NO CATEGORY SHORTCUTS:
 The color lookup table has been removed. Domain category reasoning is FORBIDDEN.
 Your palette comes ONLY from the visual_world.real_world_analog from Stage 1.
 
-Step 1: Read real_world_analog carefully.
-Step 2: What are the 2 most visually dominant, culturally iconic colors of that specific physical object?
-Step 3: Those 2 colors are your accent_hex and accent2_hex.
+USER OVERRIDE RULE:
+If the ORIGINAL USER REQUEST explicitly asks for specific colors or hex codes (e.g., "in blue and red tones", "use #33FF33 and black", "use corporate orange colors"), this OVERRIDES the analog derivation. You MUST use the exact colors the user requested as your primary choices in the colors array.
+
+Step 1: Check if the user explicitly requested colors. If yes, use those. If no, read real_world_analog carefully.
+Step 2: What are the visually dominant, culturally iconic colors of that specific physical object? (Derive 1 to 7 colors).
+Step 3: Those colors form your colors array.
 
 WRONG: "This topic relates to music history → I'll use cyan or purple." (category shortcut)
 RIGHT: "real_world_analog says 'hip-hop tour poster on matte black with gold lettering' → accent = warm gold #C5A028, accent-2 = deep crimson #8B1A1A."
@@ -494,8 +497,7 @@ SATURATION CALIBRATION — match the artifact's energy:
 JSON STRUCTURE TO RETURN:
 {
   "palette": {
-    "accent_hex": "#hexcolor",
-    "accent2_hex": "#hexcolor — must contrast with primary",
+    "colors_hex": ["#hexcolor", "#hexcolor"], // Array of 1 to 7 hex colors derived from artifact. Order from most dominant to least dominant.
     "bg_hex": "#hex or null (only if user requested specific bg color)",
     "bg_mode": "deep-dark | rich-dark | mid-tone | light (default: rich-dark)",
     "color_rationale": "One sentence connecting real_world_analog → palette. e.g. 'Gold chain lettering on classic hip-hop tour posters → warm gold #C5A028 accent; concert backdrop crimson → accent-2 #8B1A1A.' This field is MANDATORY and must cite the specific artifact element."

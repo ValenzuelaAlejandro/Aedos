@@ -83,9 +83,10 @@ async function runStage(tryModelsFn, prompt, stageName) {
  * @param {Function} options.tryModelsStage3 - Caller for Stage 3 (HTML)
  * @param {Function} [options.tryModels] - Legacy fallback if stage-specific callers not provided
  * @param {Function} options.onStageUpdate - Callback for progress updates: (stage, data) => void
+ * @param {number} [options.maxSlides=12] - Hard limit on slides to prevent token waste
  * @returns {object} { stage3Stream, contentJson, designJson } - stage3Stream is the async iterable
  */
-async function runPipeline({ rawInput, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate }) {
+async function runPipeline({ rawInput, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, maxSlides = 12 }) {
   // Allow legacy callers that pass a single tryModels function
   const callStage1 = tryModelsStage1 || tryModels;
   const callStage2 = tryModelsStage2 || tryModels;
@@ -111,6 +112,13 @@ async function runPipeline({ rawInput, tryModelsStage1, tryModelsStage2, tryMode
   // Validate minimum fields
   if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
     throw new Error('STAGE1_INVALID: Stage 1 output has no slides array');
+  }
+  
+  // Safety net: Forcibly trim slides array if model hallucinated past the limit to prevent token waste
+  if (contentJson.slides.length > maxSlides) {
+    console.log(`[Pipeline] Stage 1 output exceeded maxSlides (${maxSlides}). Trimming array to save tokens.`);
+    contentJson.slides = contentJson.slides.slice(0, maxSlides);
+    contentJson.slide_count = maxSlides;
   }
   
   onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count });

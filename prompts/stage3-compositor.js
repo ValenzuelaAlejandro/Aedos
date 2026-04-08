@@ -7,6 +7,19 @@
  */
 
 module.exports = function buildStage3Prompt(rawInput, contentJson, designJson) {
+  const p = designJson.palette || {};
+  const colors = Array.isArray(p.colors_hex) && p.colors_hex.length > 0 
+      ? p.colors_hex 
+      : [p.accent_hex, p.accent2_hex].filter(Boolean);
+      
+  const accent1 = colors[0] || "#ffffff";
+  const accent2 = colors[1] || accent1;
+  const accentVars = colors.map((c, i) => {
+    const num = i === 0 ? '' : `-${i+1}`;
+    const name = i === 0 ? 'accent' : `accent${num}`;
+    return `    --accent${num}:${c}; --accent${num}-dim:rgba([${name}],.15);`;
+  }).join("\n");
+
   return `You are an expert HTML/CSS compositor. You build presentation slides that look like high-end editorial design — NOT like PowerPoint. Each slide is composed from scratch following the creative direction you receive.
 
 OUTPUT: ONLY valid HTML. No markdown, no fences, no explanations. Start with <!-- CONFIG
@@ -118,6 +131,10 @@ CONTENT BUDGET AND SCALING:
     A) No wrapper: place children directly in section
     B) With wrapper: MUST cancel with style="padding:0" on section
   ✗ WRONG: <section class="s"> + wrapper with padding:4rem = double padding
+
+  COLUMN DIVIDERS — AVOID BORDERS ON LAYOUT CONTAINERS:
+  ✗ BANNED: style="border-right:2px solid..." on a flex layout column. The editor detects borders and mistakenly groups the whole column as a single immovable block.
+  ✓ REQUIRED: To add a vertical separator between two columns, insert <div class="v-divider" style="margin:4rem 0;"></div> as an independent element between them.
 
   CARD LAYOUTS — MANDATORY HORIZONTAL GRID (NEVER VERTICAL STACK):
   3+ cards stacked vertically in flex-column is ALWAYS broken. Here is the math:
@@ -328,19 +345,19 @@ YOUR CSS MUST INCLUDE:
   @import url('[font url for ${designJson.font_pair}]');
   :root {
     --bg:[from mode]; --surface:[from mode]; --surface2:[from mode];
-    --accent:${designJson.palette.accent_hex}; --accent-light:[+20%L]; --accent-dim:rgba([accent],.15);
-    --accent-2:${designJson.palette.accent2_hex}; --accent-2-dim:rgba([accent2],.15);
+${accentVars}
     --text:[from mode]; --text-dim:[from mode]; --border:[from mode];
   }
   html { font-size:10px; }
   body { margin:0; font-family:'[body]',sans-serif; color:var(--text); background:var(--bg); }
   section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; box-sizing:border-box; position:relative; }
   @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
-  h1,h2,h3,h4 { font-family:'[heading]',serif; margin:0; line-height:1.15; color:var(--text); }
+  * { box-sizing: border-box; }
+  h1,h2,h3,h4 { font-family:'[heading]',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; text-wrap:balance; }
   h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
   h2 { font-size:4rem; font-weight:700; letter-spacing:-.01em; }
-  h3 { font-size:2.2rem; font-weight:700; }
-  p { font-size:1.5rem; line-height:1.5; margin:0; color:var(--text-dim); }
+  h3 { font-size:2.2rem; font-weight:700; flex-shrink:0; }
+  p { font-size:1.5rem; line-height:1.5; margin:0; color:var(--text-dim); flex-shrink:0; text-wrap:pretty; }
   .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
   .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
   /* THEN: add custom per-slide CSS classes for LAYOUT and TYPOGRAPHY only.
@@ -613,8 +630,7 @@ ${JSON.stringify({
   slide_count: contentJson.slide_count,
   tone: contentJson.tone,
   audience: contentJson.audience,
-  accent_hex: designJson.palette.accent_hex,
-  accent2_hex: designJson.palette.accent2_hex,
+  colors_hex: colors,
   bg_hex: designJson.palette.bg_hex,
   bg_mode: designJson.palette.bg_mode,
   font_pair: designJson.font_pair,

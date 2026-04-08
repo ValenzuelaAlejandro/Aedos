@@ -31,19 +31,32 @@ const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.
     .filter(Boolean);
 
 function processQueue() {
-    if (activeGenerations < 3 && queue.length > 0) {
+    if (activeGenerations < 10 && queue.length > 0) {
         const { resolve } = queue.shift();
         activeGenerations++;
         resolve();
     }
 }
 
-// Rate Limiters
-const genLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
+const flashLimiter = rateLimit({
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
     max: 5,
-    message: { error: 'RATE_LIMIT_EXCEEDED' }
+    message: { error: 'DAILY_LIMIT_EXCEEDED_FLASH' }
 });
+
+const proLimiter = rateLimit({
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
+    max: 3,
+    message: { error: 'DAILY_LIMIT_EXCEEDED_PRO' }
+});
+
+const checkDailyLimits = (req, res, next) => {
+    if (req.body.mode === 'pro') {
+        proLimiter(req, res, next);
+    } else {
+        flashLimiter(req, res, next);
+    }
+};
 
 const finalizeLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -293,7 +306,14 @@ async function callGemini(apiKey, modelList, prompt, stageName) {
     for (const modelName of modelList) {
         console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Trying Gemini: ${modelName}`);
         try {
-            const gemini = genAI.getGenerativeModel({ model: modelName, safetySettings: SAFETY });
+            const gemini = genAI.getGenerativeModel({ 
+                model: modelName, 
+                safetySettings: SAFETY,
+                generationConfig: {
+                    maxOutputTokens: 8192,
+                    temperature: 0.7
+                }
+            });
             const result = await gemini.generateContentStream(prompt);
             if (result && result.response) result.response.catch(() => { });
             console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Gemini OK: ${modelName}`);
@@ -438,7 +458,7 @@ function sanitizeTema(input) {
     return { valid: true, tema: cleanedString };
 }
 
-app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, res) => {
+app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (req, res) => {
     let cancelled = false;
     let completed = false;
     let sseKeepAlive = null;
@@ -471,9 +491,9 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 fields: { slides: 'must be integer between 1 and 15' }
             });
         }
-        
+
         // Cap the actual slides requested to the AI based on the mode
-        const slideHardLimit = usePipeline ? 12 : 15;
+        const slideHardLimit = usePipeline ? 8 : 15;
         if (slidesNum > slideHardLimit) {
             slidesNum = slideHardLimit;
             opciones.slides = slidesNum;
@@ -505,7 +525,7 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
         }, 25000);
 
         // Manage Entry to the Queue
-        if (activeGenerations >= 3) {
+        if (activeGenerations >= 10) {
             res.write(`data: ${JSON.stringify({ queued: true, position: queue.length + 1 })}\n\n`);
             await new Promise((resolve) => {
                 const item = { resolve };
@@ -534,6 +554,7 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
 
             const pipelineResult = await runPipeline({
                 rawInput: opciones.tema,
+                maxSlides: slideHardLimit,
                 tryModelsStage1,
                 tryModelsStage2,
                 tryModelsStage3,
@@ -567,6 +588,9 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
         }
 
         try {
+            let streamSlideCount = 0;
+            const slideTagRegex = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
+
             for await (const chunk of result.stream) {
                 if (cancelled) {
                     console.log('Generation manually stopped: client disconnected.');
@@ -583,6 +607,16 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 }
 
                 if (!chunkText) continue;
+
+                // Stop AI hallucination: If we detect more slides than allowed, kill the stream immediately to save tokens.
+                const matches = chunkText.match(slideTagRegex);
+                if (matches) {
+                    streamSlideCount += matches.length;
+                    if (streamSlideCount > slideHardLimit) {
+                        console.warn(`[Pipeline] AI attempted to exceed ${slideHardLimit} slides. Terminating stream mid-generation to save tokens.`);
+                        break;
+                    }
+                }
 
                 fullHtml += chunkText;
 
@@ -678,8 +712,8 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 ].join('\n');
             }
 
-            // Safety net: hard cap slides (12 for Pro mode, 15 for Flash mode) — strip any section.s beyond the limit
-            const MAX_SLIDES = usePipeline ? 12 : 15;
+            // Safety net: hard cap slides (8 for Pro mode, 15 for Flash mode) — strip any section.s beyond the limit
+            const MAX_SLIDES = usePipeline ? 8 : 15;
             const slideTagRe = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
             const slideMatches = [...cleanedOutput.matchAll(slideTagRe)];
             if (slideMatches.length > MAX_SLIDES) {
