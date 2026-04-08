@@ -25,7 +25,7 @@ const queue = [];
 
 // OpenRouter model list — comma-separated in env var OPENROUTER_MODEL_LIST
 // or single model via OPENROUTER_MODEL. Defaults to qwen free-tier.
-const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus:free,minimax/minimax-m2.5:free')
+const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'minimax/minimax-m2.5:free')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
