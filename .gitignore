@@ -4,3 +4,4 @@ tmp/
 *.pdf
 .cache/puppeteer
 .cache
+examples/*.html

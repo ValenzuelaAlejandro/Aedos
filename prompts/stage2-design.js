@@ -12,12 +12,71 @@ module.exports = function buildStage2Prompt(rawInput, contentJson) {
 
 OUTPUT: ONLY a valid JSON object. No markdown, no fences, no explanations.
 
-CRITICAL BEFORE OUTPUTTING JSON:
-Before you output the slides array, WRITE IN A CODE COMMENT your atmosphere_pattern rotation plan.
-Example: // PATTERN PLAN: Slide1=grid-mesh, Slide2=ruled-lines, Slide3=dot-grid, Slide4=crosshatch, Slide5=diagonal-grain, Slide6=none, Slide7=scanlines, Slide8=grid-mesh
-Then VERIFY no pattern appears twice. If it does, FIX it before output. This will be checked.
+CRITICAL BEFORE OUTPUTTING JSON — DYNAMIC ATMOSPHERE PATTERN SELECTION:
+Your job is to SELECT atmosphere patterns FOR EACH SLIDE that are:
+  A) COHERENT with the real_world_analog (visual artifact) and deck signature
+  B) UNIQUE — no pattern repeats across all slides
+  C) INTENTIONAL — each pattern choice is explained in your reasoning
+  D) DERIVED from theme analysis, NEVER from a hardcoded list
+
+Before you output the slides array, WRITE IN A CODE COMMENT your atmosphere reasoning:
+// ATMOSPHERE REASONING:
+// Theme artifact: "[real_world_analog from Stage 1]"
+// Atmosphere strategy: [e.g. museum/editorial = subtle lines; tech/hacker = grid/scanlines; print/concert = coarse grain; fluid/nature = organic]
+// Slide 1: [pattern] — justification (e.g., "cover traditional elegant → ruled lines")
+// Slide 2: [pattern] — justification (e.g., "concept cards technical → grid mesh")
+// Slide 3: [pattern] — justification (e.g., "data heavy → no pattern, stat dominates")
+// ... etc for each slide
+// Pattern uniqueness check: [list all 8 patterns] — verify no duplicates
+
+ATMOSPHERE PATTERN POOL (pick FROM, don't force a hardcoded cycle):
+  grid-mesh (digital/tech/clean grid)
+  ruled-lines (archival/editorial/print)
+  dot-grid (magazine/design/refined)
+  crosshatch (mechanical/blueprint/technical)
+  coarse-grain (printed/screen-print/poster)
+  none (stat/data dominates, minimal atmosphere)
+  vertical-left-edge (structural accent, technical)
+  museum-frame (gallery/fine-art/exhibition)
+  top-bar (bold/poster/editorial)
+  corner-markers (precision/technical/document)
+
+CRITICAL DERIVATION RULES:
+  If real_world_analog includes "concert/poster/printed" → coarse-grain, top-bar, or no-pattern
+  If real_world_analog includes "museum/gallery/fine-art" → ruled-lines, museum-frame
+  If real_world_analog includes "terminal/hacker/technical" → grid-mesh, crosshatch
+  If real_world_analog includes "magazine/editorial" → dot-grid, ruled-lines
+  If real_world_analog includes "blueprint/mechanical" → crosshatch, grid-mesh
+  If a slide is DATA/STAT-heavy → "none" (let the big number dominate, no competing pattern)
+  If a slide is TITLE/INTRO-heavy → ruled-lines or grid-mesh (architectural feel)
+  ALWAYS vary between "heavy atmosphere" and "minimal atmosphere" slides
+  NEVER use the same pattern twice
+
+DO NOT output the code comment with the reasoning in the final JSON. It is for your planning only.
 
 ORIGINAL USER REQUEST: "${rawInput}"
+
+═══════════════════════════════════════════════════════════════
+CRITICAL DETECTION: MINIMALIST/TERMINAL AESTHETIC MODE
+═══════════════════════════════════════════════════════════════
+DETECT if rawInput OR contentJson.visual_world.real_world_analog contains ANY of these keywords:
+  • "ultra-minimalista", "negro sólido", "sin bordes", "solid black", "no rounded"
+  • "terminal", "hacker", "70s", "monochrome", "ancient", "primitive", "no gradients"
+  • "sin decorativos", "líneas rectas", "ángulos rectos", "sin adornos"
+  
+IF DETECTED → MODE="MINIMALIST_TERMINAL" → SPECIAL RULES APPLY:
+  ✓ Set mood_global to explicitly include "terminal" or "monochrome minimal"
+  ✓ Set EVERY composition_literal to include:
+      \`\` "border-radius: 0px MANDATORY on all elements"
+      \`\` "NO gradients. Solid colors ONLY"
+      \`\` "NO decorative overlays (no vignettes, no washes, no soft effects)"
+  ✓ In generation, PREPEND to your JSON output:
+      \`\` "// *** MINIMALIST TERMINAL MODE ACTIVE ***"
+      \`\` "// Stage 3 MUST override: .card{border-radius:0!important} .icon-wrapper{border-radius:0!important} .accent-bar{border-radius:0!important}"
+      \`\` "// Allowed patterns: 'grid-mesh' OR 'none' ONLY. NO decorative patterns."
+      \`\` "// PROHIBIT: dot-grid, coarse-grain, museum-frame, top-bar, corner-markers, gradient overlays"
+
+IF NOT DETECTED → Standard creative derivation proceeds below.
 
 CONTENT (from extraction):
 ${JSON.stringify(contentJson, null, 2)}
@@ -28,37 +87,93 @@ Texture feel: ${contentJson.visual_world?.texture_feel ?? '?'} · Typography ene
 
 This is your creative starting point. Ask: what does that physical object ACTUALLY look like? What typography, colors, textures, and surface treatments define it? Derive your font pair, accent color, bg_mode, and atmospheric identity from THAT — not from a generic dark-editorial default.
 
-HOW TO DERIVE — EXAMPLES OF THE REASONING PROCESS:
-→ "concert tour poster on black paper" → bold compressed or condensed headline font, deep-dark bg near pure black, ultra-high contrast, coarse screen-print texture feel, band-logo energy
-→ "museum fine art catalog" → warm archival serif (Cormorant/Playfair), rich-dark near-brown bg, gold/amber accent, thin ruled horizontal lines, wide margins and breathing room
-→ "hacker terminal printout green-on-black" → deep-dark or pure black bg, neon green (#00ff9d) accent, JetBrains Mono prominent everywhere, scanline atmosphere
-→ "race weekend program booklet" → ultra-compressed or bebas-style headlines, bold saturated color, speed-line energy, sponsor-badge visual fragment elements
-→ "artisan recipe/food journal" → rich-dark warm bg, terracotta/cream palette, organic serif body, printed texture, generous whitespace with handcrafted feel
-→ "academic physics textbook" → deep neutral dark, teal or precise blue, IBM Plex Serif, structured precision, margin-annotation visual elements, axis reference lines
-→ "vinyl record inner sleeve" → pure black bg, minimal layout, high typographic contrast; if hip-hop/soul/jazz era → warm gold or amber accent, NOT cyan/blue
-→ "sports broadcast graphics" → rich-dark, bold geometric sans, vivid accent, ticker-strip elements, data overlay patterns
-→ "classic hip-hop tour poster on matte black with chain-gold lettering" → jet-black bg, warm gold (#C5A028 or #D4AF37) accent, deep crimson or brick-orange accent-2, Bebas Neue compressed headline, diagonal screen-print grain; NEVER default to cyan/purple for rap/hip-hop
-→ "90s rap record inner sleeve with graffiti typography" → near-black bg, acid-yellow or bold warm gold accent, high-contrast monochrome energy, aggressive compressed type
-→ "jazz album on earthy matte sleeve with amber and rust tones" → deep warm charcoal bg, dusty amber/rust (#B8622A) primary, organic serif (Cormorant), horizontal ruled texture
-→ "rock/metal concert program bleach-white on charcoal" → near-black bg, stark white or blood-red (#CC1111) accent, aggressive condensed/bold type
-→ "nature documentary coffee-table book" → deep forest/olive bg, muted sage green or warm cream accent, soft organic serif, handcrafted feel
-→ "luxury fashion editorial spread on coated black" → deep black bg, pale gold or rose/champagne accent, extreme whitespace, ultra-thin elegant serif
-→ "retro video game box art bold colors" → dark bg, saturated electric accent (red or yellow), blocky compressed type
+HOW TO DERIVE ARTISTIC DIRECTION — DYNAMIC ANALYSIS SYSTEM:
 
-COLOR DERIVATION IS MANDATORY — before writing any hex value, ask yourself:
-"What are the 2 most visually iconic, culturally recognizable colors of the physical artifact I just described?"
-THOSE become your accent_hex and accent2_hex. No exceptions, no shortcuts.
+BEFORE WRITING ANY COLORS, FONTS, OR PATTERNS — ANSWER THESE 7 QUESTIONS:
+1. ARTIFACT IMMERSION: What is the real_world_analog? What does it ACTUALLY look like if you held it?
+   Example: NOT "museum catalog" (too generic) but "museum fine art catalog on thick cream stock with gold foil spine, pages smell like archival paper"
 
-APPLY THE SAME LOGIC TO ANY TOPIC — pure derivation, no category shortcuts.
-"Historia del Rap 90s" and "Historia de la Segunda Guerra Mundial" are both "history" but their artifacts are completely different: a gold-lettered concert poster vs. an archival newsreel document. Completely different palettes.
-A topic is not a category. The artifact it evokes is your color source.
+2. DOMINANT VISUAL CHARACTERISTICS: What are the 2-3 most striking visual features of that artifact?
+   Example: If it's "concert tour poster", the features are: HIGH CONTRAST (black/neon), COMPRESSED TYPOGRAPHY (impact), TEXTURED PAPER (screen-print grain)
+   NOT just "colors and fonts" — the actual TEXTURE and PRINTING METHOD
 
-DECK VARIATION SYSTEM:
+3. CULTURAL/EMOTIONAL CONTEXT: What world does this topic belong to? 
+   • Hip-hop culture → gold chains, spray-paint texture, urban street aesthetic
+   • Fine art world → restraint, breathing room, subtle materials
+   • Technology hacker world → efficiency, green on black, monospace, minimal ornament
+   • Corporate/startup → clean sans-serif, professional color palette, data-forward
+   • Academic/scientific → precision typography, ruled lines, margin annotations, serious tone
+
+4. ICONIC COLORS OF THE ARTIFACT: Ask yourself: "If someone showed me this artifact with the color removed, what colors would I DEMAND to see?"
+   • Jazz album (dusty amber/rust) — NOT cyan/blue
+   • Hip-hop poster (gold/warm accent) — NOT cool purples
+   • Medical/scientific (teal/precision blue) — NOT soft pastels
+   • Racing (red/yellow saturation) — NOT desaturated muted tones
+   The answer is your accent_hex and accent2_hex. DERIVE them, don't pick them from a palette.
+
+5. LINE LANGUAGE & TEXTURE: What visual "gestures" are inherent in the artifact?
+   • Museum: thin ruled lines, frame borders, precise spacing
+   • Concert/poster: thick solid bars, screen-print coarse grain, rough edges
+   • Terminal: clean grid, horizontal scan-line feel, precise monospace alignment
+   • Nature/organic: flowing curves, water-inspired, soft gradients (linear only, no radial)
+   • Print: halftone dots, registration marks, visible printing texture
+
+6. RHYTHM & DENSITY: How does the artifact present information?
+   • Museum catalog: generous whitespace, few items per page, breathing room
+   • Poster: dense information, high-contrast text, every inch matters
+   • Data zine: compact, grid-based, visual density high
+   • Editorial magazine: varied rhythm, image + text blocks, asymmetric
+
+7. TYPOGRAPHIC PERSONALITY: Does the font BELONG to this artifact's world?
+   • NOT "what is a nice font" but "what fonts would a designer choose if they were printing this artifact in the real world RIGHT NOW?"
+   • Concert poster designer would use Bebas Neue or custom blackletter, NEVER Cormorant
+   • Museum curator would use Playfair Display or Garamond, NEVER Bebas
+
+APPLY THIS TO EVERY TOPIC — NO SHORTCUTS:
+Do NOT think: "historical topic → use serif font"
+DO think: "this history is about [specific era/place/culture] → what artifact would capture this world? What fonts/colors does THAT artifact use?"
+
+Example correct reasoning:
+  Topic: "Historia del Hip-Hop en los 90s"
+  Artifact: "concert tour poster on glossy black with gold chain lettering and spray-paint texture"
+  → Color derivation: Hip-hop era = GOLD (#D4AF37) warm + deep crimson (#8B0000) accent-2 (not purple, not cyan)
+  → Font: Bebas Neue (compressed, aggressive) + DM Sans (clean body text)
+  → Texture: coarse-grain pattern (screen-print imitation), NOT digital grid
+  → Typography energy: aggressive, high weight (900), negative letter-spacing
+  → Tone: iconic, street credibility, cultural weight
+
+Incorrect reasoning (AVOID):
+  Topic: "Historia del Hip-Hop"
+  Artifact: "generic history presentation slide theme"
+  → Color: pick from a startup palette (blue, purple, cyan)
+  → Font: nice sans-serif (no connection to artifact)
+  → Result: looks like every other tech presentation, zero cultural identity
+
+DECK VARIATION SYSTEM — SIGNATURE DERIVATION:
 - You are designing ONE specific deck, not a reusable template.
-- Pick a deck signature that directly derives from the real_world_analog above. The signature is a 3-5 word identity: 'heavy metal tour editorial', 'museum catalog darkness', 'terminal data zine', 'race programme speed'. DO NOT use generic ones unrelated to the topic.
-- The cover and conclusion MUST NOT default to the same composition every time.
-- Choose exactly one cover_archetype and one conclusion_archetype from the lists below and make the whole deck feel coherent with them.
-- If the topic changes, the deck signature should change with it. A music topic should not look like cybersecurity; a historical topic should not look like a startup pitch.
+- DERIVE the deck_signature directly from real_world_analog AND topic emotional core. Do NOT pick a generic signature.
+  Examples of proper derivations (NOT templates):
+    "Historia de Metallica" (concert tour poster) → signature: "heavy metal tour archive"
+    "Japón feudal" (museum samurai armor exhibit) → signature: "shogun artifacts museum"
+    "Cybersecurity pentesting" (hacker zine with green terminal) → signature: "penetration testing terminal culture"
+    "Recetas de pasta" (artisan cookbook, warm paper) → signature: "trattoria recipe tradition"
+    "Fórmula 1 historia" (race weekend program, bold action) → signature: "racing circuit momentum"
+  DERIVE every signature to match BOTH the artifact AND the topic's actual character.
+  
+- For cover_archetype and conclusion_archetype:
+  • Do NOT use a list. Derive each archetype directly from the deck_signature.
+  • If signature is "museum catalog elegance" → cover_archetype might be "centered serif title, thin frame border"
+  • If signature is "concert poster energy" → cover_archetype might be "asymmetric bold layout, high contrast accent blocks"
+  • If signature is "terminal hacker culture" → cover_archetype might be "monospace label strip, grid background, minimal color"
+  • The archetype MUST BE DIFFERENT from all past decks — invent one that matches this specific deck's personality
+  • conclusion_archetype MUST reflect the topic's resolution, not a generic closing template
+
+- Typography MUST MATCH the deck signature energy:
+  • "museum" signature → serif fonts (Playfair, Cormorant), elegant restraint, hand-spaced
+  • "concert/poster" signature → compressed/bold sans (Bebas, Syne), high optical weight, aggressive kerning
+  • "terminal" signature → monospace (JetBrains Mono) prominent, tight data-forward rhythm
+  • "editorial" signature → balanced sans-serif (DM Sans, Inter), readable at any size
+  Do NOT use Playfair with a hacker topic or Bebas with a museum topic — match energy.
 
 ═══════════════════════════════════════════════
 NO "FLAT DESIGN SYNDROME" — VISUAL VARIETY MANDATE
@@ -387,10 +502,10 @@ JSON STRUCTURE TO RETURN:
   },
   "font_pair": "one of the pairs above",
   "deck_signature": "short visual phrase describing this deck's specific identity",
-  "cover_archetype": "split-hero | poster-center | label-strip | image-monolith",
-  "conclusion_archetype": "manifesto | recap-strip | quote-close | callout-corner",
-  "mood_global": "2-4 word feel (e.g. 'terminal meets boardroom')",
-  "domain_atmosphere": "Specific CSS atmospheric effects derived from the real_world_analog — written as prose instructions for Stage 3. Example A: 'thin horizontal ruled lines every 60px at 3% opacity, warm amber radial glow bottom-left corner'. Example B: 'vertical scanlines repeating 4px, neon green radial glow top-right'. Example C: 'dot-grid 28px spacing at 10% opacity, diagonal coarse noise texture overlay, no grid mesh'. MUST match the topic's physical world — do NOT default to grid-mesh + sidebar for every deck.",
+  "cover_archetype": "DERIVED FROM SIGNATURE — brief description of how the cover will look (e.g. 'centered serif title with thin golden rules' or 'asymmetric bold poster layout with accent block sidebar')",
+  "conclusion_archetype": "DERIVED FROM SIGNATURE — brief description of conclusion (e.g. 'manifesto statement with full-width accent bar above' or 'quote-centered with decorative corner marks')",
+  "mood_global": "2-4 word feel describing the ENTIRE deck's emotional/aesthetic character (e.g. 'museum archival elegance', 'hacker zine intensity', 'race program velocity', 'editorial storytelling')",
+  "domain_atmosphere": "FULLY DERIVED FROM real_world_analog — specific atmospheric CSS strategy in 2-3 sentences. Example A: 'Museum fine-art catalog aesthetic: thin horizontal ruled lines 60px apart at 2% opacity, warm amber vignette glow from bottom corners, refined absence of visual clutter.' Example B: 'Concert poster energy: heavy coarse diagonal screen-print grain texture, high contrast black substrate, thick gold accent bar strips between major sections.' Example C: 'Terminal/hacker culture: clean grid mesh 48px spacing, neon accent pulses on data elements, monospace type hierarchy reinforcement, spare minimal ornament.' DO NOT use generic descriptions like 'clean modern design'. ALWAYS cite the specific artifact's visual properties.",
   "slides": [
     {
       "index": 1,
@@ -444,22 +559,66 @@ RECOMMENDATION FOR DESIGN:
   Light sections on dark-mode decks are RARELY necessary and almost always cause contrast failures.
 
 CRITICAL RULES:
-- slides array must have exactly ${contentJson.slide_count} items matching the content JSON
-- Every composition must be SPECIFIC — spatial positions, sizes, ratios. "Clean layout" = FAILURE
-- No two consecutive slides can have the same structure
-- ATMOSPHERE PATTERN ROTATION (MANDATORY — NON-NEGOTIABLE):
-  ✗ FORBIDDEN: Using the same atmosphere_pattern on ANY two slides
-  ✓ REQUIRED: Create a COMPLETE rotation matrix BEFORE filling JSON. Write it as a comment first.
+- ATMOSPHERE PATTERN ASSIGNMENT (COMPLETE REFACTOR — NO HARDCODING):
+  ✗ FORBIDDEN: Cycling through a fixed pattern list or repeating any pattern name
+  ✓ REQUIRED: Derive patterns PER SLIDE based on:
+      1. Real_world_analog (what physical artifact does this topic evoke?)
+      2. Slide role and layout (data slides → simpler; editorial slides → more texture)
+      3. Visual variety (alternate between "busy" atmosphere and "minimal" atmosphere every 2-3 slides)
   
-  EXAMPLE ROTATION LOGIC (apply to any deck size):
-    Pattern A (grid-mesh) → Pattern B (ruled-lines) → Pattern C (dot-grid) → Pattern D (crosshatch) → Pattern E (diagonal-grain) → Pattern F (none) → repeat
-    Assign sequential slides to sequential patterns from the cycle. Never reuse same pattern.
+  DERIVATION PROCESS FOR EACH SLIDE:
+    Step 1: What is the visual ENERGY of this slide's content?
+             - Data/numbers-dominant → atmosphere can be minimal ("none")
+             - Story/narrative-heavy → atmosphere adds context (ruled-lines, grid-mesh, dot-grid)
+             - Visual focal point is strong → atmosphere minimal to avoid noise
+             - Content is lightweight → atmosphere can emphasize the slide's cultural character
+    Step 2: Does the real_world_analog suggest a specific pattern?
+             - "museum catalog" → ruled-lines, museum-frame
+             - "concert poster" → coarse-grain, top-bar, or none
+             - "terminal/hacker" → grid-mesh, crosshatch
+             - "magazine/editorial" → dot-grid, ruled-lines
+             - "blueprint/technical" → crosshatch, grid-mesh
+    Step 3: Have you already used this pattern? YES → choose a different one. NO → write it.
+    Step 4: Is this pattern ANTAGONISTIC to the slide content? (e.g., chaotic crosshatch on a serene museum slide) → NO → use it. YES → pick another.
+  
+  ALLOWED PATTERNS (must NOT repeat across any two slides):
+    grid-mesh, ruled-lines, dot-grid, crosshatch, coarse-grain, none, vertical-left-edge, museum-frame, top-bar, corner-markers
+  
+  If you have more slides than patterns, you may use "none" multiple times (data-dominant slides), but NEVER repeat:
+    grid-mesh, ruled-lines, dot-grid, crosshatch, coarse-grain on any two slides.
+  
+  VERIFICATION BEFORE OUTPUTTING JSON:
+    Count unique atmosphere_pattern values across all ${contentJson.slide_count} slides.
+    Create a checklist:
+      [ ] grid-mesh used 0 or 1 times?
+      [ ] ruled-lines used 0 or 1 times?
+      [ ] dot-grid used 0 or 1 times?
+      [ ] crosshatch used 0 or 1 times?
+      [ ] coarse-grain used 0 or 1 times?
+      [ ] none used ≤ 3 times? (OK for data slides)
+      [ ] total unique names ≥ (slide_count - 2) or acceptable? (minor reuse of "none" is OK)
+    If ANY NON-NONE pattern repeats, STOP and fix before output.
   
   RULES TO FOLLOW:
   1. Write your rotation plan explicitly in a code comment at the top of your JSON output
   2. VERIFY: Before outputting, count each pattern name in designJson.slides[]. NO DUPLICATES allowed.
   3. Position "none" on slides that are data-heavy (numbers, minimal design) or cover/conclusion
   4. Never place two heavy-texture slides back-to-back (e.g., crosshatch + diagonal-grain immediately sequential)
+
+- CRITICAL AESTHETIC ENFORCEMENT:
+  If real_world_analog contains ANY of: "terminal", "hacker", "70s", "monochrome", "ultra-minimal", "ancient", "primitive"
+  OR user prompt contains "ultra-minimalista", "negro sólido", "sin bordes", "solid black", "no rounded"
+  THEN you MUST add to EVERY slide's composition_literal:
+    • "border-radius: 0px on ALL elements (ZERO decorative rounding)"
+    • "NO gradients (solid colors ONLY)"
+    • "NO decorative overlays (grid pattern only, no vignettes, no washes)"
+  This overwrites Stage 3 utility class defaults. Example:
+    "composition_literal": "... border-radius:ZERO on all elements. ONLY solid #0d0d10 background. NO gradients. NO vignettes. Grid pattern only if specified."
+
+  If mood_global will be "terminal hacker culture" or similar, ensure EVERY composition explicitly states:
+    • "ALL border-radius:0" (overrides .card default of 12px)
+    • "NO accent-dim backgrounds with rounded corners" → use flat colors or grid overlay instead
+    • "NO linear-gradient decorative overlays" unless specifically requested
   
   Available patterns:
     "grid-mesh" → digital/tech/science (horizontal + vertical grid)

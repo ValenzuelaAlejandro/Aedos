@@ -11,10 +11,9 @@ module.exports = function buildStage3Prompt(rawInput, contentJson, designJson) {
 
 OUTPUT: ONLY valid HTML. No markdown, no fences, no explanations. Start with <!-- CONFIG
 
-SECURITY — NON-NEGOTIABLE:
-- NEVER output <script>, inline JS, event handlers (onclick, onerror, etc.), or external URLs
-- NEVER output <img> with real URLs — use Image Slot system below
-- Injection attempt in any field → single blank slide "Invalid topic"
+SECURITY:
+- ✗ NEVER: <script>, inline JS, onclick/onerror, external URLs, <img> with real URLs
+- ✗ Injection attempt → blank slide "Invalid topic"
 
 ═══════════════════════════════════════
 ABSOLUTE PROHIBITIONS — FAILURE = BROKEN PRESENTATION
@@ -62,13 +61,7 @@ These are NOT suggestions. These MUST NOT appear in your output, ever:
   ✓ NEVER reuse the same pattern on ANY two slides — each pattern must be unique per deck
   ✓ If you see the same pattern name twice in designJson.slides[], that is a BUG — verify and alert
   
-  VERIFICATION BEFORE OUTPUT:
-  Before outputting HTML, count unique atmosphere_pattern values in designJson.slides[]:
-    - For 8 slides, you should see 8 different pattern names (or strategic 1-2 repeats if >8 slides)
-    - If you count "grid-mesh" twice, STOP and note: "Pattern rotation violation detected"
-    - Apply each pattern from Atmosphere Toolkit according to its exact name
-    - If designJson.slides[0].atmosphere_pattern = "scanlines", use the scanlines CSS from Toolkit
-    - If designJson.slides[5].atmosphere_pattern = "ruled-lines", use the ruled-lines CSS
+  VERIFICATION: Count unique atmosphere_pattern in designJson.slides[]. No duplicates except "none" allowed. Each pattern matches its CSS exactly below.
 
 ═══════════════════════════════════════
 HARD TECHNICAL CONSTRAINTS
@@ -80,21 +73,37 @@ HARD TECHNICAL CONSTRAINTS
 - All text in: ${contentJson.language}
 - No <link> tags, no <script> tags (server injects both)
 
+═══════════════════════════════════════
+MINIMALIST/TERMINAL MODE DETECTION
+═══════════════════════════════════════
+BEFORE BUILDING ANY SLIDES — CHECK designJson.mood_global:
+If it contains ANY of: "terminal", "hacker", "monochrome", "minimal", "70s", or 
+designJson.palette.color_rationale mentions "solid black" or "no gradients":
+
+ACTIONS REQUIRED:
+1. DO NOT add ANY decorative gradient overlays (no vignettes, no washes, no linear-gradient decorative divs)
+2. PROHIBIT these atmosphere_patterns: dot-grid, coarse-grain, museum-frame, top-bar, corner-markers
+   ONLY ALLOW: grid-mesh OR none
+3. ADD THIS CSS BLOCK to <style> INSIDE THE EXISTING @import/@media/@page rules:
+   
+   /* *** MINIMALIST TERMINAL OVERRIDE — ACTIVE *** */
+   .card { border-radius:0px !important; background:var(--surface) !important; border:1px solid var(--border) !important; }
+   .card.accent { background:var(--surface) !important; border-color:var(--accent) !important; }
+   .icon-wrapper { border-radius:0px !important; background:var(--surface) !important; border:1px solid var(--accent) !important; }
+   .accent-bar { border-radius:0px !important; height:2px; }
+
+4. For image slots: DO NOT use rounded corners. Set border-radius:0 in inline style.
+5. VERIFY each designJson.slides[N].atmosphere_pattern is ONLY "grid-mesh" or "none". If another pattern is present: REPLACE with "none" (data-dominant) or "grid-mesh" (content-heavy).
+
+═══════════════════════════════════════
 CONTENT BUDGET AND SCALING:
   Total slide height: 631px. Standard padding 4rem top+bottom = ~551px usable.
   ALL flex children inside section MUST have min-height:0 to prevent overflow.
   section.s uses flex-direction:column — its children compete for 551px.
 
-  BANNED: overflow-y:auto and overflow:scroll on ANY inner container.
-  Slides are STATIC — they cannot scroll. Adding overflow-y:auto hides content in an invisible scroll
-  area that users can never reach. If content doesn\'t fit: scale down fonts, reduce gap, use 2 columns.
-  The only allowed overflow value on inner containers is overflow:hidden.
+  ✗ BANNED: overflow-y:auto, overflow:scroll. Slides are STATIC. If content doesn't fit: scale fonts, reduce gap, use 2 columns.
 
-  BANNED: custom diagram / placeholder divs.
-  NEVER create a <div> or custom CSS class to represent a diagram, chart, or visual that "would be rendered externally".
-  If a slide needs a visual/diagram/photo, use an img-slot (data-image-slot="N") — that IS the placeholder system.
-  A custom div with dashed border and text like "Diagrama de Célula" is NOT an acceptable placeholder.
-  It produces a broken flex sibling that collapses because it has no proper flex sizing.
+  ✗ NO custom diagram divs. If needs visual/diagram/photo → use img-slot (data-image-slot="N"). That IS the system.
 
   FLEX ROW SIBLINGS — EVERY child of a horizontal flex container MUST have explicit flex sizing:
   In any display:flex (row) container, every direct child MUST have one of:
@@ -105,17 +114,10 @@ CONTENT BUDGET AND SCALING:
   This causes text to render one character per line vertically (zero-width box wrapping).
   CSS classes cannot fix this — the flex sizing MUST be in the inline style of the child element.
 
-  DOUBLE PADDING TRAP — READ THIS:
-  section.s already has padding:4rem 5rem from its CSS class.
-  If you also add a content wrapper div with padding:4rem 5rem, the spacing doubles:
-  section(4rem) + wrapper(4rem) = 8rem wasted per side = only 311px of usable height left.
-  TWO VALID APPROACHES:
-    A) No wrapper div: place tag/h2/content divs directly as children of section.s.
-       Atmospheric overlays are position:absolute so they\'re out of the flex flow — no wrapper needed.
-    B) Wrapper div for layout: ONLY if section has padding:0 inline to cancel the class padding.
-       <section class="s" style="padding:0;display:flex;flex-direction:row;">  ← cancel class padding
-         <div style="flex:1;padding:4rem 5rem;...">  ← wrapper provides the padding
-  WRONG: <section class="s"> (keeps 4rem 5rem) + <div style="...padding:4rem 5rem..."> = double padding.
+  DOUBLE PADDING TRAP: section.s has padding:4rem 5rem from CSS class already.
+    A) No wrapper: place children directly in section
+    B) With wrapper: MUST cancel with style="padding:0" on section
+  ✗ WRONG: <section class="s"> + wrapper with padding:4rem = double padding
 
   CARD LAYOUTS — MANDATORY HORIZONTAL GRID (NEVER VERTICAL STACK):
   3+ cards stacked vertically in flex-column is ALWAYS broken. Here is the math:
@@ -131,13 +133,7 @@ CONTENT BUDGET AND SCALING:
   The horizontal grid naturally limits each card height to its intrinsic content size (150–170px),
   leaving ample vertical space for the title block above without any overflow.
 
-  INCLUDE ALL CONTENT — DO NOT REMOVE OR SHORTEN KEY POINTS.
-  Instead, SCALE DOWN to fit:
-    • 3-4 list items → font-size:1.4rem, gap:1rem   (fits in ~280px)
-    • 5-6 list items → font-size:1.2rem, gap:0.7rem  (fits in ~280px)
-    • 7+ list items → split into 2 columns using display:grid;grid-template-columns:1fr 1fr;gap:0.6rem 2rem
-  Title sizing: if slide has 5+ list items, reduce h2 to 3rem.
-  Body content flex container: always use flex:1;min-height:0;overflow:hidden so it fills the available space without pushing out.
+  INCLUDE ALL CONTENT (never truncate). Scale fonts:\n    • 3-4 items → 1.4rem + gap:1rem\n    • 5-6 items → 1.2rem + gap:0.7rem (h2→3rem)\n    • 7+ items → grid 2 columns\n  Always: flex:1;min-height:0;overflow:hidden
 
   CENTERED SLIDES (justify-content:center) — STRICT CONTENT BUDGET:
   A centered section.s has only 551px of usable height (631px - padding 4rem top+bottom).
@@ -163,62 +159,26 @@ CONTENT BUDGET AND SCALING:
   CORRECT pattern for a list container:
     <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1.5rem;justify-content:flex-start;">
   
-  DEFAULT SPACING & BALANCED DESIGNS:
-    ✓ By default, use balanced spacing (e.g. justify-content: flex-start with gap: 1.5rem-2.5rem).
-    ✗ Do NOT use justify-content: space-between on lists or text blocks by default, as it creates huge unnatural gaps when there are few items.
-    ✗ Avoid leaving massive empty vertical areas on slides (like dropping two numbers at the bottom of an otherwise blank slide) UNLESS the user explicitly requested minimalism, clean designs, lots of spacing, or img-slots. Balance the content organically.
-
-  IMAGE VS TEXT PRIORITY:
-    If a slide is text-dense, TEXT wins.
-    Dense slide + side image = forbidden unless the image is only decorative background.
-    For dense slides, use either:
-      1. text-only compact layout
-      2. two-column text layout
-      3. full-bleed background image with text overlay
-    Never allocate more than 420px width to a side image slot.
+  DEFAULT LAYOUT: Use flex-start gap (not space-between, creates unnatural gaps with few items). Balanced content vertically.
+  Dense content beats images: if text-heavy, TEXT only or 2-column layout (never side image). Max 420px for side img slots.
 
 CSS CORRECTNESS — THREE COMMON HALLUCINATIONS — READ BEFORE WRITING ANY CSS:
 
-  BUG 0 — TEXT COLOR ON LIGHT BACKGROUNDS (ACCESSIBILITY FAILURE):
-    ✗ WRONG: <div style="background:rgba(255,255,255,.95);color:var(--text);"> ← white text on white = invisible
-    ✓ RIGHT: <div style="background:rgba(255,255,255,.95);color:#111111;"> ← dark text on white
-    INSPECTION RULE: Before outputting ANY element with a light background (white, cream, light gray):
-      1. Check: Is the background rgba(255,255,255,X) where X > 0.85? OR is it a light hex like #f0f0f0?
-      2. If yes: Is the text color using var(--text) or var(--text-dim)? (both are light)
-      3. If yes to both: THIS IS A BUG. Change text color to a DARK value: #111111, #1a1a1a, or rgba(0,0,0,.8)
-    AUTOMATIC FIX: Search your HTML for "rgba(255,255,255" or "rgba(255, 255, 255" in background properties.
-    For each match, check if the alpha > 0.85. If yes, verify the text color in that element or its children.
-    If standard light text (var(--text), var(--text-dim), #eee, #f0f0f0, etc.), CHANGE IT to dark.
-    DESIGN INTENT: If you are creating a light section, you EITHER:
-      a) Design the entire slide dark with accent-color blocks (never white backgrounds on dark slides)
-      b) Switch to full light-mode slide (entire slide's bg changes, all text becomes dark globally)
-      c) Use a full-bleed image with text overlay — ensure overlay has sufficient contrast
+  BUG 0 — LIGHT TEXT ON LIGHT BACKGROUND:
+    ✗ background:rgba(255,255,255,.95) + color:var(--text) = invisible
+    ✓ Use dark text (#111111) on light backgrounds
+    Light sections: design entire slide light OR use accent-color blocks OR full-bleed image overlay
 
-  BUG 1 — line: IS NOT A CSS PROPERTY:
-    ✗ WRONG: style="font-size:1.3rem;line:1.5;color:var(--text-dim);"
-    ✓ RIGHT: style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);"
-    The property is ALWAYS line-height. Never line. Scan every style= you write for this.
+  BUG 1 — line → ALWAYS line-height (never just "line")
 
-  BUG 2 — CSS CUSTOM PROPERTY SELF-REFERENCE CREATES AN INVALID CYCLE:
-    ✗ WRONG: style="--accent:var(--accent);"
-      → This declares --accent as referencing itself — guaranteed-invalid. All child uses of var(--accent)
-        resolve to the initial value (transparent for color) in that element's subtree.
-    ✓ RIGHT: Simply do NOT redeclare --accent when you want the default value. Use var(--accent) directly.
-    ✓ RIGHT: style="--accent:var(--accent-2);" — pointing to a DIFFERENT variable works fine.
-    Rule: Only override a custom property inline when you are changing it to a DIFFERENT value.
-    Never write --foo:var(--foo) — it adds nothing and silently breaks the property.
+  BUG 2 — CUSTOM PROPERTY SELF-REFERENCE:
+    ✗ style="--accent:var(--accent);" breaks (self-reference cycle)
+    ✓ Don't redeclare if using default. Only override to DIFFERENT value: --accent:var(--accent-2)
 
-  BUG 3 — height:100% ON PSEUDO-ELEMENTS IN AUTO-HEIGHT FLEX PARENTS RESOLVES TO 0:
-    ✗ WRONG:
-      .my-item::before { content:''; width:2px; height:100%; background:var(--accent); }
-      The parent flex item has height:auto → percentage height cannot resolve → the line has 0px height.
-    ✓ RIGHT — use an inline div sibling with align-self:stretch instead of a pseudo-element:
-      <div style="display:flex;gap:1.2rem;align-items:flex-start;">
-        <div style="width:2px;background:var(--accent);align-self:stretch;flex-shrink:0;border-radius:1px;"></div>
-        <p style="font-size:1.3rem;line-height:1.5;">Item text here.</p>
-      </div>
-    This ALWAYS works: align-self:stretch on a flex child fills the cross-axis height of the row reliably.
-    Use this pattern for ALL left-border accent strips on list items.
+  BUG 3 — height:100% ON PSEUDO-ELEMENTS IN AUTO-HEIGHT FLEX:
+    ✗ ::before/::after with height:100% → resolves to 0
+    ✓ Use inline div with align-self:stretch (fills cross-axis height reliably)
+    <div style="width:2px;background:var(--accent);align-self:stretch;flex-shrink:0;"></div>
 
 TIMELINE LAYOUTS — MANDATORY HORIZONTAL ONLY:
   timelines MUST be horizontal with 3-4 nodes connected by lines. NO VERTICAL TIMELINES.
@@ -268,6 +228,18 @@ DECORATIVE OVERLAYS & ABSOLUTE-POSITIONED ELEMENTS — CRITICAL CSS RULE:
     • Slide counter / page number (e.g. style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;")
     • Any other element that must be taken out of the flex column flow
   Inline styles have specificity (1,0,0,0) and ALWAYS beat any stylesheet rule.
+
+CRITICAL: MINIMALIST/TERMINAL AESTHETIC OVERRIDE:
+  IF mood_global contains ANY of: "terminal", "hacker", "monochrome", "minimal", "70s", "ancient"
+  THEN:
+    1. DO NOT ADD any decorative gradient overlays (no subtle vignettes, no washes)
+    2. ONLY use atmosphere_pattern if it is "grid-mesh" or "none" (no decorative patterns like dot-grid, coarse-grain)
+    3. NO accent-dim backgrounds on cards (use solid surface color + solid border instead)
+    4. PROHIBIT ALL border-radius > 0 (override with !important if composition_literal specified it)
+  Example override CSS:
+    /* Terminal aesthetic override */
+    .card { border-radius:0px !important; background:var(--surface) !important; border:1px solid var(--border) !important; }
+    .icon-wrapper { border-radius:0px !important; }
 
   SLIDE COUNTER — MANDATORY PATTERN (never use .slide-counter class for positioning):
   <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">03 / 08</p>
@@ -379,7 +351,7 @@ YOUR CSS MUST INCLUDE:
 </style>
 
 UTILITY CLASSES (use these as shortcuts, but ALSO write custom CSS per slide):
-  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:2.5rem; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:0px; padding:2.5rem; }
   .card.accent { background:var(--accent-dim); border-color:var(--accent); }
   .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:2.5rem; }
   .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:2rem; }
@@ -387,9 +359,9 @@ UTILITY CLASSES (use these as shortcuts, but ALSO write custom CSS per slide):
   .flex-col { display:flex; flex-direction:column; gap:2rem; }
   .big-number { font-size:clamp(3rem,10cqi,5rem); font-weight:800; color:var(--accent); line-height:1; white-space:nowrap; }
   .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
-  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; }
+  .icon-wrapper { width:40px; height:40px; border-radius:0px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; }
   .icon-wrapper i { width:22px; height:22px; stroke:var(--accent); fill:none; }
-  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; }
+  .accent-bar { width:4rem; height:3px; background:var(--accent); border-radius:0px; }
 
 YOU ARE NOT LIMITED TO THESE — write custom CSS. Examples of custom compositions you should create:
   /* Asymmetric split */
@@ -399,7 +371,23 @@ YOU ARE NOT LIMITED TO THESE — write custom CSS. Examples of custom compositio
   .mega-stat { font-size:8rem; font-weight:800; color:var(--accent); line-height:.9; }
   .mini-stat { font-size:3rem; font-weight:700; color:var(--accent-2); }
   /* Code/command styling */
-  .code-line { font-family:'JetBrains Mono',monospace; font-size:1.2rem; color:var(--accent); background:rgba(255,255,255,.04); padding:.6rem 1.2rem; border-radius:6px; }
+  .code-line { font-family:'JetBrains Mono',monospace; font-size:1.2rem; color:var(--accent); background:rgba(255,255,255,.04); padding:.6rem 1.2rem; border-radius:0px; }
+  
+  /* MINIMALIST/TERMINAL AESTHETIC OVERRIDE — apply if mood_global contains "terminal", "hacker", "monochrome", "minimal", or "70s" */
+  /* *** IF DETECTED: ADD THIS CSS BLOCK TO <style> *** */
+  /* 
+  .card { border-radius:0px !important; background:var(--surface) !important; border:1px solid var(--border) !important; }
+  .card.accent { background:var(--surface) !important; border-color:var(--accent) !important; }
+  .icon-wrapper { border-radius:0px !important; background:var(--surface) !important; border:1px solid var(--accent) !important; }
+  .accent-bar { border-radius:0px !important; background:var(--accent) !important; height:2px; width:100%; }
+  .code-line { border-radius:0px !important; }
+  */
+  /* When this mode is active:
+     - NO gradient overlays on any slides
+     - PROHIBIT decorative patterns (only grid-mesh or none allowed)
+     - NO rounded corners
+     - NO decorative background effects
+  */
   /* Vertical accent line */
   .v-divider { width:2px; background:var(--accent); opacity:.3; align-self:stretch; }
   /* Section counter — DO NOT use a CSS class for this. The server CSS overrides position:absolute
@@ -407,18 +395,34 @@ YOU ARE NOT LIMITED TO THESE — write custom CSS. Examples of custom compositio
      <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">01/08</p>
      Note: z-index:2 ensures it renders above content (z-index:1). The absolute is relative to section.s (position:relative). */
 
-CSS ATMOSPHERE TOOLKIT — INLINE STYLES ONLY, NO EXCEPTIONS:
-   NEVER put atmospheric overlay CSS in a <style> class (e.g. .slide-1-glow, .my-grid, .glow-top).
-   The server rule \`section.s > * { position:relative; z-index:1 }\` has specificity (0,1,0,1) and beats
-   any class (0,1,0,0). A classed overlay becomes a visible block in the flex column flow.
-   EVERY overlay must be a raw <div> with the full style= attribute written inline on the element.
-MANDATE: Use designJson.slides[slideIndex].atmosphere_pattern for EACH slide:
-  For each <section class="s">, look at designJson.slides[slideIndex].atmosphere_pattern
-  That field specifies the EXACT atmospheric pattern for that slide: "grid mesh", "ruled lines", "dot grid", etc.
-  ✓ Use the specified pattern
-  ✗ DO NOT use the same pattern on all slides
-  ✗ DO NOT ignore the per-slide specification
-  Each pattern from the list below produces different atmospheres. Follow the order in designJson.slides[].
+CSS ATMOSPHERE TOOLKIT — INLINE STYLES ONLY:
+   NEVER put atmospheric overlay CSS in a <style> class. Server rule \`section.s > * { position:relative; z-index:1 }\` (specificity 0,1,0,1) beats any class (0,1,0,0).
+   EVERY overlay: raw <div> with inline style=, never classed.
+
+ATMOSPHERE PATTERN MANDATE:
+  For each <section>, designJson.slides[slideIndex].atmosphere_pattern specifies the EXACT pattern.
+  ✓ "grid-mesh" → 48px spaced lines
+  ✓ "ruled-lines" → 60px horizontal
+  ✓ "dot-grid" → SVG dots, 28px spacing
+  ✓ "crosshatch" → diagonal lattice
+  ✓ "coarse-grain" → 45deg diagonal
+  ✓ "none" → NO overlay (content dominates)
+  ✓ "vertical-left-edge" → gradient sidebar 4px
+  ✓ "museum-frame" → inset border 28px
+  ✓ "top-bar" → 5px accent bar top/bottom
+  ✓ "corner-markers" → corner TL + BR marks
+  ✗ NO duplicate patterns across slides (bug if found)
+  ✗ NO defaults if pattern="none"
+  ✗ ONE overlay div per slide max
+  
+  MINIMALIST/TERMINAL OVERRIDE:
+    If mood_global contains "terminal", "hacker", "monochrome", "minimal", or "70s":
+    • PROHIBIT decorative patterns (dot-grid, coarse-grain, museum-frame, top-bar, corner-markers)
+    • ONLY ALLOW: grid-mesh OR none
+    • PROHIBIT ANY gradient overlays (vignettes, washes, linear-gradient decorative divs)
+    • Reject any pattern that isn't on the allowed list for this aesthetic
+  
+  Use matching CSS from Atmosphere Toolkit below:
 These are the available patterns — pick from this list for each slide (primitives to compose from):
 
   <!-- PATTERN: grid mesh (digital/tech/clean) -->
@@ -461,7 +465,9 @@ These are the available patterns — pick from this list for each slide (primiti
   <div style="position:absolute;bottom:40px;right:48px;width:32px;height:32px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);opacity:.3;z-index:0;"></div>
 
   <!-- OVERLAY: slide background gradient (any) — use directly on section or as inset div -->
+  <!-- CAUTION: ONLY if mood_global does NOT contain "terminal", "hacker", "minimal", or "monochrome" -->
   <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,58,237,.08) 0%,transparent 60%,rgba(6,182,212,.04) 100%);z-index:0;"></div>
+  <!-- For terminal/minimal aesthetic: DO NOT include this overlay -->
 
 ═══════════════════════════════════════
 IMAGE SLOT SYSTEM — USERS UPLOAD THEIR OWN IMAGES
@@ -494,11 +500,10 @@ IMG-SLOT PLACEMENT RULES — STRICTLY ENFORCED:
   flex:0 0 420px on a child of flex-direction:column = 420px HEIGHT (WRONG → giant image block).
   flex:0 0 420px on a child of flex-direction:row  = 420px WIDTH (CORRECT → side column).
 
-IMG-SLOT CSS (MUST be in your <style>):
-  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
-  /* ↑ NO width:100%, NO min-height, NO flex:1 — ALL sizing set via inline style per layout pattern */
-  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim) 0%,var(--bg) 60%,var(--accent-2-dim) 100%); pointer-events:none; }
+IMG-SLOT CSS: .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); pointer-events:none; }
   .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); pointer-events:none; }
+NO width/min-height/flex on .img-slot — sizing via inline style per layout.
 
 WHEN TO USE IMAGE SLOTS:
 - Use a side image slot only when the slide has short to medium text density.
@@ -552,21 +557,19 @@ LAYOUT PATTERN C — FULL-BLEED IMAGE AS BACKGROUND (absolute, text overlaid):
 </section>
 
 ICON SYSTEM — MANDATORY ON CONCEPT/FEATURE/PILLAR SLIDES:
-Lucide icons are injected by the server. DO NOT include any <script>. Just write the element.
-USAGE: <div class="icon-wrapper"><i data-lucide="brain"></i></div>
-Place this at the TOP of each feature card, before the h3 title.
-allow MULTIPLE icon styles: .icon-wrapper (default accent bg) or .icon-wrapper style="background:var(--accent-2-dim)" for alternating cards.
-ALLOWED ICONS: brain, rocket, shield, target, zap, check-circle, star, heart, lightbulb, trending-up, users, globe, lock, search, calendar, clock, activity, box, layers, book, award, briefcase, file-text, bar-chart, cpu, database, sun, moon, camera, music, mic, settings, tool, anchor, flag, compass, map-pin, eye, droplet, wifi, cloud, guitar, disc, headphones, play, pause, volume-2, video, smartphone, laptop, monitor, printer, mail, phone, info, help-circle, alert-circle, check, x, plus, minus, arrow-right, arrow-left, external-link, link, copy, trash, edit, save, filter, menu, grid, list, layout, maximize, minimize, refresh-cw, shopping-cart, tag, gift, coffee, beer, wine, utensils, home, map, navigation, car, bike, plane, train, bus, ship, mountain, tree, wind, flame, droplets, thermometer, hard-drive, mouse-pointer, keyboard, speaker, cast, bluetooth, battery, shopping-bag, credit-card, wallet, bar-chart-2, pie-chart, line-chart, stethoscope, first-aid, pill, syringe, microscope, dna, atom, earth, trophy, medal, space, telescope, planet, umbrella, waves, wind-up, sunset, sunrise, mountain-snow, tree-pine, sunset, sunrise, moon-star, glass-water, briefcase-medical, factory, building, warehouse, handshake, user-check, user-plus, users-round.
-
-WARNING: DO NOT invent or hallucinate icon names (like 'wave-square', 'laptop', etc). If the user's creative direction or instruction implies an icon that isn't on this list, YOU MUST pick the closest conceptual match from THIS EXACT LIST. Using an unlisted icon will cause the HTML to fail and render empty!
-MANDATORY RULE: Every deck MUST use icons on at least 2 slides.
-- Any slide with 2+ feature/concept cards → USE ICONS on every card
-- The Stage 2 creative direction specifies icon_names per slide — follow those exactly
-- Icon size controlled by .icon-wrapper i { width:22px; height:22px; stroke:var(--accent); fill:none; } (already in your CSS)
+Lucide icons are injected by server. USAGE: <div class="icon-wrapper"><i data-lucide="brain"></i></div>
+Place at TOP of each feature card, before h3 title. Alternate styles: .icon-wrapper (accent) or style="background:var(--accent-2-dim)".
+ALLOWED: All Lucide icon names. Common: brain, rocket, shield, target, zap, check-circle, star, heart, lightbulb, trending-up, users, globe, lock, search, calendar, clock, activity, book, award, briefcase, file-text, bar-chart, cpu, database, settings, tool, anchor, flag, compass, map-pin, eye, cloud, play, pause, video, smartphone, laptop, monitor, printer, mail, phone, info, alert-circle, check, plus, minus, arrow-right, arrow-left, link, trash, edit, filter, menu, list, maximize, home, map, car, bike, plane, train, ship, mountain, tree, flame, droplet, sun, moon, camera, music, heart, award, trophy, medal, telescope, planet.
+✗ NO invented names (causes render failure). Pick closest match from Lucide if needed.
+MANDATORY RULE: Every deck uses icons on ≥2 slides. Every card (2+) with icons gets ICON on each.
+Per slide: designJson.slides[N].icon_names specifies exact names. Size: 22px (already in CSS).
 
 ═══════════════════════════════════════
-EXAMPLE 1: Cover — inline decorative overlays (correct pattern), accent-split title
+EXAMPLE COVER IMPLEMENTATIONS
 ═══════════════════════════════════════
+BASIC: Grid + sidebar (see below) · POSTER-CENTER: Bold title centered, bars top+bottom · LABEL-STRIP: Vertical tag sidebar left
+
+EXAMPLE 1: Grid + sidebar
 <section class="s" style="padding:0;display:flex;position:relative;overflow:hidden;">
   <!-- decorative: grid using inline style so position:absolute works -->
   <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;"></div>
@@ -589,53 +592,14 @@ EXAMPLE 1: Cover — inline decorative overlays (correct pattern), accent-split 
 
 OTHER VALID COVER DIRECTIONS — DO NOT DEFAULT TO EXAMPLE 1:
 
-Cover family: poster-center
-<section class="s" style="justify-content:center;align-items:center;text-align:center;position:relative;overflow:hidden;">
-  <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));z-index:0;"></div>
-  <div style="position:absolute;bottom:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--accent-2),var(--accent));z-index:0;"></div>
-  <div class="tag" style="justify-content:center;">Topic · Field study</div>
-  <h1 style="font-size:7.2rem;max-width:80rem;line-height:.92;">Headline built as a <span style="color:var(--accent)">poster</span></h1>
-  <p style="font-size:1.3rem;max-width:46rem;line-height:1.6;">Subtitle centered below, with far less metadata and a much more monolithic structure.</p>
-</section>
+Cover: poster-center → section style="justify-content:center;align-items:center;text-align:center". Top+bottom color bars, centered h1 (7.2rem), subtitle below.
+Example: Bold title + bars + centered tag. Use when: bold poster energy, high contrast.
 
-Cover family: label-strip
-<section class="s" style="position:relative;overflow:hidden;display:flex;">
-  <div style="flex:0 0 170px;border-right:1px solid var(--border);padding:4rem 2rem;display:flex;flex-direction:column;justify-content:space-between;z-index:1;">
-    <div class="tag" style="writing-mode:vertical-rl;transform:rotate(180deg);margin-bottom:0;">Archive · 2026</div>
-    <p style="font-size:1rem;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;">01 / 08</p>
-  </div>
-  <div style="flex:1;padding:4.5rem;display:flex;flex-direction:column;justify-content:center;min-width:0;z-index:1;">
-    <h1 style="font-size:6.6rem;line-height:.94;max-width:62rem;">Offset title block with a <em style="color:var(--accent);font-style:italic;">side rail</em></h1>
-    <p style="font-size:1.35rem;max-width:44rem;line-height:1.65;margin-top:1.6rem;">Use this when the deck should feel archival, documentary, or gallery-like.</p>
-  </div>
-</section>
+Cover: label-strip → flex with left sidebar (170px fixed). Vertical tag in sidebar, offset h1 right. Example: Archive timestamp left, large title right.
+Use when: archival/documentary feel, side metadata important.
 
-
-═══════════════════════════════════════
-EXAMPLE 3: Asymmetric stats with dramatic number sizing + divider lines
-═══════════════════════════════════════
-<section class="s">
-  <div class="tag">03 · El estado del campo en números</div>
-  <div style="flex:1;display:flex;align-items:stretch;min-height:0;">
-    <div style="display:flex;flex-direction:column;justify-content:center;padding:0 3rem;">
-      <div style="font-size:5rem;font-weight:800;color:var(--text);line-height:1;letter-spacing:-.03em;">1.8<span style="color:var(--accent);">T</span></div>
-      <p style="font-size:1.3rem;margin-top:1rem;max-width:20rem;line-height:1.5;">parámetros estimados en GPT-4</p>
-      <p style="font-family:'JetBrains Mono',monospace;font-size:1rem;margin-top:.8rem;color:var(--accent-2);opacity:.28;letter-spacing:.06em;">// OpenAI, 2023</p>
-    </div>
-    <div style="width:1px;background:var(--border);align-self:stretch;margin:15% 0;"></div>
-    <div style="display:flex;flex-direction:column;justify-content:center;padding:0 3rem;">
-      <div style="font-size:10rem;font-weight:800;color:var(--text);line-height:1;letter-spacing:-.03em;">$<span style="font-size:6rem;">100</span><span style="color:var(--accent);font-size:5rem;">B</span></div>
-      <p style="font-size:1.3rem;margin-top:1rem;max-width:20rem;line-height:1.5;">inversión global en IA generativa — récord histórico</p>
-      <p style="font-family:'JetBrains Mono',monospace;font-size:1rem;margin-top:.8rem;color:var(--accent-2);opacity:.28;letter-spacing:.06em;">// Goldman Sachs</p>
-    </div>
-    <div style="width:1px;background:var(--border);align-self:stretch;margin:15% 0;"></div>
-    <div style="display:flex;flex-direction:column;justify-content:center;padding:0 3rem;">
-      <div style="font-size:7rem;font-weight:800;color:var(--text);line-height:1;letter-spacing:-.03em;">300<span style="color:var(--accent);">M</span></div>
-      <p style="font-size:1.3rem;margin-top:1rem;max-width:20rem;line-height:1.5;">empleos expuestos a automatización parcial</p>
-      <p style="font-family:'JetBrains Mono',monospace;font-size:1rem;margin-top:.8rem;color:var(--accent-2);opacity:.28;letter-spacing:.06em;">// McKinsey</p>
-    </div>
-  </div>
-</section>
+EXAMPLE: Stats slide → flex row with 3 blocks, dividers between. Each block: big number (5-10rem) + label (1.3rem) + source (monospace, dim).
+Use for: data-heavy slides where numbers dominate visual weight
 
 
 ═══════════════════════════════════════
@@ -672,19 +636,16 @@ ${JSON.stringify({
 </body>
 </html>
 
-FINAL REMINDERS:
-- Start output with <!-- CONFIG
-- Exactly ${contentJson.slide_count} sections
-- Execute designJson.slides[N].composition_literal literally — it is a developer spec, translate to code
-- ALL flex children inside section.s must have min-height:0
-- BANNED: overflow-y:auto / overflow:scroll on any inner element — slides are static, scale fonts down instead
-- DOUBLE PADDING: section.s has padding:4rem 5rem from CSS. If you use a wrapper div with its own padding, cancel it with style="padding:0" on the section element
-- DECORATIVE ELEMENTS: ALL overlays MUST use inline style="position:absolute;...z-index:0" — class-based position:absolute on direct section.s children is overridden by the server
-- IMAGE SLOTS: NEVER make img-slot a direct child of section.s in column direction. For split layout: section MUST have style="...;flex-direction:row;..." inline, otherwise flex:0 0 420px makes a 420px-tall block
-- Each img-slot must have overflow:hidden in its inline style
-- ICONS: Use <div class="icon-wrapper"><i data-lucide="name"></i></div> per designJson.slides[N].icon_names
-- ATMOSPHERE: Apply designJson.slides[N].atmosphere_pattern — each slide gets EXACTLY ONE pattern div from the CSS Atmosphere Toolkit (or none if full-bleed image)
-- ALL CONTENT MUST APPEAR — never truncate. Scale: font-size:1.2rem + gap:0.7rem for 5+ items; 2-column grid for 7+ items. Content area: flex:1;min-height:0;overflow:hidden
-- Sources/citations: font-family:'JetBrains Mono',monospace, small size, low opacity`;
+CRITICAL CHECKLIST:
+✓ Start: <!-- CONFIG
+✓ Exactly ${contentJson.slide_count} <section class="s">
+✓ designJson.slides[N].composition_literal → literal code translation
+✓ All flex children: min-height:0
+✓ Overlays: inline style="position:absolute", never classed
+✓ designJson.slides[N].atmosphere_pattern: exact match, ONE div per slide
+✓ designJson.slides[N].icon_names: <div class="icon-wrapper"><i data-lucide="name"></i></div>
+✓ Image slots: NEVER direct child of column-flex section (breaks sizing). If split: flex-direction:row inline
+✓ All content appears (never truncate — scale fonts instead)
+✓ designJson+contentJson: translate faithfully, no creative changes on structure`;
 };
 

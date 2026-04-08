@@ -25,7 +25,7 @@ const queue = [];
 
 // OpenRouter model list — comma-separated in env var OPENROUTER_MODEL_LIST
 // or single model via OPENROUTER_MODEL. Defaults to qwen free-tier.
-const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'minimax/minimax-m2.5:free')
+const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'minimax/minimax-m2.7')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
@@ -461,12 +461,22 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
 
         opciones.tema = sanitizeResult.tema;
 
-        const slidesNum = req.body.slides !== undefined ? parseInt(req.body.slides, 10) : 5;
+        // Flash mode (single-prompt, default) vs Pro mode (3-stage pipeline)
+        const usePipeline = req.body.mode === 'pro';
+
+        let slidesNum = req.body.slides !== undefined ? parseInt(req.body.slides, 10) : 5;
         if (isNaN(slidesNum) || slidesNum < 1 || slidesNum > 15) {
             return res.status(422).json({
                 error: 'Validation failed',
                 fields: { slides: 'must be integer between 1 and 15' }
             });
+        }
+        
+        // Cap the actual slides requested to the AI based on the mode
+        const slideHardLimit = usePipeline ? 12 : 15;
+        if (slidesNum > slideHardLimit) {
+            slidesNum = slideHardLimit;
+            opciones.slides = slidesNum;
         }
 
         const VALID_IDIOMAS = ['es', 'en', 'fr', 'pt', 'de'];
@@ -481,9 +491,6 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
         if (!process.env.GEMINI_API_KEY && !(process.env.GEMINI_API_KEY_1 && process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_3)) {
             return res.status(500).json({ error: 'Gemini API Key is not configured in .env' });
         }
-
-        // Flash mode (single-prompt, default) vs Pro mode (3-stage pipeline)
-        const usePipeline = req.body.mode === 'pro';
 
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache');
@@ -671,8 +678,8 @@ app.post('/generate', express.json({ limit: '8kb' }), genLimiter, async (req, re
                 ].join('\n');
             }
 
-            // Safety net: hard cap at 15 slides — strip any section.s beyond the 15th
-            const MAX_SLIDES = 15;
+            // Safety net: hard cap slides (12 for Pro mode, 15 for Flash mode) — strip any section.s beyond the limit
+            const MAX_SLIDES = usePipeline ? 12 : 15;
             const slideTagRe = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
             const slideMatches = [...cleanedOutput.matchAll(slideTagRe)];
             if (slideMatches.length > MAX_SLIDES) {
