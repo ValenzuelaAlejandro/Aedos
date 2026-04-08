@@ -156,7 +156,8 @@ const translations = {
         "gen_loading_7": "Choosing words that actually land...",
         "gen_loading_8": "Polishing the rough edges...",
         "gen_loading_9": "The last sparks are flying...",
-        "gen_loading_final": "Any moment now..."
+        "gen_loading_final": "Any moment now...",
+        "discord": "Join Discord"
     },
     es: {
         "brand_name": "Eidoslab",
@@ -315,7 +316,8 @@ const translations = {
         "gen_loading_7": "Eligiendo las palabras que realmente conectan...",
         "gen_loading_8": "Puliendo los últimos detalles...",
         "gen_loading_9": "Las últimas chispas están volando...",
-        "gen_loading_final": "Ya mero..."
+        "gen_loading_final": "Ve pensando como exponer...",
+        "discord": "Únete a nuestro Discord"
     }
 };
 
