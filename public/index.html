@@ -104,19 +104,19 @@
                     </button>
                     <button type="button" id="btn-mode-toggle" class="btn-mode-toggle" aria-pressed="false"
                         data-tooltip="">
-                        <span class="btn-mode-icon btn-mode-icon--pro" aria-hidden="true">
+                        <span class="btn-mode-icon btn-mode-icon--pro" aria-hidden="true" style="display:none;">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M6 3h12l4 6-10 12L2 9z"></path>
-                                <path d="M11 3L8 9l3 12"></path>
-                                <path d="M13 3l3 6-3 12"></path>
+                                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+                                <path d="M5 3v4"></path><path d="M19 17v4"></path>
+                                <path d="M3 5h4"></path><path d="M17 19h4"></path>
                             </svg>
                         </span>
-                        <span class="btn-mode-icon btn-mode-icon--flash" aria-hidden="true">
+                        <span class="btn-mode-icon btn-mode-icon--flash" aria-hidden="true" style="display:flex;">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                             </svg>
                         </span>
-                        <span class="btn-mode-label" data-i18n="mode_label_pro">Pro</span>
+                        <span class="btn-mode-label" data-i18n="mode_label_flash">Fast (~20s)</span>
                     </button>
                     <button class="btn-generate-chat" id="btn-generate" disabled>
                         <span class="btn-generate-label" data-i18n="generate_presentation">Generate presentation</span>

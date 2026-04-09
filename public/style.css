@@ -876,13 +876,12 @@
     flex-shrink: 0;
 }
 
-/* Default state: show diamond (pro), hide lightning (flash) */
-.btn-mode-icon--pro  { display: flex; }
-.btn-mode-icon--flash { display: none; }
+/* Default state: show lightning (flash), hide sparks (pro) */
+.btn-mode-icon--pro  { display: none; }
+.btn-mode-icon--flash { display: flex; }
 
-/* Active state: show lightning (flash), hide diamond (pro) */
-.btn-mode-toggle.is-active .btn-mode-icon--pro  { display: none; }
-.btn-mode-toggle.is-active .btn-mode-icon--flash { display: flex; }
+.btn-mode-toggle.is-active .btn-mode-icon--pro  { display: flex; }
+.btn-mode-toggle.is-active .btn-mode-icon--flash { display: none; }
 
 /* Switch animation — only animate the label text, not the icons */
 .btn-mode-label {
@@ -2541,6 +2540,21 @@ section.s.active > * {
 
     .toolbar-btn span {
         display: none;
+    }
+
+    /* Fix chat input overflow on mobile */
+    .chat-actions {
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .btn-mode-toggle {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .hero-title {
+        font-size: 2.2rem;
     }
 }
 

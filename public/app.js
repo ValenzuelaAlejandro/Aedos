@@ -106,10 +106,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateBtnLabel = document.querySelector('#btn-generate .btn-generate-label');
 
     function syncModeToggleI18n() {
-        // Set the initial tooltip via i18n (empty string in HTML, filled here after i18n loads)
+        // Set the initial tooltip via i18n
         if (modeToggleBtn) {
             modeToggleBtn.setAttribute('data-tooltip', window.__eidos_t(
-                proModeEnabled ? 'mode_tooltip_flash' : 'mode_tooltip_pro'
+                proModeEnabled ? 'mode_tooltip_pro' : 'mode_tooltip_flash'
             ));
         }
         // Sync generate button label
@@ -136,9 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Toggle neon glow on input wrapper
             if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', proModeEnabled);
 
-            // Update mode label (button shows opposite mode — "Flash" when Pro is on)
+            // Update mode label (button shows CURRENT mode)
             if (modeLabel) {
-                const labelKey = proModeEnabled ? 'mode_label_flash' : 'mode_label_pro';
+                const labelKey = proModeEnabled ? 'mode_label_pro' : 'mode_label_flash';
                 modeLabel.setAttribute('data-i18n', labelKey);
                 modeLabel.textContent = window.__eidos_t(labelKey);
             }
