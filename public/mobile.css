@@ -33,8 +33,8 @@
         display: none !important;
     }
 
-    /* Hide present / undo / redo buttons on mobile (desktop unchanged) */
-    #btn-undo, #btn-redo, #btn-present, #canvas-zoom-select {
+    /* Hide present / undo / redo buttons and zoom controls on mobile (desktop unchanged) */
+    #btn-undo, #btn-redo, #btn-present, #btn-zoom-in, #btn-zoom-out, #canvas-zoom-display {
         display: none !important;
     }
 
@@ -285,10 +285,11 @@
         display: none !important; /* Hide text labels */
     }
 
-    .preview-unified-right select#canvas-zoom-select {
+    .preview-unified-right #canvas-zoom-display,
+    .preview-unified-right #btn-zoom-in,
+    .preview-unified-right #btn-zoom-out {
         font-size: 0.8rem !important;
         padding: 0 2px !important;
-        max-width: 50px !important;
         background: transparent !important;
         color: var(--muted) !important;
     }

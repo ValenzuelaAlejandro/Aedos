@@ -1029,51 +1029,49 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
-                    // Reveal the UI chrome with a staggered sequence (header -> minimap -> tools)
+                    // Revealed the UI chrome with a cinematic sequence
                     previewContainer.classList.remove('is-generating');
-                    previewContainer.classList.add('reveal-sequence');
-
-                    // Ensure header slide is present (setupPreviewInteractions usually adds this)
-                    if (previewHeader) previewHeader.classList.add('slide-down');
-
-                    const revealAfterHeader = () => {
-                        // Reveal minimap first (slide in from left)
-                        previewContainer.classList.add('reveal-minimap');
-                        // Give minimap a more noticeable duration before revealing the tools
-                        setTimeout(() => {
-                            previewContainer.classList.add('reveal-tools');
-                            // After tools animation settles, add legacy class and final scale
-                            setTimeout(() => {
-                                previewContainer.classList.add('reveal-chrome');
-                                // Clean up reveal helpers so panels return to natural state
-                                previewContainer.classList.remove('reveal-sequence', 'reveal-minimap', 'reveal-tools');
+                    
+                    // 🎬 CINEMATIC SHRINK: Animate with GSAP for maximum smoothness
+                    if (window.gsap) {
+                        // 1. Shrink stage padding (Ajustado a 0.2rem para máximo espacio)
+                        window.gsap.to(previewContainer, {
+                            padding: "0.2rem",
+                            duration: 1.2,
+                            ease: "expo.out",
+                            onUpdate: () => scaleIframe(), 
+                            onStart: () => {
+                                // 2. Fade in Header
+                                if (previewHeader) previewHeader.classList.add('slide-down');
+                            },
+                            onComplete: () => {
+                                // 3. Slide in Pills
+                                showFloatingPills();
                                 scaleIframe();
-                            }, 900);
-                        }, 700);
-                        // A mid-phase scale to keep layout responsive
-                        setTimeout(() => scaleIframe(), 520);
-                    };
-
-                    // Wait for header transition to end, then start reveal. Fallback to timeout.
-                    let headerHandled = false;
-                    if (previewHeader) {
-                        const onHeaderEnd = (ev) => {
-                            if (ev && ev.propertyName && ev.propertyName !== 'transform' && ev.propertyName !== 'opacity') return;
-                            if (headerHandled) return;
-                            headerHandled = true;
-                            revealAfterHeader();
-                        };
-                        previewHeader.addEventListener('transitionend', onHeaderEnd, { once: true });
-                        // Fallback in case transitionend doesn't fire
-                        setTimeout(() => {
-                            if (!headerHandled) {
-                                headerHandled = true;
-                                revealAfterHeader();
                             }
-                        }, 1200);
+                        });
                     } else {
-                        // No header: reveal immediately
-                        revealAfterHeader();
+                        // Fallback if GSAP is missing
+                        previewContainer.classList.add('reveal-sequence');
+                        if (previewHeader) previewHeader.classList.add('slide-down');
+                        setTimeout(showFloatingPills, 800);
+                        setTimeout(scaleIframe, 1200);
+                    }
+
+                    function showFloatingPills() {
+                        previewContainer.classList.add('reveal-minimap', 'reveal-tools');
+                        // Reveal the floating toolbar as well
+                        const fb = document.getElementById('floating-toolbar');
+                        if (fb) {
+                            fb.style.opacity = '0';
+                            fb.style.transform = 'translateX(-50%) translateY(20px)';
+                            window.gsap.to(fb, {
+                                opacity: 1,
+                                translateY: 0,
+                                duration: 0.8,
+                                ease: "back.out(1.7)"
+                            });
+                        }
                     }
                 }, 100);
             });
@@ -1673,11 +1671,50 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
+    // Initialize zoom state
+    window._eidosManualZoomScale = 0.8; // Initial manual zoom factor (80% to avoid overlapping pills)
+    const MIN_ZOOM = 0.5; // 50%
+    const MAX_ZOOM = 2; // 200%
+    const ZOOM_STEP = 0.1; // 10% increments
+
+    function updateZoomDisplay() {
+        const display = document.getElementById('canvas-zoom-display');
+        if (display) {
+            const percentage = Math.round(window._eidosManualZoomScale * 100);
+            display.textContent = `${percentage}%`;
+        }
+    }
+
+    function setZoom(zoomLevel) {
+        zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel));
+        window._eidosManualZoomScale = zoomLevel;
+        updateZoomDisplay();
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    // Zoom button handlers
+    const btnZoomIn = document.getElementById('btn-zoom-in');
+    const btnZoomOut = document.getElementById('btn-zoom-out');
+
+    if (btnZoomIn) {
+        btnZoomIn.addEventListener('click', () => {
+            setZoom(window._eidosManualZoomScale + ZOOM_STEP);
+        });
+    }
+
+    if (btnZoomOut) {
+        btnZoomOut.addEventListener('click', () => {
+            setZoom(window._eidosManualZoomScale - ZOOM_STEP);
+        });
+    }
+
+    // Ensure initial display matches the new default
+    updateZoomDisplay();
+
     function scaleIframe() {
         // Measure from a static parent that doesn't collapse with scale to prevent loop
         const stage = document.querySelector('.preview-stage');
         const wrapper = document.querySelector('.preview-wrapper');
-        const select = document.getElementById('canvas-zoom-select');
 
         if (!wrapper || !stage || !previewIframe) return;
 
@@ -1695,18 +1732,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const MathScaleY = availableHeight / iframeNativeHeight;
             scale = Math.min(MathScaleX, MathScaleY);
             // Allow scaling up past 100% in presentation mode
-        } else if (select && select.value !== 'fit') {
-            scale = parseFloat(select.value) || 1;
         } else {
-            // Auto fit inside stage (it has 32px padding on all sides, but stage.clientWidth includes padding,
-            // so we subtract 64px to ensure it perfectly fits inside the inner rect).
+            // Calculate fit scale inside stage
             const stageRect = stage.getBoundingClientRect();
-            const availableWidth = stageRect.width - 64;
-            const availableHeight = stageRect.height - 64;
-            const MathScaleX = availableWidth / iframeNativeWidth;
-            const MathScaleY = availableHeight / iframeNativeHeight;
-            scale = Math.min(MathScaleX, MathScaleY);
-            if (scale > 1) scale = 1; // Don't scale up past 100% by default
+            
+            const availableWidth = stageRect.width; 
+            const availableHeight = stageRect.height; 
+            
+            const fitScaleX = availableWidth / iframeNativeWidth;
+            const fitScaleY = availableHeight / iframeNativeHeight;
+            const fitScale = Math.min(fitScaleX, fitScaleY);
+            
+            // Apply manual zoom on top of fit scale
+            scale = fitScale * window._eidosManualZoomScale;
         }
 
         window._eidosBaseScale = scale;

@@ -15,18 +15,18 @@
 }
 
 :root[data-theme="light"] {
-    --bg: #FAFAFA;
+    --bg: #F3F4F6;
     --surface: #FFFFFF;
-    --surface2: #FFFFFF;
-    --border: #E5E7EB;
-    --border-hover: #3B82F6;
-    --border-active: #2563EB;
+    --surface2: #E5E7EB;
+    --border: #D1D5DB;
+    --border-hover: #111827;
+    --border-active: #000000;
     --border-subtle: #F0F0F0;
     --text: #111827;
-    --muted: #6B7280;
+    --muted: #4B5563;
     --placeholder: #9CA3AF;
-    --accent: #111827;
-    --accent-light: rgba(59, 130, 246, 0.4);
+    --accent: #000000;
+    --accent-light: rgba(0, 0, 0, 0.1);
     --radius: 12px;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
     --shadow-md: 0 4px 8px rgba(0,0,0,0.08);

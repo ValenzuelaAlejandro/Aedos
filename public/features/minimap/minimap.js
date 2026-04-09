@@ -30,7 +30,13 @@ function initMinimap(iframe) {
         if (activeIdx === -1 || activeIdx === null) return;
 
         const minimapContainer = document.getElementById('editor-minimap');
+        if (!minimapContainer) return;
+
+        // Descontar el área ocupada por el botón + fijado al fondo
+        const addBtn = document.getElementById('btn-add-slide');
+        const footerReserve = addBtn ? (addBtn.offsetHeight + 28) : 72;
         const panelHeight = minimapContainer.clientHeight;
+        const viewportHeight = Math.max(120, panelHeight - footerReserve);
 
         // Mide el item real incluyendo su margin
         const activeItem = items[activeIdx];
@@ -40,8 +46,12 @@ function initMinimap(iframe) {
         const marginBottom = parseFloat(style.marginBottom) || 0;
         const ITEM_HEIGHT = activeItem.offsetHeight + marginTop + marginBottom;
 
-        // Offset exacto para centrar
-        const offset = (panelHeight / 2) - (activeIdx * ITEM_HEIGHT) - (ITEM_HEIGHT / 2);
+        // Centrar dentro del área útil y limitar el desplazamiento
+        let offset = (viewportHeight / 2) - (activeIdx * ITEM_HEIGHT) - (ITEM_HEIGHT / 2) + 12;
+        const listHeight = minimapList.scrollHeight;
+        const maxOffset = 0;
+        const minOffset = Math.min(0, viewportHeight - listHeight);
+        offset = Math.min(maxOffset, Math.max(minOffset, offset));
 
         minimapList.style.transform = `translateY(${offset}px)`;
         minimapList.style.transition = 'transform 380ms cubic-bezier(0.4, 0, 0.2, 1)';

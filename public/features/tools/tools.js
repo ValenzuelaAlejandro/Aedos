@@ -118,14 +118,12 @@ function initTools(iframe) {
     function renderTools(el) {
         if (!toolsPanel) return;
 
-        // Prevent panel flicker: if we just selected something, or if we are dragging, don't close.
-        const isJustSelected = iframeWin.eidosIsJustSelected && iframeWin.eidosIsJustSelected();
-
         if (!el) {
-            // If nothing is selected, we show slide tools in the container, 
-            // but we don't force the panel open here. The click listener handles that.
+            // Unselected state: show slide level tools but hide panel by default
+            toolsPanel.classList.remove('active');
         } else {
-            // When an element is selected, ALWAYS show the panel
+            // Element selected: show property inspector
+            toolsPanel.classList.add('active');
             toolsPanel.classList.remove('is-empty');
         }
 
@@ -795,12 +793,12 @@ function initTools(iframe) {
             const isDragging = iframeWin.eidosIsDragging && iframeWin.eidosIsDragging();
             if (isJustSelected || isDragging) return;
 
-            const currentSelection = iframeWin.eidosGetSelection && iframeWin.eidosGetSelection();
             if (!currentSelection && !toolsPanel.classList.contains('is-empty') && !toolsPanel.classList.contains('is-fixed')) {
                 toolsPanel.classList.add('is-empty');
+                toolsPanel.classList.remove('active'); // Hide floating panel
             } else {
                 renderTools(null);
-                toolsPanel.classList.remove('is-empty');
+                // toolsPanel.classList.remove('is-empty');
             }
             toolsPanel.classList.remove('is-fixed');
             if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
@@ -886,6 +884,12 @@ function initTools(iframe) {
     safeAddListener('btn-add-icon', 'click', () => {
         fixToolsPanel();
         renderTools('lib-icons');
+    });
+
+    safeAddListener('btn-edit-background', 'click', () => {
+        fixToolsPanel();
+        renderTools(null);
+        if (toolsPanel) toolsPanel.classList.add('active');
     });
 
     // --- drop images handler ---

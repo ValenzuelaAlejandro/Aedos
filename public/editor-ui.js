@@ -61,17 +61,8 @@ window.initEditorUI = function (iframe) {
         }
     });
 
-    // Zoom Canvas
-    let zoomSelect = document.getElementById('canvas-zoom-select');
-    if (zoomSelect) {
-        const newZoom = zoomSelect.cloneNode(true);
-        zoomSelect.replaceWith(newZoom);
-        newZoom.addEventListener('change', (e) => {
-            const scale = parseFloat(e.target.value);
-            // App.js listens to window resize to call scaleIframe() which now reads the select value
-            window.dispatchEvent(new Event('resize'));
-        });
-    }
+    // Zoom Canvas - Now handled by button handlers in app.js
+    // No need to reinitialize as buttons are already bound
 
     // Add Elements
 
