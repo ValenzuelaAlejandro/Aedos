@@ -20,21 +20,10 @@ if (!window.__eidos_t) {
     window.currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
 }
 
-// 4. Event delegation — replaces onclick attributes on starter-card buttons
-//    and mobile navigation buttons. Deferred to DOMContentLoaded because
-//    the HTML elements don't exist yet at head-parse time.
+// 4. Event delegation — replaces onclick attributes on mobile navigation buttons.
+//    Deferred to DOMContentLoaded because the HTML elements don't exist yet 
+//    at head-parse time.
 document.addEventListener('DOMContentLoaded', function () {
-    // Starter-card buttons: single delegated listener on the parent track
-    var track = document.getElementById('starter-track');
-    if (track) {
-        track.addEventListener('click', function (e) {
-            var card = e.target.closest('[data-fill-key]');
-            if (card && typeof window.fillInput === 'function') {
-                window.fillInput(card.dataset.fillKey);
-            }
-        });
-    }
-
     // Mobile navigation buttons
     var prevBtn = document.querySelector('.mobile-prev-btn');
     var nextBtn = document.querySelector('.mobile-next-btn');
