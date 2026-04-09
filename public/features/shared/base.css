@@ -15,16 +15,17 @@
 }
 
 :root[data-theme="light"] {
-    --bg: #F3F4F6;
+    --bg: #dadce0;
     --surface: #FFFFFF;
     --surface2: #E5E7EB;
+    --editor-bg: #ebebec;
     --border: #D1D5DB;
     --border-hover: #111827;
     --border-active: #000000;
     --border-subtle: #F0F0F0;
     --text: #111827;
     --muted: #4B5563;
-    --placeholder: #9CA3AF;
+    --placeholder: #6B7280;
     --accent: #000000;
     --accent-light: rgba(0, 0, 0, 0.1);
     --radius: 12px;

@@ -229,7 +229,7 @@
 
 .theme-toggle-btn {
     background: var(--surface2);
-    border: 1px solid rgba(0, 102, 255, 0.4);
+    border: none;
     border-radius: 12px;
     padding: 0.5rem;
     color: var(--text);
@@ -241,9 +241,7 @@
 }
 
 .theme-toggle-btn:hover {
-    border-color: rgba(0, 102, 255, 0.8);
-    outline: 2px solid rgba(0, 102, 255, 0.6);
-    outline-offset: 0px;
+    background: rgba(255, 255, 255, 0.1);
     transform: translateY(-1px);
 }
 
@@ -264,7 +262,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    border: 1px solid rgba(0, 102, 255, 0.4);
+    border: none;
     border-radius: 12px;
     padding: 0.35rem 0.5rem;
     background: var(--surface2);
@@ -296,24 +294,17 @@
     gap: 0;
     overflow: visible;
     cursor: pointer;
-    border: 1px solid rgba(0, 102, 255, 0.4);
-    transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+    border: none;
+    transition: background 0.2s ease, transform 0.15s ease;
 }
 
-.control-pill-icon:hover,
-.control-pill-icon:focus-within {
-    border-color: rgba(0, 102, 255, 0.8);
+.control-pill-icon:hover {
     background: rgba(255, 255, 255, 0.05);
-    outline: 2px solid rgba(0, 102, 255, 0.6);
-    outline-offset: 0px;
     transform: translateY(-1px);
 }
 
-.theme-toggle-btn:hover,
-.theme-toggle-btn:focus-within {
-    border-color: rgba(0, 102, 255, 0.8);
-    outline: 2px solid rgba(0, 102, 255, 0.6);
-    outline-offset: 0px;
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
     transform: translateY(-1px);
 }
 
@@ -340,26 +331,23 @@
 }
 
 :root[data-theme="light"] .control-pill {
-    background: #FFFFFF;
-    border-color: var(--border);
+    background: rgba(0, 0, 0, 0.03);
+    border: none;
 }
 
 :root[data-theme="light"] .theme-toggle-btn {
-    background: #FFFFFF;
-    border-color: rgba(0, 102, 255, 0.5) !important;
+    background: rgba(0, 0, 0, 0.03);
+    border: none;
     border-radius: 12px;
 }
 
 :root[data-theme="light"] .control-pill-icon {
-    border-color: rgba(0, 102, 255, 0.5) !important;
+    background: rgba(0, 0, 0, 0.03);
+    border: none;
 }
 
-:root[data-theme="light"] .control-pill-icon:hover,
-:root[data-theme="light"] .control-pill-icon:focus-within {
-    border-color: rgba(0, 102, 255, 0.8) !important;
-    background: #F9FAFB;
-    outline: 2px solid rgba(0, 102, 255, 0.6);
-    outline-offset: 0px;
+:root[data-theme="light"] .control-pill-icon:hover {
+    background: rgba(0, 0, 0, 0.08);
     transform: translateY(-1px);
 }
 
@@ -367,33 +355,38 @@
     color: var(--text);
 }
 
+:root[data-theme="light"] .theme-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
 :root[data-theme="light"] .chat-input-wrapper {
     background: #FFFFFF;
-    border: 1px solid var(--border);
+    border: 1px solid #E2E8F0;
     border-radius: 14px;
     box-shadow: var(--shadow-sm);
 }
 
 :root[data-theme="light"] .chat-input-wrapper.is-pro {
-    border-color: #3B82F6;
+    border-color: #93C5FD;
 }
 
 :root[data-theme="light"] .chat-input-wrapper.is-pro:focus-within {
-    border-color: #2563EB;
+    border-color: #60A5FA;
     outline: 2px solid var(--accent-light);
 }
 
 :root[data-theme="light"] .chat-input-wrapper.is-pro:hover:not(:focus-within) {
-    border-color: #3B82F6;
+    border-color: #93C5FD;
 }
 
 :root[data-theme="light"] .chat-input-wrapper:not(.is-pro):hover:not(:focus-within) {
-    border-color: var(--border-hover);
+    border-color: #D1D5DB;
     box-shadow: var(--shadow-md);
 }
 
 :root[data-theme="light"] .chat-input-wrapper:not(.is-pro):focus-within {
-    border-color: var(--border-active);
+    border-color: #111827;
     outline: 2px solid var(--accent-light);
     box-shadow: var(--shadow-md);
 }
@@ -416,9 +409,9 @@
 }
 
 :root[data-theme="light"] .btn-generate-chat:disabled {
-    background: #E5E7EB !important;
-    color: #9CA3AF !important;
-    border-color: #E5E7EB !important;
+    background: #F3F4F6 !important;
+    color: #6B7280 !important;
+    border-color: #E2E8F0 !important;
     box-shadow: none;
     opacity: 1;
 }
@@ -793,40 +786,41 @@
 
 /* Light theme overrides */
 :root[data-theme="light"] .btn-mode-toggle {
-    background: #F3F4F6;
-    border-color: #E5E7EB;
-    color: #6B7280;
+    background: #FFFFFF;
+    border-color: #E2E8F0;
+    color: #374151;
 }
 
 :root[data-theme="light"] .btn-mode-toggle:hover {
     background: #F9FAFB;
-    border-color: #3B82F6;
+    border-color: #CAD5E0;
 }
 
 :root[data-theme="light"] .btn-mode-toggle.is-active {
-    background: #E0E7FF;
-    border-color: #3B82F6;
-    color: #1D4ED8;
+    background: #EFF6FF;
+    border-color: #93C5FD;
+    color: #1F2937;
 }
 
 :root[data-theme="light"] .btn-mode-toggle.is-active:hover {
-    background: #C7D2FE;
+    background: #DBEAFE;
+    border-color: #60A5FA;
 }
 
 :root[data-theme="light"] .btn-mode-toggle:disabled {
-    opacity: 0.6;
+    opacity: 1;
     cursor: not-allowed;
-    background: var(--surface2) !important;
-    color: #888888 !important;
-    border-color: #e0e0e0 !important;
-    filter: brightness(0.90) saturate(0.7);
+    background: #F9FAFB !important;
+    color: #9CA3AF !important;
+    border-color: #E2E8F0 !important;
+    filter: none;
     pointer-events: none;
 }
 
 :root[data-theme="light"] .btn-mode-toggle:disabled:hover,
 :root[data-theme="light"] .btn-mode-toggle:disabled:hover::after {
-    background: var(--surface2);
-    border-color: #e0e0e0;
+    background: #F9FAFB;
+    border-color: #E2E8F0;
 }
 
 /* Consolidated Custom Tooltip Logic (Header Icons + Mode Toggle) */
@@ -3185,7 +3179,7 @@ section.s.active > * {
     position: relative;
     display: flex;
     flex-direction: column;
-    background: var(--bg);
+    background: var(--editor-bg, var(--bg));
     overflow: hidden;
     height: 100%;
     padding: 0;
