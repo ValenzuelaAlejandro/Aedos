@@ -666,7 +666,6 @@
 
 .chat-actions {
     display: flex;
-    flex-wrap: wrap;
     align-items: stretch;
     width: 100%;
     margin-top: 0.6rem;
@@ -690,9 +689,8 @@
 
 /* ── Mode Toggle Button ─────────────────────────────────────────────── */
 .btn-mode-toggle {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     display: inline-flex;
-    justify-content: center;
     align-items: center;
     gap: 0.45rem;
     padding: 0 1rem;
@@ -878,6 +876,11 @@
     flex-shrink: 0;
 }
 
+.btn-mode-chevron,
+.mode-select-mobile {
+    display: none;
+}
+
 /* Default state: show lightning (flash), hide sparks (pro) */
 .btn-mode-icon--pro  { display: none; }
 .btn-mode-icon--flash { display: flex; }
@@ -949,8 +952,7 @@
     color: #101010;
     border: 1px solid rgba(255, 255, 255, 0.75);
     border-radius: 12px;
-    flex: 2 1 200px;
-    width: auto;
+    width: 100%;
     min-height: 50px;
     display: flex;
     align-items: center;
@@ -2543,21 +2545,6 @@ section.s.active > * {
 
     .toolbar-btn span {
         display: none;
-    }
-
-    /* Fix chat input overflow on mobile */
-    .chat-actions {
-        flex-direction: column;
-        gap: 0.6rem;
-    }
-
-    .btn-mode-toggle {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .hero-title {
-        font-size: 2.2rem;
     }
 }
 

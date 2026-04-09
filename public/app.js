@@ -38,7 +38,7 @@ function gifToStaticDataUrl(file) {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            canvas.width  = img.naturalWidth  || img.width;
+            canvas.width = img.naturalWidth || img.width;
             canvas.height = img.naturalHeight || img.height;
             canvas.getContext('2d').drawImage(img, 0, 0);
             URL.revokeObjectURL(url);
@@ -126,8 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set initial tooltip
         syncModeToggleI18n();
 
-        modeToggleBtn.addEventListener('click', () => {
-            proModeEnabled = !proModeEnabled;
+        function updateModeUI() {
             modeToggleBtn.setAttribute('aria-pressed', String(proModeEnabled));
             modeToggleBtn.classList.toggle('is-active', proModeEnabled);
             modeToggleBtn.classList.add('is-animating');
@@ -136,6 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Toggle neon glow on input wrapper
             if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', proModeEnabled);
 
+            // Swap icons
+            const iconFlash = modeToggleBtn.querySelector('.btn-mode-icon--flash');
+            const iconPro = modeToggleBtn.querySelector('.btn-mode-icon--pro');
+            if (iconFlash) iconFlash.style.display = proModeEnabled ? 'none' : 'flex';
+            if (iconPro) iconPro.style.display = proModeEnabled ? 'flex' : 'none';
+
             // Update mode label (button shows CURRENT mode)
             if (modeLabel) {
                 const labelKey = proModeEnabled ? 'mode_label_pro' : 'mode_label_flash';
@@ -143,9 +148,146 @@ document.addEventListener('DOMContentLoaded', () => {
                 modeLabel.textContent = window.__eidos_t(labelKey);
             }
 
+            // Sync mobile select if present
+            const modeSelectMobile = document.getElementById('mode-select-mobile');
+            if (modeSelectMobile) {
+                modeSelectMobile.value = proModeEnabled ? 'pro' : 'flash';
+            }
+
             // Update tooltip and generate button label via i18n
             syncModeToggleI18n();
+        }
+
+        modeToggleBtn.addEventListener('click', (e) => {
+            // On mobile: open custom dropdown instead of toggling directly
+            if (window.innerWidth <= 850) {
+                openModeDropdown();
+                return;
+            }
+            proModeEnabled = !proModeEnabled;
+            updateModeUI();
         });
+
+        const modeSelectMobile = document.getElementById('mode-select-mobile');
+        if (modeSelectMobile) {
+            modeSelectMobile.addEventListener('change', (e) => {
+                proModeEnabled = (e.target.value === 'pro');
+                updateModeUI();
+            });
+            // Stop propagation so the button click doesn't double-toggle
+            modeSelectMobile.addEventListener('click', (e) => e.stopPropagation());
+        }
+
+        // ── Custom Mobile Dropdown ─────────────────────────────────────────
+        let _modeDropdownEl = null;
+        let _dropdownOpen = false;
+
+        function buildModeDropdown() {
+            if (_modeDropdownEl) return;
+
+            const MODES = [
+                {
+                    value: 'flash',
+                    labelKey: 'mode_label_flash',
+                    labelDefault: 'Fast',
+                    subDefault: '~20s',
+                    icon: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`
+                },
+                {
+                    value: 'pro',
+                    labelKey: 'mode_label_pro',
+                    labelDefault: 'High Quality',
+                    subDefault: '~2 min',
+                    icon: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`
+                }
+            ];
+
+            const el = document.createElement('div');
+            el.className = 'mode-dropdown-custom';
+            el.setAttribute('role', 'listbox');
+
+            MODES.forEach(mode => {
+                const fullLabel = window.__eidos_t ? window.__eidos_t(mode.labelKey) : mode.labelDefault + ' (' + mode.subDefault + ')';
+                // Split at '(' to get label and sub
+                const parenIdx = fullLabel.indexOf('(');
+                const labelText = parenIdx > -1 ? fullLabel.substring(0, parenIdx).trim() : fullLabel;
+                const subText = parenIdx > -1 ? fullLabel.substring(parenIdx) : '';
+
+                const opt = document.createElement('button');
+                opt.type = 'button';
+                opt.className = 'mode-dropdown-option' + (mode.value === (proModeEnabled ? 'pro' : 'flash') ? ' is-selected' : '');
+                opt.setAttribute('role', 'option');
+                opt.dataset.value = mode.value;
+                opt.innerHTML = `
+                    <span class="mode-dropdown-option-icon">${mode.icon}</span>
+                    <span class="mode-dropdown-option-text">
+                        <span class="mode-dropdown-option-label">${labelText}</span>
+                        ${subText ? `<span class="mode-dropdown-option-sub">${subText}</span>` : ''}
+                    </span>
+                    <svg class="mode-dropdown-check" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                `;
+                opt.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    proModeEnabled = (mode.value === 'pro');
+                    updateModeUI();
+                    closeModeDropdown();
+                    // Sync selected state
+                    _modeDropdownEl.querySelectorAll('.mode-dropdown-option').forEach(o => {
+                        o.classList.toggle('is-selected', o.dataset.value === mode.value);
+                    });
+                });
+                el.appendChild(opt);
+            });
+
+            document.body.appendChild(el);
+            _modeDropdownEl = el;
+        }
+
+        function openModeDropdown() {
+            if (_dropdownOpen) { closeModeDropdown(); return; }
+            buildModeDropdown();
+
+            // Set position: top = button's top edge (CSS will translateY(-100%) to go above)
+            const btnRect = modeToggleBtn.getBoundingClientRect();
+            const ddW = 210;
+            let left = btnRect.left;
+            if (left + ddW > window.innerWidth - 8) left = window.innerWidth - ddW - 8;
+
+            _modeDropdownEl.style.left = left + 'px';
+            _modeDropdownEl.style.top = (btnRect.bottom + 8) + 'px';
+
+            // Update selected state
+            const curVal = proModeEnabled ? 'pro' : 'flash';
+            _modeDropdownEl.querySelectorAll('.mode-dropdown-option').forEach(o => {
+                o.classList.toggle('is-selected', o.dataset.value === curVal);
+            });
+
+            // Add is-open on next frame to trigger CSS transition
+            requestAnimationFrame(() => {
+                _modeDropdownEl.classList.add('is-open');
+            });
+            _dropdownOpen = true;
+
+            // Close on outside tap / click
+            setTimeout(() => {
+                document.addEventListener('touchstart', _outsideTap, { once: true, passive: true });
+                document.addEventListener('click', _outsideTap, { once: true });
+            }, 50);
+        }
+
+        function closeModeDropdown() {
+            if (!_modeDropdownEl || !_dropdownOpen) return;
+            _modeDropdownEl.classList.remove('is-open');
+            _modeDropdownEl.style.opacity = '';
+            _dropdownOpen = false;
+        }
+
+        function _outsideTap(e) {
+            if (_modeDropdownEl && !_modeDropdownEl.contains(e.target) && e.target !== modeToggleBtn) {
+                closeModeDropdown();
+            }
+        }
+        // ──────────────────────────────────────────────────────────────────
     }
     // ─────────────────────────────────────────────────────────────────────
 
@@ -278,8 +420,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const typewriterCursor = null;
     const chatPlaceholderContainer = null;
     let typewriterRunning = false;
-    function startTypewriter() {}
-    function stopTypewriter() {}
+    function startTypewriter() { }
+    function stopTypewriter() { }
 
     // Handle browser back/forward button
     window.addEventListener('popstate', (e) => {
@@ -466,7 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const configObj = JSON.parse(configMatch[1]);
                 if (configObj.Clean_Topic) return configObj.Clean_Topic;
                 if (configObj.topic) return configObj.topic;
-            } catch (e) {}
+            } catch (e) { }
         }
 
         const titleMatch = html.match(/<title>\s*(.*?)\s*<\/title>/i);
