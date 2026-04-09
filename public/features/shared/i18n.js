@@ -116,7 +116,9 @@ const translations = {
         "gen_loading_8": "Polishing the rough edges...",
         "gen_loading_9": "The last sparks are flying...",
         "gen_loading_final": "Any moment now...",
-        "discord": "Join Discord"
+        "discord": "Join Discord",
+        "theme": "Toggle Theme",
+        "language": "Change Language"
     },
     es: {
         "brand_name": "Eidoslab",
@@ -235,7 +237,9 @@ const translations = {
         "gen_loading_8": "Puliendo los últimos detalles...",
         "gen_loading_9": "Las últimas chispas están volando...",
         "gen_loading_final": "Ve pensando como exponer...",
-        "discord": "Únete a nuestro Discord"
+        "discord": "Únete a nuestro Discord",
+        "theme": "Cambiar Tema",
+        "language": "Cambiar Idioma"
     }
 };
 
@@ -261,7 +265,9 @@ function applyI18nToDom() {
     });
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
         const key = el.getAttribute('data-i18n-title');
-        el.title = window.__eidos_t(key);
+        const text = window.__eidos_t(key);
+        el.setAttribute('data-tooltip', text);
+        el.removeAttribute('title'); // Prevent native browser tooltips which cause flicker
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
         const key = el.getAttribute('data-i18n-placeholder');

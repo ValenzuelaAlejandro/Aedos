@@ -15,14 +15,21 @@
 }
 
 :root[data-theme="light"] {
-    --bg: #f4f4f1;
-    --surface: #ffffff;
-    --surface2: #f2f2ef;
-    --border: rgba(20, 20, 20, 0.14);
-    --text: #171717;
-    --muted: #616161;
-    --accent: #171717;
-    --accent-light: rgba(23, 23, 23, 0.5);
+    --bg: #FAFAFA;
+    --surface: #FFFFFF;
+    --surface2: #FFFFFF;
+    --border: #E5E7EB;
+    --border-hover: #3B82F6;
+    --border-active: #2563EB;
+    --border-subtle: #F0F0F0;
+    --text: #111827;
+    --muted: #6B7280;
+    --placeholder: #9CA3AF;
+    --accent: #111827;
+    --accent-light: rgba(59, 130, 246, 0.4);
+    --radius: 12px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.08);
 }
 
 .flicker-mask {

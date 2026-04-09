@@ -197,6 +197,9 @@
     border-bottom: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    /* Force composite layer to prevent flickering in Edge/Chrome on fixed elements with transforms */
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
 }
 
 .top-brand {
@@ -225,17 +228,16 @@
 }
 
 .theme-toggle-btn {
-    width: 36px;
-    height: 36px;
+    background: var(--surface2);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    border-radius: 12px;
+    padding: 0.5rem;
     color: var(--text);
-    display: inline-flex;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
 }
 
 .theme-toggle-btn:hover {
@@ -261,9 +263,9 @@
     align-items: center;
     gap: 0.45rem;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 0.35rem 0.5rem;
-    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    background: var(--surface2);
 }
 
 .control-label {
@@ -290,7 +292,7 @@
     padding: 0;
     justify-content: center;
     gap: 0;
-    overflow: hidden;
+    overflow: visible;
     cursor: pointer;
     transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
 }
@@ -319,60 +321,93 @@
 
 :root[data-theme="light"] .top-control-bar {
     background: transparent;
-    /* subtle separator so header reads against light editor panels */
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: none;
     backdrop-filter: none;
 }
 
 :root[data-theme="light"] .control-pill {
-    background: #ffffff;
-    border-color: rgba(20, 20, 20, 0.16);
+    background: #FFFFFF;
+    border-color: #E5E7EB;
+    box-shadow: var(--shadow-sm);
 }
 
 :root[data-theme="light"] .theme-toggle-btn {
-    background: #ffffff;
-    border-color: rgba(20, 20, 20, 0.16);
+    background: #FFFFFF;
+    border-color: #E5E7EB;
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
 }
 
 :root[data-theme="light"] .theme-toggle-btn:hover {
-    border-color: rgba(20, 20, 20, 0.3);
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
 }
 
 :root[data-theme="light"] .control-pill-icon:hover,
 :root[data-theme="light"] .control-pill-icon:focus-within {
-    border-color: rgba(20, 20, 20, 0.3);
+    border-color: var(--border-hover);
 }
 
 :root[data-theme="light"] .chat-input-wrapper {
-    background: rgba(255, 255, 255, 0.92);
-    border-color: rgba(24, 24, 24, 0.14);
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+:root[data-theme="light"] .chat-input-wrapper.is-pro {
+    border-color: #3B82F6;
+}
+
+:root[data-theme="light"] .chat-input-wrapper.is-pro:focus-within {
+    border-color: #2563EB;
+    outline: 2px solid var(--accent-light);
+    box-shadow: var(--shadow-md);
+}
+
+:root[data-theme="light"] .chat-input-wrapper.is-pro:hover:not(:focus-within) {
+    border-color: #3B82F6;
+    box-shadow: var(--shadow-md);
+}
+
+:root[data-theme="light"] .chat-input-wrapper:not(.is-pro):hover:not(:focus-within) {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
+}
+
+:root[data-theme="light"] .chat-input-wrapper:not(.is-pro):focus-within {
+    border-color: var(--border-active);
+    outline: 2px solid var(--accent-light);
+    box-shadow: var(--shadow-md);
 }
 
 :root[data-theme="light"] .chat-input {
-    color: #151515;
+    color: var(--text);
 }
 
 :root[data-theme="light"] .btn-generate-chat {
-    background: #0f0f0f;
-    color: #f8f8f8;
-    border-color: rgba(15, 15, 15, 0.85);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+    background: #111827;
+    color: #FFFFFF;
+    border: 1px solid #111827;
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
 }
 
 :root[data-theme="light"] .btn-generate-chat:hover:not(:disabled) {
-    background: #000;
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+    background: #1F2937;
+    box-shadow: var(--shadow-md);
 }
 
 :root[data-theme="light"] .btn-generate-chat:disabled {
-    background: #111111 !important;
-    color: #ffffff !important;
-    border-color: rgba(17, 17, 17, 0.9) !important;
-    opacity: 0.7;
+    background: #E5E7EB !important;
+    color: #9CA3AF !important;
+    border-color: #E5E7EB !important;
+    box-shadow: none;
+    opacity: 1;
 }
 
 :root[data-theme="light"] .chat-input::placeholder {
-    color: #7b7b7b;
+    color: var(--placeholder);
 }
 
 /* Light-theme specific placeholder/readability fixes for editor controls */
@@ -663,7 +698,7 @@
     padding: 0 1rem;
     min-height: 50px;
     border-radius: 12px;
-    border: 1.5px solid var(--border);
+    border: 1px solid var(--border);
     background: var(--surface2);
     color: var(--text);
     font-family: var(--font-body);
@@ -720,24 +755,24 @@
 
 /* Light theme overrides */
 :root[data-theme="light"] .btn-mode-toggle {
-    background: var(--surface2);
-    border-color: var(--border);
-    color: var(--text);
+    background: #F3F4F6;
+    border-color: #E5E7EB;
+    color: #6B7280;
 }
 
 :root[data-theme="light"] .btn-mode-toggle:hover {
-    border-color: rgba(0, 0, 0, 0.28);
-    background: var(--surface);
+    background: #F9FAFB;
+    border-color: #3B82F6;
 }
 
 :root[data-theme="light"] .btn-mode-toggle.is-active {
-    background: rgba(0, 102, 255, 0.09);
-    border-color: rgba(0, 102, 255, 0.45);
-    color: #0050cc;
+    background: #E0E7FF;
+    border-color: #3B82F6;
+    color: #1D4ED8;
 }
 
 :root[data-theme="light"] .btn-mode-toggle.is-active:hover {
-    background: rgba(0, 102, 255, 0.14);
+    background: #C7D2FE;
 }
 
 :root[data-theme="light"] .btn-mode-toggle:disabled {
@@ -756,34 +791,84 @@
     border-color: #e0e0e0;
 }
 
-/* CSS tooltip — replaces native title attribute */
-.btn-mode-toggle::after {
+/* Consolidated Custom Tooltip Logic (Header Icons + Mode Toggle) */
+.btn-mode-toggle,
+.theme-toggle-btn,
+.control-pill-icon {
+    position: relative;
+    /* Ensure tooltips are not clipped */
+}
+
+.btn-mode-toggle::after,
+.theme-toggle-btn::after,
+.control-pill-icon::after {
     content: attr(data-tooltip);
     position: absolute;
-    bottom: calc(100% + 9px);
     left: 50%;
-    transform: translateX(-50%);
-    min-width: 200px;
-    max-width: 260px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-size: 0.76rem;
-    font-weight: 400;
-    line-height: 1.45;
-    padding: 0.45rem 0.7rem;
+    transform: translateX(-50%) translateZ(0);
+    min-width: 120px;
+    max-width: 250px;
+    width: max-content;
+    background: #111111;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #FFFFFF;
+    font-size: 0.74rem;
+    font-weight: 500;
+    padding: 0.45rem 0.75rem;
     border-radius: 8px;
     white-space: normal;
     text-align: center;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.15s ease 0.4s;
-    z-index: 200;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    visibility: hidden;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 9999;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Position header tooltips BELOW (they are at the top) */
+.theme-toggle-btn::after,
+.control-pill-icon::after {
+    top: calc(100% + 10px);
+}
+
+/* Position Mode Toggle tooltip ABOVE (it is near bottom) */
+.btn-mode-toggle::after {
+    bottom: calc(100% + 10px);
+    min-width: 200px;
+}
+
+:root[data-theme="light"] .btn-mode-toggle::after,
+:root[data-theme="light"] .theme-toggle-btn::after,
+:root[data-theme="light"] .control-pill-icon::after {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    color: #111827;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-mode-toggle:hover::after,
+.theme-toggle-btn:hover::after,
+.control-pill-icon:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+.btn-mode-toggle:active::after,
+.theme-toggle-btn:active::after,
+.control-pill-icon:active::after {
+    opacity: 0;
+    visibility: hidden;
+    transition: none;
+}
+
+.theme-toggle-btn:hover::after,
+.control-pill-icon:hover::after {
+    transform: translateX(-50%) translateY(4px) translateZ(0);
 }
 
 .btn-mode-toggle:hover::after {
-    opacity: 1;
+    transform: translateX(-50%) translateY(-4px) translateZ(0);
 }
 
 /* Icon management — show one at a time */
@@ -941,11 +1026,11 @@
 @keyframes neonInputPulse {
     0%,
     100% {
-        box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.12), 0 0 18px rgba(0, 102, 255, 0.1);
+        box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.2), 0 0 20px rgba(0, 102, 255, 0.15);
     }
 
     50% {
-        box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.24), 0 0 28px rgba(0, 102, 255, 0.2);
+        box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.4), 0 0 35px rgba(0, 102, 255, 0.25);
     }
 }
 
