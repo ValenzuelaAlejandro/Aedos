@@ -362,12 +362,10 @@
 :root[data-theme="light"] .chat-input-wrapper.is-pro:focus-within {
     border-color: #2563EB;
     outline: 2px solid var(--accent-light);
-    box-shadow: var(--shadow-md);
 }
 
 :root[data-theme="light"] .chat-input-wrapper.is-pro:hover:not(:focus-within) {
     border-color: #3B82F6;
-    box-shadow: var(--shadow-md);
 }
 
 :root[data-theme="light"] .chat-input-wrapper:not(.is-pro):hover:not(:focus-within) {
@@ -1026,11 +1024,11 @@
 @keyframes neonInputPulse {
     0%,
     100% {
-        box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.2), 0 0 20px rgba(0, 102, 255, 0.15);
+        box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.3), 0 0 25px rgba(0, 102, 255, 0.25);
     }
 
     50% {
-        box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.4), 0 0 35px rgba(0, 102, 255, 0.25);
+        box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.5), 0 0 45px rgba(0, 102, 255, 0.45);
     }
 }
 
