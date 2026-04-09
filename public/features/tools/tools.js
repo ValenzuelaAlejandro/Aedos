@@ -6,11 +6,29 @@ function initTools(iframe) {
 
     // --- selection change state ---
     let selectionT = null;
+    // Track which toolbar button opened the panel so only the same button closes it
+    let panelOwner = null;
+    // Guard: prevents eidos-selection-changed from clearing panelOwner when a btn triggered the select
+    let _settingPanelOwner = false;
+
     iframeWin.addEventListener('eidos-selection-changed', (e) => {
         const el = e.detail.element;
         // Optimization: debounce UI re-renders for multi-clicks/restores
         clearTimeout(selectionT);
         selectionT = setTimeout(() => {
+            if (!el) {
+                // Deselection: just hide the panel, don't open bg tools
+                panelOwner = null;
+                if (toolsPanel) {
+                    toolsPanel.classList.remove('active');
+                }
+                return;
+            }
+            // If this selection was triggered by a direct element click (not a btn),
+            // clear panelOwner so the ownership resets
+            if (!_settingPanelOwner) {
+                panelOwner = null;
+            }
             renderTools(el);
         }, 50);
     });
@@ -793,13 +811,11 @@ function initTools(iframe) {
             const isDragging = iframeWin.eidosIsDragging && iframeWin.eidosIsDragging();
             if (isJustSelected || isDragging) return;
 
-            if (!currentSelection && !toolsPanel.classList.contains('is-empty') && !toolsPanel.classList.contains('is-fixed')) {
-                toolsPanel.classList.add('is-empty');
-                toolsPanel.classList.remove('active'); // Hide floating panel
-            } else {
-                renderTools(null);
-                // toolsPanel.classList.remove('is-empty');
-            }
+            // Just hide the panel on bg click — never open bg tools from here
+            clearTimeout(selectionT);
+            selectionT = null;
+            panelOwner = null;
+            toolsPanel.classList.remove('active');
             toolsPanel.classList.remove('is-fixed');
             if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
         }
@@ -807,6 +823,20 @@ function initTools(iframe) {
 
     // --- Add Elements listeners ---
     safeAddListener('btn-add-text', 'click', () => {
+        const btnId = 'btn-add-text';
+        if (toolsPanel && toolsPanel.classList.contains('active') && panelOwner === btnId) {
+            clearTimeout(selectionT);
+            selectionT = null;
+            panelOwner = null;
+            toolsPanel.classList.remove('active');
+            toolsPanel.classList.remove('is-fixed');
+            if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
+            return;
+        }
+        // Mark that the upcoming eidos-selection-changed was triggered by this btn
+        _settingPanelOwner = true;
+        panelOwner = btnId;
+        setTimeout(() => { _settingPanelOwner = false; }, 0);
         fixToolsPanel();
         if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
         const slide = getActiveSlide();
@@ -833,6 +863,20 @@ function initTools(iframe) {
     });
 
     safeAddListener('btn-add-image', 'click', () => {
+        const btnId = 'btn-add-image';
+        if (toolsPanel && toolsPanel.classList.contains('active') && panelOwner === btnId) {
+            clearTimeout(selectionT);
+            selectionT = null;
+            panelOwner = null;
+            toolsPanel.classList.remove('active');
+            toolsPanel.classList.remove('is-fixed');
+            if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
+            return;
+        }
+        // Mark that the upcoming eidos-selection-changed was triggered by this btn
+        _settingPanelOwner = true;
+        panelOwner = btnId;
+        setTimeout(() => { _settingPanelOwner = false; }, 0);
         fixToolsPanel();
         if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
         const slide = getActiveSlide();
@@ -877,16 +921,46 @@ function initTools(iframe) {
     });
 
     safeAddListener('btn-add-shape', 'click', () => {
+        const btnId = 'btn-add-shape';
+        if (toolsPanel && toolsPanel.classList.contains('active') && panelOwner === btnId) {
+            clearTimeout(selectionT);
+            selectionT = null;
+            panelOwner = null;
+            toolsPanel.classList.remove('active');
+            toolsPanel.classList.remove('is-fixed');
+            return;
+        }
+        panelOwner = btnId;
         fixToolsPanel();
         renderTools('lib-shapes');
     });
 
     safeAddListener('btn-add-icon', 'click', () => {
+        const btnId = 'btn-add-icon';
+        if (toolsPanel && toolsPanel.classList.contains('active') && panelOwner === btnId) {
+            clearTimeout(selectionT);
+            selectionT = null;
+            panelOwner = null;
+            toolsPanel.classList.remove('active');
+            toolsPanel.classList.remove('is-fixed');
+            return;
+        }
+        panelOwner = btnId;
         fixToolsPanel();
         renderTools('lib-icons');
     });
 
     safeAddListener('btn-edit-background', 'click', () => {
+        const btnId = 'btn-edit-background';
+        if (toolsPanel && toolsPanel.classList.contains('active') && panelOwner === btnId) {
+            clearTimeout(selectionT);
+            selectionT = null;
+            panelOwner = null;
+            toolsPanel.classList.remove('active');
+            toolsPanel.classList.remove('is-fixed');
+            return;
+        }
+        panelOwner = btnId;
         fixToolsPanel();
         renderTools(null);
         if (toolsPanel) toolsPanel.classList.add('active');

@@ -2753,6 +2753,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.target.closest('#editor-tools-panel') ||
                     e.target.closest('#editor-minimap') ||
                     e.target.closest('.preview-unified-header') ||
+                    e.target.closest('#floating-toolbar') ||
                     e.target.closest('._slot-overlay-label');
 
                 if (!isEditorInteraction) {
