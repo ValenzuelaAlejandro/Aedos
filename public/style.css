@@ -2698,7 +2698,7 @@ section.s.active > * {
         box-shadow: none !important;
         padding: 8px 0 !important;
         transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        overflow-y: auto !important;
+        overflow: hidden !important;
     }
 
     .editor-tools-panel {
