@@ -847,4 +847,22 @@
         transform: scale(0.95);
         transition: transform 0.1s ease-out;
     }
+
+    /* Streaming must use the full viewport on mobile (no reserved header/nav space). */
+    #preview-container.is-generating .editor-main-layout {
+        height: 100vh !important;
+        height: 100dvh !important;
+    }
+
+    #preview-container.is-generating .preview-stage {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+    }
+
+    #preview-container.is-generating .preview-unified-header,
+    #preview-container.is-generating #mobile-bottom-nav {
+        display: none !important;
+    }
 }

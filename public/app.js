@@ -97,6 +97,30 @@ document.addEventListener('DOMContentLoaded', () => {
     let _refreshSlotOverlays = null; // assigned in injectImageReplacementSystem
     let _overlayMap = new Map(); // slotEl -> { input, label }
 
+    // Panel insets used by scaleIframe to account for floating panel overlay.
+    // GSAP tweens this object during the settling animation so scaleIframe can
+    // call getBoundingClientRect once and derive both scale and centering offset.
+    let _editorInsets = { left: 0, right: 0, top: 0, bottom: 0 };
+    // Tracks the active settling GSAP tween so we can kill it before a new generation
+    // starts (prevents the previous onComplete from firing showFloatingPills mid-stream).
+    let _settlingAnimation = null;
+
+    function clearStageInlinePadding() {
+        const stageEl = document.getElementById('preview-stage');
+        if (!stageEl) return;
+        // GSAP writes longhand paddings during settle; clear each one explicitly.
+        stageEl.style.padding = '';
+        stageEl.style.paddingLeft = '';
+        stageEl.style.paddingRight = '';
+        stageEl.style.paddingTop = '';
+        stageEl.style.paddingBottom = '';
+    }
+
+    function resetMobileZoomState() {
+        window._eidos_mobile_zoom = 1;
+        window._eidos_pan = { x: 0, y: 0 };
+    }
+
     // Mode toggle: false = Flash (default), true = Pro (3-stage pipeline)
     let proModeEnabled = false;
 
@@ -639,7 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (errorContainer) errorContainer.classList.add('hidden');
         if (refusedContainer) refusedContainer.classList.add('hidden');
 
-        previewContainer.classList.remove('hidden', 'is-generating', 'reveal-sequence', 'reveal-minimap', 'reveal-tools', 'reveal-chrome');
+        previewContainer.classList.remove('hidden', 'is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools', 'reveal-chrome');
         chatScreen.style.cssText = '';
         chatScreen.classList.add('hidden');
         document.body.classList.add('no-scroll');
@@ -652,8 +676,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         previewHeader.classList.remove('slide-down');
         initPreview(html, () => {
-            previewContainer.classList.remove('is-generating', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+            previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
             previewHeader.classList.add('slide-down');
+            // Apply settled insets so the slide centers between panels in debug mode.
+            if (window.innerWidth > 768) {
+                _editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
+                const dbgStage = document.getElementById('preview-stage');
+                if (dbgStage) {
+                    dbgStage.style.paddingLeft   = '165px';
+                    dbgStage.style.paddingRight  = '30px';
+                    dbgStage.style.paddingTop    = '64px';
+                    dbgStage.style.paddingBottom = '64px';
+                }
+            }
+            previewContainer.classList.add('is-editor-ready');
             scaleIframe();
         });
     }
@@ -725,7 +761,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // If regenerating: immediately ensure panels are visible — strip every class
         // that could be hiding them, regardless of what previous animation cycle left behind.
         if (isRegenerating) {
-            previewContainer.classList.remove('is-generating', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+            previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+            if (_settlingAnimation) { _settlingAnimation.kill(); _settlingAnimation = null; }
+            _editorInsets = { left: 0, right: 0, top: 0, bottom: 0 };
+            resetMobileZoomState();
+            const _scrollableRegen = document.getElementById('preview-wrapper-scrollable');
+            if (_scrollableRegen) _scrollableRegen.style.transform = '';
+            clearStageInlinePadding();
         }
 
         toggleGenerateLoading(true);
@@ -746,10 +788,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 380);
             // Reveal preview (sectionFadeIn animation kicks in automatically)
             previewHeader.classList.remove('slide-down');
-            previewContainer.classList.remove('hidden', 'reveal-chrome', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+            previewContainer.classList.remove('hidden', 'reveal-chrome', 'reveal-sequence', 'reveal-minimap', 'reveal-tools', 'is-editor-ready');
             previewContainer.classList.add('is-generating');
             document.body.classList.add('no-scroll');
-            requestAnimationFrame(() => scaleIframe());
+
+            // Kill any in-progress settling tween from a previous generation so its
+            // onComplete never fires showFloatingPills during the new streaming session.
+            if (_settlingAnimation) { _settlingAnimation.kill(); _settlingAnimation = null; }
+
+            // Reset panel insets so slide fills the full screen during streaming.
+            _editorInsets = { left: 0, right: 0, top: 0, bottom: 0 };
+            resetMobileZoomState();
+            const _scrollableReset = document.getElementById('preview-wrapper-scrollable');
+            if (_scrollableReset) _scrollableReset.style.transform = '';
+            // Clear any leftover inline stage padding from the previous settling animation
+            // (CSS `is-generating .preview-stage { padding:0 !important }` also covers this).
+            clearStageInlinePadding();
+
+            // Double-rAF: the first rAF triggers style recalculation after display:none→flex;
+            // the second rAF fires after layout is fully computed so getBoundingClientRect
+            // returns accurate dimensions.
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                scaleIframe();
+                // Extra safety: call once more after 300ms in case the iframe resizes on load.
+                setTimeout(scaleIframe, 300);
+            }));
             window.addEventListener('resize', scaleIframe);
         }
 
@@ -1029,49 +1092,76 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
-                    // Revealed the UI chrome with a cinematic sequence
+                    // Revealed the UI chrome with a cinematic sequence.
+                    // Keep chrome hidden via is-settling during the GSAP shrink so
+                    // panels only appear once the slide has fully settled.
                     previewContainer.classList.remove('is-generating');
-                    
-                    // 🎬 CINEMATIC SHRINK: Animate with GSAP for maximum smoothness
-                    if (window.gsap) {
-                        // 1. Shrink stage padding (Ajustado a 0.2rem para máximo espacio)
-                        window.gsap.to(previewContainer, {
-                            padding: "0.2rem",
+                    previewContainer.classList.add('is-settling');
+
+                    // CINEMATIC SHRINK: Tween _editorInsets from 0 to settled values.
+                    // scaleIframe reads from this object every frame so the slide smoothly
+                    // shrinks and re-centers into the area between the floating panels.
+                    // No inline styles are set on the stage element — no CSS fights.
+                    if (window.gsap && window.innerWidth > 768) {
+                        _settlingAnimation = window.gsap.to(_editorInsets, {
+                            left:   165,
+                            right:   30,
+                            top:     64,
+                            bottom:  64,
                             duration: 1.2,
                             ease: "expo.out",
-                            onUpdate: () => scaleIframe(), 
+                            onUpdate: () => {
+                                // Apply _editorInsets as stage padding so the flex container
+                                // centers the slide within the panel-free area — no transform
+                                // on the scrollable means no overflow-clipping bug.
+                                const stageEl = document.getElementById('preview-stage');
+                                if (stageEl) {
+                                    stageEl.style.paddingLeft   = `${_editorInsets.left}px`;
+                                    stageEl.style.paddingRight  = `${_editorInsets.right}px`;
+                                    stageEl.style.paddingTop    = `${_editorInsets.top}px`;
+                                    stageEl.style.paddingBottom = `${_editorInsets.bottom}px`;
+                                }
+                                scaleIframe();
+                            },
                             onStart: () => {
-                                // 2. Fade in Header
                                 if (previewHeader) previewHeader.classList.add('slide-down');
                             },
                             onComplete: () => {
-                                // 3. Slide in Pills
+                                _settlingAnimation = null;
                                 showFloatingPills();
                                 scaleIframe();
                             }
                         });
                     } else {
-                        // Fallback if GSAP is missing
-                        previewContainer.classList.add('reveal-sequence');
+                        if (window.innerWidth > 768) {
+                            _editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
+                            const fallbackStage = document.getElementById('preview-stage');
+                            if (fallbackStage) {
+                                fallbackStage.style.paddingLeft   = '165px';
+                                fallbackStage.style.paddingRight  = '30px';
+                                fallbackStage.style.paddingTop    = '64px';
+                                fallbackStage.style.paddingBottom = '64px';
+                            }
+                        }
                         if (previewHeader) previewHeader.classList.add('slide-down');
-                        setTimeout(showFloatingPills, 800);
-                        setTimeout(scaleIframe, 1200);
+                        setTimeout(() => { showFloatingPills(); scaleIframe(); }, 800);
                     }
 
                     function showFloatingPills() {
-                        previewContainer.classList.add('reveal-minimap', 'reveal-tools');
-                        // Reveal the floating toolbar as well
-                        const fb = document.getElementById('floating-toolbar');
-                        if (fb) {
-                            fb.style.opacity = '0';
-                            fb.style.transform = 'translateX(-50%) translateY(20px)';
-                            window.gsap.to(fb, {
-                                opacity: 1,
-                                translateY: 0,
-                                duration: 0.8,
-                                ease: "back.out(1.7)"
-                            });
+                        previewContainer.classList.remove('is-settling');
+                        previewContainer.classList.add('is-editor-ready');
+                        // Reveal minimap via GSAP for a reliable, explicit opacity fade
+                        // (avoids CSS transition timing edge-cases when is-settling is removed).
+                        const mm = document.getElementById('editor-minimap');
+                        if (mm) {
+                            if (window.gsap) {
+                                window.gsap.fromTo(mm, { opacity: 0 }, { opacity: 1, duration: 0.65, ease: 'power2.out' });
+                            } else {
+                                mm.style.opacity = '';
+                            }
                         }
+                        // NOTE: reveal-tools is intentionally NOT added.
+                        // Right panel only opens when the user selects an element.
                     }
                 }, 100);
             });
@@ -1113,7 +1203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             errorMessage.textContent = error.message;
             errorContainer.classList.remove('hidden');
-            previewContainer.classList.remove('is-generating', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+            previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
             previewContainer.classList.add('hidden');
             // Clean up any in-progress chat→preview transition
             chatScreen.style.cssText = '';
@@ -1672,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // Initialize zoom state
-    window._eidosManualZoomScale = 0.8; // Initial manual zoom factor (80% to avoid overlapping pills)
+    window._eidosManualZoomScale = 1.0; // Manual zoom factor (1.0 = fill available area; panels reserve space via stage padding)
     const MIN_ZOOM = 0.5; // 50%
     const MAX_ZOOM = 2; // 200%
     const ZOOM_STEP = 0.1; // 10% increments
@@ -1722,6 +1812,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const iframeNativeHeight = 631;
 
         let scale = 1;
+        let forceFitScale = false;
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
 
         if (isFullscreen) {
@@ -1733,22 +1824,36 @@ document.addEventListener('DOMContentLoaded', () => {
             scale = Math.min(MathScaleX, MathScaleY);
             // Allow scaling up past 100% in presentation mode
         } else {
-            // Calculate fit scale inside stage
             const stageRect = stage.getBoundingClientRect();
-            
-            const availableWidth = stageRect.width; 
-            const availableHeight = stageRect.height; 
-            
-            const fitScaleX = availableWidth / iframeNativeWidth;
+
+            // _editorInsets is {0,0,0,0} during streaming and is tweened by GSAP
+            // during the settling animation so scaleIframe always gets the right values.
+            const L = _editorInsets.left,  R = _editorInsets.right;
+            const T = _editorInsets.top,   B = _editorInsets.bottom;
+            const hasZeroInsets = (L === 0 && R === 0 && T === 0 && B === 0);
+            const isStreamingState = previewContainer.classList.contains('is-generating') || previewContainer.classList.contains('is-settling');
+            forceFitScale = hasZeroInsets || isStreamingState;
+
+            const availableWidth  = stageRect.width  - L - R;
+            const availableHeight = stageRect.height - T - B;
+
+            const fitScaleX = availableWidth  / iframeNativeWidth;
             const fitScaleY = availableHeight / iframeNativeHeight;
-            const fitScale = Math.min(fitScaleX, fitScaleY);
-            
-            // Apply manual zoom on top of fit scale
-            scale = fitScale * window._eidosManualZoomScale;
+            const fitScale  = Math.min(fitScaleX, fitScaleY);
+
+            // During streaming the manual zoom must NOT apply — the slide should
+            // fill the full viewport with no panels in the way.
+            scale = forceFitScale ? fitScale : fitScale * window._eidosManualZoomScale;
+
+            // Centering is achieved by setting asymmetric padding on the stage element
+            // (done in the GSAP onUpdate / doTransitionToPreview). The scrollable is always
+            // transform-free so it never overflows the parent's overflow:hidden boundary.
+            const scrollable = document.getElementById('preview-wrapper-scrollable');
+            if (scrollable) scrollable.style.transform = '';
         }
 
         window._eidosBaseScale = scale;
-        const mobileZoom = window._eidos_mobile_zoom || 1;
+        const mobileZoom = forceFitScale ? 1 : (window._eidos_mobile_zoom || 1);
         const totalScale = scale * mobileZoom;
 
         previewIframe.style.transform = `scale(${totalScale})`;

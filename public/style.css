@@ -2599,15 +2599,49 @@ section.s.active > * {
 
 /* Instant collapse: no transition while entering generating state */
 #preview-container.is-generating .editor-minimap {
-    transform: translateX(-100px) scale(0.9);
     opacity: 0 !important;
     pointer-events: none !important;
+    transition: none !important;
 }
 
 #preview-container.is-generating .editor-tools-panel {
     transform: translateX(100px) scale(0.9);
     opacity: 0 !important;
     pointer-events: none !important;
+}
+
+#preview-container.is-generating .preview-unified-header {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* While streaming/settling, side panels must not reserve layout width. */
+#preview-container.is-generating .editor-minimap,
+#preview-container.is-generating .editor-tools-panel,
+#preview-container.is-settling .editor-minimap,
+#preview-container.is-settling .editor-tools-panel {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+}
+
+/* ================================================================
+   SETTLING STATE — slide is animating to its resting position.
+   ================================================================ */
+#preview-container.is-settling .editor-minimap {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: none !important;
+}
+
+#preview-container.is-settling .editor-tools-panel {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: none !important;
 }
 
 /* CINEMATIC GENERATION MODE & FLOATING LAYOUT */
@@ -2627,6 +2661,13 @@ section.s.active > * {
     }
 
     #preview-container.is-generating {
+        padding: 0 !important;
+    }
+
+    /* Clear any GSAP-set inline padding on the stage so the slide fills the
+       full viewport during streaming. This overrides leftover values from the
+       previous generation’s settling animation. */
+    #preview-container.is-generating .preview-stage {
         padding: 0 !important;
     }
 
@@ -2729,22 +2770,31 @@ section.s.active > * {
     /* Floating Master Toolbar (Bottom) */
     .tools-add-elements {
         position: absolute !important;
-        bottom: 8px; /* Casi pegada */
+        bottom: 8px;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translateX(-50%) translateY(16px); /* shifted down = hidden state */
         z-index: 100;
         display: flex !important;
         flex-direction: row !important;
         align-items: center;
         gap: 8px;
         padding: 8px 12px !important;
-        background: rgba(18, 18, 18, 0.5) !important; /* Más traslúcido */
-        backdrop-filter: blur(35px) saturate(2);
-        -webkit-backdrop-filter: blur(35px) saturate(2);
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: rgba(18, 18, 18, 0.5) !important;
+        backdrop-filter: blur(20px) saturate(1.5);
+        -webkit-backdrop-filter: blur(20px) saturate(1.5);
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 40px !important;
-        box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1);
-        transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s ease, transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Reveal toolbar once the slide has settled in editor mode */
+    #preview-container.is-editor-ready .tools-add-elements {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+        pointer-events: auto;
     }
 
     .tools-add-elements .add-el-btn {
@@ -2809,7 +2859,7 @@ section.s.active > * {
     padding: 0 !important;
     border-right: none !important;
     overflow: hidden !important;
-    transform: translateX(-28px);
+    transform: translateY(-50%) translateX(-28px);
     opacity: 0;
     transition: none !important;
 }
@@ -2818,7 +2868,7 @@ section.s.active > * {
 #preview-container.reveal-minimap .editor-minimap {
     width: 180px !important;
     min-width: 180px !important;
-    transform: translateX(0) !important;
+    transform: translateY(-50%) translateX(0) !important;
     opacity: 1 !important;
     overflow: hidden !important;
     transition:
@@ -2836,7 +2886,7 @@ section.s.active > * {
     padding: 0 !important;
     border-left: none !important;
     overflow: hidden !important;
-    transform: translateX(28px);
+    transform: translateY(-50%) translateX(28px);
     opacity: 0;
     transition: none !important;
 }
@@ -2846,7 +2896,7 @@ section.s.active > * {
     width: 260px !important;
     min-width: 260px !important;
     padding: 1rem !important;
-    transform: translateX(0) !important;
+    transform: translateY(-50%) translateX(0) !important;
     opacity: 1 !important;
     overflow: hidden !important;
     transition:
