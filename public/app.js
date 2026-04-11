@@ -84,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const slideLabel = document.getElementById('slide-label');
     const previewHeader = document.querySelector('.preview-unified-header');
     const finalizeBtn = document.getElementById('finalize-btn');
-    const previewResetBtn = document.getElementById('preview-reset-btn');
     const progressBarEl = document.getElementById('loading-progress-bar');
 
     // State
@@ -96,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTitle = 'Presentation';
     let _refreshSlotOverlays = null; // assigned in injectImageReplacementSystem
     let _overlayMap = new Map(); // slotEl -> { input, label }
+    let _stabilizeMinimapOnNextPreviewInit = false;
 
     // Panel insets used by scaleIframe to account for floating panel overlay.
     // GSAP tweens this object during the settling animation so scaleIframe can
@@ -334,9 +334,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 fn();
             }
 
-            // Rebuild dots and minimap skeletons during generation
+            // Rebuild dots and minimap skeletons during generation.
+            // During soft-regen the minimap stays frozen on the old thumbnails until
+            // buildMinimap() replaces them after the final render.
             if (typeof buildDots === 'function') buildDots();
-            updateMinimapSkeleton(count);
+            if (!_skipMinimapSkeleton) updateMinimapSkeleton(count);
         }
         if (e.data.type === 'titleUpdate') {
             const previewLabel = document.getElementById('preview-topic-label');
@@ -739,11 +741,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function handleGenerate(regenerateTema = null, isRegenerating = false) {
+    async function handleGenerate() {
         generatedHtml = ''; // Reset state for a fresh start
         currentSlide = 0;
         totalSlides = 0;
-        const tema = regenerateTema || temaInput.value.trim();
+        const tema = temaInput.value.trim();
         if (!tema) {
             temaError.classList.add('visible');
             temaInput.focus();
@@ -757,18 +759,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tema: tema,
             ...(proModeEnabled ? { mode: 'pro' } : {})
         };
-
-        // If regenerating: immediately ensure panels are visible — strip every class
-        // that could be hiding them, regardless of what previous animation cycle left behind.
-        if (isRegenerating) {
-            previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
-            if (_settlingAnimation) { _settlingAnimation.kill(); _settlingAnimation = null; }
-            _editorInsets = { left: 0, right: 0, top: 0, bottom: 0 };
-            resetMobileZoomState();
-            const _scrollableRegen = document.getElementById('preview-wrapper-scrollable');
-            if (_scrollableRegen) _scrollableRegen.style.transform = '';
-            clearStageInlinePadding();
-        }
 
         toggleGenerateLoading(true);
 
@@ -816,7 +806,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('resize', scaleIframe);
         }
 
-        // Reset the iframe completely by injecting a fresh DOM node
         minimapAlreadyInit = false;
         toolsAlreadyInit = false;
         const rawIframe = previewIframe.cloneNode();
@@ -942,10 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (parsed.chunk) {
                             if (firstWrite) {
                                 firstWrite = false;
-                                // Schedule chat→preview transition only when coming from the chat screen
-                                if (!isRegenerating) {
-                                    _pendingTransitionFn = doTransitionToPreview;
-                                }
+                                _pendingTransitionFn = doTransitionToPreview;
                                 iframeDoc.open();
                                 const skelStyle = `
                                 <style class="skeleton-injector">
@@ -984,6 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (parsed.refused) {
                             _pendingTransitionFn = null;
+                            _stabilizeMinimapOnNextPreviewInit = false;
                             chatScreen.style.cssText = '';
                             chatScreen.classList.remove('hidden');
                             refusedMessage.textContent = parsed.message || (window.__t ? window.__t('refused_msg', "This topic cannot be generated.") : "This topic cannot be generated.");
@@ -1063,34 +1050,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (e) { /* cross-origin guard */ }
 
-            // --- FLICKER GATE: Fade out shortly before final reload ---
+            // --- FLICKER GATE: Fade out briefly before final re-render ---
             const stage = document.getElementById('preview-stage');
             if (stage) stage.classList.add('flicker-mask');
+            // Soft-regen keeps the minimap visible — don't flicker it.
             const minimapPanel = document.getElementById('editor-minimap');
             if (minimapPanel) minimapPanel.classList.add('flicker-mask');
 
             // Wait a tiny bit for the fade to start
             await new Promise(r => setTimeout(r, 100));
 
-            // Re-clone at the end to match Debug mode's working behavior and ensure editor.js runs in a clean window
+                // Reset init flags so setupPreviewInteractions reinits minimap+tools with new content.
+                // We still clone here even on soft-regen: by this point streaming is finished, so
+                // replacing the iframe does not disturb the surrounding editor chrome, and it gives
+                // editor.js a fresh window so its one-time guards don't block re-initialization.
             minimapAlreadyInit = false;
             toolsAlreadyInit = false;
-            const rawIframe = previewIframe.cloneNode();
-            previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
-            previewIframe = rawIframe;
+                const rawIframe = previewIframe.cloneNode();
+                previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
+                previewIframe = rawIframe;
 
             initPreview(generatedHtml, () => {
                 // Restore visibility only after setup is truly complete
                 setTimeout(() => {
                     if (stage) stage.classList.remove('flicker-mask');
                     if (minimapPanel) minimapPanel.classList.remove('flicker-mask');
-
-                    if (isRegenerating) {
-                        // Panels were never hidden — just rescale and we're done.
-                        if (previewHeader) previewHeader.classList.add('slide-down');
-                        scaleIframe();
-                        return;
-                    }
 
                     // Revealed the UI chrome with a cinematic sequence.
                     // Keep chrome hidden via is-settling during the GSAP shrink so
@@ -1167,6 +1151,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } catch (error) {
+            _stabilizeMinimapOnNextPreviewInit = false;
             console.error(error);
 
             const errTitle = document.getElementById('t-error-title');
@@ -1211,13 +1196,15 @@ document.addEventListener('DOMContentLoaded', () => {
             iframeDoc.close();
         } finally {
             toggleGenerateLoading(false);
+            // Re-enable minimap skeleton updates for subsequent normal generations.
+            _skipMinimapSkeleton = false;
             // is-generating is cleared by the reveal callback (success) or catch block (error).
             // Do NOT remove it here — that would cause panels to flash before the reveal animation.
             _pendingTransitionFn = null;
         }
     }
 
-    generateBtn.addEventListener('click', () => handleGenerate(null));
+    generateBtn.addEventListener('click', () => handleGenerate());
     setupDevelopmentDebugMode();
 
 
@@ -1243,14 +1230,6 @@ document.addEventListener('DOMContentLoaded', () => {
             temaInput.focus();
         });
     }
-
-    const btnRegenerate = document.getElementById('btn-regenerate');
-    if (btnRegenerate) {
-        btnRegenerate.addEventListener('click', () => {
-            handleGenerate(temaInput.value.trim(), true);
-        });
-    }
-
 
     // =========================================================
     // 6. PREVIEW SYSTEM
@@ -1430,6 +1409,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let minimapAlreadyInit = false;
     let toolsAlreadyInit = false;
+    // True during soft-regen streaming: blocks updateMinimapSkeleton so the existing
+    // real thumbnails stay visible (instead of being cleared and replaced by skeleton items
+    // the moment skeleton-injector fires its first postMessage).
+    let _skipMinimapSkeleton = false;
     function setupPreviewInteractions(targetIndex = 0) {
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
         if (!iframeDoc || !iframeDoc.body) return;
@@ -1573,6 +1556,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (iw && typeof iw.setLocked === 'function') {
                 iw.setLocked(true);
             }
+        }
+
+        // Soft-regenerate can leave the fresh minimap cloning from a DOM that has not yet been
+        // normalized by the editor. The user's manual workaround (select any element) triggers
+        // freezeSlideLayout() and then the minimap refreshes from that stable geometry. Do the
+        // same here before initMinimap builds the final thumbnails.
+        if (_stabilizeMinimapOnNextPreviewInit) {
+            const iw = previewIframe.contentWindow;
+            if (iw && typeof iw.freezeAllSlides === 'function') {
+                iw.freezeAllSlides();
+            }
+            _stabilizeMinimapOnNextPreviewInit = false;
         }
 
         if (typeof window.initMinimap === 'function' && !minimapAlreadyInit) {
@@ -2842,7 +2837,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     resetBtn.addEventListener('click', resetUI);
     backBtn.addEventListener('click', resetUI);
-    previewResetBtn.addEventListener('click', resetUI);
     document.getElementById('refused-back-btn').addEventListener('click', resetUI);
 
     // =========================================================

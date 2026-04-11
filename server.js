@@ -22,16 +22,18 @@ const TMP_DIR = path.join(__dirname, 'tmp');
 // Queue System State
 let activeGenerations = 0;
 const queue = [];
+// Max concurrent generations 
+const MAX_CONCURRENT_GENERATIONS = 10;
 
 // OpenRouter model list — comma-separated in env var OPENROUTER_MODEL_LIST
 // or single model via OPENROUTER_MODEL. Defaults to qwen free-tier.
-const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'minimax/minimax-m2.7')
+const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'minimax/minimax-m2.5:free')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
 
 function processQueue() {
-    if (activeGenerations < 10 && queue.length > 0) {
+    if (activeGenerations < MAX_CONCURRENT_GENERATIONS && queue.length > 0) {
         const { resolve } = queue.shift();
         activeGenerations++;
         resolve();
@@ -525,7 +527,7 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
         }, 25000);
 
         // Manage Entry to the Queue
-        if (activeGenerations >= 10) {
+        if (activeGenerations >= MAX_CONCURRENT_GENERATIONS) {
             res.write(`data: ${JSON.stringify({ queued: true, position: queue.length + 1 })}\n\n`);
             await new Promise((resolve) => {
                 const item = { resolve };
