@@ -206,7 +206,7 @@ function initMinimap(iframe) {
 
             // Clean slide for thumbnail
             const clone = slide.cloneNode(true);
-            clone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker').forEach(n => n.remove());
+            clone.querySelectorAll('.editor-selection-box, .editor-toolbar, .editor-guide, .editor-color-picker').forEach(n => n.remove());
 
             clone.style.width = '1122px';
             clone.style.height = '631px';
@@ -231,12 +231,12 @@ function initMinimap(iframe) {
                 const delBtn = document.createElement('button');
                 delBtn.className = 'minimap-delete-btn';
                 delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-                delBtn.title = window.__eidos_t('delete_slide', 'Delete Slide');
+                delBtn.title = window.__t('delete_slide', 'Delete Slide');
 
                 const dupBtn = document.createElement('button');
                 dupBtn.className = 'minimap-dup-btn';
                 dupBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-                dupBtn.title = reachedLimit ? window.__eidos_t('limit_reached', 'Limit reached (15 slides max)') : window.__eidos_t('duplicate_slide', 'Duplicate Slide');
+                dupBtn.title = reachedLimit ? window.__t('limit_reached', 'Limit reached (15 slides max)') : window.__t('duplicate_slide', 'Duplicate Slide');
                 
                 overlay.appendChild(delBtn);
                 overlay.appendChild(dupBtn);
@@ -251,7 +251,7 @@ function initMinimap(iframe) {
                 delBtn.onclick = (e) => {
                     e.stopPropagation();
                     if (Array.from(iframeDoc.querySelectorAll('section[class*="s"]')).length <= 1) return;
-                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                     slide.remove();
                     buildMinimap();
                     setTimeout(() => {
@@ -269,7 +269,7 @@ function initMinimap(iframe) {
                 dupBtn.onclick = (e) => {
                     e.stopPropagation();
                     if (Array.from(iframeDoc.querySelectorAll('section[class*="s"]')).length >= 15) return;
-                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                     const newSlide = slide.cloneNode(true);
                     newSlide.classList.remove('active');
                     slide.after(newSlide);
@@ -388,7 +388,7 @@ function initMinimap(iframe) {
         const localizedHtml = `<!DOCTYPE html><html><head>${headWithViewport}</head><body style="margin:0;overflow:hidden;background:transparent;display:block;width:1122px;height:631px;"><main style="display:block;width:1122px;height:631px;position:relative;transform:none;">[CONTENT]</main></body></html>`;
 
         const clone = slide.cloneNode(true);
-        clone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker').forEach(n => n.remove());
+        clone.querySelectorAll('.editor-selection-box, .editor-toolbar, .editor-guide, .editor-color-picker').forEach(n => n.remove());
 
         clone.style.width = '1122px';
         clone.style.height = '631px';
@@ -450,7 +450,7 @@ function initMinimap(iframe) {
     }
 
     function syncSlidesOrderToIframe() {
-        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
 
         const newOrder = [...minimapList.querySelectorAll('.minimap-item')].map(item => parseInt(item.dataset.index));
         const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
@@ -469,7 +469,7 @@ function initMinimap(iframe) {
         addSlideBtn.onclick = () => {
             const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
             if (slides.length >= 15) return;
-            if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+            if (iframeWin.editorSaveState) iframeWin.editorSaveState();
             if (slides.length === 0) return;
             const activeSlide = slides.find(s => s.classList.contains('active')) || slides[slides.length - 1];
 
@@ -497,14 +497,14 @@ function initMinimap(iframe) {
         };
     }
 
-    // listener eidos-state-restored con auto-limpieza
-    if (iframeWin._eidosStateRestoredHandler) {
-        iframeWin.removeEventListener('eidos-state-restored', iframeWin._eidosStateRestoredHandler);
+    // listener state-restored con auto-limpieza
+    if (iframeWin._stateRestoredHandler) {
+        iframeWin.removeEventListener('state-restored', iframeWin._stateRestoredHandler);
     }
-    iframeWin._eidosStateRestoredHandler = () => {
+    iframeWin._stateRestoredHandler = () => {
         setTimeout(() => { buildMinimap(); centerActiveMinimapItem(); }, 300);
     };
-    iframeWin.addEventListener('eidos-state-restored', iframeWin._eidosStateRestoredHandler);
+    iframeWin.addEventListener('state-restored', iframeWin._stateRestoredHandler);
 
     buildMinimap();
 }

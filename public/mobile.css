@@ -757,7 +757,7 @@
     }
 
     /* 4. Logo shimmer (background-position animated 60fps) */
-    .logo-eidos {
+    .logo-brand {
         animation: none !important;
         background: none !important;
         -webkit-text-fill-color: var(--text) !important;

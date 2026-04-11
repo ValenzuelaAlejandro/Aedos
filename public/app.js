@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // State
     let currentSlide = 0;
-    window.eidosCurrentSlide = 0; // Initialize globally for editor iframe sync
+    window.currentSlide = 0; // Initialize globally for editor iframe sync
     let totalSlides = 0;
     let generatedHtml = '';
     let slideContainer = null; // The actual parent element of the slides (may be body or a wrapper)
@@ -117,8 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetMobileZoomState() {
-        window._eidos_mobile_zoom = 1;
-        window._eidos_pan = { x: 0, y: 0 };
+        window._mobile_zoom = 1;
+        window._pan = { x: 0, y: 0 };
     }
 
     // Mode toggle: false = Flash (default), true = Pro (3-stage pipeline)
@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncModeToggleI18n() {
         // Set the initial tooltip via i18n
         if (modeToggleBtn) {
-            modeToggleBtn.setAttribute('data-tooltip', window.__eidos_t(
+            modeToggleBtn.setAttribute('data-tooltip', window.__t(
                 proModeEnabled ? 'mode_tooltip_pro' : 'mode_tooltip_flash'
             ));
         }
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (generateBtnLabel) {
             const key = proModeEnabled ? 'generate_pro_presentation' : 'generate_presentation';
             generateBtnLabel.setAttribute('data-i18n', key);
-            generateBtnLabel.textContent = window.__eidos_t(key);
+            generateBtnLabel.textContent = window.__t(key);
         }
     }
 
@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (modeLabel) {
                 const labelKey = proModeEnabled ? 'mode_label_pro' : 'mode_label_flash';
                 modeLabel.setAttribute('data-i18n', labelKey);
-                modeLabel.textContent = window.__eidos_t(labelKey);
+                modeLabel.textContent = window.__t(labelKey);
             }
 
             // Sync mobile select if present
@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
             el.setAttribute('role', 'listbox');
 
             MODES.forEach(mode => {
-                const fullLabel = window.__eidos_t ? window.__eidos_t(mode.labelKey) : mode.labelDefault + ' (' + mode.subDefault + ')';
+                const fullLabel = window.__t ? window.__t(mode.labelKey) : mode.labelDefault + ' (' + mode.subDefault + ')';
                 // Split at '(' to get label and sub
                 const parenIdx = fullLabel.indexOf('(');
                 const labelText = parenIdx > -1 ? fullLabel.substring(0, parenIdx).trim() : fullLabel;
@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const count = e.data.count;
             totalSlides = count;
             if (slideLabel) {
-                const tpl = window.__eidos_t("slide_label_tpl", "{current} / {total}");
+                const tpl = window.__t("slide_label_tpl", "{current} / {total}");
                 slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
             }
             currentSlide = count - 1;
@@ -372,9 +372,9 @@ document.addEventListener('DOMContentLoaded', () => {
         function applyTheme(theme) {
             const nextTheme = theme === 'light' ? 'light' : 'dark';
             root.setAttribute('data-theme', nextTheme);
-            localStorage.setItem('eidos_theme', nextTheme);
-            const title = (typeof window.__eidos_t === 'function')
-                ? window.__eidos_t('theme_toggle')
+            localStorage.setItem('app_theme', nextTheme);
+            const title = (typeof window.__t === 'function')
+                ? window.__t('theme_toggle')
                 : 'Toggle theme';
             if (themeToggleBtn) {
                 themeToggleBtn.title = title;
@@ -397,19 +397,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function applyLang(lang) {
             const nextLang = lang === 'es' ? 'es' : 'en';
-            if (typeof window.__eidos_setLang === 'function') {
-                window.__eidos_setLang(nextLang);
+            if (typeof window.__setLang === 'function') {
+                window.__setLang(nextLang);
             }
             applyInputPlaceholder(nextLang);
-            localStorage.setItem('eidos_lang', nextLang);
+            localStorage.setItem('app_lang', nextLang);
             if (langSelect && langSelect.value !== nextLang) {
                 langSelect.value = nextLang;
             }
             if (typeof syncModeToggleI18n === 'function') syncModeToggleI18n();
         }
 
-        const savedTheme = localStorage.getItem('eidos_theme') || 'dark';
-        const savedLang = localStorage.getItem('eidos_lang') || window.currentLang || 'en';
+        const savedTheme = localStorage.getItem('app_theme') || 'dark';
+        const savedLang = localStorage.getItem('app_lang') || window.currentLang || 'en';
 
         applyTheme(savedTheme);
         applyLang(savedLang);
@@ -527,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
         _btnMsgTimer = setTimeout(() => {
             _btnMsgIndex++;
             const label = generateBtn.querySelector('.btn-generate-label');
-            if (label) label.textContent = window.__eidos_t(BTN_LOADING_KEYS[_btnMsgIndex]);
+            if (label) label.textContent = window.__t(BTN_LOADING_KEYS[_btnMsgIndex]);
             _scheduleNextBtnMsg();
         }, 1900);
     }
@@ -536,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
         _btnMsgIndex = 0;
         _btnMsgTimer = null;
         const label = generateBtn.querySelector('.btn-generate-label');
-        if (label) label.textContent = window.__eidos_t(BTN_LOADING_KEYS[0]);
+        if (label) label.textContent = window.__t(BTN_LOADING_KEYS[0]);
         _scheduleNextBtnMsg();
     }
 
@@ -552,7 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pauseBtnMessages();
         _btnMsgIndex = 0;
         const label = generateBtn.querySelector('.btn-generate-label');
-        if (label) label.textContent = window.__eidos_t('generate_presentation', 'Generate presentation');
+        if (label) label.textContent = window.__t('generate_presentation', 'Generate presentation');
     }
     // ─────────────────────────────────────────────────────────────────────
 
@@ -655,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
         generatedHtml = html;
         currentSlide = 0;
         totalSlides = 0;
-        window.eidosCurrentSlide = 0;
+        window.currentSlide = 0;
         currentTitle = title;
         _pendingTransitionFn = null;
 
@@ -914,7 +914,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             pauseBtnMessages();
                             const label = generateBtn.querySelector('.btn-generate-label');
                             if (label) {
-                                const msg = window.__eidos_t("queued_position", "Waiting in queue — position {pos}");
+                                const msg = window.__t("queued_position", "Waiting in queue — position {pos}");
                                 label.textContent = msg.replace('{pos}', parsed.position);
                             }
                             continue;
@@ -930,9 +930,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             const label = generateBtn.querySelector('.btn-generate-label');
                             if (label) {
                                 const stageLabels = {
-                                    content: window.__eidos_t ? window.__eidos_t("stage_content", "Analyzing content...") : "Analyzing content...",
-                                    design: window.__eidos_t ? window.__eidos_t("stage_design", "Resolving design...") : "Resolving design...",
-                                    compositing: window.__eidos_t ? window.__eidos_t("stage_compositing", "Composing slides...") : "Composing slides..."
+                                    content: window.__t ? window.__t("stage_content", "Analyzing content...") : "Analyzing content...",
+                                    design: window.__t ? window.__t("stage_design", "Resolving design...") : "Resolving design...",
+                                    compositing: window.__t ? window.__t("stage_compositing", "Composing slides...") : "Composing slides..."
                                 };
                                 label.textContent = stageLabels[parsed.stage] || parsed.stage;
                             }
@@ -986,7 +986,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             _pendingTransitionFn = null;
                             chatScreen.style.cssText = '';
                             chatScreen.classList.remove('hidden');
-                            refusedMessage.textContent = parsed.message || (window.__eidos_t ? window.__eidos_t('refused_msg', "This topic cannot be generated.") : "This topic cannot be generated.");
+                            refusedMessage.textContent = parsed.message || (window.__t ? window.__t('refused_msg', "This topic cannot be generated.") : "This topic cannot be generated.");
                             refusedContainer.classList.remove('hidden');
                             previewContainer.classList.add('hidden');
                             iframeDoc.close();
@@ -1045,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (!generatedHtml || generatedHtml.trim().length < 50) {
-                throw new Error(window.__eidos_t ? window.__eidos_t('error_generation_failed', "Sorry, could not generate the presentation correctly.") : "Sorry, could not generate the presentation correctly.");
+                throw new Error(window.__t ? window.__t('error_generation_failed', "Sorry, could not generate the presentation correctly.") : "Sorry, could not generate the presentation correctly.");
             }
 
             iframeDoc.close();
@@ -1173,14 +1173,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const errSubtitle = document.getElementById('t-error-subtitle');
 
             // Default titles/subtitles
-            if (errTitle) errTitle.textContent = window.__eidos_t('error_title', "Something didn't go as planned");
-            if (errSubtitle) errSubtitle.textContent = window.__eidos_t('error_subtitle', "The AI service is temporarily unavailable. This is usually resolved quickly.");
+            if (errTitle) errTitle.textContent = window.__t('error_title', "Something didn't go as planned");
+            if (errSubtitle) errSubtitle.textContent = window.__t('error_subtitle', "The AI service is temporarily unavailable. This is usually resolved quickly.");
 
             if (error.message.includes('RATE_LIMIT_EXCEEDED')) {
-                if (errTitle) errTitle.textContent = window.__eidos_t('rate_limit_title', "Slow down a little");
-                if (errSubtitle) errSubtitle.textContent = window.__eidos_t('rate_limit_msg', "You've reached the generation limit. Please wait a few minutes before trying again.");
+                if (errTitle) errTitle.textContent = window.__t('rate_limit_title', "Slow down a little");
+                if (errSubtitle) errSubtitle.textContent = window.__t('rate_limit_msg', "You've reached the generation limit. Please wait a few minutes before trying again.");
             } else if (error.message.includes('TOPIC_TOO_LONG')) {
-                if (errSubtitle) errSubtitle.textContent = window.__eidos_t('topic_too_long', "The topic is too long. Maximum 600 characters.");
+                if (errSubtitle) errSubtitle.textContent = window.__t('topic_too_long', "The topic is too long. Maximum 600 characters.");
             } else {
                 // Try to extract "Please retry in X seconds" from Gemini standard errors
                 let retryMsg = "";
@@ -1190,13 +1190,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const timeStr = seconds >= 60
                         ? `${Math.ceil(seconds / 60)} min`
                         : `${seconds}s`;
-                    const retryTpl = window.__eidos_t(window.currentLang === 'es' ? 'retry_in_es' : 'retry_in_en', "<br><br><strong>Retry in: {time}</strong>");
+                    const retryTpl = window.__t(window.currentLang === 'es' ? 'retry_in_es' : 'retry_in_en', "<br><br><strong>Retry in: {time}</strong>");
                     retryMsg = retryTpl.replace('{time}', timeStr);
                 }
 
                 if (error.message.includes('429') || error.message.includes('503') || error.message.toLowerCase().includes('exhausted') || error.message.toLowerCase().includes('saturated')) {
                     if (errSubtitle) {
-                        errSubtitle.innerHTML = (window.__eidos_t ? window.__eidos_t('t-error-saturated', "The service is currently overloaded due to high demand. Please try again in a few minutes.") : "The service is currently overloaded due to high demand. Please try again in a few minutes.") + retryMsg;
+                        errSubtitle.innerHTML = (window.__t ? window.__t('t-error-saturated', "The service is currently overloaded due to high demand. Please try again in a few minutes.") : "The service is currently overloaded due to high demand. Please try again in a few minutes.") + retryMsg;
                     }
                 }
             }
@@ -1274,14 +1274,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (html) {
             // Anti-flicker: Prevent scrollbars and margins during initial parse
-            const antiFlicker = `<style id="eidos-anti-flicker">
+            const antiFlicker = `<style id="anti-flicker">
                 html, body { 
                     overflow: hidden !important; 
                     margin: 0 !important; 
                     padding: 0 !important; 
                 }
             </style>`;
-            if (!html.includes('eidos-anti-flicker')) {
+            if (!html.includes('anti-flicker')) {
                 html = antiFlicker + html;
             }
 
@@ -1341,7 +1341,7 @@ document.addEventListener('DOMContentLoaded', () => {
             doc.write('<!DOCTYPE html>' + html);
             doc.close();
             try {
-                const theme = document.documentElement.getAttribute('data-theme') || localStorage.getItem('eidos_theme') || 'dark';
+                const theme = document.documentElement.getAttribute('data-theme') || localStorage.getItem('app_theme') || 'dark';
                 if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', theme);
             } catch (e) {
                 // ignore
@@ -1408,10 +1408,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Strategy 5: direct body children (excluding script/style/link/meta AND editor UI)
         const bodyKids = Array.from(doc.body.children).filter(el => {
             const tag = el.tagName;
-            const isTool = el.classList.contains('eidos-selection-box') ||
-                el.classList.contains('eidos-toolbar') ||
-                el.classList.contains('eidos-guide') ||
-                el.classList.contains('eidos-color-picker');
+            const isTool = el.classList.contains('editor-selection-box') ||
+                el.classList.contains('editor-toolbar') ||
+                el.classList.contains('editor-guide') ||
+                el.classList.contains('editor-color-picker');
             return !['SCRIPT', 'STYLE', 'LINK', 'META'].includes(tag) && !isTool;
         });
         if (bodyKids.length >= 1) {
@@ -1439,7 +1439,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Font picker options like Playfair Display, Bebas Neue, etc. are NOT loaded in this document,
         // so changing font-family has no visual effect even though the inline style is applied correctly.
         // Fix: explicitly create <link> elements in the iframe's <head>.
-        if (iframeDoc.head && !iframeDoc.head.querySelector('link[data-eidos-fonts]')) {
+        if (iframeDoc.head && !iframeDoc.head.querySelector('link[data-fonts]')) {
             const preconnect1 = iframeDoc.createElement('link');
             preconnect1.rel = 'preconnect';
             preconnect1.href = 'https://fonts.googleapis.com';
@@ -1453,10 +1453,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const fontLink = iframeDoc.createElement('link');
             fontLink.rel = 'stylesheet';
-            fontLink.dataset.eidosFonts = '1';
+            fontLink.dataset.fonts = '1';
             fontLink.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap';
             iframeDoc.head.appendChild(fontLink);
-            console.log('[Eidoslab] Google Fonts injected into live preview iframe');
+            console.log('[Aedos] Google Fonts injected into live preview iframe');
         }
 
         const slides = findSlides(iframeDoc);
@@ -1464,11 +1464,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // buildDots() was redundant here as it's called after restoration anyway
 
         // Attach global nav listeners only once to avoid memory leaks and CPU peaks
-        if (!iframeDoc._eidosListenersAttached) {
+        if (!iframeDoc._listenersAttached) {
             iframeDoc.addEventListener('wheel', handleSlideWheelNav, { passive: true });
             iframeDoc.addEventListener('touchstart', handleTouchStart, { passive: true });
             iframeDoc.addEventListener('touchend', handleTouchEnd, { passive: true });
-            iframeDoc._eidosListenersAttached = true;
+            iframeDoc._listenersAttached = true;
         }
 
 
@@ -1489,9 +1489,9 @@ document.addEventListener('DOMContentLoaded', () => {
             s.style.boxSizing = 'border-box';
         });
 
-        // If we are restoring state, we handle overlay re-keying in the 'eidos-state-restored' event listener
+        // If we are restoring state, we handle overlay re-keying in the 'state-restored' event listener
         // instead of doing a full destructive clear and rebuild here.
-        if (!iframeDoc._eidosRestoringState) {
+        if (!iframeDoc._restoringState) {
             injectImageReplacementSystem(iframeDoc);
         }
 
@@ -1570,8 +1570,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // independent of the lock so photo upload still works normally.
         if (window.innerWidth < 850) {
             const iw = previewIframe.contentWindow;
-            if (iw && typeof iw.eidosSetLocked === 'function') {
-                iw.eidosSetLocked(true);
+            if (iw && typeof iw.setLocked === 'function') {
+                iw.setLocked(true);
             }
         }
 
@@ -1590,7 +1590,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // This avoids duplicate listeners and the full rebuild/teardown cost.
         const iframeWinRef = previewIframe.contentWindow;
         if (iframeWinRef) {
-            iframeWinRef.addEventListener('eidos-state-restored', (ev) => {
+            iframeWinRef.addEventListener('state-restored', (ev) => {
                 const needsRebuild = ev.detail ? ev.detail.needsOverlayRebuild : true;
                 if (!needsRebuild) return;
                 const iDoc = previewIframe.contentDocument;
@@ -1638,9 +1638,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // REDUCED timeout: 150ms was too slow, causing visual lag
                 clearTimeout(window._restoreBatchT);
                 window._restoreBatchT = setTimeout(() => {
-                    iDoc._eidosRestoringState = true;
+                    iDoc._restoringState = true;
                     setupPreviewInteractions(currentSlide);
-                    iDoc._eidosRestoringState = false;
+                    iDoc._restoringState = false;
 
                     // Final refresh of overlay positions
                     if (window._refreshSlotOverlays) window._refreshSlotOverlays();
@@ -1762,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // Initialize zoom state
-    window._eidosManualZoomScale = 1.0; // Manual zoom factor (1.0 = fill available area; panels reserve space via stage padding)
+    window._manualZoomScale = 1.0; // Manual zoom factor (1.0 = fill available area; panels reserve space via stage padding)
     const MIN_ZOOM = 0.5; // 50%
     const MAX_ZOOM = 2; // 200%
     const ZOOM_STEP = 0.1; // 10% increments
@@ -1770,14 +1770,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateZoomDisplay() {
         const display = document.getElementById('canvas-zoom-display');
         if (display) {
-            const percentage = Math.round(window._eidosManualZoomScale * 100);
+            const percentage = Math.round(window._manualZoomScale * 100);
             display.textContent = `${percentage}%`;
         }
     }
 
     function setZoom(zoomLevel) {
         zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel));
-        window._eidosManualZoomScale = zoomLevel;
+        window._manualZoomScale = zoomLevel;
         updateZoomDisplay();
         window.dispatchEvent(new Event('resize'));
     }
@@ -1788,13 +1788,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnZoomIn) {
         btnZoomIn.addEventListener('click', () => {
-            setZoom(window._eidosManualZoomScale + ZOOM_STEP);
+            setZoom(window._manualZoomScale + ZOOM_STEP);
         });
     }
 
     if (btnZoomOut) {
         btnZoomOut.addEventListener('click', () => {
-            setZoom(window._eidosManualZoomScale - ZOOM_STEP);
+            setZoom(window._manualZoomScale - ZOOM_STEP);
         });
     }
 
@@ -1843,7 +1843,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // During streaming the manual zoom must NOT apply — the slide should
             // fill the full viewport with no panels in the way.
-            scale = forceFitScale ? fitScale : fitScale * window._eidosManualZoomScale;
+            scale = forceFitScale ? fitScale : fitScale * window._manualZoomScale;
 
             // Centering is achieved by setting asymmetric padding on the stage element
             // (done in the GSAP onUpdate / doTransitionToPreview). The scrollable is always
@@ -1852,8 +1852,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (scrollable) scrollable.style.transform = '';
         }
 
-        window._eidosBaseScale = scale;
-        const mobileZoom = forceFitScale ? 1 : (window._eidos_mobile_zoom || 1);
+        window._baseScale = scale;
+        const mobileZoom = forceFitScale ? 1 : (window._mobile_zoom || 1);
         const totalScale = scale * mobileZoom;
 
         previewIframe.style.transform = `scale(${totalScale})`;
@@ -1862,16 +1862,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Keep wrapper pan transform in sync with zoom state
         if (mobileZoom <= 1) {
-            if (window._eidos_pan) { window._eidos_pan.x = 0; window._eidos_pan.y = 0; }
+            if (window._pan) { window._pan.x = 0; window._pan.y = 0; }
             wrapper.style.transform = 'translate(0,0)';
-        } else if (window._eidos_pan) {
-            wrapper.style.transform = `translate(${window._eidos_pan.x}px, ${window._eidos_pan.y}px)`;
+        } else if (window._pan) {
+            wrapper.style.transform = `translate(${window._pan.x}px, ${window._pan.y}px)`;
         }
 
         // Inject scale into iframe for the visual editor's coordinate math
         try {
             const iframeWin = previewIframe.contentWindow;
-            if (iframeWin) iframeWin._eidosIframeScale = totalScale;
+            if (iframeWin) iframeWin._iframeScale = totalScale;
         } catch (e) { }
 
         // Keep slot overlays aligned after scale change
@@ -1984,11 +1984,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 outline: 3px solid var(--presentation-accent, #6366f1) !important;
                 outline-offset: -3px;
             }
-            body.eidos-locked .img-replace-overlay {
+            body.editor-locked .img-replace-overlay {
                 display: none !important;
             }
-            body.eidos-locked [data-image-slot]:hover,
-            body.eidos-locked [data-image-slot].is-hovered {
+            body.editor-locked [data-image-slot]:hover,
+            body.editor-locked [data-image-slot].is-hovered {
                 outline: none !important;
             }
         `;
@@ -2008,7 +2008,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // PERFORMANCE: If we are in a restore flow, we keep the existing DOM overlays
         // and just re-position them. The re-keying is handled before this call.
-        if (!isRestoringFlow && !doc._eidosRestoringState) {
+        if (!isRestoringFlow && !doc._restoringState) {
             // Remove any overlays from a previous session entirely
             document.querySelectorAll('._slot-overlay-label').forEach(el => el.remove());
             document.querySelectorAll('._slot-overlay-input').forEach(el => el.remove());
@@ -2023,7 +2023,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // instead of recreating all event listeners
             const slotRef = { current: slotEl };
             const slotIdCode = slotEl.dataset.imageSlot ? slotEl.dataset.imageSlot.replace(/[^a-z0-9]/gi, '') : Math.random().toString(36).substr(2, 9);
-            const inputId = `eidos-img-input-${slotIdCode}`;
+            const inputId = `img-input-${slotIdCode}`;
 
             const input = existingInput || document.createElement('input');
             if (!existingInput) {
@@ -2038,7 +2038,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.addEventListener('change', (e) => {
                     if (e.target.files && e.target.files.length > 0) {
                         const iframeWin = previewIframe.contentWindow;
-                        if (iframeWin && iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                        if (iframeWin && iframeWin.editorSaveState) iframeWin.editorSaveState();
                         replaceSlotImage(slotRef.current, e.target.files[0]);
                     }
                     input.value = ''; // Clear the input so the same file can be selected again
@@ -2093,14 +2093,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const files = e.dataTransfer.files;
                 if (files && files.length > 0 && files[0].type.startsWith('image/')) {
                     const iframeWin = previewIframe.contentWindow;
-                    if (iframeWin && iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin && iframeWin.editorSaveState) iframeWin.editorSaveState();
                     replaceSlotImage(slotRef.current, files[0]);
                     return;
                 }
                 const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
                 if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
                     const iframeWin = previewIframe.contentWindow;
-                    if (iframeWin && iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin && iframeWin.editorSaveState) iframeWin.editorSaveState();
                     replaceSlotWithUrl(slotRef.current, imageUrl);
                 }
             });
@@ -2124,7 +2124,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <circle cx="8.5" cy="8.5" r="1.5"></circle>
                             <polyline points="21 15 16 10 5 21"></polyline>
                         </svg>
-                        <span>${window.innerWidth < 850 ? window.__eidos_t('click_drop_mobile') : window.__eidos_t('click_drop')}</span>
+                        <span>${window.innerWidth < 850 ? window.__t('click_drop_mobile') : window.__t('click_drop')}</span>
                     </div>
                 `;
             }
@@ -2137,7 +2137,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Double-click on a slot opens the file picker.
         // We expose this as a global function so the editor can call it directly.
-        window._eidosTriggerImagePicker = (slot) => {
+        window._triggerImagePicker = (slot) => {
             // Block if in fullscreen (presentation mode)
             if (document.fullscreenElement || document.webkitFullscreenElement) return;
 
@@ -2145,8 +2145,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (entry) entry.input.click();
         };
 
-        if (doc._eidosDblClickListener) doc.removeEventListener('dblclick', doc._eidosDblClickListener);
-        doc._eidosDblClickListener = (e) => {
+        if (doc._dblClickListener) doc.removeEventListener('dblclick', doc._dblClickListener);
+        doc._dblClickListener = (e) => {
             // Block if in fullscreen (presentation mode)
             if (document.fullscreenElement || document.webkitFullscreenElement) return;
 
@@ -2154,18 +2154,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!slot) return;
             e.preventDefault();
             e.stopPropagation();
-            window._eidosTriggerImagePicker(slot);
+            window._triggerImagePicker(slot);
         };
-        doc.addEventListener('dblclick', doc._eidosDblClickListener);
+        doc.addEventListener('dblclick', doc._dblClickListener);
 
 
         // Remove old custom event listener to avoid confusion
         // Remove old custom event listener to avoid confusion
-        if (doc._eidosTriggerListener) doc.removeEventListener('eidos-trigger-image-picker', doc._eidosTriggerListener);
-        doc._eidosTriggerListener = (e) => {
-            if (e.detail && e.detail.element) window._eidosTriggerImagePicker(e.detail.element);
+        if (doc._triggerListener) doc.removeEventListener('trigger-image-picker', doc._triggerListener);
+        doc._triggerListener = (e) => {
+            if (e.detail && e.detail.element) window._triggerImagePicker(e.detail.element);
         };
-        doc.addEventListener('eidos-trigger-image-picker', doc._eidosTriggerListener);
+        doc.addEventListener('trigger-image-picker', doc._triggerListener);
 
 
 
@@ -2185,7 +2185,7 @@ document.addEventListener('DOMContentLoaded', () => {
             _overlayMap.forEach(({ label }) => { label.style.pointerEvents = 'none'; });
         });
 
-        window.addEventListener('eidos-drop-complete', () => {
+        window.addEventListener('drop-complete', () => {
             _overlayMap.forEach(({ label }) => { label.style.pointerEvents = 'none'; });
         });
 
@@ -2346,7 +2346,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const y = e.clientY;
 
                     // Trigger a custom event to the parent to handle adding a new image at these coords
-                    window.parent.dispatchEvent(new CustomEvent('eidos-add-image-at', {
+                    window.parent.dispatchEvent(new CustomEvent('add-image-at', {
                         detail: {
                             file: file,
                             x: x,
@@ -2411,7 +2411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             slides.forEach(s => s.classList.remove('active'));
             slides[index].classList.add('active');
             currentSlide = index;
-            window.eidosCurrentSlide = index; // Expose globally for the editor iframe
+            window.currentSlide = index; // Expose globally for the editor iframe
             updateSlideCounter();
             // Reposition overlays for the new active slide
             if (_refreshSlotOverlays) setTimeout(_refreshSlotOverlays, 50);
@@ -2431,11 +2431,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    window.eidosScrollToSlide = scrollToSlide;
-    window.eidosPrevSlide = () => tryNavigate(currentSlide - 1);
-    window.eidosNextSlide = () => tryNavigate(currentSlide + 1);
-    window.eidosGetCurrentSlide = () => currentSlide;
-    window.eidosGetTotalSlides = () => totalSlides;
+    window.scrollToSlide = scrollToSlide;
+    window.prevSlide = () => tryNavigate(currentSlide - 1);
+    window.nextSlide = () => tryNavigate(currentSlide + 1);
+    window.getCurrentSlide = () => currentSlide;
+    window.getTotalSlides = () => totalSlides;
 
     function buildDots() {
         slideDots.innerHTML = '';
@@ -2453,7 +2453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dots.forEach((d, i) => {
             d.classList.toggle('active', i === currentSlide);
         });
-        const tpl = window.__eidos_t("slide_label_tpl", "Slide {current} of {total}");
+        const tpl = window.__t("slide_label_tpl", "Slide {current} of {total}");
         slideLabel.textContent = tpl.replace('{current}', currentSlide + 1).replace('{total}', totalSlides);
     }
 
@@ -2524,7 +2524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const iframe = document.getElementById('preview-iframe');
             const iframeWin = iframe.contentWindow;
-            if (iframeWin && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
+            if (iframeWin && iframeWin.editorGetSelection && iframeWin.editorGetSelection()) {
                 // If an element is selected, let the editor handle arrows (moving elements)
                 return;
             }
@@ -2555,7 +2555,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const iframeWin = iframe.contentWindow;
 
                     // Check if an element is selected in the editor
-                    if (iframeWin && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
+                    if (iframeWin && iframeWin.editorGetSelection && iframeWin.editorGetSelection()) {
                         // Forward the event to the iframe
                         const event = new KeyboardEvent('keydown', {
                             key: e.key,
@@ -2648,16 +2648,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Deselect any active editor element so the selection box and toolbar
             // are hidden before we clone — otherwise they end up in the PDF.
-            if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
+            if (iframeWin.editorDeselect) iframeWin.editorDeselect();
 
             // ── Step 1: Freeze all slides ─────────────────────────────────────────
             // Unedited slides have never been through normalizeElement, so their
             // children are still in CSS grid/flex flow. Puppeteer recalculates that
             // layout with its own font metrics and can produce different widths.
-            // eidosFreezeAllSlides converts every slide to absolute coordinates
+            // freezeAllSlides converts every slide to absolute coordinates
             // using getBoundingClientRect() from the live browser without saving
             // any undo state.
-            if (iframeWin.eidosFreezeAllSlides) iframeWin.eidosFreezeAllSlides();
+            if (iframeWin.freezeAllSlides) iframeWin.freezeAllSlides();
 
             // ── Step 2: Snapshot text-child widths inside layout containers ──────
             // Children of card/stat-box containers (big-label, p, h3 …) are
@@ -2669,7 +2669,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // pixel width as an inline style, and for single-line elements also
             // set white-space:nowrap so font-metric drift cannot cause a wrap.
             // We restore the live doc immediately after cloneNode.
-            const _PDF_CONTAINER_SEL = '[data-eidos-container="true"], div.stat-box, div.card, div.step-item, div.timeline-item, .quote-block, blockquote, ul, ol, .flex-row, .flex-col, .grid-2, .grid-3, [class*="card"], [class*="box"]';
+            const _PDF_CONTAINER_SEL = '[data-container="true"], div.stat-box, div.card, div.step-item, div.timeline-item, .quote-block, blockquote, ul, ol, .flex-row, .flex-col, .grid-2, .grid-3, [class*="card"], [class*="box"]';
             const _PDF_TEXT_SEL = 'h1,h2,h3,h4,p,span,blockquote,.big-number,.big-label,.tag,.subtitle,.step-num,.timeline-year,li,cite';
             const _pdfSnapshots = [];
             const _iframeView = iframeDoc.defaultView;
@@ -2711,7 +2711,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Strip ALL editor UI that may still be in the DOM after deselect
             const editorUI = clone.querySelectorAll(
-                '.eidos-selection-box, .eidos-toolbar, .eidos-color-picker, .eidos-guide'
+                '.editor-selection-box, .editor-toolbar, .editor-color-picker, .editor-guide'
             );
             editorUI.forEach(el => el.remove());
 
@@ -2863,8 +2863,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!isEditorInteraction) {
                     try {
-                        if (previewIframe && previewIframe.contentWindow && previewIframe.contentWindow.eidosDeselect) {
-                            previewIframe.contentWindow.eidosDeselect();
+                        if (previewIframe && previewIframe.contentWindow && previewIframe.contentWindow.editorDeselect) {
+                            previewIframe.contentWindow.editorDeselect();
                         }
                     } catch (err) { }
                 }
@@ -2877,8 +2877,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const input = document.getElementById('w-tema');
         if (input) {
             // Use translation if key exists, otherwise use as literal
-            const translated = (typeof window.__eidos_t === 'function')
-                ? window.__eidos_t(keyOrText)
+            const translated = (typeof window.__t === 'function')
+                ? window.__t(keyOrText)
                 : keyOrText;
             // Prompts can come from i18n strings with HTML entities (&apos;, &amp;, etc.).
             // Decode them before writing to textarea value.

@@ -15,8 +15,8 @@ MobileDragDrop.polyfill({
 });
 
 // 3. Safety fallback if i18n.js failed to load
-if (!window.__eidos_t) {
-    window.__eidos_t = (k, d) => d || k;
+if (!window.__t) {
+    window.__t = (k, d) => d || k;
     window.currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
 }
 
@@ -29,12 +29,12 @@ document.addEventListener('DOMContentLoaded', function () {
     var nextBtn = document.querySelector('.mobile-next-btn');
     if (prevBtn) {
         prevBtn.addEventListener('click', function () {
-            if (typeof window.eidosPrevSlide === 'function') window.eidosPrevSlide();
+            if (typeof window.prevSlide === 'function') window.prevSlide();
         });
     }
     if (nextBtn) {
         nextBtn.addEventListener('click', function () {
-            if (typeof window.eidosNextSlide === 'function') window.eidosNextSlide();
+            if (typeof window.nextSlide === 'function') window.nextSlide();
         });
     }
 });

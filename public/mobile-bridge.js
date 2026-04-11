@@ -1,5 +1,5 @@
 /**
- * Eidoslab Mobile Bridge
+ * Aedos Mobile Bridge
  * Maps touch events to mouse events to enable editor interactivity on mobile
  * without modifying the core desktop-focused editor.js.
  * 
@@ -36,8 +36,8 @@
             mobileOverlay.style.pointerEvents = 'none';
             
             // Deselect element in editor
-            if (previewIframe && previewIframe.contentWindow && previewIframe.contentWindow.eidosDeselect) {
-                previewIframe.contentWindow.eidosDeselect();
+            if (previewIframe && previewIframe.contentWindow && previewIframe.contentWindow.editorDeselect) {
+                previewIframe.contentWindow.editorDeselect();
             }
         }
 
@@ -54,8 +54,8 @@
         let dragTarget = null;
         let panState = null;
 
-        window._eidos_mobile_zoom = window._eidos_mobile_zoom || 1;
-        window._eidos_pan = window._eidos_pan || { x: 0, y: 0 };
+        window._mobile_zoom = window._mobile_zoom || 1;
+        window._pan = window._pan || { x: 0, y: 0 };
         let pinchState = null;
 
         // Cached DOM refs — resolved once, reused every frame
@@ -91,8 +91,8 @@
             const scrollable = _cachedScrollable;
             if (!iframe || !wrapper) return;
 
-            const baseScale = window._eidosBaseScale || 1;
-            const mobileZoom = window._eidos_mobile_zoom || 1;
+            const baseScale = window._baseScale || 1;
+            const mobileZoom = window._mobile_zoom || 1;
             const totalScale = baseScale * mobileZoom;
 
             // Batch all reads before any writes
@@ -106,11 +106,11 @@
             const maxPanY = Math.max(0, (scaledH - viewH) / 2);
 
             if (mobileZoom <= 1) {
-                window._eidos_pan.x = 0;
-                window._eidos_pan.y = 0;
+                window._pan.x = 0;
+                window._pan.y = 0;
             } else {
-                window._eidos_pan.x = Math.max(-maxPanX, Math.min(maxPanX, window._eidos_pan.x));
-                window._eidos_pan.y = Math.max(-maxPanY, Math.min(maxPanY, window._eidos_pan.y));
+                window._pan.x = Math.max(-maxPanX, Math.min(maxPanX, window._pan.x));
+                window._pan.y = Math.max(-maxPanY, Math.min(maxPanY, window._pan.y));
             }
 
             // Only update width/height when zoom actually changes (avoids layout on pure pan)
@@ -119,11 +119,11 @@
                 iframe.style.transform = `scale(${totalScale})`;
                 wrapper.style.width  = `${scaledW}px`;
                 wrapper.style.height = `${scaledH}px`;
-                try { if (iframe.contentWindow) iframe.contentWindow._eidosIframeScale = totalScale; } catch (_) {}
+                try { if (iframe.contentWindow) iframe.contentWindow._iframeScale = totalScale; } catch (_) {}
             }
 
             // Pan: transform-only, no layout
-            wrapper.style.transform = `translate(${window._eidos_pan.x}px, ${window._eidos_pan.y}px)`;
+            wrapper.style.transform = `translate(${window._pan.x}px, ${window._pan.y}px)`;
         }
 
         function applyZoomAndPan() {
@@ -138,7 +138,7 @@
             const midY = (touches[0].clientY + touches[1].clientY) / 2;
             pinchState = {
                 startDist: getPinchDist(touches),
-                startZoom: window._eidos_mobile_zoom || 1,
+                startZoom: window._mobile_zoom || 1,
                 lastMidX: midX,
                 lastMidY: midY
             };
@@ -148,11 +148,11 @@
             if (!pinchState || !touches || touches.length !== 2) return;
             const dist = getPinchDist(touches);
             const ratio = dist / pinchState.startDist;
-            window._eidos_mobile_zoom = Math.max(0.5, Math.min(3, pinchState.startZoom * ratio));
+            window._mobile_zoom = Math.max(0.5, Math.min(3, pinchState.startZoom * ratio));
             const midX = (touches[0].clientX + touches[1].clientX) / 2;
             const midY = (touches[0].clientY + touches[1].clientY) / 2;
-            window._eidos_pan.x += midX - pinchState.lastMidX;
-            window._eidos_pan.y += midY - pinchState.lastMidY;
+            window._pan.x += midX - pinchState.lastMidX;
+            window._pan.y += midY - pinchState.lastMidY;
             pinchState.lastMidX = midX;
             pinchState.lastMidY = midY;
             applyZoomAndPan();
@@ -173,7 +173,7 @@
             if (!iframeDoc || !iframeWin) return;
 
             const rect = iframe.getBoundingClientRect();
-            const scale = iframeWin._eidosIframeScale || window._eidosIframeScale || 1;
+            const scale = iframeWin._iframeScale || window._iframeScale || 1;
             
             const relX = (touch.clientX - rect.left) / scale;
             const relY = (touch.clientY - rect.top) / scale;
@@ -195,7 +195,7 @@
 
             if (type === 'mousedown') {
                 dragTarget = iframeDoc.elementFromPoint(relX, relY) || iframeDoc.body;
-                const possibleHandle = dragTarget.closest('.eidos-resize-handle');
+                const possibleHandle = dragTarget.closest('.editor-resize-handle');
                 if (possibleHandle) dragTarget = possibleHandle;
             }
 
@@ -241,11 +241,11 @@
                 pendingTouchCoords = { clientX: t.clientX, clientY: t.clientY,
                                        screenX: t.screenX,  screenY: t.screenY };
 
-                if (window._eidos_mobile_zoom > 1) {
+                if (window._mobile_zoom > 1) {
                     mode = 'pan';
                     panState = {
                         startX: t.clientX,  startY: t.clientY,
-                        startPanX: window._eidos_pan.x, startPanY: window._eidos_pan.y,
+                        startPanX: window._pan.x, startPanY: window._pan.y,
                         moved: false
                     };
                 } else {
@@ -264,8 +264,8 @@
 
                 if (mode === 'pan' && panState) {
                     panState.moved = panState.moved || dist > MOVE_THRESHOLD;
-                    window._eidos_pan.x = panState.startPanX + dx;
-                    window._eidos_pan.y = panState.startPanY + dy;
+                    window._pan.x = panState.startPanX + dx;
+                    window._pan.y = panState.startPanY + dy;
                     applyZoomAndPan();
                     if (e.cancelable) e.preventDefault();
                     return;
@@ -301,8 +301,8 @@
 
                 if (prevMode === 'slide-swipe') {
                     dragTarget = null;
-                    if (dx < -SWIPE_MIN && window.eidosNextSlide) window.eidosNextSlide();
-                    else if (dx > SWIPE_MIN && window.eidosPrevSlide) window.eidosPrevSlide();
+                    if (dx < -SWIPE_MIN && window.nextSlide) window.nextSlide();
+                    else if (dx > SWIPE_MIN && window.prevSlide) window.prevSlide();
                     return;
                 }
 

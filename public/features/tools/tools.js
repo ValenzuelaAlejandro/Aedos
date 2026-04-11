@@ -8,10 +8,10 @@ function initTools(iframe) {
     let selectionT = null;
     // Track which toolbar button opened the panel so only the same button closes it
     let panelOwner = null;
-    // Guard: prevents eidos-selection-changed from clearing panelOwner when a btn triggered the select
+    // Guard: prevents selection-changed from clearing panelOwner when a btn triggered the select
     let _settingPanelOwner = false;
 
-    iframeWin.addEventListener('eidos-selection-changed', (e) => {
+    iframeWin.addEventListener('selection-changed', (e) => {
         const el = e.detail.element;
         // Optimization: debounce UI re-renders for multi-clicks/restores
         clearTimeout(selectionT);
@@ -54,7 +54,7 @@ function initTools(iframe) {
     }
 
     function insertShape(className, styles) {
-        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         const slide = getActiveSlide();
         const shape = iframeDoc.createElement('div');
         shape.className = className + ' shapes-added'; // identification
@@ -83,8 +83,8 @@ function initTools(iframe) {
         slide.appendChild(shape);
 
         // Select it automatically to show tools
-        if (iframeWin.eidosSelect) {
-            iframeWin.eidosSelect(shape);
+        if (iframeWin.editorSelect) {
+            iframeWin.editorSelect(shape);
         } else {
             // Fallback for older sessions
             const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
@@ -93,11 +93,11 @@ function initTools(iframe) {
             iframeDoc.dispatchEvent(upEv);
         }
 
-        if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
+        if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
     }
 
     function insertIcon(iconName) {
-        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         const slide = getActiveSlide();
         const icon = iframeDoc.createElement('i');
         icon.setAttribute('data-lucide', iconName);
@@ -119,8 +119,8 @@ function initTools(iframe) {
         const newlyCreated = slide.querySelector(`[data-lucide="${iconName}"]`);
         const elToSelect = newlyCreated || icon;
 
-        if (iframeWin.eidosSelect) {
-            iframeWin.eidosSelect(elToSelect);
+        if (iframeWin.editorSelect) {
+            iframeWin.editorSelect(elToSelect);
         } else {
             // Fallback
             const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
@@ -129,7 +129,7 @@ function initTools(iframe) {
             iframeDoc.dispatchEvent(upEv);
         }
 
-        if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
+        if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
     }
 
     // Helper to generate right panel tools based on selected element
@@ -150,9 +150,9 @@ function initTools(iframe) {
             // Render Slide level tools
             dynamicContainer.innerHTML = `
                 <div class="tool-section">
-                    <div class="tool-section-title">${window.__eidos_t('slide')}</div>
+                    <div class="tool-section-title">${window.__t('slide')}</div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('background_color')}</span>
+                        <span class="tool-label">${window.__t('background_color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-bg-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
@@ -165,7 +165,7 @@ function initTools(iframe) {
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
                         </svg>
-                        <span style="font-size: 0.85rem; font-weight:500;">${window.__eidos_t('add_slide', 'Add Slide')}</span>
+                        <span style="font-size: 0.85rem; font-weight:500;">${window.__t('add_slide', 'Add Slide')}</span>
                     </button>
                 </div>
             `;
@@ -194,7 +194,7 @@ function initTools(iframe) {
 
                     bgColorBtn.addEventListener('input', (e) => {
                         if (!activeSlide._undoSavingBg) {
-                            if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                            if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                             activeSlide._undoSavingBg = true;
                             setTimeout(() => activeSlide._undoSavingBg = false, 1000);
                         }
@@ -220,7 +220,7 @@ function initTools(iframe) {
                 <div class="tool-section">
                     <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
                         <button id="lib-back-btn" class="tool-btn" style="width:32px; height:32px; border-radius:50%; flex:none;">←</button>
-                        <div class="tool-section-title" style="margin:0;">${isIcons ? window.__eidos_t('select_icon') : window.__eidos_t('select_shape')}</div>
+                        <div class="tool-section-title" style="margin:0;">${isIcons ? window.__t('select_icon') : window.__t('select_shape')}</div>
                     </div>
             `;
 
@@ -240,7 +240,7 @@ function initTools(iframe) {
                 Object.entries(iconCategories).forEach(([name, icons], idx) => {
                     html += `
                         <details class="lib-category" ${idx === 0 ? 'open' : ''}>
-                            <summary class="lib-category-summary">${window.__eidos_t(name)}</summary>
+                            <summary class="lib-category-summary">${window.__t(name)}</summary>
                             <div class="lib-grid">
                     `;
                     icons.forEach(icon => {
@@ -367,11 +367,11 @@ function initTools(iframe) {
 
             html += `
                 <div class="tool-section">
-                    <div class="tool-section-title">${window.__eidos_t('text_tool')}</div>
+                    <div class="tool-section-title">${window.__t('text_tool')}</div>
                     <div class="tool-row">
                         <div class="fpicker" id="tool-font-picker">
                             <div class="fpicker-trigger" id="tool-font-trigger">
-                                <span class="fpicker-current" id="tool-font-label">${window.__eidos_t('select_font', 'Select font')}</span>
+                                <span class="fpicker-current" id="tool-font-label">${window.__t('select_font', 'Select font')}</span>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </div>
                             <div class="fpicker-dropdown" id="tool-font-dropdown">
@@ -380,7 +380,7 @@ function initTools(iframe) {
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('size')}</span>
+                        <span class="tool-label">${window.__t('size')}</span>
                         <div class="tool-btn-group" style="width: auto;">
                             <button id="tool-font-min" class="tool-btn">-</button>
                             <input type="number" id="tool-font-size" class="tool-input" value="16" style="border:none !important; border-radius:0 !important; flex:1;">
@@ -395,7 +395,7 @@ function initTools(iframe) {
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('alignment')}</span>
+                        <span class="tool-label">${window.__t('alignment')}</span>
                         <div class="tool-btn-group">
                             <button id="tool-align-l" class="tool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="15" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
                             <button id="tool-align-c" class="tool-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
@@ -403,7 +403,7 @@ function initTools(iframe) {
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('color')}</span>
+                        <span class="tool-label">${window.__t('color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
@@ -415,18 +415,18 @@ function initTools(iframe) {
         if (isImage) {
             html += `
                 <div class="tool-section">
-                    <div class="tool-section-title">${window.__eidos_t('image_tool')}</div>
+                    <div class="tool-section-title">${window.__t('image_tool')}</div>
                     <div class="tool-row">
-                        <button id="tool-replace-img" class="add-el-btn" style="width:100%; padding:0.5rem;">${window.__eidos_t('replace_image')}</button>
+                        <button id="tool-replace-img" class="add-el-btn" style="width:100%; padding:0.5rem;">${window.__t('replace_image')}</button>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('border_radius')}</span>
+                        <span class="tool-label">${window.__t('border_radius')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
                             <input type="range" id="tool-radius" class="tool-slider" min="0" max="100" value="0">
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('opacity')}</span>
+                        <span class="tool-label">${window.__t('opacity')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
                             <input type="range" id="tool-opacity" class="tool-slider" min="0" max="100" value="100">
                         </div>
@@ -438,15 +438,15 @@ function initTools(iframe) {
         if (isIcon) {
             html += `
                 <div class="tool-section">
-                    <div class="tool-section-title">${window.__eidos_t('icon_tool')}</div>
+                    <div class="tool-section-title">${window.__t('icon_tool')}</div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('icon_color')}</span>
+                        <span class="tool-label">${window.__t('icon_color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('size')}</span>
+                        <span class="tool-label">${window.__t('size')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
                             <input type="range" id="tool-icon-size" class="tool-slider" min="12" max="256" value="${parseInt(el.style.width) || 48}">
                         </div>
@@ -458,21 +458,21 @@ function initTools(iframe) {
         if (isShape && !isIcon) {
             html += `
                 <div class="tool-section">
-                    <div class="tool-section-title">${window.__eidos_t('shape_tool')}</div>
+                    <div class="tool-section-title">${window.__t('shape_tool')}</div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('fill_color')}</span>
+                        <span class="tool-label">${window.__t('fill_color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-fill" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('border_color')}</span>
+                        <span class="tool-label">${window.__t('border_color')}</span>
                         <div class="color-picker-wrapper">
                             <input type="color" id="tool-stroke" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                     <div class="tool-row">
-                        <span class="tool-label">${window.__eidos_t('opacity')}</span>
+                        <span class="tool-label">${window.__t('opacity')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
                             <input type="range" id="tool-opacity" class="tool-slider" min="0" max="100" value="100">
                         </div>
@@ -484,17 +484,17 @@ function initTools(iframe) {
         // Universal tools (Shadow, Delete, Z-index)
         html += `
             <div class="tool-section" style="margin-top: 1rem;">
-                <div class="tool-section-title">${window.__eidos_t('advanced')}</div>
+                <div class="tool-section-title">${window.__t('advanced')}</div>
                 <div class="tool-row" style="display:flex; gap:0.5rem; margin-bottom: 0.5rem;">
                     <button id="tool-layer-up" class="add-el-btn" style="flex:1; padding:0.5rem; font-size: 0.75rem; font-weight: 600;">
-                        ${window.__eidos_t('bring_to_front')}
+                        ${window.__t('bring_to_front')}
                     </button>
                     <button id="tool-layer-down" class="add-el-btn" style="flex:1; padding:0.5rem; font-size: 0.75rem; font-weight: 600;">
-                        ${window.__eidos_t('send_to_back')}
+                        ${window.__t('send_to_back')}
                     </button>
                 </div>
                 <div class="tool-row">
-                    <button id="tool-delete" class="add-el-btn" style="width:100%; padding:0.5rem; color:#ff5b5b; border-color:rgba(255,91,91,0.3);">${window.__eidos_t('delete_element')}</button>
+                    <button id="tool-delete" class="add-el-btn" style="width:100%; padding:0.5rem; color:#ff5b5b; border-color:rgba(255,91,91,0.3);">${window.__t('delete_element')}</button>
                 </div>
             </div>
         `;
@@ -572,7 +572,7 @@ function initTools(iframe) {
             dropdown.querySelectorAll('.fpicker-option').forEach(opt => {
                 opt.addEventListener('click', () => {
                     const val = opt.dataset.value;
-                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                     el.style.setProperty('font-family', val, 'important');
                     labelEl.textContent = opt.textContent;
                     labelEl.style.fontFamily = val;
@@ -583,45 +583,45 @@ function initTools(iframe) {
             dropdown.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
 
             const updateSize = (val) => {
-                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                 el.style.fontSize = val + 'px';
                 fontSize.value = val;
             };
 
             fontAdd.addEventListener('click', () => {
                 updateSize(parseInt(fontSize.value) + 1);
-                if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
+                if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
             });
             fontMin.addEventListener('click', () => {
                 updateSize(parseInt(fontSize.value) - 1);
-                if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
+                if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
             });
             fontSize.addEventListener('change', (e) => {
                 updateSize(e.target.value);
-                if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
+                if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
             });
 
             bold.addEventListener('click', () => {
-                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                 const isBold = el.style.fontWeight === 'bold';
                 el.style.fontWeight = isBold ? 'normal' : 'bold';
                 bold.classList.toggle('active', !isBold);
             });
             italic.addEventListener('click', () => {
-                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                 const isIt = el.style.fontStyle === 'italic';
                 el.style.fontStyle = isIt ? 'normal' : 'italic';
                 italic.classList.toggle('active', !isIt);
             });
             under.addEventListener('click', () => {
-                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                 const isU = el.style.textDecoration === 'underline';
                 el.style.textDecoration = isU ? 'none' : 'underline';
                 under.classList.toggle('active', !isU);
             });
 
             const setAlign = (val, btn) => {
-                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                 el.style.textAlign = val;
                 [alignL, alignC, alignR].forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -632,13 +632,13 @@ function initTools(iframe) {
 
             const colorSaving = (e) => {
                 if (!el._colorSaving) {
-                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                     el._colorSaving = true;
                     setTimeout(() => el._colorSaving = false, 1000);
                 }
                 el.style.color = e.target.value;
                 el.style.webkitTextFillColor = e.target.value;
-                if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
+                if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
             };
             color.addEventListener('input', colorSaving);
         }
@@ -656,7 +656,7 @@ function initTools(iframe) {
                     const file = e.target.files[0];
                     if (file) {
                         window.gifToStaticDataUrl(file).then((dataUrl) => {
-                            if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                            if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                             if (el.tagName === 'IMG') {
                                 el.src = dataUrl;
                             } else {
@@ -676,21 +676,21 @@ function initTools(iframe) {
 
             radius.addEventListener('input', (e) => {
                 if (!el._undoSavingRadius) {
-                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                     el._undoSavingRadius = true;
                     setTimeout(() => el._undoSavingRadius = false, 1000);
                 }
                 el.style.borderRadius = e.target.value + 'px';
-                if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
+                if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
             });
             opacity.addEventListener('input', (e) => {
                 if (!el._undoSavingOpacity) {
-                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                     el._undoSavingOpacity = true;
                     setTimeout(() => el._undoSavingOpacity = false, 1000);
                 }
                 el.style.opacity = e.target.value / 100;
-                if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
+                if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
             });
         }
 
@@ -717,7 +717,7 @@ function initTools(iframe) {
                 fill.value = rgbToHex(comp.backgroundColor);
                 fill.addEventListener('input', (e) => {
                     if (!el._undoSavingFill) {
-                        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                         el._undoSavingFill = true;
                         setTimeout(() => el._undoSavingFill = false, 1000);
                     }
@@ -728,7 +728,7 @@ function initTools(iframe) {
                 stroke.value = rgbToHex(comp.borderColor);
                 stroke.addEventListener('input', (e) => {
                     if (!el._undoSavingStroke) {
-                        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                         el._undoSavingStroke = true;
                         setTimeout(() => el._undoSavingStroke = false, 1000);
                     }
@@ -738,7 +738,7 @@ function initTools(iframe) {
             if (opacity) {
                 opacity.addEventListener('input', (e) => {
                     if (!el._undoSavingOpacity) {
-                        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                         el._undoSavingOpacity = true;
                         setTimeout(() => el._undoSavingOpacity = false, 1000);
                     }
@@ -766,7 +766,7 @@ function initTools(iframe) {
             iconColor.value = rgbToHex(comp.color);
             iconColor.addEventListener('input', (e) => {
                 if (!el._undoSavingColor) {
-                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                     el._undoSavingColor = true;
                     setTimeout(() => el._undoSavingColor = false, 1000);
                 }
@@ -774,28 +774,28 @@ function initTools(iframe) {
             });
             iconSize.addEventListener('input', (e) => {
                 if (!el._undoSavingSize) {
-                    if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                    if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                     el._undoSavingSize = true;
                     setTimeout(() => el._undoSavingSize = false, 1000);
                 }
                 const val = e.target.value + 'px';
                 el.style.width = val;
                 el.style.height = val;
-                if (iframeWin.eidosUpdateSelection) iframeWin.eidosUpdateSelection();
+                if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
             });
         }
 
         const layerUp = document.getElementById('tool-layer-up');
         const layerDown = document.getElementById('tool-layer-down');
-        if (layerUp) layerUp.addEventListener('click', () => iframeWin.eidosToFront && iframeWin.eidosToFront());
-        if (layerDown) layerDown.addEventListener('click', () => iframeWin.eidosToBack && iframeWin.eidosToBack());
+        if (layerUp) layerUp.addEventListener('click', () => iframeWin.toFront && iframeWin.toFront());
+        if (layerDown) layerDown.addEventListener('click', () => iframeWin.toBack && iframeWin.toBack());
 
         const deleteBtn = document.getElementById('tool-delete');
         if (deleteBtn) {
             deleteBtn.addEventListener('click', () => {
-                if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+                if (iframeWin.editorSaveState) iframeWin.editorSaveState();
                 el.remove();
-                if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
+                if (iframeWin.editorDeselect) iframeWin.editorDeselect();
             });
         }
     }
@@ -804,11 +804,11 @@ function initTools(iframe) {
     iframeDoc.addEventListener('click', (e) => {
         const selectors = iframeWin.editableSelectors || 'h1, h2, h3, h4, p, span, li, blockquote, div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, .tag, .lucide-icon, svg[data-lucide], .big-number, .big-label, .accent-bar, .subtitle, .step-num, .timeline-year, [class*="card"], [class*="box"], [class*="item"]';
         const isEditable = e.target.closest(selectors);
-        const isTool = e.target.closest('.eidos-selection-box') || e.target.closest('.eidos-toolbar') || e.target.closest('.eidos-color-picker');
+        const isTool = e.target.closest('.editor-selection-box') || e.target.closest('.editor-toolbar') || e.target.closest('.editor-color-picker');
 
         if (!isEditable && !isTool) {
-            const isJustSelected = iframeWin.eidosIsJustSelected && iframeWin.eidosIsJustSelected();
-            const isDragging = iframeWin.eidosIsDragging && iframeWin.eidosIsDragging();
+            const isJustSelected = iframeWin.isJustSelected && iframeWin.isJustSelected();
+            const isDragging = iframeWin.editorIsDragging && iframeWin.editorIsDragging();
             if (isJustSelected || isDragging) return;
 
             // Just hide the panel on bg click — never open bg tools from here
@@ -817,7 +817,7 @@ function initTools(iframe) {
             panelOwner = null;
             toolsPanel.classList.remove('active');
             toolsPanel.classList.remove('is-fixed');
-            if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
+            if (iframeWin.editorDeselect) iframeWin.editorDeselect();
         }
     });
 
@@ -830,15 +830,15 @@ function initTools(iframe) {
             panelOwner = null;
             toolsPanel.classList.remove('active');
             toolsPanel.classList.remove('is-fixed');
-            if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
+            if (iframeWin.editorDeselect) iframeWin.editorDeselect();
             return;
         }
-        // Mark that the upcoming eidos-selection-changed was triggered by this btn
+        // Mark that the upcoming selection-changed was triggered by this btn
         _settingPanelOwner = true;
         panelOwner = btnId;
         setTimeout(() => { _settingPanelOwner = false; }, 0);
         fixToolsPanel();
-        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         const slide = getActiveSlide();
         const text = iframeDoc.createElement('h2');
         text.textContent = 'Nuevo Texto';
@@ -852,8 +852,8 @@ function initTools(iframe) {
         text.style.fontFamily = 'Arial, sans-serif';
         text.style.fontSize = '12px';
         slide.appendChild(text);
-        if (iframeWin.eidosSelect) {
-            iframeWin.eidosSelect(text);
+        if (iframeWin.editorSelect) {
+            iframeWin.editorSelect(text);
         } else {
             const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
             text.dispatchEvent(clickEv);
@@ -870,15 +870,15 @@ function initTools(iframe) {
             panelOwner = null;
             toolsPanel.classList.remove('active');
             toolsPanel.classList.remove('is-fixed');
-            if (iframeWin.eidosDeselect) iframeWin.eidosDeselect();
+            if (iframeWin.editorDeselect) iframeWin.editorDeselect();
             return;
         }
-        // Mark that the upcoming eidos-selection-changed was triggered by this btn
+        // Mark that the upcoming selection-changed was triggered by this btn
         _settingPanelOwner = true;
         panelOwner = btnId;
         setTimeout(() => { _settingPanelOwner = false; }, 0);
         fixToolsPanel();
-        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         const slide = getActiveSlide();
         const img = iframeDoc.createElement('div');
         img.className = 'img-slot has-custom-image';
@@ -910,8 +910,8 @@ function initTools(iframe) {
         };
         input.click();
 
-        if (iframeWin.eidosSelect) {
-            iframeWin.eidosSelect(img);
+        if (iframeWin.editorSelect) {
+            iframeWin.editorSelect(img);
         } else {
             const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
             img.dispatchEvent(clickEv);
@@ -971,7 +971,7 @@ function initTools(iframe) {
         const { file, x, y } = e.detail;
         if (!file) return;
         fixToolsPanel();
-        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         const slide = getActiveSlide();
         const slideRect = slide.getBoundingClientRect();
         const img = iframeDoc.createElement('div');
@@ -994,14 +994,14 @@ function initTools(iframe) {
             img.style.border = 'none';
         });
         if (window.parent && window.parent._buildOverlayForSlot) window.parent._buildOverlayForSlot(img);
-        window.parent.dispatchEvent(new CustomEvent('eidos-drop-complete'));
+        window.parent.dispatchEvent(new CustomEvent('drop-complete'));
         setTimeout(() => window.parent && window.parent._refreshSlotOverlays && window.parent._refreshSlotOverlays(), 50);
-        if (iframeWin.eidosSelect) iframeWin.eidosSelect(img);
+        if (iframeWin.editorSelect) iframeWin.editorSelect(img);
     };
 
-    if (window._eidosAddImageHandler) window.removeEventListener('eidos-add-image-at', window._eidosAddImageHandler);
-    window._eidosAddImageHandler = addImageAtHandler;
-    window.addEventListener('eidos-add-image-at', window._eidosAddImageHandler);
+    if (window._addImageHandler) window.removeEventListener('add-image-at', window._addImageHandler);
+    window._addImageHandler = addImageAtHandler;
+    window.addEventListener('add-image-at', window._addImageHandler);
 
     // Initial render
     renderTools(null);

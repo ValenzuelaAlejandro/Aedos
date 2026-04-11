@@ -1,6 +1,6 @@
 const translations = {
     en: {
-        "brand_name": "Eidoslab",
+        "brand_name": "Aedos",
         "theme_label": "Theme",
         "theme_dark": "Dark",
         "theme_light": "Light",
@@ -121,7 +121,7 @@ const translations = {
         "language": "Change Language"
     },
     es: {
-        "brand_name": "Eidoslab",
+        "brand_name": "Aedos",
         "theme_label": "Tema",
         "theme_dark": "Oscuro",
         "theme_light": "Claro",
@@ -246,7 +246,7 @@ const translations = {
 let currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
 window.currentLang = currentLang;
 
-window.__eidos_t = function (key, defaultText = null) {
+window.__t = function (key, defaultText = null) {
     let result = key;
     if (translations[currentLang] && translations[currentLang][key]) {
         result = translations[currentLang][key];
@@ -261,32 +261,32 @@ window.__eidos_t = function (key, defaultText = null) {
 function applyI18nToDom() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
-        el.innerHTML = window.__eidos_t(key);
+        el.innerHTML = window.__t(key);
     });
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
         const key = el.getAttribute('data-i18n-title');
-        const text = window.__eidos_t(key);
+        const text = window.__t(key);
         el.setAttribute('data-tooltip', text);
         el.removeAttribute('title'); // Prevent native browser tooltips which cause flicker
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
         const key = el.getAttribute('data-i18n-placeholder');
-        el.placeholder = window.__eidos_t(key);
+        el.placeholder = window.__t(key);
     });
     document.querySelectorAll('[data-i18n-val]').forEach(el => {
         const key = el.getAttribute('data-i18n-val');
-        el.value = window.__eidos_t(key);
+        el.value = window.__t(key);
     });
 }
 
-window.__eidos_setLang = function (lang) {
+window.__setLang = function (lang) {
     if (!translations[lang]) return;
     currentLang = lang;
     window.currentLang = lang;
     applyI18nToDom();
 };
 
-window.__eidos_applyTranslations = applyI18nToDom;
+window.__applyTranslations = applyI18nToDom;
 
 // Initialize DOM elements with translations
 document.addEventListener('DOMContentLoaded', () => {

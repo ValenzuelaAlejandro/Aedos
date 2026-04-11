@@ -1,5 +1,5 @@
 /**
- * Eidoslab Visual Editor
+ * Aedos Visual Editor
  * Injected into the presentation iframe to allow Canva-like editing.
  */
 function initEditor() {
@@ -7,22 +7,22 @@ function initEditor() {
     window._editorInitialized = true;
 
     let _isLocked = false;
-    window.eidosSetLocked = (locked) => {
+    window.setLocked = (locked) => {
         _isLocked = locked;
         if (locked) {
-            document.body.classList.add('eidos-locked');
+            document.body.classList.add('editor-locked');
             deselectGroup();
             isDragging = false;
             isResizing = false;
         } else {
-            document.body.classList.remove('eidos-locked');
+            document.body.classList.remove('editor-locked');
         }
     };
 
     // Auto-lock if parent goes fullscreen
     const syncLockWithFullscreen = () => {
         const isFS = !!(document.fullscreenElement || window.parent.document.fullscreenElement || document.webkitFullscreenElement || window.parent.document.webkitFullscreenElement);
-        window.eidosSetLocked(isFS);
+        window.setLocked(isFS);
     };
     document.addEventListener('fullscreenchange', syncLockWithFullscreen);
     window.parent.document.addEventListener('fullscreenchange', syncLockWithFullscreen);
@@ -89,7 +89,7 @@ function initEditor() {
 
     // UI Elements
     const selectionBox = document.createElement('div');
-    selectionBox.className = 'eidos-selection-box';
+    selectionBox.className = 'editor-selection-box';
     selectionBox.style.display = 'none';
     selectionBox.style.zIndex = '1000'; // Always on top
 
@@ -99,7 +99,7 @@ function initEditor() {
     const handleEls = {};
     handles.forEach(pos => {
         const h = document.createElement('div');
-        h.className = `eidos-resize-handle eidos-resize-${pos}`;
+        h.className = `editor-resize-handle editor-resize-${pos}`;
         h.dataset.handler = pos;
         selectionBox.appendChild(h);
         handleEls[pos] = h;
@@ -107,16 +107,16 @@ function initEditor() {
 
     // Context Toolbar
     const toolbar = document.createElement('div');
-    toolbar.className = 'eidos-toolbar';
+    toolbar.className = 'editor-toolbar';
     toolbar.style.display = 'none';
     toolbar.style.zIndex = '1001'; // Above selection box
 
 
     // Snapping guides
     const guideH = document.createElement('div');
-    guideH.className = 'eidos-guide eidos-guide-h';
+    guideH.className = 'editor-guide editor-guide-h';
     const guideV = document.createElement('div');
-    guideV.className = 'eidos-guide eidos-guide-v';
+    guideV.className = 'editor-guide editor-guide-v';
 
     function ensureUI() {
         if (!selectionBox.parentElement) document.documentElement.appendChild(selectionBox);
@@ -131,8 +131,8 @@ function initEditor() {
         if (selectedElement) deselectGroup();
     };
 
-    window.addEventListener('eidos-navigate-prev', handleSlideChange);
-    window.addEventListener('eidos-navigate-next', handleSlideChange);
+    window.addEventListener('navigate-prev', handleSlideChange);
+    window.addEventListener('navigate-next', handleSlideChange);
 
     // Robust detection for any slide change (e.g., via pagination dots or parent UI)
     // by observing when a section starts being 'active'
@@ -165,7 +165,7 @@ function initEditor() {
 
         const palette = getDynamicPalette().slice(0, 4);
         const quickColorsHTML = palette.map(color => `
-            <div class="eidos-color-swatch" style="background:${color};" data-color="${color}"></div>
+            <div class="editor-color-swatch" style="background:${color};" data-color="${color}"></div>
         `).join('');
 
         let dragGroup = [];
@@ -177,38 +177,38 @@ function initEditor() {
 
         if (isText) {
             toolsHTML = `
-                <div class="eidos-color-swatches-mini">${quickColorsHTML}</div>
-                <div class="eidos-divider"></div>
-                <div class="eidos-tb-size-wrap">
-                    <button class="eidos-tb-btn" id="eidos-btn-size-down" title="${window.parent.__eidos_t('smaller', 'Smaller')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                    <div class="eidos-tb-size-val" id="eidos-tb-size-val">16</div>
-                    <button class="eidos-tb-btn" id="eidos-btn-size-up" title="${window.parent.__eidos_t('bigger', 'Bigger')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                <div class="editor-color-swatches-mini">${quickColorsHTML}</div>
+                <div class="editor-divider"></div>
+                <div class="editor-tb-size-wrap">
+                    <button class="editor-tb-btn" id="editor-btn-size-down" title="${window.parent.__t('smaller', 'Smaller')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                    <div class="editor-tb-size-val" id="editor-tb-size-val">16</div>
+                    <button class="editor-tb-btn" id="editor-btn-size-up" title="${window.parent.__t('bigger', 'Bigger')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                 </div>
-                <div class="eidos-divider"></div>
-                <button class="eidos-tb-btn" id="eidos-btn-text-color" title="${window.parent.__eidos_t('text_color', 'Text Color')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16l6-12 6 12M8 12h8"></path></svg></button>
+                <div class="editor-divider"></div>
+                <button class="editor-tb-btn" id="editor-btn-text-color" title="${window.parent.__t('text_color', 'Text Color')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16l6-12 6 12M8 12h8"></path></svg></button>
             `;
         } else if (isImage) {
             toolsHTML = `
-                <button class="eidos-tb-btn" id="eidos-btn-replace-img" title="${window.parent.__eidos_t('replace_image', 'Replace Image')}" style="width: auto; padding: 0 10px; border-radius: 20px; gap: 6px; font-size: 12px; font-weight: 600;">
+                <button class="editor-tb-btn" id="editor-btn-replace-img" title="${window.parent.__t('replace_image', 'Replace Image')}" style="width: auto; padding: 0 10px; border-radius: 20px; gap: 6px; font-size: 12px; font-weight: 600;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    ${window.parent.__eidos_t('replace', 'Replace')}
+                    ${window.parent.__t('replace', 'Replace')}
                 </button>
             `;
         } else {
             // General shape / card
             toolsHTML = `
-                <div class="eidos-color-swatches-mini">${quickColorsHTML}</div>
-                <div class="eidos-divider"></div>
-                <button class="eidos-tb-btn" id="eidos-btn-bg-color" title="${window.parent.__eidos_t('fill_color', 'Fill Color')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path></svg></button>
+                <div class="editor-color-swatches-mini">${quickColorsHTML}</div>
+                <div class="editor-divider"></div>
+                <button class="editor-tb-btn" id="editor-btn-bg-color" title="${window.parent.__t('fill_color', 'Fill Color')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path></svg></button>
             `;
         }
 
         return `
             ${toolsHTML}
-            <div class="eidos-divider"></div>
-            <button class="eidos-tb-btn" id="eidos-btn-duplicate" title="${window.parent.__eidos_t('duplicate_element', 'Duplicate')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg></button>
-            <button class="eidos-tb-btn" id="eidos-btn-delete" title="${window.parent.__eidos_t('delete_element', 'Delete')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></button>
-            <div id="eidos-color-picker" class="eidos-color-picker" style="display:none;"></div>
+            <div class="editor-divider"></div>
+            <button class="editor-tb-btn" id="editor-btn-duplicate" title="${window.parent.__t('duplicate_element', 'Duplicate')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg></button>
+            <button class="editor-tb-btn" id="editor-btn-delete" title="${window.parent.__t('delete_element', 'Delete')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></button>
+            <div id="editor-color-picker" class="editor-color-picker" style="display:none;"></div>
         `;
     }
 
@@ -229,13 +229,13 @@ function initEditor() {
     }
 
     function bindToolbarEvents() {
-        const btnSizeDown = document.getElementById('eidos-btn-size-down');
-        const btnSizeUp = document.getElementById('eidos-btn-size-up');
-        const btnTextColor = document.getElementById('eidos-btn-text-color');
-        const btnBgColor = document.getElementById('eidos-btn-bg-color');
-        const btnDelete = document.getElementById('eidos-btn-delete');
-        const btnDuplicate = document.getElementById('eidos-btn-duplicate');
-        const btnReplaceImg = document.getElementById('eidos-btn-replace-img');
+        const btnSizeDown = document.getElementById('editor-btn-size-down');
+        const btnSizeUp = document.getElementById('editor-btn-size-up');
+        const btnTextColor = document.getElementById('editor-btn-text-color');
+        const btnBgColor = document.getElementById('editor-btn-bg-color');
+        const btnDelete = document.getElementById('editor-btn-delete');
+        const btnDuplicate = document.getElementById('editor-btn-duplicate');
+        const btnReplaceImg = document.getElementById('editor-btn-replace-img');
 
         if (btnSizeDown) {
             btnSizeDown.addEventListener('click', (e) => {
@@ -271,8 +271,8 @@ function initEditor() {
             btnReplaceImg.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (selectedElement) {
-                    if (window.parent && window.parent._eidosTriggerImagePicker) {
-                        window.parent._eidosTriggerImagePicker(selectedElement);
+                    if (window.parent && window.parent._triggerImagePicker) {
+                        window.parent._triggerImagePicker(selectedElement);
                     }
                 }
             });
@@ -293,7 +293,7 @@ function initEditor() {
         }
 
         // Quick colors binding if they exist
-        toolbar.querySelectorAll('.eidos-color-swatches-mini .eidos-color-swatch').forEach(swatch => {
+        toolbar.querySelectorAll('.editor-color-swatches-mini .editor-color-swatch').forEach(swatch => {
             swatch.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (selectedElement) {
@@ -311,7 +311,7 @@ function initEditor() {
                     } else {
                         selectedElement.style.backgroundColor = color;
                     }
-                    window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: selectedElement } }));
+                    window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element: selectedElement } }));
                 }
             });
         });
@@ -330,7 +330,7 @@ function initEditor() {
     }
 
     function updateSizeDisplay() {
-        const valEl = document.getElementById('eidos-tb-size-val');
+        const valEl = document.getElementById('editor-tb-size-val');
         if (selectedElement && valEl) {
             const style = window.getComputedStyle(selectedElement);
             valEl.textContent = Math.round(parseFloat(style.fontSize)) || 16;
@@ -338,7 +338,7 @@ function initEditor() {
     }
 
     function showColorPicker(anchorEl) {
-        const picker = document.getElementById('eidos-color-picker');
+        const picker = document.getElementById('editor-color-picker');
         const isCurrentlyVisible = picker.style.display === 'grid';
 
         if (isCurrentlyVisible && picker.dataset.anchor === anchorEl.id) {
@@ -349,13 +349,13 @@ function initEditor() {
         // Generate dynamic palette
         const palette = getDynamicPalette();
         picker.innerHTML = palette.map(color => `
-            <div class="eidos-color-swatch" style="background:${color};" data-color="${color}"></div>
+            <div class="editor-color-swatch" style="background:${color};" data-color="${color}"></div>
         `).join('') + `
-            <div class="eidos-color-swatch" style="background:transparent; border: 1px dashed #ccc; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999;" data-color="transparent">✕</div>
+            <div class="editor-color-swatch" style="background:transparent; border: 1px dashed #ccc; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999;" data-color="transparent">✕</div>
         `;
 
         // Re-bind swatches
-        picker.querySelectorAll('.eidos-color-swatch').forEach(swatch => {
+        picker.querySelectorAll('.editor-color-swatch').forEach(swatch => {
             swatch.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (selectedElement && activeColorAction) {
@@ -415,8 +415,8 @@ function initEditor() {
     const HEADING_LIKE_SELECTORS = 'h1, h2, h3, h4, .tag, [class*="title"], [class*="stat"], [class*="num"], [class*="source"]';
     const LEAF_VISUAL_SELECTORS = '.lucide-icon, svg[data-lucide], .accent-bar';
     const KNOWN_CONTAINER_SELECTORS = 'div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [data-image-slot], .quote-block, ul, ol, [class*="card"], [class*="box"], [class*="item"]';
-    const editableSelectors = `${TEXT_EDITABLE_SELECTORS}, ${LEAF_VISUAL_SELECTORS}, .img-slot, [data-image-slot], .quote-block, .card, .stat-box, .step-item, .timeline-item, .flex-row, .flex-col, .grid-2, .grid-3, [class*="card"], [class*="box"], [class*="item"], [data-eidos-container="true"]`;
-    const ignoreSelectors = '.img-replace-overlay, .img-replace-overlay *, .eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-phantom';
+    const editableSelectors = `${TEXT_EDITABLE_SELECTORS}, ${LEAF_VISUAL_SELECTORS}, .img-slot, [data-image-slot], .quote-block, .card, .stat-box, .step-item, .timeline-item, .flex-row, .flex-col, .grid-2, .grid-3, [class*="card"], [class*="box"], [class*="item"], [data-container="true"]`;
+    const ignoreSelectors = '.img-replace-overlay, .img-replace-overlay *, .editor-selection-box, .editor-toolbar, .editor-guide, .editor-phantom';
     window.editableSelectors = editableSelectors; // Export for UI
 
     function getSlideRoot(node) {
@@ -526,8 +526,8 @@ function initEditor() {
 
     function markSemanticContainer(el, isContainer) {
         if (!el || !el.dataset) return;
-        if (isContainer) el.dataset.eidosContainer = 'true';
-        else delete el.dataset.eidosContainer;
+        if (isContainer) el.dataset.container = 'true';
+        else delete el.dataset.container;
     }
 
     function isSemanticContainer(el, slide = null) {
@@ -730,7 +730,7 @@ function initEditor() {
 
     // Exposed for parent frame: freeze all slides before PDF export without
     // polluting the undo history. Slides already frozen are skipped.
-    window.eidosFreezeAllSlides = function () {
+    window.freezeAllSlides = function () {
         document.querySelectorAll('section.s').forEach(slide => {
             if (_isFrozenMap.has(slide)) return;
             _isFrozenMap.set(slide, true);
@@ -957,7 +957,7 @@ function initEditor() {
         ensureUI();
 
         // Ignore if clicking on our own tools
-        if (e.target.closest('.eidos-selection-box') || e.target.closest('.eidos-toolbar') || e.target.closest('.eidos-color-picker')) {
+        if (e.target.closest('.editor-selection-box') || e.target.closest('.editor-toolbar') || e.target.closest('.editor-color-picker')) {
             return;
         }
 
@@ -980,7 +980,7 @@ function initEditor() {
         // allUnderCursor and prefer any img-slot found there.
         if (!isImageSlotElement(target) && !isTextEditableElement(e.target)) {
             for (const el of allUnderCursor) {
-                if (el.closest('.eidos-selection-box') || el.closest('.eidos-toolbar')) continue;
+                if (el.closest('.editor-selection-box') || el.closest('.editor-toolbar')) continue;
                 if (isImageSlotElement(el)) {
                     target = el;
                     break;
@@ -991,7 +991,7 @@ function initEditor() {
         // If no target found via native hit-test, scan all elements at this point
         if (!target) {
             for (const el of allUnderCursor) {
-                if (el.closest('.eidos-selection-box') || el.closest('.eidos-toolbar')) continue;
+                if (el.closest('.editor-selection-box') || el.closest('.editor-toolbar')) continue;
                 const match = findEditableTarget(el);
                 if (match) {
                     target = match;
@@ -1040,7 +1040,7 @@ function initEditor() {
 
                 const others = getEditableElementsInSlide(slide, activeDragTarget);
                 others.forEach(el => {
-                    if (el === activeDragTarget || el.classList.contains('eidos-phantom')) return;
+                    if (el === activeDragTarget || el.classList.contains('editor-phantom')) return;
                     const oRect = el.getBoundingClientRect();
                     const rL = oRect.left - sRect.left;
                     const rT = oRect.top - sRect.top;
@@ -1092,7 +1092,7 @@ function initEditor() {
         if (_isLocked) return;
         const textSelectors = TEXT_EDITABLE_SELECTORS;
         const textTarget = e.target.closest(textSelectors);
-        if (textTarget && (!textTarget.closest('.eidos-toolbar'))) {
+        if (textTarget && (!textTarget.closest('.editor-toolbar'))) {
             // Normalize only if not yet done and only for standalone (non-container) elements.
             if (!textTarget._normalized) {
                 const slide = textTarget.closest('.s') || textTarget.closest('section') || document.body;
@@ -1124,7 +1124,7 @@ function initEditor() {
 
             // Make selection box non-interactive so we can edit text through it
             selectionBox.style.pointerEvents = "none";
-            selectionBox.classList.add('eidos-editing-text');
+            selectionBox.classList.add('editor-editing-text');
 
             // Select all text
             const range = document.createRange();
@@ -1149,7 +1149,7 @@ function initEditor() {
                 window.getSelection().removeAllRanges();
 
                 selectionBox.style.pointerEvents = "auto";
-                selectionBox.classList.remove('eidos-editing-text');
+                selectionBox.classList.remove('editor-editing-text');
 
                 saveState();
             }, { once: true });
@@ -1190,11 +1190,11 @@ function initEditor() {
 
         // If it's an image slot, trigger the picker in the parent
         if (selectedElement.dataset.imageSlot !== undefined) {
-            if (window.parent && window.parent._eidosTriggerImagePicker) {
-                window.parent._eidosTriggerImagePicker(selectedElement);
+            if (window.parent && window.parent._triggerImagePicker) {
+                window.parent._triggerImagePicker(selectedElement);
             } else {
                 // Fallback to event if direct call fails
-                document.dispatchEvent(new CustomEvent('eidos-trigger-image-picker', {
+                document.dispatchEvent(new CustomEvent('trigger-image-picker', {
                     detail: { element: selectedElement },
                     bubbles: true
                 }));
@@ -1206,7 +1206,7 @@ function initEditor() {
         const isEditable = (el) => isTextEditableElement(el);
         let textTarget = isEditable(selectedElement) ? selectedElement : selectedElement.querySelector(TEXT_EDITABLE_SELECTORS);
 
-        if (textTarget && !textTarget.closest('.eidos-toolbar')) {
+        if (textTarget && !textTarget.closest('.editor-toolbar')) {
             // Normalize only if not yet done and only for standalone elements.
             if (!textTarget._normalized) {
                 const slide = textTarget.closest('.s') || textTarget.closest('section') || document.body;
@@ -1235,7 +1235,7 @@ function initEditor() {
             }
 
             selectionBox.style.pointerEvents = "none";
-            selectionBox.classList.add('eidos-editing-text');
+            selectionBox.classList.add('editor-editing-text');
 
             // Select all text
             const range = document.createRange();
@@ -1256,7 +1256,7 @@ function initEditor() {
                 window.getSelection().removeAllRanges();
 
                 selectionBox.style.pointerEvents = "auto";
-                selectionBox.classList.remove('eidos-editing-text');
+                selectionBox.classList.remove('editor-editing-text');
 
                 saveState();
 
@@ -1266,7 +1266,7 @@ function initEditor() {
     });
 
     selectionBox.addEventListener('mousedown', (e) => {
-        if (e.target.classList.contains('eidos-resize-handle')) {
+        if (e.target.classList.contains('editor-resize-handle')) {
             e.stopPropagation();
             if (!selectedElement) return;
 
@@ -1286,7 +1286,7 @@ function initEditor() {
             startLeft = rect.left - slideRect.left;
             startTop = rect.top - slideRect.top;
             e.preventDefault();
-        } else if (!e.target.classList.contains('eidos-resize-handle')) {
+        } else if (!e.target.classList.contains('editor-resize-handle')) {
             // Drag via selection box proxy (anywhere that isn't a handle)
             e.stopPropagation();
             if (!selectedElement) return;
@@ -1605,7 +1605,7 @@ function initEditor() {
 
         updateSelectionBox();
         updateSizeDisplay();
-        const colorPicker = document.getElementById('eidos-color-picker');
+        const colorPicker = document.getElementById('editor-color-picker');
         if (colorPicker) colorPicker.style.display = 'none';
 
         // Observe changes to the element (like style or classes) to update the selection box automatically
@@ -1649,7 +1649,7 @@ function initEditor() {
         }
 
         // Notify parent UI
-        window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: el } }));
+        window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element: el } }));
 
         // Mark as just selected to prevent immediate deselection by trailing click events
         _justSelected = true;
@@ -1668,12 +1668,12 @@ function initEditor() {
         selectionBox.style.display = 'none';
         toolbar.style.display = 'none';
 
-        const colorPicker = document.getElementById('eidos-color-picker');
+        const colorPicker = document.getElementById('editor-color-picker');
         if (colorPicker) colorPicker.style.display = 'none';
 
         // Notify parent UI only if not silent
         if (!silent) {
-            window.dispatchEvent(new CustomEvent('eidos-selection-changed', { detail: { element: null } }));
+            window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element: null } }));
         }
     }
 
@@ -1705,9 +1705,9 @@ function initEditor() {
         selectionBox.style.height = `${boxH}px`;
 
         if (boxW < 50 || boxH < 50) {
-            selectionBox.classList.add('eidos-small-selection');
+            selectionBox.classList.add('editor-small-selection');
         } else {
-            selectionBox.classList.remove('eidos-small-selection');
+            selectionBox.classList.remove('editor-small-selection');
         }
 
         if (!isDragging && !isResizing) {
@@ -1758,7 +1758,7 @@ function initEditor() {
         // Remove system UI elements that shouldn't be in the state history
         // NOTE: We keep .img-replace-overlay (tooltips) in the history to prevent flicker.
         // Final exports (PPTX/PDF) clean them up separately anyway.
-        const toRemove = bodyClone.querySelectorAll('.eidos-selection-box, .eidos-toolbar, .eidos-guide, .eidos-color-picker');
+        const toRemove = bodyClone.querySelectorAll('.editor-selection-box, .editor-toolbar, .editor-guide, .editor-color-picker');
         toRemove.forEach(el => el.remove());
 
         return bodyClone.innerHTML;
@@ -1770,8 +1770,8 @@ function initEditor() {
 
         // 1. Check parent state first
         try {
-            if (window.parent && window.parent.eidosCurrentSlide !== undefined) {
-                return window.parent.eidosCurrentSlide;
+            if (window.parent && window.parent.currentSlide !== undefined) {
+                return window.parent.currentSlide;
             }
         } catch (e) { }
 
@@ -1802,8 +1802,8 @@ function initEditor() {
         const state = getCleanHTML();
 
         // Always try to get the current index from parent (most reliable)
-        const slideIndex = (window.parent && window.parent.eidosCurrentSlide !== undefined)
-            ? window.parent.eidosCurrentSlide
+        const slideIndex = (window.parent && window.parent.currentSlide !== undefined)
+            ? window.parent.currentSlide
             : getCurrentSlideIndex();
 
         // Don't save if it's identical HTML to avoid duplicate history points
@@ -1861,7 +1861,7 @@ function initEditor() {
         // Notify parent that state changed significantly (slides might have been added/removed)
         // Pass 'needsOverlayRebuild' so app.js can re-inject image slot overlays
         // Pass 'slideIndex' to restore scroll position
-        window.dispatchEvent(new CustomEvent('eidos-state-restored', {
+        window.dispatchEvent(new CustomEvent('state-restored', {
             detail: {
                 needsOverlayRebuild: true
             }
@@ -1916,9 +1916,9 @@ function initEditor() {
             // If nothing is selected or locked, we let it bubble out or handle it as slide navigation
             if (!isEditingText && (!selectedElement || _isLocked)) {
                 if (e.key === 'ArrowLeft') {
-                    window.dispatchEvent(new CustomEvent('eidos-navigate-prev'));
+                    window.dispatchEvent(new CustomEvent('navigate-prev'));
                 } else {
-                    window.dispatchEvent(new CustomEvent('eidos-navigate-next'));
+                    window.dispatchEvent(new CustomEvent('navigate-next'));
                 }
                 e.preventDefault();
                 return;
@@ -2038,7 +2038,7 @@ function initEditor() {
                 if (selectedElement) {
                     duplicateElement(selectedElement);
                 } else {
-                    window.dispatchEvent(new CustomEvent('eidos-duplicate-slide'));
+                    window.dispatchEvent(new CustomEvent('duplicate-slide'));
                 }
             }
         } else if (!isEditingText) {
@@ -2086,18 +2086,18 @@ function initEditor() {
     saveState();
 
     // Expose actions to parent
-    window.eidosUndo = undo;
-    window.eidosRedo = redo;
-    window.eidosSaveState = saveState;
-    window.eidosDeselect = deselectGroup;
-    window.eidosUpdateSelection = updateSelectionBox;
-    window.eidosGetSelection = () => selectedElement;
-    window.eidosSelect = selectElement;
-    window.eidosIsJustSelected = () => _justSelected;
-    window.eidosIsDragging = () => isDragging || isResizing;
-    window.eidosDuplicateSelection = () => { if (selectedElement) duplicateElement(selectedElement); };
-    window.eidosDeleteSelection = () => deleteElement(selectedElement);
-    window.eidosToFront = () => {
+    window.editorUndo = undo;
+    window.editorRedo = redo;
+    window.editorSaveState = saveState;
+    window.editorDeselect = deselectGroup;
+    window.editorUpdateSelection = updateSelectionBox;
+    window.editorGetSelection = () => selectedElement;
+    window.editorSelect = selectElement;
+    window.isJustSelected = () => _justSelected;
+    window.editorIsDragging = () => isDragging || isResizing;
+    window.editorDuplicateSelection = () => { if (selectedElement) duplicateElement(selectedElement); };
+    window.editorDeleteSelection = () => deleteElement(selectedElement);
+    window.toFront = () => {
         if (!selectedElement) return;
         saveState();
         const parent = selectedElement.parentElement;
@@ -2116,7 +2116,7 @@ function initEditor() {
         parent.appendChild(selectedElement); // Physical move to end of DOM (front)
         updateSelectionBox();
     };
-    window.eidosToBack = () => {
+    window.toBack = () => {
         if (!selectedElement) return;
         saveState();
         const parent = selectedElement.parentElement;
@@ -2142,7 +2142,7 @@ function initEditor() {
         parent.prepend(selectedElement); // Physical move to start of DOM (back)
         updateSelectionBox();
     };
-    window.eidosArrowMove = (key, shift) => {
+    window.editorArrowMove = (key, shift) => {
 
         if (!selectedElement) return;
         if (!selectedElement._undoSavingArrow) {

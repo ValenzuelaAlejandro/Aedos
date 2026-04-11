@@ -1,4 +1,4 @@
-// Eidoslab Editor UI (Left Panel & Right Panel logic)
+// Aedos Editor UI (Left Panel & Right Panel logic)
 
 window.initEditorUI = function (iframe) {
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -12,16 +12,16 @@ window.initEditorUI = function (iframe) {
     }
 
     // Subscriptions for keyboard navigation and duplication
-    iframeWin.addEventListener('eidos-navigate-prev', () => {
-        if (window.eidosPrevSlide) window.eidosPrevSlide();
+    iframeWin.addEventListener('navigate-prev', () => {
+        if (window.prevSlide) window.prevSlide();
     });
-    iframeWin.addEventListener('eidos-navigate-next', () => {
-        if (window.eidosNextSlide) window.eidosNextSlide();
+    iframeWin.addEventListener('navigate-next', () => {
+        if (window.nextSlide) window.nextSlide();
     });
-    iframeWin.addEventListener('eidos-duplicate-slide', () => {
+    iframeWin.addEventListener('duplicate-slide', () => {
         const slidesCount = iframeDoc.querySelectorAll('section[class*="s"]').length;
         if (slidesCount >= 15) return;
-        if (iframeWin.eidosSaveState) iframeWin.eidosSaveState();
+        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         if (slides.length === 0) return;
         const activeSlide = slides.find(s => s.classList.contains('active')) || slides[0];
 
@@ -44,10 +44,10 @@ window.initEditorUI = function (iframe) {
     // --- 4. TOP BAR ACTIONS & ADD ELEMENTS ---
 
     safeAddListener('btn-undo', 'click', () => {
-        if (iframeWin.eidosUndo) iframeWin.eidosUndo();
+        if (iframeWin.editorUndo) iframeWin.editorUndo();
     });
     safeAddListener('btn-redo', 'click', () => {
-        if (iframeWin.eidosRedo) iframeWin.eidosRedo();
+        if (iframeWin.editorRedo) iframeWin.editorRedo();
     });
 
     safeAddListener('btn-present', 'click', () => {
@@ -69,8 +69,8 @@ window.initEditorUI = function (iframe) {
     // Subscribe to internal slide active changes in app.js
     // Polling is a fallback for the MutationObserver to ensure smooth active state syncing
     let lastActiveSlideIndex = -1;
-    if (window._eidosMinimapInterval) clearInterval(window._eidosMinimapInterval);
-    window._eidosMinimapInterval = setInterval(() => {
+    if (window._minimapInterval) clearInterval(window._minimapInterval);
+    window._minimapInterval = setInterval(() => {
         const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"], section'));
         const activeIdx = slides.findIndex(s => s.classList.contains('active'));
         if (activeIdx !== -1 && activeIdx !== lastActiveSlideIndex) {
@@ -91,42 +91,42 @@ window.initEditorUI = function (iframe) {
             const key = e.key.toLowerCase();
             if (key === 'z') {
                 if (e.shiftKey) {
-                    if (iframeWin.eidosRedo) iframeWin.eidosRedo();
+                    if (iframeWin.editorRedo) iframeWin.editorRedo();
                 } else {
-                    if (iframeWin.eidosUndo) iframeWin.eidosUndo();
+                    if (iframeWin.editorUndo) iframeWin.editorUndo();
                 }
                 e.preventDefault();
             } else if (key === 'y') {
-                if (iframeWin.eidosRedo) iframeWin.eidosRedo();
+                if (iframeWin.editorRedo) iframeWin.editorRedo();
                 e.preventDefault();
             } else if (key === 'd') {
                 if (!e.target.isContentEditable) {
                     e.preventDefault();
-                    if (iframeWin.eidosDuplicateSelection && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
-                        iframeWin.eidosDuplicateSelection();
+                    if (iframeWin.editorDuplicateSelection && iframeWin.editorGetSelection && iframeWin.editorGetSelection()) {
+                        iframeWin.editorDuplicateSelection();
                     } else {
-                        iframeWin.dispatchEvent(new CustomEvent('eidos-duplicate-slide'));
+                        iframeWin.dispatchEvent(new CustomEvent('duplicate-slide'));
                     }
                 }
             }
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (iframeWin.eidosDeleteSelection && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
-                iframeWin.eidosDeleteSelection();
+            if (iframeWin.editorDeleteSelection && iframeWin.editorGetSelection && iframeWin.editorGetSelection()) {
+                iframeWin.editorDeleteSelection();
                 e.preventDefault();
             }
         } else if (e.key.startsWith('Arrow')) {
-            if (iframeWin.eidosArrowMove && iframeWin.eidosGetSelection && iframeWin.eidosGetSelection()) {
-                iframeWin.eidosArrowMove(e.key, e.shiftKey);
+            if (iframeWin.editorArrowMove && iframeWin.editorGetSelection && iframeWin.editorGetSelection()) {
+                iframeWin.editorArrowMove(e.key, e.shiftKey);
                 e.preventDefault();
             }
         }
     };
 
-    if (window._eidosKeydownHandler) {
-        window.removeEventListener('keydown', window._eidosKeydownHandler);
+    if (window._keydownHandler) {
+        window.removeEventListener('keydown', window._keydownHandler);
     }
-    window._eidosKeydownHandler = keydownHandler;
-    window.addEventListener('keydown', window._eidosKeydownHandler);
+    window._keydownHandler = keydownHandler;
+    window.addEventListener('keydown', window._keydownHandler);
 
     // Support for dropping images at specific coordinates
 };

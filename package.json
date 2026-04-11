@@ -1,5 +1,5 @@
 {
-  "name": "eidoslab",
+  "name": "aedos",
   "version": "1.0.0",
   "description": "Local web application that allows students to automatically generate academic presentations in PDF using the Google Gemini API.",
   "main": "server.js",

@@ -6,7 +6,7 @@ body {
     padding: 0 !important;
 }
 
-.eidos-selection-box {
+.editor-selection-box {
     position: absolute;
     /* Use the darker version of the accent color: 25% black mix */
     border: 1.5px solid color-mix(in srgb, var(--presentation-accent, var(--accent, #5d5dff)), black 25%);
@@ -18,7 +18,7 @@ body {
     transition: border-color 0.2s, border-style 0.2s;
 }
 
-.eidos-selection-box.eidos-editing-text {
+.editor-selection-box.editor-editing-text {
     border-style: dashed;
     border-color: rgba(255, 255, 255, 0.5);
     cursor: text;
@@ -29,7 +29,7 @@ body {
     box-shadow: none !important;
 }
 
-.eidos-resize-handle {
+.editor-resize-handle {
     position: absolute;
     width: 8px;
     height: 8px;
@@ -43,63 +43,63 @@ body {
 }
 
 /* Hide side handles when the element is too small to avoid amontonamiento */
-.eidos-small-selection .eidos-resize-n,
-.eidos-small-selection .eidos-resize-s,
-.eidos-small-selection .eidos-resize-e,
-.eidos-small-selection .eidos-resize-w {
+.editor-small-selection .editor-resize-n,
+.editor-small-selection .editor-resize-s,
+.editor-small-selection .editor-resize-e,
+.editor-small-selection .editor-resize-w {
     display: none;
 }
 
 /* Position handles centered on corners/edges */
-.eidos-resize-nw {
+.editor-resize-nw {
     top: -5px;
     left: -5px;
     cursor: nwse-resize;
 }
 
-.eidos-resize-n {
+.editor-resize-n {
     top: -5px;
     left: calc(50% - 5px);
     cursor: ns-resize;
 }
 
-.eidos-resize-ne {
+.editor-resize-ne {
     top: -5px;
     right: -5px;
     cursor: nesw-resize;
 }
 
-.eidos-resize-w {
+.editor-resize-w {
     top: calc(50% - 5px);
     left: -5px;
     cursor: ew-resize;
 }
 
-.eidos-resize-e {
+.editor-resize-e {
     top: calc(50% - 5px);
     right: -5px;
     cursor: ew-resize;
 }
 
-.eidos-resize-sw {
+.editor-resize-sw {
     bottom: -5px;
     left: -5px;
     cursor: nesw-resize;
 }
 
-.eidos-resize-s {
+.editor-resize-s {
     bottom: -5px;
     left: calc(50% - 5px);
     cursor: ns-resize;
 }
 
-.eidos-resize-se {
+.editor-resize-se {
     bottom: -5px;
     right: -5px;
     cursor: nwse-resize;
 }
 
-.eidos-toolbar {
+.editor-toolbar {
     position: absolute;
     display: flex;
     align-items: center;
@@ -115,7 +115,7 @@ body {
     pointer-events: auto;
 }
 
-.eidos-tb-label {
+.editor-tb-label {
     font-size: 11px;
     font-weight: 700;
     color: #444;
@@ -124,7 +124,7 @@ body {
     margin-right: 4px;
 }
 
-.eidos-tb-btn {
+.editor-tb-btn {
     background: transparent;
     border: none;
     color: #333;
@@ -138,21 +138,21 @@ body {
     transition: all 0.2s;
 }
 
-.eidos-tb-btn:hover {
+.editor-tb-btn:hover {
     background: rgba(0, 0, 0, 0.05);
     transform: translateY(-1px);
 }
 
-.eidos-tb-btn:active {
+.editor-tb-btn:active {
     transform: translateY(0);
 }
 
-.eidos-tb-btn svg {
+.editor-tb-btn svg {
     width: 18px;
     height: 18px;
 }
 
-.eidos-tb-size-wrap {
+.editor-tb-size-wrap {
     display: flex;
     align-items: center;
     background: rgba(0, 0, 0, 0.03);
@@ -160,7 +160,7 @@ body {
     padding: 2px;
 }
 
-.eidos-tb-size-val {
+.editor-tb-size-val {
     font-size: 13px;
     font-weight: 600;
     color: #333;
@@ -168,19 +168,19 @@ body {
     text-align: center;
 }
 
-.eidos-divider {
+.editor-divider {
     width: 1px;
     height: 20px;
     background: rgba(0,0,0,0.1);
 }
 
-.eidos-color-swatches-mini {
+.editor-color-swatches-mini {
     display: flex;
     gap: 6px;
     padding: 0 4px;
 }
 
-.eidos-color-swatch {
+.editor-color-swatch {
     width: 22px;
     height: 22px;
     border-radius: 50%;
@@ -190,13 +190,13 @@ body {
     position: relative;
 }
 
-.eidos-color-swatch:hover {
+.editor-color-swatch:hover {
     transform: scale(1.15);
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     z-index: 1;
 }
 
-.eidos-color-swatch.active::after {
+.editor-color-swatch.active::after {
     content: '';
     position: absolute;
     inset: -3px;
@@ -204,7 +204,7 @@ body {
     border-radius: 50%;
 }
 
-.eidos-color-picker {
+.editor-color-picker {
     position: absolute;
     top: calc(100% + 12px);
     left: 50%;
@@ -220,7 +220,7 @@ body {
 }
 
 
-.eidos-guide {
+.editor-guide {
     position: absolute;
     background: cyan;
     display: none;
@@ -228,13 +228,13 @@ body {
     opacity: 0.6;
 }
 
-.eidos-guide-h {
+.editor-guide-h {
     height: 1px;
     left: 0;
     right: 0;
 }
 
-.eidos-guide-v {
+.editor-guide-v {
     width: 1px;
     top: 0;
     bottom: 0;

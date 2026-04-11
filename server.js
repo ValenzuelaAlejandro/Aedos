@@ -75,7 +75,7 @@ function buildCorsOptions() {
         if (!rawOrigins) {
             throw new Error(
                 '[FATAL] ALLOWED_ORIGINS environment variable is required in production.\n' +
-                'Example: ALLOWED_ORIGINS=https://eidoslab.app,https://www.eidoslab.app'
+                'Example: ALLOWED_ORIGINS=https://aedos.app,https://www.aedos.app'
             );
         }
         allowedOrigins = rawOrigins.split(',').map(o => o.trim()).filter(Boolean);
@@ -273,8 +273,8 @@ async function callOpenRouter(prompt, stageName) {
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
-                    'HTTP-Referer': process.env.APP_URL || 'https://eidoslab.app',
-                    'X-Title': 'EidosLab'
+                    'HTTP-Referer': process.env.APP_URL || 'https://aedos.app',
+                    'X-Title': 'Aedos'
                 },
                 body: JSON.stringify({
                     model,
@@ -951,7 +951,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
             //   in Puppeteer, so they cannot reflow during the print pass.
             await page.evaluate(() => {
                 const CONTAINERS = [
-                    '[data-eidos-container="true"]',
+                    '[data-container="true"]',
                     'div.stat-box', 'div.card', 'div.step-item', 'div.timeline-item',
                     '.stat-grid', '.grid-2', '.grid-3', '.flex-col', '.flex-row',
                     '.quote-block', 'blockquote', 'ul', 'ol',
@@ -1040,7 +1040,7 @@ app.get('/download/:filename', (req, res) => {
 
 if (require.main === module) {
     const server = app.listen(PORT, () => {
-        console.log(`Eidoslab running at http://localhost:${PORT}`);
+        console.log(`Aedos running at http://localhost:${PORT}`);
     });
 
     // Allow long-running AI generations before Node gives up on the request.
