@@ -143,7 +143,16 @@ async function runPipeline({ rawInput, tryModelsStage1, tryModelsStage2, tryMode
   }
   
   onStageUpdate('stage2', { status: 'done' });
-  console.log(`[Pipeline] Stage 2 resolved: palette=${designJson.palette.accent_hex}/${designJson.palette.accent2_hex}, font=${designJson.font_pair}, mood="${designJson.mood_global}"`);
+  // Support both the newer `colors_hex` array and legacy `accent_hex`/`accent2_hex` keys
+  const p = designJson.palette || {};
+  const colors = Array.isArray(p.colors_hex) && p.colors_hex.length > 0
+    ? p.colors_hex
+    : [p.accent_hex, p.accent2_hex].filter(Boolean);
+
+  const accent1 = colors[0] || 'undefined';
+  const accent2 = colors[1] || accent1;
+
+  console.log(`[Pipeline] Stage 2 resolved: palette=${accent1}/${accent2}, font=${designJson.font_pair}, mood="${designJson.mood_global}"`);
   
   // ── Stage 3: HTML Generation (streamed) ──
   onStageUpdate('stage3', { status: 'running' });

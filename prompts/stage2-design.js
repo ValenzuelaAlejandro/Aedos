@@ -479,15 +479,28 @@ COLOR — DERIVE FROM real_world_analog, NO CATEGORY SHORTCUTS:
 The color lookup table has been removed. Domain category reasoning is FORBIDDEN.
 Your palette comes ONLY from the visual_world.real_world_analog from Stage 1.
 
-USER OVERRIDE RULE:
-If the ORIGINAL USER REQUEST explicitly asks for specific colors or hex codes (e.g., "in blue and red tones", "use #33FF33 and black", "use corporate orange colors"), this OVERRIDES the analog derivation. You MUST use the exact colors the user requested as your primary choices in the colors array.
+USER COLOR RULE — TWO MUTUALLY EXCLUSIVE CASES:
 
-Step 1: Check if the user explicitly requested colors. If yes, use those. If no, read real_world_analog carefully.
-Step 2: What are the visually dominant, culturally iconic colors of that specific physical object? (Derive 1 to 7 colors).
-Step 3: Those colors form your colors array.
+CASE A — USER NAMED COLORS (override):
+If rawInput explicitly mentions color names or hex codes (e.g., "usa colores verdes, amarillos y azules", "in red and gold tones", "use #FF0000"):
+  1. Translate EVERY named color to an appropriate hex. Examples:
+       verde/green → #4CAF50 or similar green hex
+       amarillo/yellow → #F5C518 or similar yellow hex
+       azul/blue → #3B82F6 or similar blue hex
+       rojo/red → #E53935, dorado/gold → #C5A028, etc.
+  2. ALL named colors MUST appear in colors_hex. Omitting any user-named color = FAILURE.
+  3. Adjust saturation to match the topic's energy (vivid for action topics, muted for archival).
+  4. You may add 1-2 complementary hex values after the user's colors to complete the palette.
+  5. STOP — do NOT apply artifact derivation for colors. The artifact only influences bg_mode and typography.
 
-WRONG: "This topic relates to music history → I'll use cyan or purple." (category shortcut)
-RIGHT: "real_world_analog says 'hip-hop tour poster on matte black with gold lettering' → accent = warm gold #C5A028, accent-2 = deep crimson #8B1A1A."
+CASE B — USER DID NOT NAME COLORS:
+  Derive the full palette from real_world_analog:
+  1. What are the visually dominant, culturally iconic colors of that specific physical object?
+  2. Those colors form your colors array (1 to 7 hex values).
+  3. WRONG: "This topic relates to music history → I'll use cyan or purple." (category shortcut)
+     RIGHT: "real_world_analog says 'hip-hop tour poster on matte black with gold lettering' → warm gold #C5A028, crimson #8B1A1A."
+
+CHECK BEFORE WRITING JSON: Count the user-named colors in rawInput. Does colors_hex contain one hex for each? If not, add the missing ones first.
 
 SATURATION CALIBRATION — match the artifact's energy:
 - High-energy artifacts (concert posters, street art, race programs, sport graphics) → SATURATED, VIVID accents
