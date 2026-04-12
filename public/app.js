@@ -78,6 +78,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const temaError = document.getElementById('tema-error');
     const debugLastGeneratedBtn = document.getElementById('btn-debug-last-generated');
 
+    // ── Active SSE stream controller (cancel on Back / new generation) ──
+    let _activeGenController = null;
+    // Callback run when the error modal is dismissed (varies by context)
+    let _errorModalOnDismiss = null;
+
+    function showErrorModal(onDismiss) {
+        _errorModalOnDismiss = onDismiss || null;
+        errorContainer.classList.remove('hidden');
+    }
+
+    function hideErrorModal() {
+        errorContainer.classList.add('is-closing');
+        setTimeout(() => {
+            errorContainer.classList.remove('is-closing');
+            errorContainer.classList.add('hidden');
+            _errorModalOnDismiss = null;
+        }, 190);
+    }
+
+    // Wire error modal close/action buttons
+    const _errCloseBtnEl = document.getElementById('error-modal-close-btn');
+    if (_errCloseBtnEl) _errCloseBtnEl.addEventListener('click', () => {
+        const cb = _errorModalOnDismiss;
+        hideErrorModal();
+        if (cb) cb();
+    });
+
+    const _refCloseBtnEl = document.getElementById('refused-modal-close-btn');
+    if (_refCloseBtnEl) _refCloseBtnEl.addEventListener('click', () => {
+        refusedContainer.classList.add('is-closing');
+        setTimeout(() => {
+            refusedContainer.classList.remove('is-closing');
+            refusedContainer.classList.add('hidden');
+            chatScreen.style.cssText = '';
+            chatScreen.classList.remove('hidden');
+        }, 190);
+    });
+
     // Preview elements
     let previewIframe = document.getElementById('preview-iframe');
     const slideDots = document.getElementById('slide-dots');
@@ -715,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 chatScreen.classList.remove('hidden');
             }
             if (errorMessage) errorMessage.textContent = error.message;
-            if (errorContainer) errorContainer.classList.remove('hidden');
+            if (errorContainer) showErrorModal(() => resetUI());
             document.body.classList.remove('no-scroll');
         } finally {
             if (debugLastGeneratedBtn) debugLastGeneratedBtn.disabled = false;
@@ -742,6 +780,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleGenerate() {
+        // Abort any previous in-flight generation
+        if (_activeGenController) {
+            _activeGenController.abort();
+            _activeGenController = null;
+        }
         generatedHtml = ''; // Reset state for a fresh start
         currentSlide = 0;
         totalSlides = 0;
@@ -851,10 +894,13 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMinimapSkeleton(1);
 
         try {
+            const controller = new AbortController();
+            _activeGenController = controller;
             const response = await fetch('/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestData)
+                body: JSON.stringify(requestData),
+                signal: controller.signal
             });
 
             if (!response.ok) {
@@ -978,6 +1024,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             previewContainer.classList.add('hidden');
                             iframeDoc.close();
                             toggleGenerateLoading(false);
+                            // Reset title/subtitle to defaults for next generation error
+                            const eTitleEl = document.getElementById('t-error-title');
+                            if (eTitleEl) eTitleEl.setAttribute('data-i18n', 'error_title');
                             return;
                         }
                         if (parsed.error) {
@@ -1152,49 +1201,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             _stabilizeMinimapOnNextPreviewInit = false;
+
+            // Ignore intentional user cancellations (Back button)
+            if (error.name === 'AbortError') {
+                iframeDoc.close();
+                return;
+            }
+
             console.error(error);
 
             const errTitle = document.getElementById('t-error-title');
             const errSubtitle = document.getElementById('t-error-subtitle');
 
             // Default titles/subtitles
-            if (errTitle) errTitle.textContent = window.__t('error_title', "Something didn't go as planned");
-            if (errSubtitle) errSubtitle.textContent = window.__t('error_subtitle', "The AI service is temporarily unavailable. This is usually resolved quickly.");
+            if (errTitle) errTitle.textContent = window.__t ? window.__t('error_title', "Something didn't go as planned") : "Something didn't go as planned";
+            if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('error_subtitle', "The AI service is temporarily unavailable. This is usually resolved quickly.") : "The AI service is temporarily unavailable. This is usually resolved quickly.";
 
-            if (error.message.includes('RATE_LIMIT_EXCEEDED')) {
-                if (errTitle) errTitle.textContent = window.__t('rate_limit_title', "Slow down a little");
-                if (errSubtitle) errSubtitle.textContent = window.__t('rate_limit_msg', "You've reached the generation limit. Please wait a few minutes before trying again.");
-            } else if (error.message.includes('TOPIC_TOO_LONG')) {
-                if (errSubtitle) errSubtitle.textContent = window.__t('topic_too_long', "The topic is too long. Maximum 600 characters.");
+            const msg = error.message || '';
+
+            if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCEEDED_PRO')) {
+                if (errTitle) errTitle.textContent = window.__t ? window.__t('daily_limit_title', "You've reached today's limit") : "You've reached today's limit";
+                if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('daily_limit_msg', "Free generations reset every 24 hours. Come back tomorrow or try again later.") : "Free generations reset every 24 hours. Come back tomorrow or try again later.";
+            } else if (msg.includes('RATE_LIMIT_EXCEEDED')) {
+                if (errTitle) errTitle.textContent = window.__t ? window.__t('rate_limit_title', "Slow down a bit") : "Slow down a bit";
+                if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('rate_limit_msg', "Too many requests in a short time. Wait a few minutes and try again.") : "Too many requests in a short time. Wait a few minutes and try again.";
+            } else if (msg.includes('TOPIC_TOO_LONG')) {
+                if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('topic_too_long', "The topic is too long. Keep it under 600 characters.") : "The topic is too long. Keep it under 600 characters.";
             } else {
                 // Try to extract "Please retry in X seconds" from Gemini standard errors
                 let retryMsg = "";
-                const retryMatch = error.message.match(/retry in ([\d\.]+)s/i);
+                const retryMatch = msg.match(/retry in ([\d\.]+)s/i);
                 if (retryMatch) {
                     const seconds = Math.ceil(parseFloat(retryMatch[1]));
                     const timeStr = seconds >= 60
                         ? `${Math.ceil(seconds / 60)} min`
                         : `${seconds}s`;
-                    const retryTpl = window.__t(window.currentLang === 'es' ? 'retry_in_es' : 'retry_in_en', "<br><br><strong>Retry in: {time}</strong>");
+                    const retryTpl = window.__t ? window.__t(window.currentLang === 'es' ? 'retry_in_es' : 'retry_in_en', "<br><br><strong>Retry in: {time}</strong>") : "<br><br><strong>Retry in: {time}</strong>";
                     retryMsg = retryTpl.replace('{time}', timeStr);
                 }
 
-                if (error.message.includes('429') || error.message.includes('503') || error.message.toLowerCase().includes('exhausted') || error.message.toLowerCase().includes('saturated')) {
+                if (msg.includes('429') || msg.includes('503') || msg.toLowerCase().includes('exhausted') || msg.toLowerCase().includes('saturated')) {
+                    if (errTitle) errTitle.textContent = window.__t ? window.__t('overloaded_title', "High demand right now") : "High demand right now";
                     if (errSubtitle) {
-                        errSubtitle.innerHTML = (window.__t ? window.__t('t-error-saturated', "The service is currently overloaded due to high demand. Please try again in a few minutes.") : "The service is currently overloaded due to high demand. Please try again in a few minutes.") + retryMsg;
+                        errSubtitle.innerHTML = (window.__t ? window.__t('t-error-saturated', "The service is a bit overwhelmed at the moment. Usually clears up in a few minutes.") : "The service is a bit overwhelmed at the moment. Usually clears up in a few minutes.") + retryMsg;
                     }
                 }
             }
 
-            errorMessage.textContent = error.message;
-            errorContainer.classList.remove('hidden');
+            errorMessage.textContent = msg;
             previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
-            previewContainer.classList.add('hidden');
             // Clean up any in-progress chat→preview transition
-            chatScreen.style.cssText = '';
-            if (!_hasTransitioned) chatScreen.classList.remove('hidden');
+            if (!_hasTransitioned) {
+                chatScreen.style.cssText = '';
+                chatScreen.classList.remove('hidden');
+            }
             iframeDoc.close();
+            // Show error overlay on top of whatever is visible; dismiss → go to chat
+            showErrorModal(() => {
+                previewContainer.classList.add('hidden');
+                chatScreen.style.cssText = '';
+                chatScreen.classList.remove('hidden');
+            });
         } finally {
+            _activeGenController = null;
             toggleGenerateLoading(false);
             // Re-enable minimap skeleton updates for subsequent normal generations.
             _skipMinimapSkeleton = false;
@@ -1213,6 +1282,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBackToChat = document.getElementById('btn-back-to-chat');
     if (btnBackToChat) {
         btnBackToChat.addEventListener('click', () => {
+            // Cancel any running generation stream
+            if (_activeGenController) {
+                _activeGenController.abort();
+                _activeGenController = null;
+            }
             previewContainer.classList.add('hidden');
             window.removeEventListener('resize', scaleIframe);
             chatScreen.classList.remove('hidden');
@@ -1225,6 +1299,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnEditTopic) {
         btnEditTopic.addEventListener('click', () => {
+            if (_activeGenController) {
+                _activeGenController.abort();
+                _activeGenController = null;
+            }
             previewContainer.classList.add('hidden');
             chatScreen.classList.remove('hidden');
             temaInput.focus();
@@ -2788,9 +2866,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         } catch (error) {
-            previewContainer.classList.add('hidden');
+            // PDF error: overlay the preview WITHOUT hiding it
             errorMessage.textContent = error.message;
-            errorContainer.classList.remove('hidden');
+            const errTitleEl = document.getElementById('t-error-title');
+            const errSubtitleEl = document.getElementById('t-error-subtitle');
+            if (errTitleEl) errTitleEl.textContent = window.__t ? window.__t('pdf_error_title', 'PDF could not be generated') : 'PDF could not be generated';
+            if (errSubtitleEl) errSubtitleEl.textContent = window.__t ? window.__t('pdf_error_subtitle', 'Something went wrong while creating the file. Your presentation is still there — you can try again.') : 'Something went wrong while creating the file. Your presentation is still there — you can try again.';
+            // Dismiss just closes the modal — the user stays in the editor
+            showErrorModal(null);
         } finally {
             clearInterval(progressInterval);
             setTimeout(() => {
@@ -2806,6 +2889,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     function resetUI() {
         document.body.classList.remove('no-scroll');
+        _errorModalOnDismiss = null;
         // Show chat again
         if (resultContainer) resultContainer.classList.add('hidden');
         if (errorContainer) errorContainer.classList.add('hidden');
@@ -2836,8 +2920,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     resetBtn.addEventListener('click', resetUI);
-    backBtn.addEventListener('click', resetUI);
-    document.getElementById('refused-back-btn').addEventListener('click', resetUI);
+    // back-btn: dismiss error modal then call the context-specific dismiss action
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            const cb = _errorModalOnDismiss;
+            hideErrorModal();
+            if (cb) cb();
+            // If no callback, just close the modal — stay on whatever screen is active
+        });
+    }
+    document.getElementById('refused-back-btn').addEventListener('click', () => {
+        refusedContainer.classList.add('hidden');
+        resetUI();
+    });
 
     // =========================================================
     // DESELECT ON CLICK OUTSIDE PREVIEW

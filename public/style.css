@@ -468,23 +468,6 @@
     filter: brightness(0.98);
 }
 
-/* Error and refused panels: ensure text is dark in light mode and icon backgrounds are subtle */
-:root[data-theme="light"] .error-icon-wrap,
-:root[data-theme="light"] .refused-icon-wrap {
-    background: rgba(0,0,0,0.04);
-}
-
-:root[data-theme="light"] .error-icon,
-:root[data-theme="light"] .refused-icon {
-    color: var(--accent);
-}
-
-:root[data-theme="light"] #error-message {
-    color: var(--text);
-    background: var(--bg);
-    border-color: var(--border);
-}
-
 /* Tools panel: prefer the slightly toned surface2 in light mode to reduce glare */
 :root[data-theme="light"] .editor-tools-panel {
     background: var(--surface2);
@@ -1618,20 +1601,227 @@
     animation: sectionFadeIn 0.5s ease;
 }
 
-#error-container {
+/* ================================================================
+   ERROR / REFUSED MODALS (overlay on top of any screen)
+   ================================================================ */
+.app-modal {
     position: fixed;
     inset: 0;
-    z-index: 200;
+    z-index: 500;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 4rem 2rem;
-    background: var(--bg);
-    overflow-y: auto;
-    text-align: center;
-    animation: sectionFadeIn 0.5s ease;
+    padding: 1.5rem;
 }
+
+.app-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    animation: modalBackdropIn 0.22s ease forwards;
+}
+
+@keyframes modalBackdropIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.app-modal-card {
+    position: relative;
+    z-index: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2.5rem 2.5rem 2rem;
+    max-width: 460px;
+    width: 100%;
+    text-align: center;
+    animation: modalCardIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes modalCardIn {
+    from { opacity: 0; transform: scale(0.93) translateY(14px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes modalCardOut {
+    from { opacity: 1; transform: scale(1) translateY(0); }
+    to   { opacity: 0; transform: scale(0.96) translateY(8px); }
+}
+
+@keyframes modalBackdropOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+.app-modal.is-closing .app-modal-backdrop {
+    animation: modalBackdropOut 0.18s ease forwards;
+}
+
+.app-modal.is-closing .app-modal-card {
+    animation: modalCardOut 0.18s ease forwards;
+}
+
+.app-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-modal-close:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.app-modal-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    margin: 0 auto 1.5rem;
+}
+
+.app-modal-icon--error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.22);
+    color: #f87171;
+}
+
+.app-modal-icon--refused {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.22);
+    color: #fbbf24;
+}
+
+.app-modal-card h2 {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 0.55rem;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.app-modal-subtitle {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 0 0 1.4rem;
+}
+
+.app-modal-details {
+    margin-bottom: 1.4rem;
+    text-align: left;
+}
+
+.app-modal-details summary {
+    color: var(--muted);
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 0.3rem 0;
+    transition: color 0.2s;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.app-modal-details summary::-webkit-details-marker { display: none; }
+
+.app-modal-details summary::before {
+    content: '›';
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--muted);
+}
+
+.app-modal-details[open] summary::before { transform: rotate(90deg); }
+.app-modal-details summary:hover { color: var(--text); }
+
+#error-message {
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    color: var(--muted);
+    font-size: 0.74rem;
+    line-height: 1.5;
+    font-family: 'JetBrains Mono', monospace;
+    word-break: break-word;
+    max-height: 110px;
+    overflow-y: auto;
+    margin: 0.5rem 0 0;
+    text-align: left;
+}
+
+.app-modal-refused-body {
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 1.4rem;
+    text-align: left;
+    color: var(--muted);
+    font-size: 0.87rem;
+    line-height: 1.6;
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.app-modal-actions { margin-top: 0.5rem; }
+
+.app-modal-action-btn {
+    width: 100%;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.app-modal-action-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.app-modal-action-btn:active { transform: translateY(0); }
+
+/* Light-mode overrides */
+:root[data-theme="light"] .app-modal-backdrop   { background: rgba(0, 0, 0, 0.3); }
+:root[data-theme="light"] .app-modal-close:hover { background: rgba(0, 0, 0, 0.04); border-color: var(--border); }
+:root[data-theme="light"] .app-modal-icon--error   { background: rgba(239, 68, 68, 0.06); }
+:root[data-theme="light"] .app-modal-icon--refused { background: rgba(245, 158, 11, 0.06); }
+:root[data-theme="light"] #error-message           { background: var(--bg); }
+:root[data-theme="light"] .app-modal-refused-body  { background: var(--bg); }
+:root[data-theme="light"] .app-modal-action-btn:hover { background: rgba(0, 0, 0, 0.04); border-color: var(--border); }
 
 @keyframes sectionFadeIn {
     from {
@@ -1648,7 +1838,7 @@
 
 
 /* ================================================================
-   CARDS (success / error)
+   CARDS (success)
    ================================================================ */
 .success-card {
     position: relative;
@@ -1664,16 +1854,6 @@
     overflow: hidden;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
     text-align: center;
-}
-
-.error-card {
-    background-color: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 3rem;
-    max-width: 500px;
-    width: 100%;
-    animation: cardPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .success-glow {
@@ -1793,154 +1973,15 @@
     filter: brightness(1.1);
 }
 
-.error-icon-wrap {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
-    margin-bottom: 1.5rem;
-}
-
-.error-icon {
-    width: 40px;
-    height: 40px;
-    color: #f0f0f0;
-}
-
-.error-card {
-    background-color: var(--surface);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 16px;
-    padding: 3rem;
-    max-width: 560px;
-    width: 100%;
-    animation: cardPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.error-card h2 {
-    font-family: var(--font-display);
-    font-size: 1.8rem;
-    margin-bottom: 0.5rem;
-    color: var(--text);
-}
-
-.error-subtitle {
-    color: var(--muted);
-    font-size: 0.95rem;
-    margin-bottom: 1.5rem;
-}
-
-.error-details {
-    margin-bottom: 2rem;
-}
-
-.error-details summary {
-    color: var(--muted);
-    font-size: 0.85rem;
-    cursor: pointer;
-    padding: 0.5rem 0;
-    transition: color 0.2s ease;
-    user-select: none;
-}
-
-.error-details summary:hover {
-    color: var(--text);
-}
-
-.error-details[open] summary {
-    margin-bottom: 0.75rem;
-}
-
-#error-message {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 1rem;
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.8rem;
-    line-height: 1.5;
-    font-family: monospace;
-    word-break: break-word;
-    max-height: 160px;
-    overflow-y: auto;
-    margin: 0;
-}
-
 /* ================================================================
    REFUSED CARD
    ================================================================ */
 #refused-container {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4rem 2rem;
-    background: var(--bg);
-    overflow-y: auto;
-    text-align: center;
-    animation: sectionFadeIn 0.5s ease;
-}
-
-.refused-card {
-    background-color: var(--surface);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 16px;
-    padding: 3rem;
-    max-width: 560px;
-    width: 100%;
-    animation: cardPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.refused-icon-wrap {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
-    margin-bottom: 1.5rem;
-}
-
-.refused-icon {
-    width: 40px;
-    height: 40px;
-    color: #f0f0f0;
-}
-
-.refused-card h2 {
-    font-family: var(--font-display);
-    font-size: 1.8rem;
-    margin-bottom: 0.5rem;
-    color: var(--text);
-}
-
-.refused-subtitle {
-    color: var(--muted);
-    font-size: 0.95rem;
-    margin-bottom: 1.5rem;
+    /* Converted to .app-modal overlay - see app-modal section above */
 }
 
 .refused-message {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 1.25rem;
-    margin-bottom: 2rem;
-    text-align: left;
-    color: var(--muted);
-    font-size: 0.9rem;
-    line-height: 1.6;
-    max-height: 240px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+    /* Converted to .app-modal-refused-body - see app-modal section above */
 }
 
 /* ================================================================
