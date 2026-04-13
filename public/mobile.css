@@ -47,6 +47,12 @@
         display: none !important;
     }
 
+    /* Hide floating add-elements toolbar on mobile (read-only canvas) */
+    #floating-toolbar,
+    .tools-add-elements {
+        display: none !important;
+    }
+
     /* 4. Preview Stage Occupies 100% width */
     .preview-stage {
         width: 100% !important;

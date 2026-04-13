@@ -389,29 +389,51 @@
 
             function syncDots() {
                 const source = sourceDots.querySelectorAll('.slide-dot');
-                if (!source.length) return;
+                const apiTotal = (typeof window.getTotalSlides === 'function') ? Number(window.getTotalSlides()) : 0;
+                const apiCurrent = (typeof window.getCurrentSlide === 'function') ? Number(window.getCurrentSlide()) : 0;
+                const total = Math.max(source.length, Number.isFinite(apiTotal) ? apiTotal : 0);
+                if (!total) return;
 
                 // Rebuild if count changed
-                if (mobileDotsEl.children.length !== source.length) {
+                if (mobileDotsEl.children.length !== total) {
                     mobileDotsEl.innerHTML = '';
-                    source.forEach((src, i) => {
+                    for (let i = 0; i < total; i++) {
+                        const src = source[i];
                         const dot = document.createElement('button');
-                        dot.className = 'slide-dot' + (src.classList.contains('active') ? ' active' : '');
+                        const isActive = src
+                            ? src.classList.contains('active')
+                            : (Number.isFinite(apiCurrent) && i === apiCurrent);
+                        dot.className = 'slide-dot' + (isActive ? ' active' : '');
                         dot.setAttribute('aria-label', `Slide ${i + 1}`);
-                        dot.addEventListener('click', () => src.click());
+                        dot.addEventListener('click', () => {
+                            if (src && typeof src.click === 'function') {
+                                src.click();
+                                return;
+                            }
+                            if (typeof window.scrollToSlide === 'function') {
+                                window.scrollToSlide(i);
+                            }
+                        });
                         mobileDotsEl.appendChild(dot);
-                    });
+                    }
                 } else {
                     // Just sync active class
-                    source.forEach((src, i) => {
-                        mobileDotsEl.children[i].classList.toggle('active', src.classList.contains('active'));
-                    });
+                    for (let i = 0; i < total; i++) {
+                        const src = source[i];
+                        const isActive = src
+                            ? src.classList.contains('active')
+                            : (Number.isFinite(apiCurrent) && i === apiCurrent);
+                        mobileDotsEl.children[i].classList.toggle('active', isActive);
+                    }
                 }
 
                 // Update label
                 const activeIdx = Array.from(source).findIndex(d => d.classList.contains('active'));
-                if (mobileLabelEl && activeIdx !== -1) {
-                    mobileLabelEl.textContent = `${activeIdx + 1} / ${source.length}`;
+                const resolvedActive = activeIdx !== -1
+                    ? activeIdx
+                    : (Number.isFinite(apiCurrent) ? Math.max(0, Math.min(total - 1, apiCurrent)) : 0);
+                if (mobileLabelEl) {
+                    mobileLabelEl.textContent = `${resolvedActive + 1} / ${total}`;
                 }
 
                 // Scroll to keep active dot centred
