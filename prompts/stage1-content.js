@@ -88,12 +88,12 @@ VISUAL WORLD DERIVATION RULE:
 For real_world_analog, think: if this topic had a physical printed artifact that captures its world, what would it be?
   - "Historia de Metallica" → concert tour poster, black, bold metal typography, grunge texture
   - "Recetas de cocina japonesa" → artisan food poetry book, ink on washi paper, minimalist
-  - "Fórmula 1 en los 90s" → race weekend program booklet, glossy pages, bold speed numbers
-  - "Arte Renacentista" → museum catalog on thick stock, warm ivory paper, serif gold lettering
-  - "Ciberseguridad avanzada" → hacker terminal green-on-black, monospace, terse and precise
-  - "Git por dentro" → developer tool reference manual, orange diff colors, code-block dense
-  - "Teoría musical" → printed score sheet + notes, classical and warm
-  - "Mecánica cuántica" → academic physics textbook with handwritten margin equations
+  - "Formula 1 in the 90s" → race weekend program booklet, glossy pages, bold speed numbers
+  - "Renaissance Art" → museum catalog on thick stock, warm ivory paper, serif gold lettering
+  - "Advanced Cybersecurity" → hacker terminal green-on-black, monospace, terse and precise
+  - "Git internals" → developer tool reference manual, orange diff colors, code-block dense
+  - "Music Theory" → printed score sheet + notes, classical and warm
+  - "Quantum Mechanics" → academic physics textbook with handwritten margin equations
 Be concrete. The real_world_analog becomes the visual identity brief for all downstream stages.`;
 };
 

@@ -27,7 +27,7 @@ const MAX_CONCURRENT_GENERATIONS = 10;
 
 // OpenRouter model list — comma-separated in env var OPENROUTER_MODEL_LIST
 // or single model via OPENROUTER_MODEL. Defaults to qwen free-tier.
-const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'minimax/minimax-m2.5:free')
+const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'qwen/qwen3.5-flash-02-23')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
@@ -260,15 +260,21 @@ async function* openRouterSSEToChunks(response) {
     }
 }
 
-async function callOpenRouter(prompt, stageName) {
+async function callOpenRouter(prompt, stageName, openrouterModels) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) throw new Error('QUOTA_EXHAUSTED'); // no key → surface original error
 
     const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
 
+    // Allow callers to override the global OPENROUTER_MODEL_LIST by providing
+    // an explicit `openrouterModels` array. Fall back to the global list.
+    const modelsToTry = (Array.isArray(openrouterModels) && openrouterModels.length > 0)
+        ? openrouterModels
+        : OPENROUTER_MODEL_LIST;
+
     // Try each configured OpenRouter model until one responds
-    for (const model of OPENROUTER_MODEL_LIST) {
-        console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Trying OpenRouter first → ${model}`);
+    for (const model of modelsToTry) {
+        console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Trying OpenRouter → ${model}`);
         try {
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
@@ -340,7 +346,7 @@ async function callGemini(apiKey, modelList, prompt, stageName) {
     throw new Error('QUOTA_EXHAUSTED');
 }
 
-function makeCallerFn(apiKey, modelList, stageName, preferredProvider = 'openrouter') {
+function makeCallerFn(apiKey, modelList, stageName, preferredProvider = 'openrouter', openrouterModels) {
     return async function (prompt) {
         const providerOrder = preferredProvider === 'gemini'
             ? ['gemini', 'openrouter']
@@ -353,7 +359,8 @@ function makeCallerFn(apiKey, modelList, stageName, preferredProvider = 'openrou
                 if (provider === 'gemini') {
                     return await callGemini(apiKey, modelList, prompt, stageName);
                 }
-                return await callOpenRouter(prompt, stageName);
+                // Forward an optional OpenRouter model list to the caller.
+                return await callOpenRouter(prompt, stageName, openrouterModels);
             } catch (err) {
                 lastError = err;
                 const msg = err?.message || `unknown ${provider} error`;
@@ -366,10 +373,17 @@ function makeCallerFn(apiKey, modelList, stageName, preferredProvider = 'openrou
 }
 
 // Stage routing:
-// - Flash (legacy single-prompt): prefer Gemini 2.5 Flash-Lite, fall back to OpenRouter.
+// - Flash (legacy single-prompt): prefer OpenRouter (Qwen) first, fall back to Gemini.
 // - Stage 1 & 2 (Pro pipeline): prefer Gemini 2.5 Flash-Lite, fall back to OpenRouter.
 // - Stage 3 (Pro pipeline HTML compositor): prefer OpenRouter, fall back to Gemini.
-const tryModelsFlash = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Flash', 'gemini');
+// For Flash we pass an explicit OpenRouter model list so Qwen is tried first.
+const tryModelsFlash = makeCallerFn(
+    KEY1,
+    ['gemini-2.5-flash-lite', 'gemini-2.5-flash'],
+    'Flash',
+    'openrouter',
+    ['qwen/qwen3.5-flash-02-23']
+);
 const tryModelsStage1 = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage1', 'gemini');
 const tryModelsStage2 = makeCallerFn(KEY2, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage2', 'gemini');
 const tryModelsStage3 = makeCallerFn(KEY3, ['gemini-2.5-flash', 'gemini-2.5-flash-lite'], 'Stage3', 'openrouter');

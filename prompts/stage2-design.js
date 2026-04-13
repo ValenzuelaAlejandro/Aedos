@@ -12,69 +12,22 @@ module.exports = function buildStage2Prompt(rawInput, contentJson) {
 
 OUTPUT: ONLY a valid JSON object. No markdown, no fences, no explanations.
 
-CRITICAL BEFORE OUTPUTTING JSON — DYNAMIC ATMOSPHERE PATTERN SELECTION:
-Your job is to SELECT atmosphere patterns FOR EACH SLIDE that are:
-  A) COHERENT with the real_world_analog (visual artifact) and deck signature
-  B) UNIQUE — no pattern repeats across all slides
-  C) INTENTIONAL — each pattern choice is explained in your reasoning
-  D) DERIVED from theme analysis, NEVER from a hardcoded list
-
-Before you output the slides array, WRITE IN A CODE COMMENT your atmosphere reasoning:
-// ATMOSPHERE REASONING:
-// Theme artifact: "[real_world_analog from Stage 1]"
-// Atmosphere strategy: [e.g. museum/editorial = subtle lines; tech/hacker = grid/scanlines; print/concert = coarse grain; fluid/nature = organic]
-// Slide 1: [pattern] — justification (e.g., "cover traditional elegant → ruled lines")
-// Slide 2: [pattern] — justification (e.g., "concept cards technical → grid mesh")
-// Slide 3: [pattern] — justification (e.g., "data heavy → no pattern, stat dominates")
-// ... etc for each slide
-// Pattern uniqueness check: [list all 8 patterns] — verify no duplicates
-
-ATMOSPHERE PATTERN POOL (pick FROM, don't force a hardcoded cycle):
-  grid-mesh (digital/tech/clean grid)
-  ruled-lines (archival/editorial/print)
-  dot-grid (magazine/design/refined)
-  crosshatch (mechanical/blueprint/technical)
-  coarse-grain (printed/screen-print/poster)
-  none (stat/data dominates, minimal atmosphere)
-  vertical-left-edge (structural accent, technical)
-  museum-frame (gallery/fine-art/exhibition)
-  top-bar (bold/poster/editorial)
-  corner-markers (precision/technical/document)
-
-CRITICAL DERIVATION RULES:
-  If real_world_analog includes "concert/poster/printed" → coarse-grain, top-bar, or no-pattern
-  If real_world_analog includes "museum/gallery/fine-art" → ruled-lines, museum-frame
-  If real_world_analog includes "terminal/hacker/technical" → grid-mesh, crosshatch
-  If real_world_analog includes "magazine/editorial" → dot-grid, ruled-lines
-  If real_world_analog includes "blueprint/mechanical" → crosshatch, grid-mesh
-  If a slide is DATA/STAT-heavy → "none" (let the big number dominate, no competing pattern)
-  If a slide is TITLE/INTRO-heavy → ruled-lines or grid-mesh (architectural feel)
-  ALWAYS vary between "heavy atmosphere" and "minimal atmosphere" slides
-  NEVER use the same pattern twice
-
-DO NOT output the code comment with the reasoning in the final JSON. It is for your planning only.
-
 ORIGINAL USER REQUEST: "${rawInput}"
 
 ═══════════════════════════════════════════════════════════════
 CRITICAL DETECTION: MINIMALIST/TERMINAL AESTHETIC MODE
 ═══════════════════════════════════════════════════════════════
 DETECT if rawInput OR contentJson.visual_world.real_world_analog contains ANY of these keywords:
-  • "ultra-minimalista", "negro sólido", "sin bordes", "solid black", "no rounded"
+  • "ultra-minimalist", "solid black", "no borders", "solid black", "no rounded"
   • "terminal", "hacker", "70s", "monochrome", "ancient", "primitive", "no gradients"
-  • "sin decorativos", "líneas rectas", "ángulos rectos", "sin adornos"
+  • "no decorations", "straight lines", "right angles", "no ornaments"
   
 IF DETECTED → MODE="MINIMALIST_TERMINAL" → SPECIAL RULES APPLY:
   ✓ Set mood_global to explicitly include "terminal" or "monochrome minimal"
   ✓ Set EVERY composition_literal to include:
-      \`\` "border-radius: 0px MANDATORY on all elements"
-      \`\` "NO gradients. Solid colors ONLY"
-      \`\` "NO decorative overlays (no vignettes, no washes, no soft effects)"
-  ✓ In generation, PREPEND to your JSON output:
-      \`\` "// *** MINIMALIST TERMINAL MODE ACTIVE ***"
-      \`\` "// Stage 3 MUST override: .card{border-radius:0!important} .icon-wrapper{border-radius:0!important} .accent-bar{border-radius:0!important}"
-      \`\` "// Allowed patterns: 'grid-mesh' OR 'none' ONLY. NO decorative patterns."
-      \`\` "// PROHIBIT: dot-grid, coarse-grain, museum-frame, top-bar, corner-markers, gradient overlays"
+      "border-radius: 0px MANDATORY on all elements"
+      "NO gradients. Solid colors ONLY"
+      "NO decorative overlays (no vignettes, no washes, no soft effects)"
 
 IF NOT DETECTED → Standard creative derivation proceeds below.
 
@@ -154,10 +107,10 @@ DECK VARIATION SYSTEM — SIGNATURE DERIVATION:
 - DERIVE the deck_signature directly from real_world_analog AND topic emotional core. Do NOT pick a generic signature.
   Examples of proper derivations (NOT templates):
     "Historia de Metallica" (concert tour poster) → signature: "heavy metal tour archive"
-    "Japón feudal" (museum samurai armor exhibit) → signature: "shogun artifacts museum"
+    "Feudal Japan" (museum samurai armor exhibit) → signature: "shogun artifacts museum"
     "Cybersecurity pentesting" (hacker zine with green terminal) → signature: "penetration testing terminal culture"
-    "Recetas de pasta" (artisan cookbook, warm paper) → signature: "trattoria recipe tradition"
-    "Fórmula 1 historia" (race weekend program, bold action) → signature: "racing circuit momentum"
+    "Pasta recipes" (artisan cookbook, warm paper) → signature: "trattoria recipe tradition"
+    "Formula 1 history" (race weekend program, bold action) → signature: "racing circuit momentum"
   DERIVE every signature to match BOTH the artifact AND the topic's actual character.
   
 - For cover_archetype and conclusion_archetype:
@@ -520,7 +473,6 @@ JSON STRUCTURE TO RETURN:
   "cover_archetype": "DERIVED FROM SIGNATURE — brief description of how the cover will look (e.g. 'centered serif title with thin golden rules' or 'asymmetric bold poster layout with accent block sidebar')",
   "conclusion_archetype": "DERIVED FROM SIGNATURE — brief description of conclusion (e.g. 'manifesto statement with full-width accent bar above' or 'quote-centered with decorative corner marks')",
   "mood_global": "2-4 word feel describing the ENTIRE deck's emotional/aesthetic character (e.g. 'museum archival elegance', 'hacker zine intensity', 'race program velocity', 'editorial storytelling')",
-  "domain_atmosphere": "FULLY DERIVED FROM real_world_analog — specific atmospheric CSS strategy in 2-3 sentences. Example A: 'Museum fine-art catalog aesthetic: thin horizontal ruled lines 60px apart at 2% opacity, warm amber vignette glow from bottom corners, refined absence of visual clutter.' Example B: 'Concert poster energy: heavy coarse diagonal screen-print grain texture, high contrast black substrate, thick gold accent bar strips between major sections.' Example C: 'Terminal/hacker culture: clean grid mesh 48px spacing, neon accent pulses on data elements, monospace type hierarchy reinforcement, spare minimal ornament.' DO NOT use generic descriptions like 'clean modern design'. ALWAYS cite the specific artifact's visual properties.",
   "slides": [
     {
       "index": 1,
@@ -533,13 +485,33 @@ JSON STRUCTURE TO RETURN:
       "has_image_slot": false,
       "image_keyword": "English keyword for image search — always English, or null",
       "image_placement": "ONLY one of: 'left split 420px' | 'right split 420px' | 'beside cards flex-row' | 'full-bleed background' | null. NEVER 'top of slide' or 'above content'",
-      "atmosphere_pattern": "grid-mesh | ruled-lines | dot-grid | scanlines | crosshatch | diagonal-grain | none",
-      "icon_names": null
+      "icon_names": null,
+      "structural_accent": "none"
     }
   ]
 }
 
-NOTE on icon_names: Set to an array of 2-3 Lucide icon name strings (e.g. ["brain","rocket","shield"]) for ANY slide that has feature/concept/pillar/step cards. Set to null for cover, data/stats, conclusion, and image-split slides. Allowed names: brain, rocket, shield, target, zap, check-circle, star, heart, lightbulb, trending-up, users, globe, lock, search, calendar, clock, activity, box, layers, book, award, briefcase, file-text, bar-chart, cpu, database, sun, moon, camera, music, mic, settings, tool, anchor, flag, compass, map-pin, eye, droplet, wifi, cloud, guitar, disc, headphones, play, pause, volume-2, video, smartphone, laptop, monitor, printer, mail, phone, info, help-circle, alert-circle, check, x, plus, minus, arrow-right, arrow-left, external-link, link, copy, trash, edit, save, filter, menu, grid, list, layout, maximize, minimize, refresh-cw, shopping-cart, tag, gift, coffee, beer, wine, utensils, home, map, navigation, car, bike, plane, train, bus, ship, mountain, tree, wind, flame, droplets, thermometer, hard-drive, mouse-pointer, keyboard, speaker, cast, bluetooth, battery, shopping-bag, credit-card, wallet, bar-chart-2, pie-chart, line-chart, stethoscope, first-aid, pill, syringe, microscope, dna, atom, earth, trophy, medal, space, telescope, planet, umbrella, waves, wind-up, sunset, sunrise, mountain-snow, tree-pine, sunset, sunrise, moon-star, glass-water, briefcase-medical, factory, building, warehouse, handshake, user-check, user-plus, users-round.
+NOTE on icon_names: Set ONE icon per card IN ORDER (3 cards → 3 icons, 6 cards → 6 icons). Each icon MUST be the most semantically relevant available for THAT card’s specific content — think: “What is this card literally about?”, not the general topic. Examples: “stethoscope” for a medical exam card, “droplet” for saliva/fluids, “flame” for metabolism/heat, “leaf” for nature/organic, “cpu” for processing, “microscope” for biology/analysis. Use “circle” ONLY when nothing in the list is related. Set icon_names to null for cover, data/stats, conclusion, and image-split slides.
+
+NOTE on structural_accent: Optional accent element rendered at the slide’s edges — adds visual weight and frames the content. Choose ONE per slide (or “none”). Vary across slides: do NOT use the same one on every slide.
+  Valid values:
+    "none"           → no structural element
+    "left-sidebar"   → 4px vertical gradient line at left edge (good for editorial, step-by-step)
+    "corner-marks"   → TL + BR corner brackets in accent opacity .3 (good for structured, archival)
+    "top-bar"        → 5px accent bar top + 5px bottom (good for bold covers, stats)
+    "museum-border"  → 1px inset border 28px from edges (good for gallery, fine-art, centered slides)
+CLOSED ICON LIST — Lucide v0.577.0. ONLY these exact names render. DO NOT invent, combine, or guess names.
+If unsure, use "circle" as fallback. NEVER add suffixes or compound new names:
+  activity, airplay, alarm-clock, album, alert-circle, anchor, archive, arrow-down, arrow-left, arrow-right, arrow-up,
+  atom, award, bar-chart, bar-chart-2, battery, bike, book, book-open, box, brain, briefcase, building, bus,
+  calendar, camera, check, check-circle, clock, cloud, code, coffee, compass, copy, cpu, crown, database, disc,
+  dna, dollar-sign, download, droplet, edit, eye, eye-off, file-text, filter, flag, flame, gift, globe,
+  guitar, handshake, hard-drive, headphones, heart, help-circle, home, info, key, keyboard, laptop, layers,
+  leaf, lightbulb, link, list, lock, mail, map, map-pin, medal, menu, mic, mic-vocal, microscope, monitor,
+  moon, mountain, music, navigation, phone, pie-chart, plane, play, plus, printer, refresh-cw, rocket,
+  save, search, settings, share, shield, skull, smartphone, speaker, star, stethoscope, sun, tag, target,
+  telescope, thermometer, tool, trash, trending-down, trending-up, trophy, umbrella, upload,
+  user, user-check, user-plus, users, video, volume-2, wallet, wifi, wrench, x, x-circle, zap
 
 ═══════════════════════════════════════════════
 TEXT COLOR CONTRAST — ACCESSIBILITY MANDATE
@@ -574,55 +546,9 @@ RECOMMENDATION FOR DESIGN:
   Light sections on dark-mode decks are RARELY necessary and almost always cause contrast failures.
 
 CRITICAL RULES:
-- ATMOSPHERE PATTERN ASSIGNMENT (COMPLETE REFACTOR — NO HARDCODING):
-  ✗ FORBIDDEN: Cycling through a fixed pattern list or repeating any pattern name
-  ✓ REQUIRED: Derive patterns PER SLIDE based on:
-      1. Real_world_analog (what physical artifact does this topic evoke?)
-      2. Slide role and layout (data slides → simpler; editorial slides → more texture)
-      3. Visual variety (alternate between "busy" atmosphere and "minimal" atmosphere every 2-3 slides)
-  
-  DERIVATION PROCESS FOR EACH SLIDE:
-    Step 1: What is the visual ENERGY of this slide's content?
-             - Data/numbers-dominant → atmosphere can be minimal ("none")
-             - Story/narrative-heavy → atmosphere adds context (ruled-lines, grid-mesh, dot-grid)
-             - Visual focal point is strong → atmosphere minimal to avoid noise
-             - Content is lightweight → atmosphere can emphasize the slide's cultural character
-    Step 2: Does the real_world_analog suggest a specific pattern?
-             - "museum catalog" → ruled-lines, museum-frame
-             - "concert poster" → coarse-grain, top-bar, or none
-             - "terminal/hacker" → grid-mesh, crosshatch
-             - "magazine/editorial" → dot-grid, ruled-lines
-             - "blueprint/technical" → crosshatch, grid-mesh
-    Step 3: Have you already used this pattern? YES → choose a different one. NO → write it.
-    Step 4: Is this pattern ANTAGONISTIC to the slide content? (e.g., chaotic crosshatch on a serene museum slide) → NO → use it. YES → pick another.
-  
-  ALLOWED PATTERNS (must NOT repeat across any two slides):
-    grid-mesh, ruled-lines, dot-grid, crosshatch, coarse-grain, none, vertical-left-edge, museum-frame, top-bar, corner-markers
-  
-  If you have more slides than patterns, you may use "none" multiple times (data-dominant slides), but NEVER repeat:
-    grid-mesh, ruled-lines, dot-grid, crosshatch, coarse-grain on any two slides.
-  
-  VERIFICATION BEFORE OUTPUTTING JSON:
-    Count unique atmosphere_pattern values across all ${contentJson.slide_count} slides.
-    Create a checklist:
-      [ ] grid-mesh used 0 or 1 times?
-      [ ] ruled-lines used 0 or 1 times?
-      [ ] dot-grid used 0 or 1 times?
-      [ ] crosshatch used 0 or 1 times?
-      [ ] coarse-grain used 0 or 1 times?
-      [ ] none used ≤ 3 times? (OK for data slides)
-      [ ] total unique names ≥ (slide_count - 2) or acceptable? (minor reuse of "none" is OK)
-    If ANY NON-NONE pattern repeats, STOP and fix before output.
-  
-  RULES TO FOLLOW:
-  1. Write your rotation plan explicitly in a code comment at the top of your JSON output
-  2. VERIFY: Before outputting, count each pattern name in designJson.slides[]. NO DUPLICATES allowed.
-  3. Position "none" on slides that are data-heavy (numbers, minimal design) or cover/conclusion
-  4. Never place two heavy-texture slides back-to-back (e.g., crosshatch + diagonal-grain immediately sequential)
-
 - CRITICAL AESTHETIC ENFORCEMENT:
   If real_world_analog contains ANY of: "terminal", "hacker", "70s", "monochrome", "ultra-minimal", "ancient", "primitive"
-  OR user prompt contains "ultra-minimalista", "negro sólido", "sin bordes", "solid black", "no rounded"
+  OR user prompt contains "ultra-minimalist", "solid black", "no borders", "no rounded"
   THEN you MUST add to EVERY slide's composition_literal:
     • "border-radius: 0px on ALL elements (ZERO decorative rounding)"
     • "NO gradients (solid colors ONLY)"
@@ -634,23 +560,9 @@ CRITICAL RULES:
     • "ALL border-radius:0" (overrides .card default of 12px)
     • "NO accent-dim backgrounds with rounded corners" → use flat colors or grid overlay instead
     • "NO linear-gradient decorative overlays" unless specifically requested
-  
-  Available patterns:
-    "grid-mesh" → digital/tech/science (horizontal + vertical grid)
-    "ruled-lines" → archival/academic/editorial (horizontal lines)
-    "dot-grid" → design/magazine/creative (subtle dot pattern)
-    "crosshatch" → mechanical/blueprint/technical (diagonal grid)
-    "diagonal-grain" → printed/screen-print/poster (coarse diagonal)
-    "none" → minimal/data-driven/clean (no background pattern)
-  
-  Stage 3 will apply these patterns as CSS background-image overlays. Variety = visual richness.
 - NO RADIAL GRADIENTS / ORBS:
-  domain_atmosphere and atmosphere_pattern MUST NOT include "radial glow", "orb", "bloom", "halo", or any radial-gradient effect.
-  You are banning ONLY radial gradients. Linear gradients are allowed and recommended.
-  Stage 3 should apply atmosphere using linear-gradient and repeating-linear-gradient.
-  Include at least one subtle linear-gradient wash per slide in the composition notes (for depth), plus the selected pattern.
-  If you suggest "radial glow bottom-left" in domain_atmosphere, Stage 3 will have to ignore it (it's banned).
-  ONLY suggest patterns from the list above.
+  composition_literal MUST NOT suggest "radial glow", "orb", "bloom", "halo", or any radial-gradient effect.
+  ONLY linear-gradient and repeating-linear-gradient are allowed.
 - Cover must follow cover_archetype. Conclusion must follow conclusion_archetype. They must vary across different topics and MUST NOT default to the same visual recipe.
 - bg_mode defaults to "rich-dark" unless user explicitly asked for light/white
 - Accent color used surgically, not on everything
@@ -660,7 +572,6 @@ CRITICAL RULES:
 - DENSE CONTENT RULE: If a slide has many facts, 5+ items, or long text, prefer density_strategy='compact-two-column' or 'compact-single-column'. Do NOT add a side image slot to a dense slide unless it is 'full-bleed background'.
 - SIDE IMAGE CAP: For text+image split slides, keep image width in the 320-420px range. Never let the image dominate the slide.
 - HIGHLIGHTED WORDS: In composition descriptions, specify which words in titles should be in accent color
-- DECORATIVE ELEMENTS: Suggest gradient sidebar, glow, grid-bg, corner marks, or texture in composition descriptions
 - ICONS: Set icon_names on ALL slides with concept/feature/pillar/step cards (2-3 Lucide icon names from the allowed list). Set null for cover, data/stats, conclusion, and image-split slides.`;
 };
 

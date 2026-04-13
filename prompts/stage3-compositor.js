@@ -42,16 +42,14 @@ These are NOT suggestions. These MUST NOT appear in your output, ever:
      (the browser must compute a radial gradient for every single tile across the whole slide)
   ✓ ALLOWED: linear-gradient (horizontal, vertical, diagonal)
   ✓ ALLOWED: repeating-linear-gradient for patterns/textures
-  ✓ For dot-grid: use the SVG data URL pattern shown in the Atmosphere Toolkit below — NOT radial-gradient
   ✓ ENCOURAGED: subtle linear-gradient wash overlays for depth (e.g. top-to-bottom fade, side vignette)
   RULE: Ban ONLY radial gradients. Do NOT ban linear gradients.
-  If you need atmosphere: combine PATTERNS + linear-gradient overlays. NO RADIAL GRADIENTS.
 
 2. LANGUAGE MIX — ALL TEXT MUST BE IN ${contentJson.language}:
   ✗ English labels when ${contentJson.language} is Spanish/Portuguese/French/etc
   ✗ Code like "x86 Origins", "Pentium Era", "IPC Increase" when the deck is in ${contentJson.language}
-  ✗ "x86 Origins" should be "Orígenes del x86" (Spanish examples)
-  ✗ "Pentium Era" should be "Era del Pentium" (Spanish examples)
+  ✗ "x86 Origins" should be translated when the deck language is Spanish/French/etc
+  ✗ "Pentium Era" should be translated when the deck language is Spanish/French/etc
   ✗ Technical acronyms are OK (x86, IPC, CPU, GPU) but descriptive text MUST be translated
   ✓ SOLUTION: Every label, tag, title, description MUST be in contentJson.language
   ✓ Read contentJson.language: "${contentJson.language}" — that is your target language
@@ -66,15 +64,8 @@ These are NOT suggestions. These MUST NOT appear in your output, ever:
   ✓ Run regex replacements if needed, but NEVER output markdown in HTML
 
 4. SAME BACKGROUND ON ALL SLIDES — BANNED:
-  ✗ Using identical grid mesh or pattern on every section.s
-  ✗ All slides have position:absolute;inset:0;background-image:linear-gradient(... grid ...) identical
-  designJson.slides[N].atmosphere_pattern specifies the EXACT pattern for each slide
-  ✓ Slide 1 might have "grid mesh", Slide 2 "ruled lines", Slide 3 "dot grid", etc.
-  ✓ Each slide MUST use designJson.slides[slideIndex].atmosphere_pattern (not designJson.domain_atmosphere)
-  ✓ NEVER reuse the same pattern on ANY two slides — each pattern must be unique per deck
-  ✓ If you see the same pattern name twice in designJson.slides[], that is a BUG — verify and alert
-  
-  VERIFICATION: Count unique atmosphere_pattern in designJson.slides[]. No duplicates except "none" allowed. Each pattern matches its CSS exactly below.
+  ✗ Using identical solid color or gradient overlay on every section.s
+  ✗ Slides use clean solid backgrounds — do NOT add decorative background overlays or texture divs
 
 ═══════════════════════════════════════
 HARD TECHNICAL CONSTRAINTS
@@ -95,9 +86,7 @@ designJson.palette.color_rationale mentions "solid black" or "no gradients":
 
 ACTIONS REQUIRED:
 1. DO NOT add ANY decorative gradient overlays (no vignettes, no washes, no linear-gradient decorative divs)
-2. PROHIBIT these atmosphere_patterns: dot-grid, coarse-grain, museum-frame, top-bar, corner-markers
-   ONLY ALLOW: grid-mesh OR none
-3. ADD THIS CSS BLOCK to <style> INSIDE THE EXISTING @import/@media/@page rules:
+2. ADD THIS CSS BLOCK to <style> INSIDE THE EXISTING @import/@media/@page rules:
    
    /* *** MINIMALIST TERMINAL OVERRIDE — ACTIVE *** */
    .card { border-radius:0px !important; background:var(--surface) !important; border:1px solid var(--border) !important; }
@@ -105,8 +94,7 @@ ACTIONS REQUIRED:
    .icon-wrapper { border-radius:0px !important; background:var(--surface) !important; border:1px solid var(--accent) !important; }
    .accent-bar { border-radius:0px !important; height:2px; }
 
-4. For image slots: DO NOT use rounded corners. Set border-radius:0 in inline style.
-5. VERIFY each designJson.slides[N].atmosphere_pattern is ONLY "grid-mesh" or "none". If another pattern is present: REPLACE with "none" (data-dominant) or "grid-mesh" (content-heavy).
+3. For image slots: DO NOT use rounded corners. Set border-radius:0 in inline style.
 
 ═══════════════════════════════════════
 CONTENT BUDGET AND SCALING:
@@ -164,7 +152,7 @@ CONTENT BUDGET AND SCALING:
     • NO extra CTA paragraph with margin-top:2rem stacked after the content area
   CORRECT pattern for a centered conclusion slide:
     <section class="s" style="justify-content:center;align-items:center;text-align:center;overflow:hidden;">
-      <div class="tag" style="justify-content:center;">Conclusión</div>
+      <div class="tag" style="justify-content:center;">[Conclusion — in contentJson.language]</div>
       <h1 style="font-size:5.5rem;line-height:.95;max-width:70rem;">Title in <span style="color:var(--accent);">one-two lines</span></h1>
       <p style="font-size:1.6rem;color:var(--text-dim);margin-top:1.2rem;max-width:50rem;">Subtitle line</p>
       <div style="margin-top:2.5rem;max-width:60rem;display:flex;flex-direction:column;gap:1rem;">
@@ -250,9 +238,8 @@ CRITICAL: MINIMALIST/TERMINAL AESTHETIC OVERRIDE:
   IF mood_global contains ANY of: "terminal", "hacker", "monochrome", "minimal", "70s", "ancient"
   THEN:
     1. DO NOT ADD any decorative gradient overlays (no subtle vignettes, no washes)
-    2. ONLY use atmosphere_pattern if it is "grid-mesh" or "none" (no decorative patterns like dot-grid, coarse-grain)
-    3. NO accent-dim backgrounds on cards (use solid surface color + solid border instead)
-    4. PROHIBIT ALL border-radius > 0 (override with !important if composition_literal specified it)
+    2. NO accent-dim backgrounds on cards (use solid surface color + solid border instead)
+    3. PROHIBIT ALL border-radius > 0 (override with !important if composition_literal specified it)
   Example override CSS:
     /* Terminal aesthetic override */
     .card { border-radius:0px !important; background:var(--surface) !important; border:1px solid var(--border) !important; }
@@ -297,9 +284,9 @@ LANGUAGE:
   Do NOT mix languages. If you find yourself writing "x86 Origins" in a ${contentJson.language} deck, STOP.
   Translate it: ask yourself "what would a native ${contentJson.language} speaker call this?"
   Examples:
-    "Pentium Era" (English) → "Era del Pentium" (Spanish)
-    "x86 Origins" (English) → "Orígenes del x86" (Spanish)
-    "IPC Increase" (English) → "Aumento de IPC" (Spanish)
+    "Pentium Era" (English) → "Ère du Pentium" (French) / "Era del Pentium" (Spanish)
+    "x86 Origins" (English) → "Origines du x86" (French) / "Orígenes del x86" (Spanish)
+    "IPC Increase" (English) → "Hausse IPC" (French) / "Aumento de IPC" (Spanish)
 
 MARKDOWN CONVERSION:
   contentJson.slides[N].content and other text fields may contain markdown:
@@ -313,11 +300,6 @@ MARKDOWN CONVERSION:
     3. Find all *word* patterns (single asterisk, not double) → convert to <em>word</em>
     4. Find all _word_ patterns (single underscore, not double) → convert to <em>word</em>
     5. NO markdown should remain in the final HTML output
-
-
-
-
-═══════════════════════════════════════
 CSS DESIGN SYSTEM
 ═══════════════════════════════════════
 
@@ -401,7 +383,7 @@ YOU ARE NOT LIMITED TO THESE — write custom CSS. Examples of custom compositio
   */
   /* When this mode is active:
      - NO gradient overlays on any slides
-     - PROHIBIT decorative patterns (only grid-mesh or none allowed)
+     - NO background texture patterns
      - NO rounded corners
      - NO decorative background effects
   */
@@ -412,79 +394,26 @@ YOU ARE NOT LIMITED TO THESE — write custom CSS. Examples of custom compositio
      <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">01/08</p>
      Note: z-index:2 ensures it renders above content (z-index:1). The absolute is relative to section.s (position:relative). */
 
-CSS ATMOSPHERE TOOLKIT — INLINE STYLES ONLY:
-   NEVER put atmospheric overlay CSS in a <style> class. Server rule \`section.s > * { position:relative; z-index:1 }\` (specificity 0,1,0,1) beats any class (0,1,0,0).
-   EVERY overlay: raw <div> with inline style=, never classed.
+DECORATIVE STRUCTURAL ELEMENTS:
+  Apply the element specified in designJson.slides[N].structural_accent. Render with inline styles only — never CSS classes.
+  Slides have CLEAN solid backgrounds — NO background texture or pattern divs.
+  One element per slide, placed as a direct child of section.s (position:absolute inline):
 
-ATMOSPHERE PATTERN MANDATE:
-  For each <section>, designJson.slides[slideIndex].atmosphere_pattern specifies the EXACT pattern.
-  ✓ "grid-mesh" → 48px spaced lines
-  ✓ "ruled-lines" → 60px horizontal
-  ✓ "dot-grid" → SVG dots, 28px spacing
-  ✓ "crosshatch" → diagonal lattice
-  ✓ "coarse-grain" → 45deg diagonal
-  ✓ "none" → NO overlay (content dominates)
-  ✓ "vertical-left-edge" → gradient sidebar 4px
-  ✓ "museum-frame" → inset border 28px
-  ✓ "top-bar" → 5px accent bar top/bottom
-  ✓ "corner-markers" → corner TL + BR marks
-  ✗ NO duplicate patterns across slides (bug if found)
-  ✗ NO defaults if pattern="none"
-  ✗ ONE overlay div per slide max
-  
-  MINIMALIST/TERMINAL OVERRIDE:
-    If mood_global contains "terminal", "hacker", "monochrome", "minimal", or "70s":
-    • PROHIBIT decorative patterns (dot-grid, coarse-grain, museum-frame, top-bar, corner-markers)
-    • ONLY ALLOW: grid-mesh OR none
-    • PROHIBIT ANY gradient overlays (vignettes, washes, linear-gradient decorative divs)
-    • Reject any pattern that isn't on the allowed list for this aesthetic
-  
-  Use matching CSS from Atmosphere Toolkit below:
-These are the available patterns — pick from this list for each slide (primitives to compose from):
+  "none"           → no element added
 
-  <!-- PATTERN: grid mesh (digital/tech/clean) -->
-  <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;"></div>
-
-  <!-- PATTERN: horizontal ruled lines (archival/editorial/print) -->
-  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(transparent,transparent 59px,rgba(255,255,255,.035) 59px,rgba(255,255,255,.035) 60px);pointer-events:none;z-index:0;"></div>
-
-  <!-- PATTERN: dot grid (design/magazine/editorial) — uses SVG data URL, NOT radial-gradient -->
-  <div style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2228%22 height=%2228%22%3E%3Ccircle cx=%221%22 cy=%221%22 r=%221%22 fill=%22rgba(255%2C255%2C255%2C0.05)%22/%3E%3C/svg%3E');pointer-events:none;z-index:0;"></div>
-
-  <!-- PATTERN: diagonal crosshatch (mechanical/blueprint/technical) -->
-  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px),repeating-linear-gradient(-45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px);pointer-events:none;z-index:0;"></div>
-
-  <!-- PATTERN: coarse diagonal grain (printed/screen-print/poster) -->
-  <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(255,255,255,.012) 40px,rgba(255,255,255,.012) 41px);pointer-events:none;z-index:0;"></div>
-
-  <!-- STRUCTURAL: 4px gradient sidebar left edge -->
+  "left-sidebar"   →
   <div style="position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 50%,transparent);z-index:0;"></div>
 
-  <!-- STRUCTURAL: museum inset border (gallery/exhibition/fine art) -->
+  "museum-border"  →
   <div style="position:absolute;inset:28px;border:1px solid rgba(255,255,255,.07);pointer-events:none;z-index:0;"></div>
 
-  <!-- STRUCTURAL: ticker strip bottom (sports/broadcast/race) -->
-  <div style="position:absolute;bottom:0;left:0;right:0;height:34px;background:var(--accent);display:flex;align-items:center;padding:0 4rem;box-sizing:border-box;z-index:0;">
-    <p style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:#000;letter-spacing:.15em;text-transform:uppercase;margin:0;opacity:.8;">LABEL · FIELD · CATEGORY</p>
-  </div>
-
-  <!-- STRUCTURAL: full-width top bar (bold/editorial/poster) -->
+  "top-bar"        →
   <div style="position:absolute;top:0;left:0;right:0;height:5px;background:var(--accent);z-index:0;"></div>
-  <!-- Full-width bottom bar -->
   <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:var(--accent);z-index:0;"></div>
 
-  <!-- STRUCTURAL: centered vertical gradient line top (minimal/precise) -->
-  <div style="position:absolute;top:0;left:50%;width:1px;height:60px;background:linear-gradient(to bottom,transparent,var(--accent));opacity:.4;transform:translateX(-50%);z-index:0;"></div>
-
-  <!-- STRUCTURAL: corner TL frame mark -->
+  "corner-marks"   →
   <div style="position:absolute;top:40px;left:48px;width:32px;height:32px;border-top:1px solid var(--accent);border-left:1px solid var(--accent);opacity:.3;z-index:0;"></div>
-  <!-- Corner BR frame mark -->
   <div style="position:absolute;bottom:40px;right:48px;width:32px;height:32px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);opacity:.3;z-index:0;"></div>
-
-  <!-- OVERLAY: slide background gradient (any) — use directly on section or as inset div -->
-  <!-- CAUTION: ONLY if mood_global does NOT contain "terminal", "hacker", "minimal", or "monochrome" -->
-  <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,58,237,.08) 0%,transparent 60%,rgba(6,182,212,.04) 100%);z-index:0;"></div>
-  <!-- For terminal/minimal aesthetic: DO NOT include this overlay -->
 
 ═══════════════════════════════════════
 IMAGE SLOT SYSTEM — USERS UPLOAD THEIR OWN IMAGES
@@ -576,8 +505,7 @@ LAYOUT PATTERN C — FULL-BLEED IMAGE AS BACKGROUND (absolute, text overlaid):
 ICON SYSTEM — MANDATORY ON CONCEPT/FEATURE/PILLAR SLIDES:
 Lucide icons are injected by server. USAGE: <div class="icon-wrapper"><i data-lucide="brain"></i></div>
 Place at TOP of each feature card, before h3 title. Alternate styles: .icon-wrapper (accent) or style="background:var(--accent-2-dim)".
-ALLOWED: All Lucide icon names. Common: brain, rocket, shield, target, zap, check-circle, star, heart, lightbulb, trending-up, users, globe, lock, search, calendar, clock, activity, book, award, briefcase, file-text, bar-chart, cpu, database, settings, tool, anchor, flag, compass, map-pin, eye, cloud, play, pause, video, smartphone, laptop, monitor, printer, mail, phone, info, alert-circle, check, plus, minus, arrow-right, arrow-left, link, trash, edit, filter, menu, list, maximize, home, map, car, bike, plane, train, ship, mountain, tree, flame, droplet, sun, moon, camera, music, heart, award, trophy, medal, telescope, planet.
-✗ NO invented names (causes render failure). Pick closest match from Lucide if needed.
+USE EXACTLY the names from designJson.slides[N].icon_names — do NOT substitute, invent, or rename them.
 MANDATORY RULE: Every deck uses icons on ≥2 slides. Every card (2+) with icons gets ICON on each.
 Per slide: designJson.slides[N].icon_names specifies exact names. Size: 22px (already in CSS).
 
@@ -594,11 +522,11 @@ EXAMPLE 1: Grid + sidebar
   <div style="position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 50%,transparent);z-index:0;"></div>
   <!-- content layer above decoratives -->
   <div style="flex:1;padding:4rem 5rem;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:1;min-width:0;">
-    <div class="tag">Tecnología · Nivel avanzado</div>
+    <div class="tag">Technology · Advanced</div>
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-      <h1 style="font-size:8rem;line-height:.9;letter-spacing:-.03em;">Inteligencia</h1>
-      <h1 style="font-size:8rem;line-height:.9;letter-spacing:-.03em;color:var(--accent);margin-bottom:2rem;">Artificial</h1>
-      <p style="font-size:1.4rem;max-width:55rem;line-height:1.65;">Fundamentos, arquitecturas y el estado real del campo — más allá del hype.</p>
+      <h1 style="font-size:8rem;line-height:.9;letter-spacing:-.03em;">Artificial</h1>
+      <h1 style="font-size:8rem;line-height:.9;letter-spacing:-.03em;color:var(--accent);margin-bottom:2rem;">Intelligence</h1>
+      <p style="font-size:1.4rem;max-width:55rem;line-height:1.65;">Foundations, architectures, and the real state of the field — beyond the hype.</p>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:flex-end;">
       <p style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--accent-2);opacity:.3;letter-spacing:.1em;">model.load("reality.pt")</p>
@@ -658,7 +586,6 @@ CRITICAL CHECKLIST:
 ✓ designJson.slides[N].composition_literal → literal code translation
 ✓ All flex children: min-height:0
 ✓ Overlays: inline style="position:absolute", never classed
-✓ designJson.slides[N].atmosphere_pattern: exact match, ONE div per slide
 ✓ designJson.slides[N].icon_names: <div class="icon-wrapper"><i data-lucide="name"></i></div>
 ✓ Image slots: NEVER direct child of column-flex section (breaks sizing). If split: flex-direction:row inline
 ✓ All content appears (never truncate — scale fonts instead)
