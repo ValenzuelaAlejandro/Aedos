@@ -1951,6 +1951,47 @@ document.addEventListener('DOMContentLoaded', () => {
         if (_refreshSlotOverlays) _refreshSlotOverlays();
     }
 
+    // --- Fullscreen handling ---
+    // When the preview-stage element enters fullscreen we must clear any
+    // editor-added inline paddings (GSAP) so the slide can truly occupy
+    // the full viewport. Restore previous paddings on exit.
+    let _savedStagePadding = null;
+    function handleFullscreenChange() {
+        const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const stageEl = document.getElementById('preview-stage');
+        if (!stageEl) return;
+
+        if (isFS) {
+            // Save current inline paddings
+            _savedStagePadding = {
+                left: stageEl.style.paddingLeft || '',
+                right: stageEl.style.paddingRight || '',
+                top: stageEl.style.paddingTop || '',
+                bottom: stageEl.style.paddingBottom || ''
+            };
+            // Clear inline paddings so :fullscreen CSS / JS scaling can fill viewport
+            clearStageInlinePadding();
+            // Immediately recompute scale to fit true viewport
+            scaleIframe();
+        } else {
+            // Restore previous paddings (if any) and rescale
+            if (_savedStagePadding) {
+                stageEl.style.paddingLeft = _savedStagePadding.left || '';
+                stageEl.style.paddingRight = _savedStagePadding.right || '';
+                stageEl.style.paddingTop = _savedStagePadding.top || '';
+                stageEl.style.paddingBottom = _savedStagePadding.bottom || '';
+                _savedStagePadding = null;
+            } else {
+                // Fallback: clear any stray inline padding and let scaleIframe use _editorInsets
+                clearStageInlinePadding();
+            }
+            // Small timeout to allow browser to exit fullscreen and reflow
+            setTimeout(scaleIframe, 50);
+        }
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
     let _buildOverlayForSlot = () => { }; // forward.. declaration, assigned inside injectImageReplacementSystem
 
     function injectImageReplacementSystem(doc, isRestoringFlow = false) {

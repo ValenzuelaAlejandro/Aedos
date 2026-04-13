@@ -1974,15 +1974,13 @@
 }
 
 /* ================================================================
-   REFUSED CARD
-   ================================================================ */
-#refused-container {
-    /* Converted to .app-modal overlay - see app-modal section above */
-}
-
-.refused-message {
-    /* Converted to .app-modal-refused-body - see app-modal section above */
-}
+    REFUSED CARD
+    (moved to .app-modal / .app-modal-refused-body)
+    ================================================================ */
+/* Note: visual styles for the refused modal are handled by the
+    .app-modal and .app-modal-refused-body selectors above. The
+    legacy #refused-container / .refused-message rules were removed
+    to avoid empty-rule lint errors. */
 
 /* ================================================================
    BUTTONS (primary / secondary)
@@ -2426,13 +2424,19 @@ section.s.active > * {
     background: var(--bg);
 }
 
-.preview-stage:fullscreen {
+.preview-stage:fullscreen,
+.preview-stage:-webkit-full-screen,
+.preview-stage:-moz-full-screen,
+.preview-stage:-ms-fullscreen {
     background: var(--bg);
     width: 100vw;
     height: 100vh;
 }
 
-.preview-stage:fullscreen .preview-wrapper {
+.preview-stage:fullscreen .preview-wrapper,
+.preview-stage:-webkit-full-screen .preview-wrapper,
+.preview-stage:-moz-full-screen .preview-wrapper,
+.preview-stage:-ms-fullscreen .preview-wrapper {
     max-width: none !important;
     max-height: none !important;
     border-radius: 0 !important;
@@ -2440,7 +2444,10 @@ section.s.active > * {
     border: none !important;
 }
 
-.preview-stage:fullscreen .stage-arrow {
+.preview-stage:fullscreen .stage-arrow,
+.preview-stage:-webkit-full-screen .stage-arrow,
+.preview-stage:-moz-full-screen .stage-arrow,
+.preview-stage:-ms-fullscreen .stage-arrow {
     z-index: 100;
 }
 
