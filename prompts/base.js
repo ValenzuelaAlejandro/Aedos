@@ -513,7 +513,10 @@ Content budget: max title (2 lines) + subtitle + optional list of 2-3 points. No
 
 ━━━ IMAGE SLOT SYSTEM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 NEVER place img-slot as a direct flex-column child of section.s (it fills full width, crushing content below).
-✓ VALID: inside flex-row container (Layout D) or position:absolute;inset:0 full-bleed background.
+✓ VALID: inside flex-row container (Layout D) as its own independent column only.
+✗ BANNED: any text, tag, heading, list, counter, or decorative element layered above an img-slot.
+✗ BANNED: full-bleed background img-slot with overlaid text.
+✗ BANNED: putting content inside .img-slot except .img-bg1 and .img-bg2.
   data-image-slot="[unique 1–9]" — unique number across ALL slides.
   data-image-keyword="[English keyword]" — always English, for image search.
 Add only when has_image_slot:true in CONFIG or user explicitly requested images.

@@ -25,9 +25,9 @@ const queue = [];
 // Max concurrent generations 
 const MAX_CONCURRENT_GENERATIONS = 10;
 
-// OpenRouter model list — comma-separated in env var OPENROUTER_MODEL_LIST
-// or single model via OPENROUTER_MODEL. Defaults to qwen free-tier.
-const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || process.env.OPENROUTER_MODEL || 'qwen/qwen3.5-flash-02-23')
+// Fallback model list used only if callOpenRouter is called without an explicit models array.
+// In practice every stage passes its own list (OPENROUTER_QWEN or OPENROUTER_MINIMAX).
+const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || 'minimax/minimax-m2.7,qwen/qwen3.5-flash-02-23')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
@@ -142,7 +142,7 @@ function validateEnvironment() {
     });
     console.log('  ✓ API key: present');
     if (process.env.OPENROUTER_API_KEY) {
-        console.log(`  ✓ OPENROUTER_API_KEY: present (models: ${OPENROUTER_MODEL_LIST.join(', ')})`);
+        console.log(`  ✓ OPENROUTER_API_KEY: present — Flash:qwen, Stage3:minimax`);
     } else {
         console.warn(`  ⚠ OPENROUTER_API_KEY: not set — quota fallback disabled`);
     }
@@ -346,47 +346,52 @@ async function callGemini(apiKey, modelList, prompt, stageName) {
     throw new Error('QUOTA_EXHAUSTED');
 }
 
-function makeCallerFn(apiKey, modelList, stageName, preferredProvider = 'openrouter', openrouterModels) {
+// ── Model lists ──────────────────────────────────────────────────────────────
+const GEMINI_MODELS  = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+const OPENROUTER_QWEN    = ['qwen/qwen3.5-flash-02-23'];
+const OPENROUTER_MINIMAX = ['minimax/minimax-m2.7'];
+
+/**
+ * Builds a caller that tries each provider/model in order until one succeeds.
+ * `sequence` is an array of { provider: 'gemini'|'openrouter', models?: string[] }.
+ */
+function makeCallerFn(apiKey, stageName, sequence) {
     return async function (prompt) {
-        const providerOrder = preferredProvider === 'gemini'
-            ? ['gemini', 'openrouter']
-            : ['openrouter', 'gemini'];
-
         let lastError = null;
-
-        for (const provider of providerOrder) {
+        for (const step of sequence) {
             try {
-                if (provider === 'gemini') {
-                    return await callGemini(apiKey, modelList, prompt, stageName);
+                if (step.provider === 'gemini') {
+                    return await callGemini(apiKey, step.models, prompt, stageName);
                 }
-                // Forward an optional OpenRouter model list to the caller.
-                return await callOpenRouter(prompt, stageName, openrouterModels);
+                return await callOpenRouter(prompt, stageName, step.models);
             } catch (err) {
                 lastError = err;
-                const msg = err?.message || `unknown ${provider} error`;
-                console.warn(`   [${stageName}] ${provider} unavailable or exhausted — trying next provider (${msg})`);
+                console.warn(`   [${stageName}] ${step.provider} exhausted — trying next (${err?.message})`);
             }
         }
-
         throw lastError || new Error('QUOTA_EXHAUSTED');
     };
 }
 
-// Stage routing:
-// - Flash (legacy single-prompt): prefer OpenRouter (Qwen) first, fall back to Gemini.
-// - Stage 1 & 2 (Pro pipeline): prefer Gemini 2.5 Flash-Lite, fall back to OpenRouter.
-// - Stage 3 (Pro pipeline HTML compositor): prefer OpenRouter, fall back to Gemini.
-// For Flash we pass an explicit OpenRouter model list so Qwen is tried first.
-const tryModelsFlash = makeCallerFn(
-    KEY1,
-    ['gemini-2.5-flash-lite', 'gemini-2.5-flash'],
-    'Flash',
-    'openrouter',
-    ['qwen/qwen3.5-flash-02-23']
-);
-const tryModelsStage1 = makeCallerFn(KEY1, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage1', 'gemini');
-const tryModelsStage2 = makeCallerFn(KEY2, ['gemini-2.5-flash-lite', 'gemini-2.5-flash'], 'Stage2', 'gemini');
-const tryModelsStage3 = makeCallerFn(KEY3, ['gemini-2.5-flash', 'gemini-2.5-flash-lite'], 'Stage3', 'openrouter');
+// ── Stage routing ─────────────────────────────────────────────────────────────
+// Flash  : qwen → gemini-2.5-flash → gemini-2.5-flash-lite
+// Stage 1: gemini-2.5-flash-lite → gemini-2.5-flash  (Gemini only, no OpenRouter)
+// Stage 2: same as Stage 1
+// Stage 3: minimax → gemini-2.5-flash-lite → gemini-2.5-flash  (qwen never used here)
+const tryModelsFlash = makeCallerFn(KEY1, 'Flash', [
+    { provider: 'openrouter', models: OPENROUTER_QWEN },
+    { provider: 'gemini',     models: GEMINI_MODELS },
+]);
+const tryModelsStage1 = makeCallerFn(KEY1, 'Stage1', [
+    { provider: 'gemini', models: GEMINI_MODELS },
+]);
+const tryModelsStage2 = makeCallerFn(KEY2, 'Stage2', [
+    { provider: 'gemini', models: GEMINI_MODELS },
+]);
+const tryModelsStage3 = makeCallerFn(KEY3, 'Stage3', [
+    { provider: 'openrouter', models: OPENROUTER_MINIMAX },
+    { provider: 'gemini',     models: GEMINI_MODELS },
+]);
 
 // Legacy alias kept for any remaining references
 const tryModels = tryModelsFlash;
@@ -581,6 +586,20 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                     }
                 }
             });
+
+            // Dev debug: persist Stage1/Stage2 outputs and the Stage3 prompt for inspection
+            if ((process.env.NODE_ENV || 'development') !== 'production') {
+                try {
+                    const now = Date.now();
+                    const debugBase = path.join(TMP_DIR, `pipeline_debug_${now}`);
+                    fs.writeFileSync(debugBase + '_content.json', JSON.stringify(pipelineResult.contentJson, null, 2), 'utf8');
+                    fs.writeFileSync(debugBase + '_design.json', JSON.stringify(pipelineResult.designJson, null, 2), 'utf8');
+                    if (pipelineResult.stage3Prompt) fs.writeFileSync(debugBase + '_stage3prompt.txt', pipelineResult.stage3Prompt, 'utf8');
+                    console.log(`[DEV] Saved pipeline debug JSON → ${debugBase}_*`);
+                } catch (e) {
+                    console.warn('[DEV] Failed to save pipeline debug files:', e.message);
+                }
+            }
 
             if (cancelled) { res.end(); return; }
 

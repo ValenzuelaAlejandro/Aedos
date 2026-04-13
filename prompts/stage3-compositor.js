@@ -8,17 +8,49 @@
 
 module.exports = function buildStage3Prompt(rawInput, contentJson, designJson) {
   const p = designJson.palette || {};
-  const colors = Array.isArray(p.colors_hex) && p.colors_hex.length > 0 
-      ? p.colors_hex 
-      : [p.accent_hex, p.accent2_hex].filter(Boolean);
-      
-  const accent1 = colors[0] || "#ffffff";
+  // Normalize palette input: accept array, comma/slash-separated string, or legacy keys
+  let colors = [];
+  if (Array.isArray(p.colors_hex) && p.colors_hex.length > 0) {
+    colors = p.colors_hex.slice();
+  } else if (typeof p.colors_hex === 'string' && p.colors_hex.trim()) {
+    colors = p.colors_hex.split(/[,\/\s]+/).map(s => s.trim()).filter(Boolean);
+  } else {
+    if (p.accent_hex) colors.push(p.accent_hex);
+    if (p.accent2_hex) colors.push(p.accent2_hex);
+  }
+
+  // sanitize and normalize hex strings
+  colors = colors.map(c => {
+    if (!c) return null;
+    c = String(c).trim();
+    if (!c.startsWith('#')) c = '#' + c;
+    return c.toUpperCase();
+  }).filter(Boolean);
+
+  const accent1 = colors[0] || '#FFFFFF';
   const accent2 = colors[1] || accent1;
-  const accentVars = colors.map((c, i) => {
-    const num = i === 0 ? '' : `-${i+1}`;
-    const name = i === 0 ? 'accent' : `accent${num}`;
-    return `    --accent${num}:${c}; --accent${num}-dim:rgba([${name}],.15);`;
-  }).join("\n");
+
+  function hexToRgb(hex) {
+    const h = String(hex).replace('#', '');
+    if (h.length === 3) {
+      const r = parseInt(h[0] + h[0], 16);
+      const g = parseInt(h[1] + h[1], 16);
+      const b = parseInt(h[2] + h[2], 16);
+      return `${r}, ${g}, ${b}`;
+    }
+    if (h.length === 6) {
+      const r = parseInt(h.substring(0, 2), 16);
+      const g = parseInt(h.substring(2, 4), 16);
+      const b = parseInt(h.substring(4, 6), 16);
+      return `${r}, ${g}, ${b}`;
+    }
+    return '255, 255, 255';
+  }
+
+  const accentVars = [
+    `    --accent:${accent1}; --accent-dim:rgba(${hexToRgb(accent1)}, .15); --accent-light: rgba(${hexToRgb(accent1)}, .25);`,
+    `    --accent-2:${accent2}; --accent-2-dim:rgba(${hexToRgb(accent2)}, .15); --accent-2-light: rgba(${hexToRgb(accent2)}, .25);`
+  ].join('\n');
 
   return `You are an expert HTML/CSS compositor. You build presentation slides that look like high-end editorial design — NOT like PowerPoint. Each slide is composed from scratch following the creative direction you receive.
 
@@ -172,7 +204,7 @@ CSS CORRECTNESS — THREE COMMON HALLUCINATIONS — READ BEFORE WRITING ANY CSS:
   BUG 0 — LIGHT TEXT ON LIGHT BACKGROUND:
     ✗ background:rgba(255,255,255,.95) + color:var(--text) = invisible
     ✓ Use dark text (#111111) on light backgrounds
-    Light sections: design entire slide light OR use accent-color blocks OR full-bleed image overlay
+    Light sections: design entire slide light OR use accent-color blocks
 
   BUG 1 — line → ALWAYS line-height (never just "line")
 
@@ -437,8 +469,9 @@ IMG-SLOT PLACEMENT RULES — STRICTLY ENFORCED:
   ✓ THE ONLY ALLOWED PATTERNS:
   • Layout A: section MUST have flex-direction:row explicitly in inline style — img-slot is a side column
   • Layout B: img-slot is INSIDE a flex-row sub-container within a padded section (never a direct section.s child)
-  • Layout C: img-slot is position:absolute;inset:0 (full-bleed background, text overlaid)
-  ✓ The slide title, tag, and key content must always be visible without the image
+  ✓ The slide title, tag, and key content must always be outside img-slot and in a separate sibling column
+  ✗ NEVER place any text/content/labels/counters inside an img-slot
+  ✗ NEVER use img-slot as full-bleed background behind text
 
    CRITICAL DIRECTION RULE:
   section.s CSS class defines flex-direction:column. Writing style="display:flex" inline does NOT override this.
@@ -453,8 +486,8 @@ NO width/min-height/flex on .img-slot — sizing via inline style per layout.
 
 WHEN TO USE IMAGE SLOTS:
 - Use a side image slot only when the slide has short to medium text density.
-- If the slide has 5+ facts, multiple paragraphs, or a long explanation, DO NOT use a side image split.
-- For dense content with imagery, use Layout C (full-bleed background) so text keeps the full width budget.
+- If the slide has 5+ facts, multiple paragraphs, or a long explanation, DO NOT use an image slot on that slide.
+- Never solve density by placing text on top of an image slot.
 
 LAYOUT PATTERN A — FULL-HEIGHT SPLIT (THE CORRECT img-slot pattern):
 CRITICAL: section MUST have flex-direction:row in inline style. This overrides the class-level flex-direction:column.
@@ -490,17 +523,10 @@ LAYOUT PATTERN B — IMAGE BESIDE CARDS (inside regular padded section):
   </div>
 </div>
 
-LAYOUT PATTERN C — FULL-BLEED IMAGE AS BACKGROUND (absolute, text overlaid):
-<section class="s" style="padding:0;position:relative;overflow:hidden;">
-  <div class="img-slot" data-image-slot="3" data-image-keyword="city"
-       style="position:absolute;inset:0;border-radius:0;overflow:hidden;">
-    <div class="img-bg1"></div><div class="img-bg2"></div>
-  </div>
-  <div style="position:relative;z-index:3;padding:4rem 5rem;display:flex;flex-direction:column;justify-content:flex-end;height:100%;box-sizing:border-box;background:linear-gradient(to top,rgba(0,0,0,.75) 40%,transparent);">
-    <h2 style="font-size:4.5rem;color:#fff;">Title over image</h2>
-    <p style="color:rgba(255,255,255,.6);max-width:50%;">Description text here.</p>
-  </div>
-</section>
+LAYOUT PATTERN C — RESERVED / NOT ALLOWED:
+  Do NOT implement full-bleed image backgrounds with text overlays.
+  If the composition asks for this, convert to a side-column img-slot (Pattern A/B)
+  or remove the image slot for that slide.
 
 ICON SYSTEM — MANDATORY ON CONCEPT/FEATURE/PILLAR SLIDES:
 Lucide icons are injected by server. USAGE: <div class="icon-wrapper"><i data-lucide="brain"></i></div>
