@@ -698,6 +698,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.currentSlide = 0;
         currentTitle = title;
         _pendingTransitionFn = null;
+        window._manualZoomScale = 1;
+        updateZoomDisplay();
 
         if (resultContainer) resultContainer.classList.add('hidden');
         if (errorContainer) errorContainer.classList.add('hidden');
@@ -832,6 +834,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Reset panel insets so slide fills the full screen during streaming.
             _editorInsets = { left: 0, right: 0, top: 0, bottom: 0 };
             resetMobileZoomState();
+            window._manualZoomScale = 1;
+            updateZoomDisplay();
             const _scrollableReset = document.getElementById('preview-wrapper-scrollable');
             if (_scrollableReset) _scrollableReset.style.transform = '';
             // Clear any leftover inline stage padding from the previous settling animation
@@ -1841,15 +1845,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const ZOOM_STEP = 0.1; // 10% increments
 
     function updateZoomDisplay() {
+        const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const maxZoom = isFullscreen ? MAX_ZOOM : 1;
+        const minZoom = MIN_ZOOM;
+        const EPS = 0.0001;
         const display = document.getElementById('canvas-zoom-display');
         if (display) {
             const percentage = Math.round(window._manualZoomScale * 100);
             display.textContent = `${percentage}%`;
         }
+        if (btnZoomIn) btnZoomIn.disabled = window._manualZoomScale >= (maxZoom - EPS);
+        if (btnZoomOut) btnZoomOut.disabled = window._manualZoomScale <= (minZoom + EPS);
     }
 
     function setZoom(zoomLevel) {
-        zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel));
+        const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const maxZoom = isFullscreen ? MAX_ZOOM : 1;
+        zoomLevel = Math.max(MIN_ZOOM, Math.min(maxZoom, zoomLevel));
         window._manualZoomScale = zoomLevel;
         updateZoomDisplay();
         window.dispatchEvent(new Event('resize'));
@@ -1897,8 +1909,6 @@ document.addEventListener('DOMContentLoaded', () => {
             scale = Math.min(MathScaleX, MathScaleY);
             // Allow scaling up past 100% in presentation mode
         } else {
-            const stageRect = stage.getBoundingClientRect();
-
             // _editorInsets is {0,0,0,0} during streaming and is tweened by GSAP
             // during the settling animation so scaleIframe always gets the right values.
             const L = _editorInsets.left,  R = _editorInsets.right;
@@ -1907,8 +1917,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const isStreamingState = previewContainer.classList.contains('is-generating') || previewContainer.classList.contains('is-settling');
             forceFitScale = hasZeroInsets || isStreamingState;
 
-            const availableWidth  = stageRect.width  - L - R;
-            const availableHeight = stageRect.height - T - B;
+            const scrollable = document.getElementById('preview-wrapper-scrollable');
+            let availableWidth = 0;
+            let availableHeight = 0;
+
+            if (scrollable) {
+                const scrollRect = scrollable.getBoundingClientRect();
+                availableWidth = scrollRect.width;
+                availableHeight = scrollRect.height;
+            } else {
+                // Fallback for edge cases where scrollable has not been mounted yet.
+                const stageRect = stage.getBoundingClientRect();
+                availableWidth = stageRect.width - L - R;
+                availableHeight = stageRect.height - T - B;
+            }
+
+            // Guard a couple of pixels to avoid sub-pixel rounding clipping at edges.
+            const FIT_GUARD_PX = 2;
+            availableWidth = Math.max(1, availableWidth - FIT_GUARD_PX);
+            availableHeight = Math.max(1, availableHeight - FIT_GUARD_PX);
 
             const fitScaleX = availableWidth  / iframeNativeWidth;
             const fitScaleY = availableHeight / iframeNativeHeight;
@@ -1916,12 +1943,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // During streaming the manual zoom must NOT apply — the slide should
             // fill the full viewport with no panels in the way.
-            scale = forceFitScale ? fitScale : fitScale * window._manualZoomScale;
+            const requestedScale = forceFitScale ? fitScale : fitScale * window._manualZoomScale;
+
+            // Keep the slide fully contained in editor mode (no clipping/cropping).
+            scale = Math.min(requestedScale, fitScale);
 
             // Centering is achieved by setting asymmetric padding on the stage element
             // (done in the GSAP onUpdate / doTransitionToPreview). The scrollable is always
             // transform-free so it never overflows the parent's overflow:hidden boundary.
-            const scrollable = document.getElementById('preview-wrapper-scrollable');
             if (scrollable) scrollable.style.transform = '';
         }
 
@@ -1972,6 +2001,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Clear inline paddings so :fullscreen CSS / JS scaling can fill viewport
             clearStageInlinePadding();
             // Immediately recompute scale to fit true viewport
+            updateZoomDisplay();
             scaleIframe();
         } else {
             // Restore previous paddings (if any) and rescale
@@ -1985,6 +2015,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Fallback: clear any stray inline padding and let scaleIframe use _editorInsets
                 clearStageInlinePadding();
             }
+            // Outside fullscreen the editor enforces contain mode up to 100%.
+            if (window._manualZoomScale > 1) {
+                window._manualZoomScale = 1;
+            }
+            updateZoomDisplay();
             // Small timeout to allow browser to exit fullscreen and reflow
             setTimeout(scaleIframe, 50);
         }
