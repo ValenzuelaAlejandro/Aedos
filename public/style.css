@@ -373,7 +373,7 @@
 
 :root[data-theme="light"] .chat-input-wrapper.is-pro:focus-within {
     border-color: #60A5FA;
-    outline: 2px solid var(--accent-light);
+    outline: none;
 }
 
 :root[data-theme="light"] .chat-input-wrapper.is-pro:hover:not(:focus-within) {
@@ -386,8 +386,8 @@
 }
 
 :root[data-theme="light"] .chat-input-wrapper:not(.is-pro):focus-within {
-    border-color: #111827;
-    outline: 2px solid var(--accent-light);
+    border-color: #60A5FA;
+    outline: none;
     box-shadow: var(--shadow-md);
 }
 
@@ -640,8 +640,7 @@
 
 .chat-input-wrapper.is-pro:focus-within {
     border-color: rgba(0, 102, 255, 0.78);
-    outline: 2px solid rgba(0, 102, 255, 0.6);
-    outline-offset: 1px;
+    outline: none;
 }
 
 
@@ -652,9 +651,8 @@
 }
 
 .chat-input-wrapper:not(.is-pro):focus-within {
-    border-color: rgba(255, 255, 255, 0.35);
-    outline: 2px solid rgba(0, 102, 255, 0.5);
-    outline-offset: 1px;
+    border-color: rgba(0, 102, 255, 0.65);
+    outline: none;
 }
 
 .chat-input-wrapper:focus-within #chat-typewriter-cursor {
