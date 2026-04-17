@@ -554,29 +554,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const loaderIcon = document.getElementById('btn-icon-loader');
 
     // ── Button cycling message state ──────────────────────────────────────
-    const BTN_LOADING_KEYS = [
+    const BTN_LOADING_KEYS_DESKTOP = [
         'gen_loading_1', 'gen_loading_2', 'gen_loading_3', 'gen_loading_4',
         'gen_loading_5', 'gen_loading_6', 'gen_loading_7', 'gen_loading_8',
         'gen_loading_9', 'gen_loading_final'
     ];
+    const BTN_LOADING_KEYS_MOBILE = [
+        'gen_loading_1_mobile', 'gen_loading_2_mobile', 'gen_loading_3_mobile', 'gen_loading_4_mobile',
+        'gen_loading_5_mobile', 'gen_loading_6_mobile', 'gen_loading_7_mobile', 'gen_loading_8_mobile',
+        'gen_loading_9_mobile', 'gen_loading_final_mobile'
+    ];
+    let _activeBtnLoadingKeys = BTN_LOADING_KEYS_DESKTOP;
     let _btnMsgTimer = null;
     let _btnMsgIndex = 0;
 
+    function _resolveBtnLoadingKeys() {
+        return window.innerWidth <= 850 ? BTN_LOADING_KEYS_MOBILE : BTN_LOADING_KEYS_DESKTOP;
+    }
+
     function _scheduleNextBtnMsg() {
-        if (_btnMsgIndex >= BTN_LOADING_KEYS.length - 1) return;
+        if (_btnMsgIndex >= _activeBtnLoadingKeys.length - 1) return;
         _btnMsgTimer = setTimeout(() => {
             _btnMsgIndex++;
             const label = generateBtn.querySelector('.btn-generate-label');
-            if (label) label.textContent = window.__t(BTN_LOADING_KEYS[_btnMsgIndex]);
+            if (label) {
+                const key = _activeBtnLoadingKeys[_btnMsgIndex];
+                const fallbackKey = BTN_LOADING_KEYS_DESKTOP[_btnMsgIndex] || 'gen_loading_final';
+                label.textContent = window.__t(key, window.__t(fallbackKey));
+            }
             _scheduleNextBtnMsg();
         }, 1900);
     }
 
     function startBtnMessages() {
+        _activeBtnLoadingKeys = _resolveBtnLoadingKeys();
         _btnMsgIndex = 0;
         _btnMsgTimer = null;
         const label = generateBtn.querySelector('.btn-generate-label');
-        if (label) label.textContent = window.__t(BTN_LOADING_KEYS[0]);
+        if (label) {
+            const key = _activeBtnLoadingKeys[0];
+            label.textContent = window.__t(key, window.__t(BTN_LOADING_KEYS_DESKTOP[0]));
+        }
         _scheduleNextBtnMsg();
     }
 
