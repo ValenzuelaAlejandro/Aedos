@@ -1861,6 +1861,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const MIN_ZOOM = 0.5; // 50%
     const MAX_ZOOM = 2; // 200%
     const ZOOM_STEP = 0.1; // 10% increments
+    const MOBILE_LAYOUT_BREAKPOINT = 850;
+    let _lastIsMobileLayoutForZoom = window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT;
+
+    function syncZoomStateWithViewportMode() {
+        const isMobileLayout = window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT;
+        // When leaving mobile layout (desktop browser resized back), clear any
+        // leftover pinch/pan state so desktop zoom reacts immediately.
+        if (_lastIsMobileLayoutForZoom && !isMobileLayout) {
+            resetMobileZoomState();
+        }
+        _lastIsMobileLayoutForZoom = isMobileLayout;
+        return isMobileLayout;
+    }
 
     function updateZoomDisplay() {
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -1911,6 +1924,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!wrapper || !stage || !previewIframe) return;
 
+        const isMobileLayout = syncZoomStateWithViewportMode();
+
         const iframeNativeWidth = 1122;
         const iframeNativeHeight = 631;
 
@@ -1931,9 +1946,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // during the settling animation so scaleIframe always gets the right values.
             const L = _editorInsets.left,  R = _editorInsets.right;
             const T = _editorInsets.top,   B = _editorInsets.bottom;
-            const hasZeroInsets = (L === 0 && R === 0 && T === 0 && B === 0);
             const isStreamingState = previewContainer.classList.contains('is-generating') || previewContainer.classList.contains('is-settling');
-            forceFitScale = hasZeroInsets || isStreamingState;
+            // Keep strict fit while streaming and in mobile layout, but allow
+            // desktop zoom controls after returning from a mobile-width session.
+            forceFitScale = isStreamingState || isMobileLayout;
 
             const scrollable = document.getElementById('preview-wrapper-scrollable');
             let availableWidth = 0;
