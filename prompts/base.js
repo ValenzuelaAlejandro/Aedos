@@ -123,18 +123,18 @@ THEN fill the CONFIG JSON:
       5+ key_points  → compact-two-column or cards
 
     MANDATORY VARIETY (every deck must include):
-      ✓ At least 1 cards slide (feature/concept cards with icons in grid layout)
+      ✓ At least 1 cards slide (feature/concept cards in grid layout)
       ✓ At least 1 stats slide (big numbers ≥ 6rem)
       ✓ At least 1 timeline OR comparison slide
       ✓ No two adjacent slides with the same layout_family
 
     FOCAL POINT MANDATE (every non-cover/conclusion slide):
-      One primary visual anchor: stat ≥ 6rem | card grid with icons | oversized heading ≥ 5rem
+      One primary visual anchor: stat ≥ 6rem | card grid | oversized heading ≥ 5rem
       Write it in composition_literal. Size contrast heading:body must be ≥ 3:1.
 
-    icon_names: ONE Lucide icon per card IN ORDER (3 cards → 3 icons, 6 cards → 6 icons). Each icon MUST be the most semantically relevant for THAT card's specific content, not the topic in general. Use "circle" only if nothing in the list fits. null for cover/data/conclusion.
+    icon_names: Use ONE Lucide icon name per card IN ORDER when valid (3 cards → up to 3 names, 6 cards → up to 6 names). Each icon MUST be semantically relevant for THAT card's specific content, not the topic in general. If no relevant icon exists or the name is not in CLOSED ICON LIST, set null for that card and render no icon wrapper for that card. null is also valid for cover/data/conclusion.
     CLOSED ICON LIST — Lucide v0.577.0. ONLY these exact names render. DO NOT invent, combine, or guess names.
-    If unsure, use "circle" as fallback. NEVER add suffixes or compound new names:
+    If unsure, use null (NO ICON). NEVER add suffixes or compound new names:
     activity, airplay, alarm-clock, album, alert-circle, anchor, archive, arrow-down, arrow-left, arrow-right, arrow-up,
     atom, award, bar-chart, bar-chart-2, battery, bike, book, book-open, box, brain, briefcase, building, bus,
     calendar, camera, check, check-circle, clock, cloud, code, coffee, compass, copy, cpu, crown, database, disc,
@@ -355,8 +355,8 @@ Note: [CTR] = counter p (see SLIDE COUNTER above). No background overlays — cl
   <h2>[Title]</h2>
   <p class="subtitle">[Context]</p>
   <div class="grid-2" style="flex:1;min-height:0;">
-    <div class="card accent"><div class="icon-wrapper"><i data-lucide="[icon]"></i></div><h3>[Title]</h3><p>[Content]</p></div>
-    <div class="card"><div class="icon-wrapper sec"><i data-lucide="[icon]"></i></div><h3>[Title]</h3><p>[Content]</p></div>
+    <div class="card accent">[If icon is valid: <div class="icon-wrapper"><i data-lucide="[icon]"></i></div>]<h3>[Title]</h3><p>[Content]</p></div>
+    <div class="card">[If icon is valid: <div class="icon-wrapper sec"><i data-lucide="[icon]"></i></div>]<h3>[Title]</h3><p>[Content]</p></div>
   </div>
   [CTR]
 </section>
@@ -367,9 +367,9 @@ Note: [CTR] = counter p (see SLIDE COUNTER above). No background overlays — cl
   <h2>[Title]</h2>
   <p class="subtitle">[Context]</p>
   <div class="grid-3" style="flex:1;min-height:0;">
-    <div class="card accent"><div class="icon-wrapper"><i data-lucide="[icon]"></i></div><h3>[Title]</h3><p>[Content]</p></div>
-    <div class="card"><div class="icon-wrapper sec"><i data-lucide="[icon]"></i></div><h3>[Title]</h3><p>[Content]</p></div>
-    <div class="card accent-2"><div class="icon-wrapper"><i data-lucide="[icon]"></i></div><h3>[Title]</h3><p>[Content]</p></div>
+    <div class="card accent">[If icon is valid: <div class="icon-wrapper"><i data-lucide="[icon]"></i></div>]<h3>[Title]</h3><p>[Content]</p></div>
+    <div class="card">[If icon is valid: <div class="icon-wrapper sec"><i data-lucide="[icon]"></i></div>]<h3>[Title]</h3><p>[Content]</p></div>
+    <div class="card accent-2">[If icon is valid: <div class="icon-wrapper"><i data-lucide="[icon]"></i></div>]<h3>[Title]</h3><p>[Content]</p></div>
   </div>
   [CTR]
 </section>
@@ -385,8 +385,8 @@ CRITICAL: section must set flex-direction:row to make img-slot a side column, NO
     <div class="tag">[NN · LABEL]</div>
     <h2 style="margin-bottom:0;">[Title]</h2>
     <div class="flex-col" style="flex:1;min-height:0;">
-      <div class="card accent"><div class="icon-wrapper"><i data-lucide="[icon]"></i></div><h3>[Title]</h3><p>[Content]</p></div>
-      <div class="card"><div class="icon-wrapper sec"><i data-lucide="[icon]"></i></div><h3>[Title]</h3><p>[Content]</p></div>
+      <div class="card accent">[If icon is valid: <div class="icon-wrapper"><i data-lucide="[icon]"></i></div>]<h3>[Title]</h3><p>[Content]</p></div>
+      <div class="card">[If icon is valid: <div class="icon-wrapper sec"><i data-lucide="[icon]"></i></div>]<h3>[Title]</h3><p>[Content]</p></div>
     </div>
   </div>
   [CTR]
@@ -522,8 +522,9 @@ NEVER place img-slot as a direct flex-column child of section.s (it fills full w
 Add only when has_image_slot:true in CONFIG or user explicitly requested images.
 
 ━━━ ICON SYSTEM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i data-lucide="[name]"></i> only. NO <script> tags (server injects Lucide automatically).
-Every card/feature slide must have icons. Use icon_names from CONFIG.slides[N].icon_names.
+Use <i data-lucide="[name]"></i> only for names that are present in the CLOSED ICON LIST. NO <script> tags (server injects Lucide automatically).
+If icon_names entry is null, invalid, or not in the CLOSED ICON LIST: omit BOTH <i data-lucide="..."> and its parent <div class="icon-wrapper...">.
+Never render empty icon-wrapper placeholders. Card/feature slides can mix cards with and without icons.
 
 ━━━ OUTPUT STRUCTURE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Start EXACTLY with: <!-- CONFIG
@@ -554,6 +555,7 @@ End with: </body></html>
 ✓ No radial-gradient anywhere in the HTML
 ✓ All text in CONFIG.language (no English labels in non-English decks)
 ✓ No <script> tags, no <img> tags, no invented people/institutions
+✓ Invalid/null icon names render no icon-wrapper (no empty square placeholders)
 ✓ Slide counter on every slide (inline style, never class-based)
 
 Generate the presentation now.
