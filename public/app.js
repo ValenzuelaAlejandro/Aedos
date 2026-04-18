@@ -56,6 +56,16 @@ function gifToStaticDataUrl(file) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const uiLog = window.AedosLogger
+        ? window.AedosLogger.createLogger({ scope: 'UI', minLevel: 'debug' })
+        : {
+            debug: () => { },
+            info: () => { },
+            success: () => { },
+            warn: () => { },
+            error: () => { }
+        };
+
     // Prevent accidental browser navigation when dragging files over the page
     window.addEventListener('dragover', (e) => e.preventDefault(), false);
     window.addEventListener('drop', (e) => e.preventDefault(), false);
@@ -944,7 +954,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const resetWatchdog = () => {
                 clearTimeout(sseWatchdog);
                 sseWatchdog = setTimeout(() => {
-                    console.warn(`SSE watchdog fired after ${SSE_WATCHDOG_MS}ms without activity`);
+                    uiLog.warn('STREAM', 'SSE watchdog fired without activity, cancelling reader', {
+                        timeoutMs: SSE_WATCHDOG_MS
+                    });
                     reader.cancel();
                 }, SSE_WATCHDOG_MS);
             };
@@ -1230,7 +1242,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            console.error(error);
+            uiLog.error('GENERATION', 'Presentation generation failed', { error });
 
             const errTitle = document.getElementById('t-error-title');
             const errSubtitle = document.getElementById('t-error-subtitle');
@@ -1414,7 +1426,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // setupDone=true and permanently locking out the real setup.
             doc.open();
             previewIframe.onload = () => {
-                console.log('initPreview: iframe onload event fired');
+                uiLog.debug('PREVIEW', 'Iframe onload event fired');
                 setTimeout(doSetup, 300);
             };
             doc.write('<!DOCTYPE html>' + html);
@@ -1425,7 +1437,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {
                 // ignore
             }
-            console.log('initPreview: updated iframe with final HTML');
+            uiLog.debug('PREVIEW', 'Preview iframe updated with final HTML');
         }
 
         // Try to detect if already loaded (sync srcdoc or manual write)
@@ -1450,7 +1462,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (attempts < 40) {
                 setTimeout(poll, 250); // retry every 250ms, up to 10s
             } else {
-                console.warn('findSlides: gave up polling, using fallback');
+                uiLog.warn('PREVIEW', 'Slide polling exhausted, activating fallback setup', {
+                    attempts
+                });
                 // Force-complete setup even if slides aren't found yet
                 // (avoids hanging forever if the HTML has an unexpected structure).
                 if (!setupDone) {
@@ -1539,7 +1553,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fontLink.dataset.fonts = '1';
             fontLink.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap';
             iframeDoc.head.appendChild(fontLink);
-            console.log('[Aedos] Google Fonts injected into live preview iframe');
+            uiLog.info('PREVIEW', 'Google Fonts injected into live preview iframe');
         }
 
         const slides = findSlides(iframeDoc);
@@ -2754,7 +2768,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         e.preventDefault();
                     }
                 } catch (err) {
-                    console.error("Error forwarding shortcut to iframe:", err);
+                    uiLog.error('EDITOR', 'Error forwarding keyboard shortcut to iframe', {
+                        error: err
+                    });
                 }
             }
         }

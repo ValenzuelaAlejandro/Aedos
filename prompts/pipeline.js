@@ -11,6 +11,9 @@
 const buildStage1Prompt = require('./stage1-content');
 const buildStage2Prompt = require('./stage2-design');
 const buildStage3Prompt = require('./stage3-compositor');
+const { createLogger, ErrorCategory } = require('../utils/logger');
+
+const pipelineLog = createLogger({ scope: 'PIPELINE' });
 
 // Re-export the legacy prompt for backwards compatibility
 const buildLegacyPrompt = require('./base');
@@ -50,7 +53,7 @@ function extractJson(text) {
  * @returns {Promise<string>} The full text response
  */
 async function runStage(tryModelsFn, prompt, stageName) {
-  console.log(`[Pipeline] Starting ${stageName}...`);
+  pipelineLog.info(ErrorCategory.PIPELINE, 'Stage started', { stage: stageName });
   const startTime = Date.now();
   
   const result = await tryModelsFn(prompt);
@@ -68,7 +71,11 @@ async function runStage(tryModelsFn, prompt, stageName) {
   }
   
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(`[Pipeline] ${stageName} completed in ${elapsed}s (${fullText.length} chars)`);
+  pipelineLog.success(ErrorCategory.PIPELINE, 'Stage completed', {
+    stage: stageName,
+    elapsedSeconds: Number(elapsed),
+    outputChars: fullText.length
+  });
   
   return fullText;
 }
@@ -116,13 +123,20 @@ async function runPipeline({ rawInput, tryModelsStage1, tryModelsStage2, tryMode
   
   // Safety net: Forcibly trim slides array if model hallucinated past the limit to prevent token waste
   if (contentJson.slides.length > maxSlides) {
-    console.log(`[Pipeline] Stage 1 output exceeded maxSlides (${maxSlides}). Trimming array to save tokens.`);
+    pipelineLog.warn(ErrorCategory.VALIDATION, 'Stage 1 exceeded max slides and was trimmed', {
+      maxSlides,
+      receivedSlides: contentJson.slides.length
+    });
     contentJson.slides = contentJson.slides.slice(0, maxSlides);
     contentJson.slide_count = maxSlides;
   }
   
   onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count });
-  console.log(`[Pipeline] Stage 1 extracted: ${contentJson.slide_count} slides, topic="${contentJson.topic}", tone="${contentJson.tone}"`);
+  pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 1 extracted content', {
+    slideCount: contentJson.slide_count,
+    topic: contentJson.topic,
+    tone: contentJson.tone
+  });
   
   // ── Stage 2: Creative Direction ──
   onStageUpdate('stage2', { status: 'running' });
@@ -152,15 +166,22 @@ async function runPipeline({ rawInput, tryModelsStage1, tryModelsStage2, tryMode
   const accent1 = colors[0] || 'undefined';
   const accent2 = colors[1] || accent1;
 
-  console.log(`[Pipeline] Stage 2 resolved: palette=${accent1}/${accent2}, font=${designJson.font_pair}, mood="${designJson.mood_global}"`);
+  pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 2 resolved design', {
+    palettePrimary: accent1,
+    paletteSecondary: accent2,
+    fontPair: designJson.font_pair,
+    mood: designJson.mood_global
+  });
   
   // ── Stage 3: HTML Generation (streamed) ──
   onStageUpdate('stage3', { status: 'running' });
   
   const stage3Prompt = buildStage3Prompt(rawInput, contentJson, designJson);
-  console.log(`[Pipeline] Starting Stage 3 (HTML Compositor) — waiting 2.5s for rate limit reset...`);
+  pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 3 waiting for rate-limit cool-down', {
+    waitMs: 2500
+  });
   await new Promise(r => setTimeout(r, 2500));
-  console.log(`[Pipeline] Starting Stage 3 (HTML Compositor) — streaming...`);
+  pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 3 streaming started');
   
   const stage3Stream = await callStage3(stage3Prompt);
   

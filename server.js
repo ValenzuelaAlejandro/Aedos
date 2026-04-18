@@ -10,6 +10,24 @@ const { runPipeline, buildLegacyPrompt } = require('./prompts/pipeline');
 const buildPrompt = require('./prompts/base'); // kept for fallback
 
 const rateLimit = require('express-rate-limit');
+const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
+
+const log = createLogger({ scope: 'SERVER' });
+const providerLog = log.child('PROVIDER');
+const queueLog = log.child('QUEUE');
+const sanitizerLog = log.child('SANITIZER');
+const devLog = log.child('DEV');
+const puppeteerLog = log.child('PUPPETEER');
+
+const AEDOS_LOGO = [
+    '  █████╗  ███████╗ ██████╗   ██████╗  ███████╗',
+    ' ██╔══██╗ ██╔════╝ ██╔══██╗ ██╔═══██╗ ██╔════╝',
+    ' ███████║ █████╗   ██║  ██║ ██║   ██║ ███████╗',
+    ' ██╔══██║ ██╔══╝   ██║  ██║ ██║   ██║ ╚════██║',
+    ' ██║  ██║ ███████╗ ██████╔╝ ╚██████╔╝ ███████║',
+    ' ╚═╝  ╚═╝ ╚══════╝ ╚═════╝   ╚═════╝  ╚══════╝'
+];
+const SHOULD_PRINT_STARTUP_BANNER = require.main === module;
 
 const app = express();
 // Remove server fingerprint header
@@ -18,6 +36,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const TMP_DIR = path.join(__dirname, 'tmp');
+let requestSequence = 0;
 
 // Queue System State
 let activeGenerations = 0;
@@ -36,6 +55,10 @@ function processQueue() {
     if (activeGenerations < MAX_CONCURRENT_GENERATIONS && queue.length > 0) {
         const { resolve } = queue.shift();
         activeGenerations++;
+        queueLog.debug(ErrorCategory.QUEUE, 'Generation dequeued', {
+            activeGenerations,
+            queueDepth: queue.length
+        });
         resolve();
     }
 }
@@ -66,6 +89,10 @@ const finalizeLimiter = rateLimit({
     message: { error: 'RATE_LIMIT_EXCEEDED' }
 });
 
+if (SHOULD_PRINT_STARTUP_BANNER) {
+    log.banner(AEDOS_LOGO, 'cyan');
+}
+
 // CORS Configuration
 function buildCorsOptions() {
     const env = process.env.NODE_ENV || 'development';
@@ -76,7 +103,7 @@ function buildCorsOptions() {
     if (env === 'production') {
         if (!rawOrigins) {
             throw new Error(
-                '[FATAL] ALLOWED_ORIGINS environment variable is required in production.\n' +
+                'ALLOWED_ORIGINS environment variable is required in production.\n' +
                 'Example: ALLOWED_ORIGINS=https://aedos.app,https://www.aedos.app'
             );
         }
@@ -86,7 +113,7 @@ function buildCorsOptions() {
         for (const origin of allowedOrigins) {
             if (!origin.startsWith('https://') || origin.endsWith('/') || origin.includes('*')) {
                 throw new Error(
-                    `[FATAL] Invalid origin in ALLOWED_ORIGINS: "${origin}"\n` +
+                    `Invalid origin in ALLOWED_ORIGINS: "${origin}"\n` +
                     'Each origin must start with https://, have no trailing slash, and no wildcards.'
                 );
             }
@@ -98,7 +125,9 @@ function buildCorsOptions() {
             'http://localhost:5173',
             'http://127.0.0.1:3000'
         ];
-        console.warn('[CORS WARNING] Using development fallback origins. Set ALLOWED_ORIGINS in .env for production.');
+        log.warn(ErrorCategory.CONFIG, 'Using development fallback CORS origins', {
+            allowedOrigins
+        });
     }
 
     return {
@@ -111,7 +140,7 @@ function buildCorsOptions() {
             if (allowedOrigins.includes(origin)) {
                 return callback(null, true);
             }
-            console.warn(`[CORS REJECTED] origin: ${origin}`);
+            log.warn(ErrorCategory.SECURITY, 'CORS origin rejected', { origin });
             return callback(new Error('Not allowed by CORS'), false);
         },
         methods: ['GET', 'POST'],
@@ -131,24 +160,84 @@ function validateEnvironment() {
     ];
 
     if (!process.env.GEMINI_API_KEY && !(process.env.GEMINI_API_KEY_1 && process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_3)) {
-        throw new Error('[FATAL] Set either GEMINI_API_KEY or all three of GEMINI_API_KEY_1/2/3.');
+        throw new Error('Set either GEMINI_API_KEY or all three of GEMINI_API_KEY_1/2/3.');
     }
 
-    console.log('[BOOT] Environment validation:');
+    log.info(ErrorCategory.BOOT, 'Environment validation started');
     checks.forEach(({ key, value, fallback }) => {
         const val = value || fallback;
-        const symbol = value ? '✓' : '⚠';
-        console.log(`  ${symbol} ${key}: ${val}${!value ? ' (using default)' : ''}`);
+        if (value) {
+            log.info(ErrorCategory.CONFIG, 'Environment variable detected', { key, value: val });
+            return;
+        }
+        log.warn(ErrorCategory.CONFIG, 'Environment variable missing, using fallback', {
+            key,
+            fallback: val
+        });
     });
-    console.log('  ✓ API key: present');
+    log.success(ErrorCategory.CONFIG, 'Gemini API key configuration present');
     if (process.env.OPENROUTER_API_KEY) {
-        console.log(`  ✓ OPENROUTER_API_KEY: present — Flash:qwen, Stage3:minimax`);
+        log.success(ErrorCategory.CONFIG, 'OpenRouter API key present', {
+            flashModel: 'qwen',
+            stage3Model: 'minimax'
+        });
     } else {
-        console.warn(`  ⚠ OPENROUTER_API_KEY: not set — quota fallback disabled`);
+        log.warn(ErrorCategory.CONFIG, 'OpenRouter API key not set, provider fallback disabled');
     }
 }
 
 validateEnvironment();
+
+function shouldTraceRequest(req) {
+    const target = req.path || req.originalUrl || '';
+    return target === '/' ||
+        target.startsWith('/generate') ||
+        target.startsWith('/finalize') ||
+        target.startsWith('/download') ||
+        target.startsWith('/__dev__');
+}
+
+app.use((req, res, next) => {
+    requestSequence += 1;
+    const requestId = `${Date.now().toString(36)}-${requestSequence.toString(36)}`;
+    const startedAt = process.hrtime.bigint();
+    req.requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
+
+    if (shouldTraceRequest(req)) {
+        log.http(ErrorCategory.HTTP, 'Request started', {
+            requestId,
+            method: req.method,
+            path: req.originalUrl,
+            ip: req.ip
+        });
+    }
+
+    res.on('finish', () => {
+        if (!shouldTraceRequest(req)) return;
+        const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+        const payload = {
+            requestId,
+            method: req.method,
+            path: req.originalUrl,
+            status: res.statusCode,
+            durationMs: Number(elapsedMs.toFixed(1)),
+            ip: req.ip
+        };
+
+        if (res.statusCode >= 500) {
+            log.error(ErrorCategory.HTTP, 'Request failed', payload);
+            return;
+        }
+        if (res.statusCode >= 400) {
+            log.warn(ErrorCategory.HTTP, 'Request completed with client error', payload);
+            return;
+        }
+        log.http(ErrorCategory.HTTP, 'Request completed', payload);
+    });
+
+    next();
+});
 
 // Security Headers Middleware
 app.use((req, res, next) => {
@@ -194,6 +283,7 @@ app.use(express.static('public'));
 // Create /tmp/ folder if it doesn't exist
 if (!fs.existsSync(TMP_DIR)) {
     fs.mkdirSync(TMP_DIR, { recursive: true });
+    log.info(ErrorCategory.FILESYSTEM, 'Temporary directory created', { path: TMP_DIR });
 }
 
 // Strips <script> blocks, inline event handlers, and javascript: URLs from
@@ -274,7 +364,10 @@ async function callOpenRouter(prompt, stageName, openrouterModels) {
 
     // Try each configured OpenRouter model until one responds
     for (const model of modelsToTry) {
-        console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Trying OpenRouter → ${model}`);
+        providerLog.info(ErrorCategory.PROVIDER, 'Trying OpenRouter model', {
+            stage: stageName,
+            model
+        });
         try {
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
@@ -293,26 +386,40 @@ async function callOpenRouter(prompt, stageName, openrouterModels) {
 
             if (!response.ok) {
                 const errText = await response.text();
-                console.warn(`   [OpenRouter] model ${model} failed: ${response.status} ${errText}`);
+                providerLog.warn(ErrorCategory.PROVIDER, 'OpenRouter model request failed', {
+                    stage: stageName,
+                    model,
+                    status: response.status,
+                    details: errText
+                });
                 continue;
             }
 
-            console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] OpenRouter OK (${model})`);
+            providerLog.success(ErrorCategory.PROVIDER, 'OpenRouter model accepted request', {
+                stage: stageName,
+                model
+            });
             return { stream: openRouterSSEToChunks(response) };
         } catch (err) {
-            console.warn(`   [OpenRouter] fetch error for ${model}: ${err.message}`);
+            providerLog.warn(classifyError(err, ErrorCategory.NETWORK), 'OpenRouter request error', {
+                stage: stageName,
+                model,
+                error: err
+            });
             continue;
         }
     }
 
     throw new Error('QUOTA_EXHAUSTED');
 }
-// ────────────────────────────────────────────────────────────────────────────
 
 async function callGemini(apiKey, modelList, prompt, stageName) {
     const genAI = new GoogleGenerativeAI(apiKey);
     for (const modelName of modelList) {
-        console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Trying Gemini: ${modelName}`);
+        providerLog.info(ErrorCategory.PROVIDER, 'Trying Gemini model', {
+            stage: stageName,
+            model: modelName
+        });
         try {
             const gemini = genAI.getGenerativeModel({ 
                 model: modelName, 
@@ -324,7 +431,10 @@ async function callGemini(apiKey, modelList, prompt, stageName) {
             });
             const result = await gemini.generateContentStream(prompt);
             if (result && result.response) result.response.catch(() => { });
-            console.log(`[${new Date().toLocaleTimeString()}] [${stageName}] Gemini OK: ${modelName}`);
+            providerLog.success(ErrorCategory.PROVIDER, 'Gemini model accepted request', {
+                stage: stageName,
+                model: modelName
+            });
             return result;
         } catch (err) {
             const rawMsg = err.message || 'Unknown error';
@@ -332,21 +442,33 @@ async function callGemini(apiKey, modelList, prompt, stageName) {
             const is404 = rawMsg.includes('404') || rawMsg.toLowerCase().includes('not found') || rawMsg.toLowerCase().includes('not available');
 
             if (isQuota) {
-                console.warn(`   [${stageName}] Gemini QUOTA EXHAUSTED for ${modelName}: ${rawMsg}`);
+                providerLog.warn(ErrorCategory.QUOTA, 'Gemini model quota exhausted', {
+                    stage: stageName,
+                    model: modelName,
+                    details: rawMsg
+                });
                 continue;
             }
             if (is404) {
-                console.warn(`   [${stageName}] Gemini MODEL UNAVAILABLE for ${modelName}: ${rawMsg}`);
+                providerLog.warn(ErrorCategory.MODEL, 'Gemini model unavailable', {
+                    stage: stageName,
+                    model: modelName,
+                    details: rawMsg
+                });
                 continue;
             }
-            console.error(`   [${stageName}] Gemini UNKNOWN ERROR for ${modelName}: ${rawMsg}`);
+            providerLog.error(classifyError(err, ErrorCategory.PROVIDER), 'Gemini model unexpected error', {
+                stage: stageName,
+                model: modelName,
+                error: err
+            });
             throw err;
         }
     }
     throw new Error('QUOTA_EXHAUSTED');
 }
 
-// ── Model lists ──────────────────────────────────────────────────────────────
+// Model lists
 const GEMINI_MODELS  = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
 const OPENROUTER_QWEN    = ['qwen/qwen3.5-flash-02-23'];
 const OPENROUTER_MINIMAX = ['minimax/minimax-m2.7'];
@@ -366,14 +488,18 @@ function makeCallerFn(apiKey, stageName, sequence) {
                 return await callOpenRouter(prompt, stageName, step.models);
             } catch (err) {
                 lastError = err;
-                console.warn(`   [${stageName}] ${step.provider} exhausted — trying next (${err?.message})`);
+                providerLog.warn(classifyError(err, ErrorCategory.PROVIDER), 'Provider step exhausted, trying next provider', {
+                    stage: stageName,
+                    provider: step.provider,
+                    details: err?.message
+                });
             }
         }
         throw lastError || new Error('QUOTA_EXHAUSTED');
     };
 }
 
-// ── Stage routing ─────────────────────────────────────────────────────────────
+// Stage routing
 // Flash  : qwen → gemini-2.5-flash → gemini-2.5-flash-lite
 // Stage 1: gemini-2.5-flash-lite → gemini-2.5-flash  (Gemini only, no OpenRouter)
 // Stage 2: same as Stage 1
@@ -414,15 +540,22 @@ async function initBrowser() {
                 '--no-zygote'
             ]
         });
+        puppeteerLog.success(ErrorCategory.PUPPETEER, 'Puppeteer browser initialized');
     } catch (error) {
-        console.error("Error starting Puppeteer:", error);
+        puppeteerLog.error(ErrorCategory.PUPPETEER, 'Failed to initialize Puppeteer browser', {
+            error
+        });
     }
 }
 initBrowser();
 
 // Close Puppeteer securely when the server terminates
 process.on('SIGINT', async () => {
-    if (browser) await browser.close();
+    log.info(ErrorCategory.BOOT, 'SIGINT received, shutting down gracefully');
+    if (browser) {
+        await browser.close();
+        puppeteerLog.info(ErrorCategory.PUPPETEER, 'Puppeteer browser closed');
+    }
     process.exit();
 });
 
@@ -483,20 +616,34 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
     let cancelled = false;
     let completed = false;
     let sseKeepAlive = null;
+    let hasGenerationSlot = false;
+    const requestId = req.requestId || 'n/a';
 
     res.on('close', () => {
         if (!completed) {
-            console.log(`[${new Date().toLocaleTimeString()}] Client disconnected — cancelling generation`);
+            log.warn(ErrorCategory.STREAM, 'Client disconnected before generation completed', {
+                requestId
+            });
             cancelled = true;
         }
     });
 
     try {
         const opciones = req.body;
+        log.info(ErrorCategory.PIPELINE, 'Generation request accepted', {
+            requestId,
+            mode: req.body.mode === 'pro' ? 'pro' : 'flash',
+            idioma: req.body.idioma || 'es',
+            requestedSlides: req.body.slides
+        });
 
         const rawTema = opciones.tema || '';
         const sanitizeResult = sanitizeTema(String(rawTema));
         if (!sanitizeResult.valid) {
+            log.warn(ErrorCategory.VALIDATION, 'Topic rejected by sanitizer', {
+                requestId,
+                reason: sanitizeResult.reason
+            });
             return res.status(400).json({ error: `Invalid topic: ${sanitizeResult.reason}` });
         }
 
@@ -507,6 +654,10 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
 
         let slidesNum = req.body.slides !== undefined ? parseInt(req.body.slides, 10) : 5;
         if (isNaN(slidesNum) || slidesNum < 1 || slidesNum > 15) {
+            log.warn(ErrorCategory.VALIDATION, 'Slides validation failed', {
+                requestId,
+                slides: req.body.slides
+            });
             return res.status(422).json({
                 error: 'Validation failed',
                 fields: { slides: 'must be integer between 1 and 15' }
@@ -516,6 +667,11 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
         // Cap the actual slides requested to the AI based on the mode
         const slideHardLimit = usePipeline ? 8 : 15;
         if (slidesNum > slideHardLimit) {
+            log.warn(ErrorCategory.VALIDATION, 'Slides capped to mode hard limit', {
+                requestId,
+                requestedSlides: slidesNum,
+                appliedLimit: slideHardLimit
+            });
             slidesNum = slideHardLimit;
             opciones.slides = slidesNum;
         }
@@ -523,6 +679,10 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
         const VALID_IDIOMAS = ['es', 'en', 'fr', 'pt', 'de'];
         const idiomaVal = req.body.idioma || 'es';
         if (!VALID_IDIOMAS.includes(idiomaVal)) {
+            log.warn(ErrorCategory.VALIDATION, 'Language validation failed', {
+                requestId,
+                idioma: idiomaVal
+            });
             return res.status(422).json({
                 error: 'Validation failed',
                 fields: { idioma: 'must be one of: es, en, fr, pt, de' }
@@ -530,6 +690,9 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
         }
 
         if (!process.env.GEMINI_API_KEY && !(process.env.GEMINI_API_KEY_1 && process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_3)) {
+            log.error(ErrorCategory.CONFIG, 'Generation blocked: Gemini keys missing', {
+                requestId
+            });
             return res.status(500).json({ error: 'Gemini API Key is not configured in .env' });
         }
 
@@ -547,30 +710,59 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
 
         // Manage Entry to the Queue
         if (activeGenerations >= MAX_CONCURRENT_GENERATIONS) {
+            queueLog.warn(ErrorCategory.QUEUE, 'Generation queued due to concurrency limit', {
+                requestId,
+                activeGenerations,
+                queueDepth: queue.length,
+                maxConcurrent: MAX_CONCURRENT_GENERATIONS
+            });
             res.write(`data: ${JSON.stringify({ queued: true, position: queue.length + 1 })}\n\n`);
-            await new Promise((resolve) => {
-                const item = { resolve };
+            const obtainedSlot = await new Promise((resolve) => {
+                const item = { resolve: () => resolve(true) };
                 queue.push(item);
                 req.on('close', () => {
                     const idx = queue.indexOf(item);
-                    if (idx !== -1) queue.splice(idx, 1);
+                    if (idx !== -1) {
+                        queue.splice(idx, 1);
+                        queueLog.warn(ErrorCategory.QUEUE, 'Queued request removed because client disconnected', {
+                            requestId,
+                            queueDepth: queue.length
+                        });
+                        resolve(false);
+                    }
                 });
             });
+            if (!obtainedSlot) {
+                completed = true;
+                return;
+            }
+            hasGenerationSlot = true;
             res.write(`data: ${JSON.stringify({ queued: false })}\n\n`);
+            queueLog.info(ErrorCategory.QUEUE, 'Queued request resumed', {
+                requestId,
+                activeGenerations,
+                queueDepth: queue.length
+            });
         } else {
             activeGenerations++;
+            hasGenerationSlot = true;
+            queueLog.debug(ErrorCategory.QUEUE, 'Generation started without queue wait', {
+                requestId,
+                activeGenerations,
+                queueDepth: queue.length
+            });
         }
 
-        // ────────────────────────────────────────────────
         // Choose generation path: Flash (single-prompt) or Pro (3-stage pipeline)
-        // ────────────────────────────────────────────────
         let result;
         if (!usePipeline) {
             // Flash mode — single-prompt path (default)
             const prompt = buildPrompt(opciones);
+            log.info(ErrorCategory.PIPELINE, 'Running flash generation path', { requestId });
             result = await tryModels(prompt);
         } else {
             // Pro mode — 3-Stage Pipeline: Content → Design → HTML
+            log.info(ErrorCategory.PIPELINE, 'Running pro pipeline path', { requestId });
             res.write(`data: ${JSON.stringify({ pipeline: true, stage: 'content', status: 'running' })}\n\n`);
 
             const pipelineResult = await runPipeline({
@@ -595,16 +787,24 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                     fs.writeFileSync(debugBase + '_content.json', JSON.stringify(pipelineResult.contentJson, null, 2), 'utf8');
                     fs.writeFileSync(debugBase + '_design.json', JSON.stringify(pipelineResult.designJson, null, 2), 'utf8');
                     if (pipelineResult.stage3Prompt) fs.writeFileSync(debugBase + '_stage3prompt.txt', pipelineResult.stage3Prompt, 'utf8');
-                    console.log(`[DEV] Saved pipeline debug JSON → ${debugBase}_*`);
+                    devLog.success(ErrorCategory.FILESYSTEM, 'Saved pipeline debug artifacts', {
+                        requestId,
+                        pathPrefix: `${debugBase}_*`
+                    });
                 } catch (e) {
-                    console.warn('[DEV] Failed to save pipeline debug files:', e.message);
+                    devLog.warn(classifyError(e, ErrorCategory.FILESYSTEM), 'Failed to save pipeline debug artifacts', {
+                        requestId,
+                        error: e
+                    });
                 }
             }
 
             if (cancelled) { res.end(); return; }
 
             result = pipelineResult.stage3Stream;
-            console.log(`[Pipeline] Stage 3 stream ready — beginning HTML streaming to client`);
+            log.info(ErrorCategory.PIPELINE, 'Stage 3 stream ready, starting SSE forwarding', {
+                requestId
+            });
         }
 
         let fullHtml = '';
@@ -628,7 +828,9 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
 
             for await (const chunk of result.stream) {
                 if (cancelled) {
-                    console.log('Generation manually stopped: client disconnected.');
+                    log.warn(ErrorCategory.STREAM, 'Generation loop stopped because client disconnected', {
+                        requestId
+                    });
                     break;
                 }
                 let chunkText = "";
@@ -637,7 +839,10 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                         chunkText = chunk.text();
                     }
                 } catch (e) {
-                    console.warn("Skipping non-text chunk or empty part");
+                    log.debug(ErrorCategory.STREAM, 'Skipping non-text stream chunk', {
+                        requestId,
+                        error: e
+                    });
                     continue;
                 }
 
@@ -648,7 +853,11 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                 if (matches) {
                     streamSlideCount += matches.length;
                     if (streamSlideCount > slideHardLimit) {
-                        console.warn(`[Pipeline] AI attempted to exceed ${slideHardLimit} slides. Terminating stream mid-generation to save tokens.`);
+                        log.warn(ErrorCategory.VALIDATION, 'Stream exceeded slide hard limit, stopping generation', {
+                            requestId,
+                            streamSlideCount,
+                            slideHardLimit
+                        });
                         break;
                     }
                 }
@@ -687,15 +896,24 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                 const hasStyleBlock = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(fullHtml)
                     || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(fullHtml);
                 if (hasStyleBlock) {
-                    console.warn(`Stream parse error recovered — processing ${fullHtml.length} chars (CSS present)`);
+                    log.warn(ErrorCategory.STREAM, 'Recovered from stream parse error because CSS was already present', {
+                        requestId,
+                        htmlChars: fullHtml.length
+                    });
                 } else {
-                    console.warn(`Stream parse error: no design CSS found in ${fullHtml.length} chars — aborting`);
+                    log.warn(ErrorCategory.STREAM, 'Stream parse error without CSS, aborting generation', {
+                        requestId,
+                        htmlChars: fullHtml.length
+                    });
                     res.write(`data: ${JSON.stringify({ error: 'Stream ended before CSS was generated. Please try again.' })}\n\n`);
                     res.end();
                     return;
                 }
             } else {
-                console.error('Error streaming the presentation:', streamErr);
+                log.error(classifyError(streamErr, ErrorCategory.STREAM), 'Error while streaming presentation output', {
+                    requestId,
+                    error: streamErr
+                });
                 res.write(`data: ${JSON.stringify({ error: streamErr.message })}\n\n`);
                 res.end();
                 return;
@@ -726,6 +944,10 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
 
         let cleanedOutput = finalHtml;
         if (!looksLikeHtml) {
+            log.warn(ErrorCategory.VALIDATION, 'Model response was not detected as valid HTML', {
+                requestId,
+                responseChars: finalHtml.length
+            });
             res.write(`data: ${JSON.stringify({ refused: true, message: finalHtml })}\n\n`);
         } else {
             // Trim off any conversational garbage Gemini put *before* the first real HTML tag
@@ -756,7 +978,11 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                 const bodyClose = cleanedOutput.lastIndexOf('</body>');
                 const scripts = bodyClose !== -1 ? cleanedOutput.slice(bodyClose) : '</body></html>';
                 cleanedOutput = cleanedOutput.slice(0, cutIndex) + '\n' + scripts;
-                console.log(`Sanitizer: trimmed presentation from ${slideMatches.length} to ${MAX_SLIDES} slides`);
+                sanitizerLog.info(ErrorCategory.SANITIZER, 'Trimmed extra slides in sanitizer', {
+                    requestId,
+                    beforeSlides: slideMatches.length,
+                    maxSlides: MAX_SLIDES
+                });
             }
 
             // Safety net: strip overflow-y:auto/scroll from inner containers.
@@ -767,7 +993,7 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
             if (overflowScrollRe.test(cleanedOutput) || overflowShorthandRe.test(cleanedOutput)) {
                 cleanedOutput = cleanedOutput.replace(/\boverflow-y\s*:\s*(auto|scroll)\b/gi, 'overflow-y:hidden');
                 cleanedOutput = cleanedOutput.replace(/\boverflow\s*:\s*(auto|scroll)\b/gi, 'overflow:hidden');
-                console.log('Sanitizer: stripped overflow-y:auto/scroll → overflow:hidden');
+                sanitizerLog.info(ErrorCategory.SANITIZER, 'Replaced overflow auto/scroll with hidden');
             }
 
             // Safety net: fix collapsed flex siblings — a div with a custom class but no inline flex:
@@ -786,14 +1012,17 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                 const importLine = looseImport[1];
                 cleanedOutput = cleanedOutput.replace(/[ \t\n]*@import\s+url\([^)]+\);[ \t\n]*/gi, '\n');
                 cleanedOutput = cleanedOutput.replace(/<style>/i, '<style>\n    ' + importLine);
-                console.log('Sanitizer: moved loose @import into <style> block');
+                sanitizerLog.info(ErrorCategory.SANITIZER, 'Moved loose @import into style block');
             }
 
             // Guard: reject HTML without design CSS
             const hasDesignCss = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(cleanedOutput)
                 || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(cleanedOutput);
             if (!hasDesignCss) {
-                console.warn(`[${new Date().toLocaleTimeString()}] Sanitizer: AI output has no design CSS — rejecting (length: ${cleanedOutput.length})`);
+                sanitizerLog.warn(ErrorCategory.SANITIZER, 'Rejected output without design CSS', {
+                    requestId,
+                    outputChars: cleanedOutput.length
+                });
                 res.write(`data: ${JSON.stringify({ error: 'The AI generated a presentation without CSS design. Please try again.' })}\n\n`);
                 res.end();
                 return;
@@ -820,7 +1049,7 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                 } else {
                     cleanedOutput = `<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>\n` + cleanedOutput;
                 }
-                console.log(`[${new Date().toLocaleTimeString()}] Sanitizer: injected Lucide library`);
+                sanitizerLog.info(ErrorCategory.SANITIZER, 'Injected Lucide library');
             }
 
             // 2. Ensure lucide.createIcons() call is present
@@ -831,7 +1060,7 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                 } else {
                     cleanedOutput = cleanedOutput + `\n${call}`;
                 }
-                console.log('Sanitizer: injected lucide-init.js');
+                sanitizerLog.info(ErrorCategory.SANITIZER, 'Injected lucide-init bootstrap script');
             }
 
             // 3. Safety Closer: If the AI output ends abruptly (e.g. cut off in mid-comment or mid-tag),
@@ -850,7 +1079,10 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
 
             if (safetyCloser) {
                 cleanedOutput += safetyCloser;
-                console.log(`Sanitizer: added safety closers: ${safetyCloser}`);
+                sanitizerLog.info(ErrorCategory.SANITIZER, 'Added safety closers to incomplete HTML', {
+                    requestId,
+                    closers: safetyCloser
+                });
             }
 
             // 4. Ensure DOCTYPE remains at the start
@@ -862,8 +1094,17 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
             if ((process.env.NODE_ENV || 'development') !== 'production') {
                 const debugPath = path.join(TMP_DIR, 'last_generated.html');
                 fs.writeFile(debugPath, cleanedOutput, 'utf8', (err) => {
-                    if (err) console.warn('[DEV] Failed to save debug HTML:', err.message);
-                    else console.log(`[DEV] Saved generated HTML → ${debugPath}`);
+                    if (err) {
+                        devLog.warn(classifyError(err, ErrorCategory.FILESYSTEM), 'Failed to save generated debug HTML', {
+                            requestId,
+                            error: err
+                        });
+                        return;
+                    }
+                    devLog.success(ErrorCategory.FILESYSTEM, 'Saved generated debug HTML', {
+                        requestId,
+                        path: debugPath
+                    });
                 });
             }
 
@@ -884,13 +1125,21 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
         let userMessage;
         if (isQuotaError) {
             userMessage = 'The AI service has reached its usage limit. Please try again in a few minutes.';
-            console.warn('All models quota exhausted.');
+            log.warn(ErrorCategory.QUOTA, 'All configured models are quota exhausted', {
+                requestId
+            });
         } else if (isPipelineError) {
             userMessage = 'The AI had trouble understanding the request. Please try rephrasing or adding more detail.';
-            console.error('Pipeline error:', error.message);
+            log.error(ErrorCategory.PIPELINE, 'Pipeline generation failed', {
+                requestId,
+                details: error.message
+            });
         } else {
             userMessage = 'Something went wrong. Please try again.';
-            console.error('Error generating the presentation:', error);
+            log.error(classifyError(error, ErrorCategory.UNKNOWN), 'Unhandled generation failure', {
+                requestId,
+                error
+            });
         }
 
         if (!res.headersSent) {
@@ -901,24 +1150,43 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
         }
     } finally {
         if (sseKeepAlive) clearInterval(sseKeepAlive);
-        activeGenerations--;
-        processQueue();
+        if (hasGenerationSlot) {
+            activeGenerations = Math.max(0, activeGenerations - 1);
+            queueLog.debug(ErrorCategory.QUEUE, 'Generation slot released', {
+                requestId,
+                activeGenerations,
+                queueDepth: queue.length
+            });
+            processQueue();
+        }
     }
 });
 
 // Finalize: receive (possibly modified) HTML, convert to PDF
 app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (req, res) => {
+    const requestId = req.requestId || 'n/a';
     try {
         const { html, title } = req.body;
 
+        log.info(ErrorCategory.PUPPETEER, 'Finalize request accepted', {
+            requestId,
+            title: title || null
+        });
+
         if (!html || typeof html !== 'string') {
+            log.warn(ErrorCategory.VALIDATION, 'Finalize rejected: html missing or invalid type', {
+                requestId
+            });
             return res.status(400).json({ error: 'HTML content is required' });
         }
         if (html.length > 2 * 1024 * 1024) { // 2MB
+            log.warn(ErrorCategory.VALIDATION, 'Finalize rejected: payload too large', {
+                requestId,
+                htmlBytes: html.length
+            });
             return res.status(400).json({ error: 'Payload too large' });
         }
 
-        const timestamp = Date.now();
         const pdfFilename = `pdf_${crypto.randomBytes(16).toString('hex')}.pdf`;
         const pdfPath = path.join(TMP_DIR, pdfFilename);
 
@@ -952,19 +1220,25 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
             // Using a separate waitForNetworkIdle with .catch() instead of 'networkidle2' in
             // setContent so it NEVER hangs the request — it gracefully skips on timeout.
             await page.waitForNetworkIdle({ idleTime: 500, timeout: 12000 }).catch(() => {
-                console.warn('Network did not reach idle before timeout — rendering with available fonts');
+                puppeteerLog.warn(ErrorCategory.NETWORK, 'Network did not reach idle before timeout', {
+                    requestId
+                });
             });
 
             // Step 3: wait for FontFaceSet to confirm fonts are ready after the network settled
             await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {
-                console.warn('Font loading check failed (non-fatal)');
+                puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Font loading check failed (non-fatal)', {
+                    requestId
+                });
             });
             // Wait for Lucide icons to render
             await page.waitForFunction(() => {
                 const pendingIcons = document.querySelectorAll('i[data-lucide]');
                 return pendingIcons.length === 0;
             }, { timeout: 8000 }).catch(() => {
-                console.warn('Lucide icons may not have fully rendered (timeout)');
+                puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Lucide icons may not have fully rendered (timeout)', {
+                    requestId
+                });
             });
             // Prevent trailing blank page; also lock big-number against wrapping
             // (font metrics in Puppeteer can differ enough to push '30%' to 2 lines)
@@ -1011,7 +1285,9 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
                     });
                 });
             }).catch(() => {
-                console.warn('Puppeteer-side layout normalization failed (non-fatal)');
+                puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Puppeteer layout normalization failed (non-fatal)', {
+                    requestId
+                });
             });
             await page.pdf({
                 path: pdfPath,
@@ -1027,24 +1303,38 @@ app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (r
         const safeTitle = title ? title.replace(/[\/\\?%*:|<|>]/g, '-').trim() : 'Presentacion';
         res.set('Cache-Control', 'no-store');
         res.json({ pdfUrl: `/download/${pdfFilename}?name=${encodeURIComponent(safeTitle)}` });
+        log.success(ErrorCategory.PUPPETEER, 'PDF generated successfully', {
+            requestId,
+            pdfFilename
+        });
 
         setTimeout(() => {
             if (fs.existsSync(pdfPath)) {
                 fs.unlink(pdfPath, () => { });
-                console.log(`Auto-deleted unclaimed PDF: ${pdfFilename}`);
+                log.info(ErrorCategory.FILESYSTEM, 'Auto-deleted unclaimed PDF', {
+                    pdfFilename
+                });
             }
         }, 10 * 60 * 1000);
     } catch (error) {
-        console.error('Error finalizing PDF:', error);
+        log.error(classifyError(error, ErrorCategory.PUPPETEER), 'Failed to finalize PDF', {
+            requestId,
+            error
+        });
         res.status(500).json({ error: 'Error generating PDF: ' + (error.message || error) });
     }
 });
 
 app.get('/download/:filename', (req, res) => {
+    const requestId = req.requestId || 'n/a';
     const filename = req.params.filename;
 
     // Security: avoid path traversal
     if (filename.includes('/') || filename.includes('..')) {
+        log.warn(ErrorCategory.SECURITY, 'Blocked download path traversal attempt', {
+            requestId,
+            filename
+        });
         return res.status(400).send('Invalid file');
     }
 
@@ -1052,6 +1342,10 @@ app.get('/download/:filename', (req, res) => {
 
     // Stop if file doesn't exist
     if (!fs.existsSync(filePath)) {
+        log.warn(ErrorCategory.DOWNLOAD, 'Download failed: file not found', {
+            requestId,
+            filename
+        });
         return res.status(404).send('File not found');
     }
 
@@ -1064,10 +1358,25 @@ app.get('/download/:filename', (req, res) => {
 
     res.download(filePath, downloadName, (err) => {
         if (err) {
-            console.error('Error downloading the file:', err);
+            log.error(classifyError(err, ErrorCategory.DOWNLOAD), 'Error sending download file', {
+                requestId,
+                filename,
+                error: err
+            });
         } else {
+            log.success(ErrorCategory.DOWNLOAD, 'File downloaded successfully', {
+                requestId,
+                filename,
+                downloadName
+            });
             fs.unlink(filePath, (unlinkErr) => {
-                if (unlinkErr) console.error('Error deleting the temporary file:', unlinkErr);
+                if (unlinkErr) {
+                    log.error(classifyError(unlinkErr, ErrorCategory.FILESYSTEM), 'Failed to delete temporary file after download', {
+                        requestId,
+                        filename,
+                        error: unlinkErr
+                    });
+                }
             });
         }
     });
@@ -1075,7 +1384,10 @@ app.get('/download/:filename', (req, res) => {
 
 if (require.main === module) {
     const server = app.listen(PORT, () => {
-        console.log(`Aedos running at http://localhost:${PORT}`);
+        log.success(ErrorCategory.BOOT, 'Aedos server started', {
+            url: `http://localhost:${PORT}`,
+            env: process.env.NODE_ENV || 'development'
+        });
     });
 
     // Allow long-running AI generations before Node gives up on the request.
