@@ -744,7 +744,6 @@
         border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
         color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
-    /* No overflow: hidden — needed for CSS tooltip ::after to escape */
 }
 
 .btn-mode-toggle:hover {
@@ -774,14 +773,9 @@
     pointer-events: none;
 }
 
-.btn-mode-toggle:disabled:hover,
-.btn-mode-toggle:disabled:hover::after {
+.btn-mode-toggle:disabled:hover {
     background: var(--surface2);
     border-color: var(--border);
-}
-
-.btn-mode-toggle:disabled::after {
-    opacity: 0 !important;
 }
 
 /* Light theme overrides */
@@ -817,33 +811,17 @@
     pointer-events: none;
 }
 
-:root[data-theme="light"] .btn-mode-toggle:disabled:hover,
-:root[data-theme="light"] .btn-mode-toggle:disabled:hover::after {
+:root[data-theme="light"] .btn-mode-toggle:disabled:hover {
     background: #F9FAFB;
     border-color: #E2E8F0;
 }
 
-/* Consolidated Custom Tooltip Logic (Header Icons + Mode Toggle) */
-.btn-mode-toggle,
-.theme-toggle-btn,
-.control-pill-icon {
-    position: relative;
-    /* Ensure tooltips are not clipped */
-}
-
-.btn-mode-toggle[data-tooltip]:not([data-tooltip=""])::after,
-.theme-toggle-btn[data-tooltip]:not([data-tooltip=""])::after,
-.control-pill-icon[data-tooltip]:not([data-tooltip=""])::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: 50%;
-    right: auto;
-    --tooltip-x: -50%;
-    --tooltip-y: 0;
-    transform: translateX(var(--tooltip-x)) translateY(var(--tooltip-y)) translateZ(0);
-    width: var(--tooltip-width, 120px);
+/* ── Tooltip singleton (JS-controlled, position: fixed) ── */
+#js-tooltip {
+    position: fixed;
+    z-index: 99999;
     background: #111111;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255,255,255,0.15);
     color: #FFFFFF;
     font-size: 0.74rem;
     font-weight: 500;
@@ -852,106 +830,23 @@
     white-space: normal;
     text-align: center;
     pointer-events: none;
+    max-width: 220px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    z-index: 9999;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    transition: opacity 0.15s ease;
 }
 
-/* Edge stability: avoid transform animation on theme tooltip to prevent full-page flicker */
-.theme-toggle-btn[data-tooltip]:not([data-tooltip=""])::after {
-    transition: opacity 0.2s ease;
-}
-
-/* Position header tooltips BELOW (they are at the top) */
-.theme-toggle-btn::after,
-.control-pill-icon::after {
-    top: calc(100% + 10px);
-    bottom: auto;
-}
-
-/* Position Mode Toggle tooltip ABOVE (it is near bottom) */
-.btn-mode-toggle::after {
-    bottom: calc(100% + 10px);
-    top: auto;
-    min-width: 200px;
-}
-
-/* Horizontal collision handling for narrow viewports and edge controls */
-.btn-mode-toggle[data-tooltip-align="start"]::after,
-.theme-toggle-btn[data-tooltip-align="start"]::after,
-.control-pill-icon[data-tooltip-align="start"]::after {
-    left: 0;
-    right: auto;
-    --tooltip-x: 0;
-}
-
-.btn-mode-toggle[data-tooltip-align="end"]::after,
-.theme-toggle-btn[data-tooltip-align="end"]::after,
-.control-pill-icon[data-tooltip-align="end"]::after {
-    left: auto;
-    right: 0;
-    --tooltip-x: 0;
-}
-
-/* Vertical flip when preferred side does not have enough space */
-.btn-mode-toggle[data-tooltip-vertical="below"]::after,
-.theme-toggle-btn[data-tooltip-vertical="below"]::after,
-.control-pill-icon[data-tooltip-vertical="below"]::after {
-    top: calc(100% + 10px);
-    bottom: auto;
-}
-
-.btn-mode-toggle[data-tooltip-vertical="above"]::after,
-.theme-toggle-btn[data-tooltip-vertical="above"]::after,
-.control-pill-icon[data-tooltip-vertical="above"]::after {
-    bottom: calc(100% + 10px);
-    top: auto;
-}
-
-:root[data-theme="light"] .btn-mode-toggle::after,
-:root[data-theme="light"] .theme-toggle-btn::after,
-:root[data-theme="light"] .control-pill-icon::after {
-    background: #FFFFFF;
-    border: 1px solid #E5E7EB;
-    color: #111827;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):hover::after,
-.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):focus-visible::after,
-.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):hover::after,
-.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):focus-visible::after,
-.control-pill-icon[data-tooltip]:not([data-tooltip=""]):hover::after,
-.control-pill-icon[data-tooltip]:not([data-tooltip=""]):focus-within::after {
+#js-tooltip.visible {
     opacity: 1;
     visibility: visible;
 }
 
-.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):active::after,
-.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):active::after,
-.control-pill-icon[data-tooltip]:not([data-tooltip=""]):active::after {
-    opacity: 0;
-    visibility: hidden;
-    transition: none;
-}
-
-.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):hover::after,
-.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):focus-visible::after,
-.control-pill-icon[data-tooltip]:not([data-tooltip=""]):hover::after,
-.control-pill-icon[data-tooltip]:not([data-tooltip=""]):focus-within::after {
-    --tooltip-y: 4px;
-}
-
-.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):hover::after,
-.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):focus-visible::after {
-    --tooltip-y: 0;
-}
-
-.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):hover::after,
-.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):focus-visible::after {
-    --tooltip-y: -4px;
+:root[data-theme="light"] #js-tooltip {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    color: #111827;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 /* Icon management — show one at a time */
