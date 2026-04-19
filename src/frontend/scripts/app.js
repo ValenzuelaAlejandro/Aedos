@@ -2377,6 +2377,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 slot.dataset.imageSlot = 'gen-' + Math.random().toString(36).substr(2, 9);
             }
 
+            // Ensure every normalized slot has a parent-side input/label entry.
+            // Some templates define only .img-slot (without data-image-slot), and
+            // those were previously skipped by the first overlay build pass.
+            _buildOverlayForSlot(slot);
+
             // Hide decorative shapes (circles/blobs) — keep gradient overlays
             Array.from(slot.children).forEach(child => {
                 const s = child.style;
