@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg: #FFF5F8;
+    --surface: #FFFFFF;
+    --surface2: #F0F0F0;
+    --accent: #FF69B4;
+    --accent-dim: rgba(255, 105, 180, 0.15);
+    --accent-light: #FFB6C1;
+    --accent-2: #FF8C00;
+    --accent-2-dim: rgba(255, 140, 0, 0.15);
+    --accent-3: #32CD32;
+    --accent-3-dim: rgba(50, 205, 50, 0.15);
+    --text: #2D2D2D;
+    --text-dim: #555555;
+    --border: #E0E0E0;
+    --base-p: 1.5rem;
+    --base-h2: 4.5rem;
+    --base-h3: 2.4rem;
+    --base-gap: 2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'DM Sans',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'Syne',sans-serif; margin:0; line-height:1.05; color:var(--text); flex-shrink:0; }
+  h1 { font-size:7rem; font-weight:800; letter-spacing:-.03em; }
+  h2 { font-size:var(--base-h2); font-weight:800; letter-spacing:-.02em; margin-bottom:1rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.5rem; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  .tag { font-size:1.2rem; font-weight:800; color:var(--accent-2); text-transform:uppercase; letter-spacing:.2rem; margin-bottom:2rem; display:flex; align-items:center; gap:1rem; }
+  .tag::before { content:''; width:3rem; height:4px; background:var(--accent-3); border-radius:2px; }
+  .subtitle { font-size:2rem; color:var(--text-dim); max-width:85%; margin-bottom:3rem; line-height:1.3; font-weight:500; }
+  .big-number { font-size:10rem; font-weight:800; color:var(--accent-2); line-height:.9; font-family:'Syne',sans-serif; }
+  .big-label { font-size:1.6rem; font-weight:700; color:var(--text); margin-top:1rem; text-transform:uppercase; }
+  .quote-block { border-left:8px solid var(--accent); padding-left:3rem; margin:2rem 0; }
+  .quote-block blockquote { font-size:3.5rem; font-family:'Syne',sans-serif; font-weight:800; color:var(--text); margin:0 0 1.5rem; line-height:1.1; }
+  .quote-block cite { font-size:1.8rem; color:var(--accent-2); font-style:normal; font-weight:700; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:4rem 2rem; background:var(--surface); border-radius:24px; border:3px solid var(--accent-3); transition: transform 0.3s ease; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; align-items:stretch; }
+  .flex-col { display:flex; flex-direction:column; gap:2rem; flex:1; min-height:0; }
+  .card { background:var(--surface); border:2px solid var(--border); border-radius:20px; padding:3rem; display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; }
+  .card.accent { border-color:var(--accent); background:var(--accent-dim); }
+  .card.accent-2 { border-color:var(--accent-2); background:var(--accent-2-dim); }
+  .icon-wrapper { width:50px; height:50px; border-radius:15px; background:var(--accent-3-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem; }
+  [data-lucide] { width:28px; height:28px; stroke-width:2.5; color:var(--accent-3); }
+  .accent-bar { width:10rem; height:8px; background:linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3)); border-radius:4px; margin-bottom:3rem; }
+  .img-slot { position:relative; overflow:hidden; border-radius:24px; }
+  .img-bg1 { position:absolute; inset:0; background:linear-gradient(45deg, var(--accent), var(--accent-2), var(--accent-3)); opacity:0.2; }
+  .img-bg2 { position:absolute; inset:0; background: url('https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=800') center/cover no-repeat; mix-blend-mode: multiply; }
+</style>
+
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1: COVER -->
+<section class="s" style="justify-content:center;">
+  <div class="tag">Tyler, the Creator</div>
+  <h1 style="color:var(--accent); margin-bottom:1rem;">EL GENIO DE LA<br><span style="color:var(--accent-2)">ESTÉTICA</span></h1>
+  <p class="subtitle">Una exploración visual de la mente creativa detrás de GOLF WANG y Odd Future.</p>
+  <div class="accent-bar"></div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 8</p>
+</section>
+
+<!-- SLIDE 2: EDITORIAL -->
+<section class="s">
+  <div class="tag">02 · VISIÓN</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:60% 40%;gap:4rem;align-items:start;">
+    <div>
+      <h2 style="font-size:6rem; color:var(--accent-3);">UN ARTISTA<br><span style="color:var(--text)">SIN FRONTERAS</span></h2>
+      <p style="font-size:1.8rem;line-height:1.6;color:var(--text-dim);margin-top:2rem;">Tyler Okonma ha redefinido el hip-hop moderno a través de la producción, el diseño y la dirección cinematográfica.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2rem;padding-top:2rem;">
+      <div class="card accent" style="padding:2rem;">
+        <h3 style="color:var(--accent)">Producción</h3>
+        <p style="font-size:1.4rem;">Composiciones complejas y autodidactas.</p>
+      </div>
+      <div class="card accent-2" style="padding:2rem;">
+        <h3 style="color:var(--accent-2)">Moda</h3>
+        <p style="font-size:1.4rem;">GOLF WANG y el lujo de Le FLEUR*.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 8</p>
+</section>
+
+<!-- SLIDE 3: STATS -->
+<section class="s">
+  <div class="tag">03 · IMPACTO</div>
+  <h2>ÉXITO EN NÚMEROS</h2>
+  <p class="subtitle">Dominio comercial y reconocimiento de la crítica especializada.</p>
+  <div class="stat-grid">
+    <div class="stat-box">
+      <div class="big-number">2</div>
+      <div class="big-label">Grammys Ganados</div>
+    </div>
+    <div class="stat-box" style="border-color:var(--accent)">
+      <div class="big-number" style="color:var(--accent)">#1</div>
+      <div class="big-label">Billboard 200</div>
+    </div>
+    <div class="stat-box" style="border-color:var(--accent-2)">
+      <div class="big-number" style="color:var(--accent-2)">30M</div>
+      <div class="big-label">Oyentes Mensuales</div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 8</p>
+</section>
+
+<!-- SLIDE 4: CARDS -->
+<section class="s">
+  <div class="tag">04 · IDENTIDAD</div>
+  <h2>ALTER EGOS ICÓNICOS</h2>
+  <p class="subtitle">Cada álbum es una nueva identidad visual y sonora única.</p>
+  <div class="grid-3">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="user"></i></div>
+      <h3>Wolf Haley</h3>
+      <p>La rebeldía juvenil y el caos de los inicios en el Camp Flog Gnaw.</p>
+    </div>
+    <div class="card accent-2">
+      <div class="icon-wrapper" style="background:var(--accent-2-dim)"><i data-lucide="zap" style="color:var(--accent-2)"></i></div>
+      <h3>IGOR</h3>
+      <p>El desamor personificado en una peluca rubia y trajes de colores pastel.</p>
+    </div>
+    <div class="card" style="border-color:var(--accent-3); background:var(--accent-3-dim)">
+      <div class="icon-wrapper" style="background:var(--accent-3-dim)"><i data-lucide="compass" style="color:var(--accent-3)"></i></div>
+      <h3>Baudelaire</h3>
+      <p>El viajero sofisticado que abraza el lujo y la exploración global.</p>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 8</p>
+</section>
+
+<!-- SLIDE 5: SPLIT -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;">
+  <div class="img-slot" style="flex:0 0 450px;border-radius:0;">
+    <div class="img-bg1" style="opacity:0.6; background:var(--accent-2);"></div>
+    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:white; font-family:'Syne'; font-size:4rem; text-align:center; padding:2rem; z-index:5;">GOLF<br>WANG</div>
+  </div>
+  <div style="flex:1;padding:4rem 5rem;display:flex;flex-direction:column;gap:2rem;">
+    <div class="tag">05 · ESTILO</div>
+    <h2>MODA DISRUPTIVA</h2>
+    <div class="flex-col">
+      <div class="card accent">
+        <div class="icon-wrapper"><i data-lucide="award"></i></div>
+        <h3>Le FLEUR*</h3>
+        <p>Lujo excéntrico que redefine la elegancia moderna con tonos pastel.</p>
+      </div>
+      <div class="card accent-2">
+        <div class="icon-wrapper" style="background:var(--accent-2-dim)"><i data-lucide="briefcase" style="color:var(--accent-2)"></i></div>
+        <h3>Colaboraciones</h3>
+        <p>Desde Converse hasta Louis Vuitton, Tyler marca tendencia global.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 8</p>
+</section>
+
+<!-- SLIDE 6: TIMELINE -->
+<section class="s">
+  <div class="tag">06 · HISTORIA</div>
+  <h2>HITOS DE SU CARRERA</h2>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+    <div style="display:flex;width:100%;gap:4rem;">
+      <div style="flex:1;">
+        <div style="height:8px;background:var(--accent);border-radius:4px;margin-bottom:2rem;width:100%;"></div>
+        <p style="font-weight:800;color:var(--accent);margin-bottom:1rem;">2011</p>
+        <h3 style="font-size:2.2rem;">Goblin</h3>
+        <p style="font-size:1.4rem;">El estallido de Odd Future y el video de 'Yonkers'.</p>
+      </div>
+      <div style="flex:1;">
+        <div style="height:8px;background:var(--accent-2);border-radius:4px;margin-bottom:2rem;width:100%;"></div>
+        <p style="font-weight:800;color:var(--accent-2);margin-bottom:1rem;">2017</p>
+        <h3 style="font-size:2.2rem;">Flower Boy</h3>
+        <p style="font-size:1.4rem;">Giro hacia un sonido melódico y personal.</p>
+      </div>
+      <div style="flex:1;">
+        <div style="height:8px;background:var(--accent-3);border-radius:4px;margin-bottom:2rem;width:100%;"></div>
+        <p style="font-weight:800;color:var(--accent-3);margin-bottom:1rem;">2021</p>
+        <h3 style="font-size:2.2rem;">CMIYGL</h3>
+        <p style="font-size:1.4rem;">Consolidación como el mejor productor actual.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 8</p>
+</section>
+
+<!-- SLIDE 7: QUOTE -->
+<section class="s" style="justify-content:center; background:var(--accent-dim);">
+  <div class="tag" style="color:var(--text)">07 · MENTALIDAD</div>
+  <div class="quote-block">
+    <blockquote style="font-size:5rem;">"I'm not a rapper. I'm an artist who happens to rap."</blockquote>
+    <cite>— Tyler, the Creator</cite>
+  </div>
+  <p style="margin-top:4rem;max-width:70%;font-size:1.8rem;font-weight:500;">Su enfoque desafía las etiquetas tradicionales, priorizando la visión creativa sobre cualquier género musical.</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">7 / 8</p>
+</section>
+
+<!-- SLIDE 8: CONCLUSION -->
+<section class="s" style="align-items:center;justify-content:center;text-align:center; background: linear-gradient(135deg, #FFF5F8 0%, #FFECD2 100%);">
+  <div class="accent-bar" style="margin:0 auto 3rem; width:15rem;"></div>
+  <h2 style="font-size:6rem;max-width:80%;margin-bottom:3rem;">EL FUTURO ES<br><span style="color:var(--accent)">CREATIVO</span></h2>
+  <p class="subtitle" style="text-align:center;margin:0 auto;">Tyler sigue empujando los límites de lo que un artista puede ser en la era moderna.</p>
+  <p style="margin-top:4rem;font-weight:800;color:var(--accent-3);font-size:2.2rem;letter-spacing:0.1em;text-transform:uppercase;">Explora el universo de GOLF WANG</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">8 / 8</p>
+</section>
+
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

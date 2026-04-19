@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#121212;
+    --surface:#1a1a1a;
+    --surface2:#222222;
+    --accent:#2ecc71;
+    --accent-dim:rgba(46, 204, 113, 0.15);
+    --accent-light:#58d68d;
+    --accent-2:#e74c3c;
+    --accent-2-dim:rgba(231, 76, 60, 0.15);
+    --text:#ffffff;
+    --text-dim:#a0a0a0;
+    --border:#333333;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'Inter',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'Space Grotesk',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  ul { margin:.8rem 0 0; padding-left:1.8rem; }
+  ul li { font-size:var(--base-p); line-height:1.6; color:var(--text-dim); margin-bottom:.4rem; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .subtitle { font-size:calc(var(--base-p)*1.25); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); line-height:1; font-family:'Space Grotesk',serif; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+  .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--text); margin:0 0 .8rem; line-height:1.4; }
+  .quote-block cite { font-size:1.3rem; color:var(--accent); font-style:normal; }
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; min-height:0; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; }
+  .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+  .step-content { min-width:0; flex:1; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2.5rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); min-width:0; overflow:hidden; }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; align-items:start; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; align-items:start; }
+  .flex-row { display:flex; gap:var(--base-gap); align-items:stretch; width:100%; flex:1; min-height:0; overflow:hidden; }
+  .flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; min-width:0; overflow:hidden; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; min-height:0; min-width:0; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
+  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; flex-shrink:0; }
+  .icon-wrapper.sec { background:var(--accent-2-dim); }
+  [data-lucide],svg.lucide { width:20px; height:20px; stroke-width:2; flex-shrink:0; color:var(--accent); }
+  .icon-wrapper.sec [data-lucide] { color:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; margin-bottom:2rem; flex-shrink:0; }
+  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
+  h1 { font-size: clamp(2.5rem, 4.8vw, 6rem); }
+  h2 { font-size: clamp(2rem, 3.5vw, var(--base-h2)); }
+  h3 { font-size: clamp(1.2rem, 2.2vw, var(--base-h3)); }
+</style>
+
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1: COVER -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div class="tag">Gorillaz history band</div>
+  <h1 style="color:var(--accent);font-size:6rem;line-height:.92;letter-spacing:-.03em;margin-bottom:2rem;">Gorillaz: The Virtual Revolution</h1>
+  <p class="subtitle">The evolution of the world's most successful virtual band.</p>
+  <div class="accent-bar"></div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 8</p>
+</section>
+
+<!-- SLIDE 2: CARDS-3 -->
+<section class="s">
+  <div class="tag">02 · THE MEMBERS</div>
+  <h2>The Four Pillars</h2>
+  <p class="subtitle">The fictional characters that define the band's identity.</p>
+  <div class="grid-3" style="flex:1;min-height:0;">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="user"></i></div>
+      <h3>2-D</h3>
+      <p>The dreamy lead vocalist with the blue hair and missing front teeth.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper sec"><i data-lucide="zap"></i></div>
+      <h3>Murdoc</h3>
+      <p>The chaos-driven bassist and self-proclaimed leader of the group.</p>
+    </div>
+    <div class="card accent-2">
+      <div class="icon-wrapper"><i data-lucide="award"></i></div>
+      <h3>Noodle</h3>
+      <p>The Japanese guitar prodigy who arrived in a FedEx crate.</p>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 8</p>
+</section>
+
+<!-- SLIDE 3: TIMELINE -->
+<section class="s">
+  <div class="tag">03 · HISTORY</div>
+  <h2>Phase Evolution</h2>
+  <div style="flex:1;min-height:0;display:flex;justify-content:center;flex-direction:column;">
+    <div style="display:flex;width:100%;gap:2rem;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">1998</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Formation</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Damon Albarn and Jamie Hewlett conceive the idea while watching MTV.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent-2);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent-2);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">2001</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Debut LP</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Clint Eastwood becomes a global hit, merging hip-hop and alternative rock.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">2005</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Demon Days</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">The band reaches critical peak with Feel Good Inc. and multi-platinum sales.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 8</p>
+</section>
+
+<!-- SLIDE 4: EDITORIAL -->
+<section class="s">
+  <div class="tag">04 · CREATORS</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
+    <div>
+      <h2 style="font-size:5rem;line-height:.95;letter-spacing:-.02em;margin-bottom:2rem;">The <span style="color:var(--accent)">Masterminds</span> behind the mask</h2>
+      <p style="font-size:1.4rem;line-height:1.65;color:var(--text-dim);max-width:48rem;">A unique partnership between music and visual storytelling. While one crafts the sonic landscapes, the other builds the immersive world of Kong Studios and Plastic Beach.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:1rem;">
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Damon Albarn: Musical architect and Blur frontman.</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Jamie Hewlett: Visual creator and Tank Girl artist.</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">A perfect fusion of sound and sight across decades.</p></div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 8</p>
+</section>
+
+<!-- SLIDE 5: STATS -->
+<section class="s">
+  <div class="tag">05 · SUCCESS</div>
+  <h2>Impact in Numbers</h2>
+  <p class="subtitle">Commercial and critical success by the numbers.</p>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="big-number">27M</div><div class="big-label">Albums Sold</div></div>
+    <div class="stat-box"><div class="big-number">1</div><div class="big-label">Grammy Award</div></div>
+    <div class="stat-box"><div class="big-number">10+</div><div class="big-label">Creative Phases</div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 8</p>
+</section>
+
+<!-- SLIDE 6: COMPARISON -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--bg);">
+    <div class="tag">VIRTUAL</div>
+    <h2 style="font-size:3rem;color:var(--accent);">The Lore</h2>
+    <p>The fictional narrative that spans music videos and books.</p>
+    <ul><li>Animated personas</li><li>Deep character backstories</li><li>Kong Studios environment</li></ul>
+  </div>
+  <div style="width:2px;background:var(--border);flex-shrink:0;"></div>
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--surface);">
+    <div class="tag">PHYSICAL</div>
+    <h2 style="font-size:3rem;color:var(--accent-2);">The Show</h2>
+    <p>How the music is brought to life for real audiences.</p>
+    <ul><li>Live musicians behind screens</li><li>Holographic projections</li><li>Global collaborative tours</li></ul>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 8</p>
+</section>
+
+<!-- SLIDE 7: STEPS -->
+<section class="s">
+  <div class="tag">07 · WORKFLOW</div>
+  <h2>Building a Phase</h2>
+  <p class="subtitle">The three-step process of launching a new Gorillaz era.</p>
+  <div class="steps-list">
+    <div class="step-item"><div class="step-num">1</div><div class="step-content"><h3>Concept & Lore</h3><p>Hewlett and Albarn define the visual theme and narrative setting for the characters.</p></div></div>
+    <div class="step-item"><div class="step-num">2</div><div class="step-content"><h3>Musical Collaboration</h3><p>Recording sessions with a rotating cast of guest artists from diverse genres.</p></div></div>
+    <div class="step-item"><div class="step-num">3</div><div class="step-content"><h3>Visual Execution</h3><p>Animation and music videos are produced to bridge the music with the story.</p></div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">7 / 8</p>
+</section>
+
+<!-- SLIDE 8: CONCLUSION -->
+<section class="s" style="align-items:center;justify-content:center;text-align:center;overflow:hidden;">
+  <div class="accent-bar" style="margin:0 auto 2rem;"></div>
+  <h2 style="max-width:72%;text-align:center;margin-bottom:2rem;">Gorillaz redefined what a band could be in the digital age.</h2>
+  <p class="subtitle" style="text-align:center;margin:0 auto;">Merging music, art, and technology into a singular, evolving experience.</p>
+  <p style="margin-top:2.5rem;font-weight:600;color:var(--accent);font-size:1.6rem;">Reject False Icons</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">8 / 8</p>
+</section>
+
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

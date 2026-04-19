@@ -295,7 +295,18 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(express.static(path.join(__dirname, '..', 'frontend')));
+app.use(express.static(path.join(__dirname, '..', 'frontend'), {
+    setHeaders: (res, filePath) => {
+        const lowerPath = String(filePath || '').toLowerCase();
+        const shouldDisableCache = IS_DEVELOPMENT || lowerPath.endsWith('.html');
+        if (!shouldDisableCache) return;
+
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+    }
+}));
 
 
 function ensureDirectory(dirPath, description) {
@@ -672,6 +683,10 @@ process.on('SIGINT', async () => {
 
 // Routes
 app.get('/', (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
     res.sendFile(path.join(__dirname, '..', 'frontend', 'pages', 'index.html'));
 });
 

@@ -1,4 +1,4 @@
-(function initAedosBrowserLogger(global) {
+(function initBrowserLogger(global) {
     const LEVEL_PRIORITY = {
         debug: 10,
         info: 20,
@@ -57,7 +57,7 @@
         };
     }
 
-    global.AedosLogger = {
+    global.BrowserLogger = {
         createLogger
     };
 })(window);

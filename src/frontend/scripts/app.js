@@ -56,8 +56,8 @@ function gifToStaticDataUrl(file) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const uiLog = window.AedosLogger
-        ? window.AedosLogger.createLogger({ scope: 'UI', minLevel: 'debug' })
+    const uiLog = window.BrowserLogger
+        ? window.BrowserLogger.createLogger({ scope: 'UI', minLevel: 'debug' })
         : {
             debug: () => { },
             info: () => { },
@@ -130,6 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let previewIframe = document.getElementById('preview-iframe');
     const slideDots = document.getElementById('slide-dots');
     const slideLabel = document.getElementById('slide-label');
+    const mobileSlideDots = document.getElementById('mobile-slide-dots');
+    const mobileSlideLabel = document.getElementById('mobile-slide-label');
     const previewHeader = document.querySelector('.preview-unified-header');
     const finalizeBtn = document.getElementById('finalize-btn');
     const progressBarEl = document.getElementById('loading-progress-bar');
@@ -165,8 +167,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetMobileZoomState() {
+        if (window.MobileRuntime && typeof window.MobileRuntime.resetZoomState === 'function') {
+            window.MobileRuntime.resetZoomState();
+            return;
+        }
         window._mobile_zoom = 1;
         window._pan = { x: 0, y: 0 };
+    }
+
+    const MOBILE_BREAKPOINT =
+        window.MobileConfig && Number.isFinite(window.MobileConfig.breakpoint)
+            ? window.MobileConfig.breakpoint
+            : 850;
+
+    function isMobileViewport() {
+        if (window.MobileRuntime && typeof window.MobileRuntime.isMobileLayout === 'function') {
+            return window.MobileRuntime.isMobileLayout();
+        }
+        return window.innerWidth <= MOBILE_BREAKPOINT;
     }
 
     // Mode toggle: false = Flash (default), true = Pro (3-stage pipeline)
@@ -194,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (modeToggleBtn) {
         const modeLabel = modeToggleBtn.querySelector('.btn-mode-label');
+        const modeSelectMobile = document.getElementById('mode-select-mobile');
 
         // Set initial tooltip
         syncModeToggleI18n();
@@ -221,7 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Sync mobile select if present
-            const modeSelectMobile = document.getElementById('mode-select-mobile');
             if (modeSelectMobile) {
                 modeSelectMobile.value = proModeEnabled ? 'pro' : 'flash';
             }
@@ -230,18 +248,26 @@ document.addEventListener('DOMContentLoaded', () => {
             syncModeToggleI18n();
         }
 
+        const mobileModeController =
+            window.MobileRuntime && typeof window.MobileRuntime.initModeToggleMobileController === 'function'
+                ? window.MobileRuntime.initModeToggleMobileController({
+                    modeToggleBtn,
+                    modeSelectMobile,
+                    getModeValue: () => (proModeEnabled ? 'pro' : 'flash'),
+                    setModeValue: (value) => {
+                        proModeEnabled = (value === 'pro');
+                    },
+                    onModeChanged: updateModeUI
+                })
+                : null;
+
         modeToggleBtn.addEventListener('click', (e) => {
-            // On mobile: open custom dropdown instead of toggling directly
-            if (window.innerWidth <= 850) {
-                openModeDropdown();
-                return;
-            }
+            if (mobileModeController && mobileModeController.handleToggleClick(e)) return;
             proModeEnabled = !proModeEnabled;
             updateModeUI();
         });
 
-        const modeSelectMobile = document.getElementById('mode-select-mobile');
-        if (modeSelectMobile) {
+        if (modeSelectMobile && (!mobileModeController || !mobileModeController.handlesNativeSelect)) {
             modeSelectMobile.addEventListener('change', (e) => {
                 proModeEnabled = (e.target.value === 'pro');
                 updateModeUI();
@@ -249,117 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Stop propagation so the button click doesn't double-toggle
             modeSelectMobile.addEventListener('click', (e) => e.stopPropagation());
         }
-
-        // ── Custom Mobile Dropdown ─────────────────────────────────────────
-        let _modeDropdownEl = null;
-        let _dropdownOpen = false;
-
-        function buildModeDropdown() {
-            if (_modeDropdownEl) return;
-
-            const MODES = [
-                {
-                    value: 'flash',
-                    labelKey: 'mode_label_flash',
-                    labelDefault: 'Fast',
-                    subDefault: '~20s',
-                    icon: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`
-                },
-                {
-                    value: 'pro',
-                    labelKey: 'mode_label_pro',
-                    labelDefault: 'High Quality',
-                    subDefault: '~2 min',
-                    icon: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`
-                }
-            ];
-
-            const el = document.createElement('div');
-            el.className = 'mode-dropdown-custom';
-            el.setAttribute('role', 'listbox');
-
-            MODES.forEach(mode => {
-                const fullLabel = window.__t ? window.__t(mode.labelKey) : mode.labelDefault + ' (' + mode.subDefault + ')';
-                // Split at '(' to get label and sub
-                const parenIdx = fullLabel.indexOf('(');
-                const labelText = parenIdx > -1 ? fullLabel.substring(0, parenIdx).trim() : fullLabel;
-                const subText = parenIdx > -1 ? fullLabel.substring(parenIdx) : '';
-
-                const opt = document.createElement('button');
-                opt.type = 'button';
-                opt.className = 'mode-dropdown-option' + (mode.value === (proModeEnabled ? 'pro' : 'flash') ? ' is-selected' : '');
-                opt.setAttribute('role', 'option');
-                opt.dataset.value = mode.value;
-                opt.innerHTML = `
-                    <span class="mode-dropdown-option-icon">${mode.icon}</span>
-                    <span class="mode-dropdown-option-text">
-                        <span class="mode-dropdown-option-label">${labelText}</span>
-                        ${subText ? `<span class="mode-dropdown-option-sub">${subText}</span>` : ''}
-                    </span>
-                    <svg class="mode-dropdown-check" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                `;
-                opt.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    proModeEnabled = (mode.value === 'pro');
-                    updateModeUI();
-                    closeModeDropdown();
-                    // Sync selected state
-                    _modeDropdownEl.querySelectorAll('.mode-dropdown-option').forEach(o => {
-                        o.classList.toggle('is-selected', o.dataset.value === mode.value);
-                    });
-                });
-                el.appendChild(opt);
-            });
-
-            document.body.appendChild(el);
-            _modeDropdownEl = el;
-        }
-
-        function openModeDropdown() {
-            if (_dropdownOpen) { closeModeDropdown(); return; }
-            buildModeDropdown();
-
-            // Set position: top = button's top edge (CSS will translateY(-100%) to go above)
-            const btnRect = modeToggleBtn.getBoundingClientRect();
-            const ddW = 210;
-            let left = btnRect.left;
-            if (left + ddW > window.innerWidth - 8) left = window.innerWidth - ddW - 8;
-
-            _modeDropdownEl.style.left = left + 'px';
-            _modeDropdownEl.style.top = (btnRect.bottom + 8) + 'px';
-
-            // Update selected state
-            const curVal = proModeEnabled ? 'pro' : 'flash';
-            _modeDropdownEl.querySelectorAll('.mode-dropdown-option').forEach(o => {
-                o.classList.toggle('is-selected', o.dataset.value === curVal);
-            });
-
-            // Add is-open on next frame to trigger CSS transition
-            requestAnimationFrame(() => {
-                _modeDropdownEl.classList.add('is-open');
-            });
-            _dropdownOpen = true;
-
-            // Close on outside tap / click
-            setTimeout(() => {
-                document.addEventListener('touchstart', _outsideTap, { once: true, passive: true });
-                document.addEventListener('click', _outsideTap, { once: true });
-            }, 50);
-        }
-
-        function closeModeDropdown() {
-            if (!_modeDropdownEl || !_dropdownOpen) return;
-            _modeDropdownEl.classList.remove('is-open');
-            _modeDropdownEl.style.opacity = '';
-            _dropdownOpen = false;
-        }
-
-        function _outsideTap(e) {
-            if (_modeDropdownEl && !_modeDropdownEl.contains(e.target) && e.target !== modeToggleBtn) {
-                closeModeDropdown();
-            }
-        }
-        // ──────────────────────────────────────────────────────────────────
     }
     // ─────────────────────────────────────────────────────────────────────
 
@@ -569,17 +484,15 @@ document.addEventListener('DOMContentLoaded', () => {
         'gen_loading_5', 'gen_loading_6', 'gen_loading_7', 'gen_loading_8',
         'gen_loading_9', 'gen_loading_final'
     ];
-    const BTN_LOADING_KEYS_MOBILE = [
-        'gen_loading_1_mobile', 'gen_loading_2_mobile', 'gen_loading_3_mobile', 'gen_loading_4_mobile',
-        'gen_loading_5_mobile', 'gen_loading_6_mobile', 'gen_loading_7_mobile', 'gen_loading_8_mobile',
-        'gen_loading_9_mobile', 'gen_loading_final_mobile'
-    ];
     let _activeBtnLoadingKeys = BTN_LOADING_KEYS_DESKTOP;
     let _btnMsgTimer = null;
     let _btnMsgIndex = 0;
 
     function _resolveBtnLoadingKeys() {
-        return window.innerWidth <= 850 ? BTN_LOADING_KEYS_MOBILE : BTN_LOADING_KEYS_DESKTOP;
+        if (window.MobileRuntime && typeof window.MobileRuntime.resolveLoadingKeys === 'function') {
+            return window.MobileRuntime.resolveLoadingKeys(BTN_LOADING_KEYS_DESKTOP);
+        }
+        return BTN_LOADING_KEYS_DESKTOP;
     }
 
     function _scheduleNextBtnMsg() {
@@ -1665,7 +1578,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // On mobile: canvas is read-only. Image-slot overlays (parent-frame labels) are
         // independent of the lock so photo upload still works normally.
-        if (window.innerWidth < 850) {
+        if (isMobileViewport()) {
             const iw = previewIframe.contentWindow;
             if (iw && typeof iw.setLocked === 'function') {
                 iw.setLocked(true);
@@ -1875,19 +1788,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const MIN_ZOOM = 0.5; // 50%
     const MAX_ZOOM = 2; // 200%
     const ZOOM_STEP = 0.1; // 10% increments
-    const MOBILE_LAYOUT_BREAKPOINT = 850;
-    let _lastIsMobileLayoutForZoom = window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT;
-
-    function syncZoomStateWithViewportMode() {
-        const isMobileLayout = window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT;
-        // When leaving mobile layout (desktop browser resized back), clear any
-        // leftover pinch/pan state so desktop zoom reacts immediately.
-        if (_lastIsMobileLayoutForZoom && !isMobileLayout) {
-            resetMobileZoomState();
-        }
-        _lastIsMobileLayoutForZoom = isMobileLayout;
-        return isMobileLayout;
-    }
+    let _fallbackLastIsMobileLayoutForZoom = window.innerWidth <= MOBILE_BREAKPOINT;
+    const syncZoomStateWithViewportMode =
+        window.MobileRuntime && typeof window.MobileRuntime.createViewportModeSync === 'function'
+            ? window.MobileRuntime.createViewportModeSync({ onLeaveMobile: resetMobileZoomState })
+            : function syncZoomStateWithViewportModeFallback() {
+                const isMobileLayout = window.innerWidth <= MOBILE_BREAKPOINT;
+                if (_fallbackLastIsMobileLayoutForZoom && !isMobileLayout) {
+                    resetMobileZoomState();
+                }
+                _fallbackLastIsMobileLayoutForZoom = isMobileLayout;
+                return isMobileLayout;
+            };
 
     function updateZoomDisplay() {
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -2321,7 +2233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <circle cx="8.5" cy="8.5" r="1.5"></circle>
                             <polyline points="21 15 16 10 5 21"></polyline>
                         </svg>
-                        <span>${window.innerWidth < 850 ? window.__t('click_drop_mobile') : window.__t('click_drop')}</span>
+                        <span>${isMobileViewport() ? window.__t('click_drop_mobile') : window.__t('click_drop')}</span>
                     </div>
                 `;
             }
@@ -2437,7 +2349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // On mobile, make label interactive so touch events go directly
                 // to the label (above the touch-capture-overlay in z-order),
                 // bypassing the overlay's preventDefault that would block input.click()
-                if (window.innerWidth < 850) {
+                if (isMobileViewport()) {
                     label.style.pointerEvents = 'auto';
                 }
             });
@@ -2634,15 +2546,55 @@ document.addEventListener('DOMContentLoaded', () => {
     window.getCurrentSlide = () => currentSlide;
     window.getTotalSlides = () => totalSlides;
 
+    function notifySlideMetaUpdate() {
+        document.dispatchEvent(new CustomEvent('slide-meta-updated', {
+            detail: {
+                currentSlide,
+                totalSlides
+            }
+        }));
+    }
+
+    function syncMobileSlideCounterFallback() {
+        if (!mobileSlideLabel && !mobileSlideDots) return;
+
+        const safeTotal = Math.max(1, Number.isFinite(totalSlides) ? totalSlides : 1);
+        const safeCurrent = Math.max(0, Math.min(safeTotal - 1, Number.isFinite(currentSlide) ? currentSlide : 0));
+
+        if (mobileSlideLabel) {
+            mobileSlideLabel.textContent = `${safeCurrent + 1} / ${safeTotal}`;
+        }
+
+        if (!mobileSlideDots) return;
+
+        if (mobileSlideDots.children.length !== safeTotal) {
+            mobileSlideDots.innerHTML = '';
+            for (let i = 0; i < safeTotal; i++) {
+                const dot = document.createElement('button');
+                dot.className = 'slide-dot' + (i === safeCurrent ? ' active' : '');
+                dot.setAttribute('aria-label', `Slide ${i + 1}`);
+                dot.addEventListener('click', () => scrollToSlide(i));
+                mobileSlideDots.appendChild(dot);
+            }
+            return;
+        }
+
+        for (let i = 0; i < safeTotal; i++) {
+            mobileSlideDots.children[i].classList.toggle('active', i === safeCurrent);
+        }
+    }
+
     function buildDots() {
         slideDots.innerHTML = '';
         for (let i = 0; i < totalSlides; i++) {
             const dot = document.createElement('button');
-            dot.className = 'slide-dot' + (i === 0 ? ' active' : '');
+            dot.className = 'slide-dot' + (i === currentSlide ? ' active' : '');
             dot.setAttribute('aria-label', `Slide ${i + 1}`);
             dot.addEventListener('click', () => scrollToSlide(i));
             slideDots.appendChild(dot);
         }
+        syncMobileSlideCounterFallback();
+        notifySlideMetaUpdate();
     }
 
     function updateSlideCounter() {
@@ -2652,6 +2604,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const tpl = window.__t("slide_label_tpl", "Slide {current} of {total}");
         slideLabel.textContent = tpl.replace('{current}', currentSlide + 1).replace('{total}', totalSlides);
+        syncMobileSlideCounterFallback();
+        notifySlideMetaUpdate();
     }
 
     function updateMinimapSkeleton(count) {
@@ -2802,14 +2756,32 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('wheel', handleSlideWheelNav, { passive: true });
 
     // Mobile Swipe Support
+    const mobileSwipeHandlers =
+        window.MobileRuntime && typeof window.MobileRuntime.createSlideSwipeHandlers === 'function'
+            ? window.MobileRuntime.createSlideSwipeHandlers({
+                threshold: 50,
+                getCurrentSlide: () => currentSlide,
+                getTotalSlides: () => totalSlides,
+                onNavigate: (nextSlide) => scrollToSlide(nextSlide)
+            })
+            : null;
+
     let touchStartX = 0;
     let touchEndX = 0;
 
     function handleTouchStart(e) {
+        if (mobileSwipeHandlers) {
+            mobileSwipeHandlers.onTouchStart(e);
+            return;
+        }
         touchStartX = e.changedTouches[0].screenX;
     }
 
     function handleTouchEnd(e) {
+        if (mobileSwipeHandlers) {
+            mobileSwipeHandlers.onTouchEnd(e);
+            return;
+        }
         touchEndX = e.changedTouches[0].screenX;
         handleSwipe();
     }
@@ -3035,6 +3007,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('._slot-overlay-label').forEach(el => el.remove());
         document.querySelectorAll('._slot-overlay-input').forEach(el => el.remove());
         slideDots.innerHTML = '';
+        if (mobileSlideDots) mobileSlideDots.innerHTML = '';
+        if (mobileSlideLabel) mobileSlideLabel.textContent = '1 / 1';
         progressBarEl.style.transition = 'none';
         progressBarEl.style.width = '0%';
 
