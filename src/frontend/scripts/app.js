@@ -218,34 +218,70 @@ document.addEventListener('DOMContentLoaded', () => {
         syncModeToggleI18n();
 
         function updateModeUI() {
+            const btnGenerate = document.getElementById('btn-generate');
+            
+            // Capture initial widths
+            const initialModeWidth = modeToggleBtn.offsetWidth;
+            const initialGenWidth = btnGenerate ? btnGenerate.offsetWidth : 0;
+
+            // Clear inline styles to measure natural dimensions
+            modeToggleBtn.style.transition = 'none';
+            modeToggleBtn.style.width = 'auto';
+            if (btnGenerate) {
+                btnGenerate.style.transition = 'none';
+                btnGenerate.style.width = '100%'; 
+            }
+
+            // Apply content changes
             modeToggleBtn.setAttribute('aria-pressed', String(proModeEnabled));
             modeToggleBtn.classList.toggle('is-active', proModeEnabled);
             modeToggleBtn.classList.add('is-animating');
             setTimeout(() => modeToggleBtn.classList.remove('is-animating'), 400);
 
-            // Toggle neon glow on input wrapper
             if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', proModeEnabled);
 
-            // Swap icons
             const iconFlash = modeToggleBtn.querySelector('.btn-mode-icon--flash');
             const iconPro = modeToggleBtn.querySelector('.btn-mode-icon--pro');
             if (iconFlash) iconFlash.style.display = proModeEnabled ? 'none' : 'flex';
             if (iconPro) iconPro.style.display = proModeEnabled ? 'flex' : 'none';
 
-            // Update mode label (button shows CURRENT mode)
             if (modeLabel) {
                 const labelKey = proModeEnabled ? 'mode_label_pro' : 'mode_label_flash';
                 modeLabel.setAttribute('data-i18n', labelKey);
                 modeLabel.textContent = window.__t(labelKey);
             }
 
-            // Sync mobile select if present
             if (modeSelectMobile) {
                 modeSelectMobile.value = proModeEnabled ? 'pro' : 'flash';
             }
 
-            // Update tooltip and generate button label via i18n
             syncModeToggleI18n();
+
+            // Measure new widths
+            const finalModeWidth = modeToggleBtn.offsetWidth;
+            const finalGenWidth = btnGenerate ? btnGenerate.offsetWidth : 0;
+
+            // Revert back and force reflow
+            modeToggleBtn.style.width = initialModeWidth + 'px';
+            if (btnGenerate) btnGenerate.style.width = initialGenWidth + 'px';
+            modeToggleBtn.offsetHeight; // trigger reflow
+
+            // Apply transitions and set final widths
+            modeToggleBtn.style.transition = 'width 0.3s cubic-bezier(0.25, 1, 0.5, 1), background 0.4s ease, border-color 0.4s ease, color 0.4s ease';
+            if (btnGenerate) btnGenerate.style.transition = 'width 0.3s cubic-bezier(0.25, 1, 0.5, 1), background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease';
+
+            modeToggleBtn.style.width = finalModeWidth + 'px';
+            if (btnGenerate) btnGenerate.style.width = finalGenWidth + 'px';
+
+            // Cleanup explicit widths after transition
+            setTimeout(() => {
+                modeToggleBtn.style.width = '';
+                modeToggleBtn.style.transition = '';
+                if (btnGenerate) {
+                    btnGenerate.style.width = ''; // Let CSS take over
+                    btnGenerate.style.transition = '';
+                }
+            }, 300);
         }
 
         const mobileModeController =
@@ -334,30 +370,67 @@ document.addEventListener('DOMContentLoaded', () => {
                 : 'Describe your presentation topic...';
         }
 
-        function applyTheme(theme) {
+        function applyTheme(theme, animate = false) {
             const nextTheme = theme === 'light' ? 'light' : 'dark';
-            root.setAttribute('data-theme', nextTheme);
-            localStorage.setItem('app_theme', nextTheme);
-            const title = (typeof window.__t === 'function')
-                ? window.__t('theme_toggle')
-                : 'Toggle theme';
-            if (themeToggleBtn) {
-                themeToggleBtn.title = title;
-                themeToggleBtn.setAttribute('aria-label', title);
-            }
-            if (previewThemeToggleBtn) {
-                previewThemeToggleBtn.title = title;
-                previewThemeToggleBtn.setAttribute('aria-label', title);
-            }
-            // Propagate theme into live preview iframe (if present)
-            try {
-                const doc = previewIframe && (previewIframe.contentDocument || (previewIframe.contentWindow && previewIframe.contentWindow.document));
-                if (doc && doc.documentElement) {
-                    doc.documentElement.setAttribute('data-theme', nextTheme);
+            
+            const doChange = () => {
+                root.setAttribute('data-theme', nextTheme);
+                localStorage.setItem('app_theme', nextTheme);
+                const title = (typeof window.__t === 'function')
+                    ? window.__t('theme_toggle')
+                    : 'Toggle theme';
+                if (themeToggleBtn) {
+                    themeToggleBtn.title = title;
+                    themeToggleBtn.setAttribute('aria-label', title);
                 }
-            } catch (e) {
-                // ignore cross-origin or not-yet-ready iframe
+                if (previewThemeToggleBtn) {
+                    previewThemeToggleBtn.title = title;
+                    previewThemeToggleBtn.setAttribute('aria-label', title);
+                }
+                // Propagate theme into live preview iframe (if present)
+                try {
+                    const doc = previewIframe && (previewIframe.contentDocument || (previewIframe.contentWindow && previewIframe.contentWindow.document));
+                    if (doc && doc.documentElement) {
+                        doc.documentElement.setAttribute('data-theme', nextTheme);
+                    }
+                } catch (e) {
+                    // ignore cross-origin or not-yet-ready iframe
+                }
+            };
+
+            if (!animate || !document.startViewTransition) {
+                doChange();
+                return;
             }
+
+            document.documentElement.classList.add('theme-transitioning');
+            const transition = document.startViewTransition(() => {
+                doChange();
+            });
+
+            transition.ready.then(() => {
+                const x = window.innerWidth / 2;
+                const y = window.innerHeight / 2;
+                const radius = Math.hypot(x, y);
+
+                document.documentElement.animate(
+                    {
+                        clipPath: [
+                            `circle(0px at ${x}px ${y}px)`,
+                            `circle(${radius}px at ${x}px ${y}px)`
+                        ]
+                    },
+                    {
+                        duration: 700,
+                        easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+                        pseudoElement: "::view-transition-new(root)"
+                    }
+                );
+            });
+
+            transition.finished.then(() => {
+                document.documentElement.classList.remove('theme-transitioning');
+            });
         }
 
         function applyLang(lang) {
@@ -382,13 +455,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (themeToggleBtn) {
             themeToggleBtn.addEventListener('click', () => {
                 const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-                applyTheme(current === 'light' ? 'dark' : 'light');
+                applyTheme(current === 'light' ? 'dark' : 'light', true);
             });
         }
         if (previewThemeToggleBtn) {
             previewThemeToggleBtn.addEventListener('click', () => {
                 const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-                applyTheme(current === 'light' ? 'dark' : 'light');
+                applyTheme(current === 'light' ? 'dark' : 'light', true);
             });
         }
 

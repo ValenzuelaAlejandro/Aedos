@@ -450,6 +450,10 @@
     box-shadow: 0 12px 28px rgba(0,0,0,0.06);
 }
 
+:root[data-theme="light"] .fpicker-group-label {
+    color: var(--text);
+}
+
 :root[data-theme="light"] .tool-input {
     background: var(--surface2) !important;
     color: var(--text) !important;
@@ -3074,4 +3078,17 @@ section.s.active > * {
     .preview-topic-label {
         display: none;
     }
+}
+
+/* Theme toggle circular transition */
+html.theme-transitioning::view-transition-old(root),
+html.theme-transitioning::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+html.theme-transitioning::view-transition-old(root) {
+    z-index: 1;
+}
+html.theme-transitioning::view-transition-new(root) {
+    z-index: 2;
 }

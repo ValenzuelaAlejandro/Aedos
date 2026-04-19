@@ -331,6 +331,10 @@ select.tool-input {
     outline: none;
 }
 
+:root[data-theme="light"] .tool-slider {
+    background: rgba(0, 0, 0, 0.15);
+}
+
 .tool-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
