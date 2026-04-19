@@ -2814,13 +2814,18 @@ section.s.active > * {
         max-height: 85vh;
         width: 260px;
         border-radius: 24px;
-        background: color-mix(in srgb, var(--surface2) 45%, transparent) !important;
-        backdrop-filter: blur(30px) saturate(2);
-        -webkit-backdrop-filter: blur(30px) saturate(2);
+        background: color-mix(in srgb, var(--surface) 82%, transparent) !important;
+        backdrop-filter: blur(18px) saturate(1.2);
+        -webkit-backdrop-filter: blur(18px) saturate(1.2);
         border: 1px solid var(--border) !important;
-        box-shadow: none !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 30px rgba(0, 0, 0, 0.18) !important;
         padding: 1.25rem !important;
         transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    :root[data-theme="light"] .editor-tools-panel {
+        background: color-mix(in srgb, var(--surface) 90%, transparent) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 8px 24px rgba(17, 24, 39, 0.10) !important;
     }
 
     .editor-tools-panel:not(.active) {
@@ -2975,136 +2980,6 @@ section.s.active > * {
     transition:
         transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0s,
         opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0s !important;
-}
-
-/* ================================================================
-   LIQUID TRANSITION
-   ================================================================ */
-.liquid-transition {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    pointer-events: none;
-    overflow: hidden;
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.liquid-transition.active {
-    visibility: visible;
-    opacity: 1;
-}
-
-.liquid-transition.empty-out {
-    opacity: 1;
-    /* Keep it visible while moving down */
-    transition: opacity 0.5s ease 4.5s;
-    /* Fade out only at the very end */
-}
-
-
-.wave-container {
-    position: absolute;
-    left: 50%;
-    top: 100vh;
-    width: 300vw;
-    height: 300vw;
-    min-width: 300vh;
-    min-height: 300vh;
-    transform: translate(-50%, 5vh);
-    transition-property: transform;
-}
-
-.wave-1 {
-    z-index: 101;
-}
-
-.wave-2 {
-    z-index: 102;
-}
-
-.wave-3 {
-    z-index: 103;
-}
-
-.wave-shape {
-    width: 100%;
-    height: 100%;
-    border-radius: 43% 47% 44% 46%;
-    animation: rotateWave 8s linear infinite;
-    transform-origin: 50% 50%;
-}
-
-@keyframes rotateWave {
-    0% {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
-.wave-1 .wave-shape {
-    background: var(--accent);
-    animation-duration: 7s;
-}
-
-.wave-2 .wave-shape {
-    background: var(--accent-light);
-    animation-duration: 10s;
-    border-radius: 46% 41% 45% 44%;
-    opacity: 0.8;
-}
-
-.wave-3 .wave-shape {
-    background: var(--bg);
-    animation-duration: 13s;
-    border-radius: 42% 48% 44% 45%;
-}
-
-
-.liquid-transition.fill-up .wave-container {
-    transform: translate(-50%, -150vh);
-    transition-duration: 1.0s;
-    transition-timing-function: cubic-bezier(0.5, 0, 0.2, 1);
-}
-
-.liquid-transition.empty-out .wave-container {
-    transform: translate(-50%, 150vh);
-    /* Just enough to clear the screen */
-    transition-duration: 4.5s;
-    /* Snappier than 7s, matches the cleanup timer better */
-    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
-    /* Accelerate downwards */
-}
-
-
-/* Fill up delays */
-.liquid-transition.fill-up .wave-1 {
-    transition-delay: 0s;
-}
-
-.liquid-transition.fill-up .wave-2 {
-    transition-delay: 0.1s;
-}
-
-.liquid-transition.fill-up .wave-3 {
-    transition-delay: 0.2s;
-}
-
-/* Empty out delays */
-.liquid-transition.empty-out .wave-3 {
-    transition-delay: 0s;
-}
-
-.liquid-transition.empty-out .wave-2 {
-    transition-delay: 0.2s;
-}
-
-.liquid-transition.empty-out .wave-1 {
-    transition-delay: 0.4s;
 }
 
 /* Mobile layout extracted to mobile/css/style-mobile-overrides.css */
