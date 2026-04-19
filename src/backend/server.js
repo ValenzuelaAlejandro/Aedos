@@ -35,7 +35,7 @@ app.disable('x-powered-by');
 // Trust Render's proxy to get real client IPs for rate limiting
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
-const TMP_DIR = path.join(__dirname, 'tmp');
+const TMP_DIR = path.join(__dirname, '..', '..', 'tmp');
 let requestSequence = 0;
 
 // Queue System State
@@ -277,7 +277,7 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 
 // Create /tmp/ folder if it doesn't exist
@@ -561,7 +561,7 @@ process.on('SIGINT', async () => {
 
 // Routes
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'frontend', 'pages', 'index.html'));
 });
 
 if ((process.env.NODE_ENV || 'development') !== 'production') {

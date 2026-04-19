@@ -2,10 +2,10 @@
   "name": "aedos",
   "version": "1.0.0",
   "description": "Local web application that allows students to automatically generate academic presentations in PDF using the Google Gemini API.",
-  "main": "server.js",
+  "main": "src/backend/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node src/backend/server.js",
+    "dev": "node --watch src/backend/server.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

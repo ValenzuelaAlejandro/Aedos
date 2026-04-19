@@ -910,8 +910,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <style class="skeleton-injector">
             body { background: #121212; margin: 0; padding: 0; }
         </style>
-        <link rel="stylesheet" href="editor.css?v=3">
-        <script src="editor.js?v=3"></script>
+        <link rel="stylesheet" href="/editor/editor.css?v=3">
+        <script src="/editor/editor.js?v=3"></script>
         `;
 
         // Immediately update preview label
@@ -1379,9 +1379,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Ensure editor scripts are always present
             if (!html.includes('editor.js')) {
                 if (html.includes('</body>')) {
-                    html = html.replace('</body>', '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script></body>');
+                    html = html.replace('</body>', '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/editor/editor.js?v=3"></script></body>');
                 } else {
-                    html += '<link rel="stylesheet" href="editor.css?v=3"><script src="editor.js?v=3"></script>';
+                    html += '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/editor/editor.js?v=3"></script>';
                 }
             }
             // Strip all AI-generated googleapis link tags (may have malformed url() hrefs).
