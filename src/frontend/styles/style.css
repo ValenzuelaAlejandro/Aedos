@@ -234,15 +234,20 @@
     padding: 0.5rem;
     color: var(--text);
     cursor: pointer;
-    transition: var(--transition);
+    transition: background 0.2s ease, transform 0.15s ease, color 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
+.theme-toggle-btn:focus,
+.btn-mode-toggle:focus,
+.control-select-overlay:focus {
+    outline: none;
+}
+
 .theme-toggle-btn:hover {
     background: rgba(255, 255, 255, 0.1);
-    transform: translateY(-1px);
 }
 
 .theme-icon {
@@ -320,8 +325,23 @@
     position: absolute;
     inset: 0;
     opacity: 0;
+    z-index: 1;
     -webkit-appearance: none;
     appearance: none;
+}
+
+/* Unified keyboard focus visibility for top-right controls */
+.theme-toggle-btn:focus-visible,
+.btn-mode-toggle:focus-visible,
+.control-pill-icon:focus-within {
+    outline: 2px solid rgba(0, 102, 255, 0.9);
+    outline-offset: 2px;
+}
+
+:root[data-theme="light"] .theme-toggle-btn:focus-visible,
+:root[data-theme="light"] .btn-mode-toggle:focus-visible,
+:root[data-theme="light"] .control-pill-icon:focus-within {
+    outline-color: rgba(0, 102, 255, 0.85);
 }
 
 :root[data-theme="light"] .top-control-bar {
@@ -357,7 +377,6 @@
 
 :root[data-theme="light"] .theme-toggle-btn:hover {
     background: rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
 }
 
 :root[data-theme="light"] .chat-input-wrapper {
@@ -812,16 +831,17 @@
     /* Ensure tooltips are not clipped */
 }
 
-.btn-mode-toggle::after,
-.theme-toggle-btn::after,
-.control-pill-icon::after {
+.btn-mode-toggle[data-tooltip]:not([data-tooltip=""])::after,
+.theme-toggle-btn[data-tooltip]:not([data-tooltip=""])::after,
+.control-pill-icon[data-tooltip]:not([data-tooltip=""])::after {
     content: attr(data-tooltip);
     position: absolute;
     left: 50%;
-    transform: translateX(-50%) translateZ(0);
-    min-width: 120px;
-    max-width: 250px;
-    width: max-content;
+    right: auto;
+    --tooltip-x: -50%;
+    --tooltip-y: 0;
+    transform: translateX(var(--tooltip-x)) translateY(var(--tooltip-y)) translateZ(0);
+    width: var(--tooltip-width, 120px);
     background: #111111;
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: #FFFFFF;
@@ -839,16 +859,55 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
+/* Edge stability: avoid transform animation on theme tooltip to prevent full-page flicker */
+.theme-toggle-btn[data-tooltip]:not([data-tooltip=""])::after {
+    transition: opacity 0.2s ease;
+}
+
 /* Position header tooltips BELOW (they are at the top) */
 .theme-toggle-btn::after,
 .control-pill-icon::after {
     top: calc(100% + 10px);
+    bottom: auto;
 }
 
 /* Position Mode Toggle tooltip ABOVE (it is near bottom) */
 .btn-mode-toggle::after {
     bottom: calc(100% + 10px);
+    top: auto;
     min-width: 200px;
+}
+
+/* Horizontal collision handling for narrow viewports and edge controls */
+.btn-mode-toggle[data-tooltip-align="start"]::after,
+.theme-toggle-btn[data-tooltip-align="start"]::after,
+.control-pill-icon[data-tooltip-align="start"]::after {
+    left: 0;
+    right: auto;
+    --tooltip-x: 0;
+}
+
+.btn-mode-toggle[data-tooltip-align="end"]::after,
+.theme-toggle-btn[data-tooltip-align="end"]::after,
+.control-pill-icon[data-tooltip-align="end"]::after {
+    left: auto;
+    right: 0;
+    --tooltip-x: 0;
+}
+
+/* Vertical flip when preferred side does not have enough space */
+.btn-mode-toggle[data-tooltip-vertical="below"]::after,
+.theme-toggle-btn[data-tooltip-vertical="below"]::after,
+.control-pill-icon[data-tooltip-vertical="below"]::after {
+    top: calc(100% + 10px);
+    bottom: auto;
+}
+
+.btn-mode-toggle[data-tooltip-vertical="above"]::after,
+.theme-toggle-btn[data-tooltip-vertical="above"]::after,
+.control-pill-icon[data-tooltip-vertical="above"]::after {
+    bottom: calc(100% + 10px);
+    top: auto;
 }
 
 :root[data-theme="light"] .btn-mode-toggle::after,
@@ -860,28 +919,39 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.btn-mode-toggle:hover::after,
-.theme-toggle-btn:hover::after,
-.control-pill-icon:hover::after {
+.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):hover::after,
+.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):focus-visible::after,
+.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):hover::after,
+.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):focus-visible::after,
+.control-pill-icon[data-tooltip]:not([data-tooltip=""]):hover::after,
+.control-pill-icon[data-tooltip]:not([data-tooltip=""]):focus-within::after {
     opacity: 1;
     visibility: visible;
 }
 
-.btn-mode-toggle:active::after,
-.theme-toggle-btn:active::after,
-.control-pill-icon:active::after {
+.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):active::after,
+.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):active::after,
+.control-pill-icon[data-tooltip]:not([data-tooltip=""]):active::after {
     opacity: 0;
     visibility: hidden;
     transition: none;
 }
 
-.theme-toggle-btn:hover::after,
-.control-pill-icon:hover::after {
-    transform: translateX(-50%) translateY(4px) translateZ(0);
+.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):hover::after,
+.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):focus-visible::after,
+.control-pill-icon[data-tooltip]:not([data-tooltip=""]):hover::after,
+.control-pill-icon[data-tooltip]:not([data-tooltip=""]):focus-within::after {
+    --tooltip-y: 4px;
 }
 
-.btn-mode-toggle:hover::after {
-    transform: translateX(-50%) translateY(-4px) translateZ(0);
+.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):hover::after,
+.theme-toggle-btn[data-tooltip]:not([data-tooltip=""]):focus-visible::after {
+    --tooltip-y: 0;
+}
+
+.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):hover::after,
+.btn-mode-toggle[data-tooltip]:not([data-tooltip=""]):focus-visible::after {
+    --tooltip-y: -4px;
 }
 
 /* Icon management — show one at a time */

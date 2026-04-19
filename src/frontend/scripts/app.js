@@ -325,6 +325,107 @@ document.addEventListener('DOMContentLoaded', () => {
         const themeToggleBtn = document.getElementById('theme-toggle-btn');
         const previewThemeToggleBtn = document.getElementById('preview-theme-toggle-btn');
         const langSelect = document.getElementById('lang-select');
+        const adaptiveTooltipSelector = '.btn-mode-toggle[data-tooltip], .theme-toggle-btn[data-tooltip], .control-pill-icon[data-tooltip]';
+
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function estimateTooltipWidth(el, text) {
+            const isModeTooltip = el.classList.contains('btn-mode-toggle');
+            const minWidth = isModeTooltip ? 200 : 120;
+            const maxWidth = 250;
+            const estimated = text.length * 7.2 + 28;
+            return clamp(estimated, minWidth, maxWidth);
+        }
+
+        function estimateTooltipHeight(text, width) {
+            const charsPerLine = Math.max(12, Math.floor((width - 24) / 7));
+            const lineCount = Math.max(1, Math.ceil(text.length / charsPerLine));
+            return Math.min(96, 28 + (lineCount - 1) * 16);
+        }
+
+        function updateAdaptiveTooltips() {
+            const tooltipElements = document.querySelectorAll(adaptiveTooltipSelector);
+            if (!tooltipElements.length) return;
+
+            const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+            const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+            const edgeMargin = 10;
+            const gap = 10;
+
+            tooltipElements.forEach((el) => {
+                const text = (el.getAttribute('data-tooltip') || '').trim();
+                if (!text) {
+                    el.removeAttribute('data-tooltip-align');
+                    el.removeAttribute('data-tooltip-vertical');
+                    return;
+                }
+
+                const rect = el.getBoundingClientRect();
+                let tooltipWidth = estimateTooltipWidth(el, text);
+                const tooltipHeight = estimateTooltipHeight(text, tooltipWidth);
+
+                const centeredLeft = rect.left + rect.width / 2 - tooltipWidth / 2;
+                const centeredRight = centeredLeft + tooltipWidth;
+
+                let horizontalAlign = 'center';
+                let finalWidth = tooltipWidth;
+
+                if (centeredLeft < edgeMargin && centeredRight > viewportWidth - edgeMargin) {
+                    horizontalAlign = rect.left <= (viewportWidth - rect.right) ? 'start' : 'end';
+                } else if (centeredLeft < edgeMargin) {
+                    horizontalAlign = 'start';
+                } else if (centeredRight > viewportWidth - edgeMargin) {
+                    horizontalAlign = 'end';
+                }
+
+                // Adjust width based on available space after horizontal alignment
+                if (horizontalAlign === 'start') {
+                    const availableSpace = viewportWidth - rect.left - edgeMargin;
+                    finalWidth = Math.min(tooltipWidth, availableSpace);
+                } else if (horizontalAlign === 'end') {
+                    const availableSpace = rect.right - edgeMargin;
+                    finalWidth = Math.min(tooltipWidth, availableSpace);
+                }
+
+                const preferredVertical = el.classList.contains('btn-mode-toggle') ? 'above' : 'below';
+                const spaceAbove = rect.top;
+                const spaceBelow = viewportHeight - rect.bottom;
+                const requiredSpace = tooltipHeight + gap + edgeMargin;
+                let vertical = preferredVertical;
+
+                if (preferredVertical === 'below' && spaceBelow < requiredSpace && spaceAbove > spaceBelow) {
+                    vertical = 'above';
+                } else if (preferredVertical === 'above' && spaceAbove < requiredSpace && spaceBelow > spaceAbove) {
+                    vertical = 'below';
+                }
+
+                el.setAttribute('data-tooltip-align', horizontalAlign);
+                el.setAttribute('data-tooltip-vertical', vertical);
+                el.style.setProperty('--tooltip-width', `${finalWidth}px`);
+            });
+        }
+
+        let tooltipUpdateRaf = null;
+        function scheduleAdaptiveTooltipUpdate() {
+            if (tooltipUpdateRaf !== null) return;
+            tooltipUpdateRaf = window.requestAnimationFrame(() => {
+                tooltipUpdateRaf = null;
+                updateAdaptiveTooltips();
+            });
+        }
+
+        window.__updateAdaptiveTooltips = scheduleAdaptiveTooltipUpdate;
+
+        const bindAdaptiveTooltipEvents = () => {
+            const tooltipElements = document.querySelectorAll(adaptiveTooltipSelector);
+            tooltipElements.forEach((el) => {
+                el.addEventListener('mouseenter', scheduleAdaptiveTooltipUpdate);
+                el.addEventListener('focusin', scheduleAdaptiveTooltipUpdate);
+                el.addEventListener('touchstart', scheduleAdaptiveTooltipUpdate, { passive: true });
+            });
+        };
 
         function applyInputPlaceholder(lang) {
             const input = document.getElementById('w-tema');
@@ -371,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 langSelect.value = nextLang;
             }
             if (typeof syncModeToggleI18n === 'function') syncModeToggleI18n();
+            scheduleAdaptiveTooltipUpdate();
         }
 
         const savedTheme = localStorage.getItem('app_theme') || 'dark';
@@ -378,6 +480,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         applyTheme(savedTheme);
         applyLang(savedLang);
+        bindAdaptiveTooltipEvents();
+        scheduleAdaptiveTooltipUpdate();
+
+        window.addEventListener('resize', scheduleAdaptiveTooltipUpdate, { passive: true });
+        window.addEventListener('orientationchange', scheduleAdaptiveTooltipUpdate, { passive: true });
+        window.addEventListener('scroll', scheduleAdaptiveTooltipUpdate, { passive: true });
 
         if (themeToggleBtn) {
             themeToggleBtn.addEventListener('click', () => {
