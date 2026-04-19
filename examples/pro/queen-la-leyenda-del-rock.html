@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --bg: #c8d9ea;
+            --surface: #b8c9da;
+            --surface2: #a8b9ca;
+            --accent: #1171b6;
+            --accent-dim: rgba(17, 113, 182, .15);
+            --accent-2: #d29d2d;
+            --accent-2-dim: rgba(210, 157, 45, .15);
+            --text: #1a1a2e;
+            --text-dim: #4a5568;
+            --border: rgba(26, 26, 46, .12);
+        }
+
+        html {
+            font-size: 10px;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'DM Sans', sans-serif;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        section.s {
+            width: 1122px;
+            height: 631px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            page-break-after: always;
+            padding: 4rem 5rem;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        @media print {
+            body {
+                margin: 0
+            }
+
+            @page {
+                size: 1122px 631px;
+                margin: 0
+            }
+
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important
+            }
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-family: 'Bebas Neue', serif;
+            margin: 0;
+            line-height: 1.15;
+            color: var(--text);
+        }
+
+        h1 {
+            font-size: 5rem;
+            font-weight: 800;
+            letter-spacing: -.02em;
+        }
+
+        h2 {
+            font-size: 4rem;
+            font-weight: 700;
+            letter-spacing: -.01em;
+        }
+
+        h3 {
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        p {
+            font-size: 1.5rem;
+            line-height: 1.5;
+            margin: 0;
+            color: var(--text-dim);
+        }
+
+        .tag {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: .15rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: .8rem;
+        }
+
+        .tag::before {
+            content: '';
+            width: 2rem;
+            height: 2px;
+            background: var(--accent);
+        }
+
+        .card {
+            background: rgba(255, 255, 255, .6);
+            border: 1px solid rgba(255, 255, 255, .3);
+            border-radius: 8px;
+            padding: 2rem;
+        }
+
+        .card.accent {
+            background: var(--accent-2-dim);
+            border-color: var(--accent-2);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2.5rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 2.5rem;
+            align-items: stretch;
+        }
+
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .icon-wrapper {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--accent-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .icon-wrapper i {
+            width: 22px;
+            height: 22px;
+            stroke: var(--accent);
+            fill: none;
+        }
+
+        .icon-wrapper.accent-2 {
+            background: var(--accent-2-dim);
+        }
+
+        .icon-wrapper.accent-2 i {
+            stroke: var(--accent-2);
+        }
+
+        .accent-bar {
+            width: 4rem;
+            height: 3px;
+            background: var(--accent);
+            border-radius: 0px;
+        }
+
+        .v-divider {
+            width: 2px;
+            background: var(--accent);
+            opacity: .3;
+            align-self: stretch;
+        }
+
+        .img-slot {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        .img-slot .img-bg1 {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            background: linear-gradient(135deg, var(--accent-dim), var(--bg), var(--accent-2-dim));
+            pointer-events: none;
+        }
+
+        .img-slot .img-bg2 {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            background: linear-gradient(to right, rgba(0, 0, 0, .25), transparent);
+            pointer-events: none;
+        }
+
+        .mega-stat {
+            font-size: 7rem;
+            font-weight: 800;
+            color: var(--accent);
+            line-height: .9;
+            font-family: 'Bebas Neue', serif;
+        }
+
+        .mega-stat-2 {
+            font-size: 5rem;
+            font-weight: 800;
+            color: var(--accent-2);
+            line-height: .9;
+            font-family: 'Bebas Neue', serif;
+        }
+
+        .stat-label {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: .5rem;
+        }
+
+        .stat-source {
+            font-size: 0.9rem;
+            opacity: 0.4;
+            margin-top: 0.5rem;
+            font-family: 'DM Sans', sans-serif;
+        }
+    </style>
+    <script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js"
+        integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei"
+        crossorigin="anonymous"></script>
+</head>
+
+<body>
+
+    <section class="s" style="padding:0;position:relative;overflow:hidden;">
+        <div
+            style="position:absolute;inset:0;background-image:repeating-linear-gradient(transparent,transparent 59px,rgba(255,255,255,.035) 59px,rgba(255,255,255,.035) 60px);pointer-events:none;z-index:0;">
+        </div>
+        <div
+            style="position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 50%,transparent);z-index:0;">
+        </div>
+        <div
+            style="flex:1;padding:4rem 5rem;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:1;min-width:0;">
+            <div class="tag">Queen · Documental</div>
+            <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+                <h1 style="font-size:8rem;line-height:.92;letter-spacing:-.03em;">Queen: La Leyenda</h1>
+                <h1
+                    style="font-size:8rem;line-height:.92;letter-spacing:-.03em;color:var(--accent-2);font-style:italic;margin-bottom:2.5rem;">
+                    del Rock</h1>
+                <p style="font-size:1.4rem;max-width:55rem;line-height:1.65;color:var(--text-dim);">Un viaje a través de
+                    la historia de una banda icónica</p>
+            </div>
+            <p
+                style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+                01 / 13</p>
+        </div>
+    </section>
+
+    <section class="s" style="padding:0;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;height:5px;background:var(--accent);z-index:0;"></div>
+        <div
+            style="flex:1;padding:4rem 5rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;min-width:0;">
+            <div class="tag">Formación</div>
+            <h2 style="font-size:5.5rem;line-height:1.05;letter-spacing:-.02em;margin-bottom:1.5rem;">Los Inicios: De
+                <span style="color:var(--accent);">Smile</span> a Queen</h2>
+            <p style="font-size:1.6rem;color:var(--accent-2);font-weight:700;text-align:center;margin-bottom:2rem;">El
+                crisol donde nació la magia</p>
+            <div style="flex:1;display:flex;flex-direction:column;gap:1.2rem;max-width:55rem;">
+                <p style="font-size:1.3rem;line-height:1.6;">La formación de <strong>Smile</strong> con Brian May y
+                    Roger Taylor marcó los primeros pasos.</p>
+                <p style="font-size:1.3rem;line-height:1.6;">La llegada de <strong>Freddie Mercury</strong> y su visión
+                    transformadora cambió todo.</p>
+                <p style="font-size:1.3rem;line-height:1.6;"><strong>John Deacon</strong> completa la alineación
+                    definitiva en 1971.</p>
+            </div>
+            <p
+                style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+                02 / 13</p>
+        </div>
+    </section>
+
+    <section class="s" style="position:relative;overflow:hidden;">
+        <div
+            style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2228%22 height=%2228%22%3E%3Ccircle cx=%221%22 cy=%221%22 r=%221%22 fill=%22rgba(255%2C255%2C255%2C0.05)%22/%3E%3C/svg%3E');pointer-events:none;z-index:0;">
+        </div>
+        <div style="position:relative;z-index:1;">
+            <div class="tag">Miembro Destacado</div>
+            <h2 style="font-size:5rem;line-height:1.05;letter-spacing:-.02em;margin-bottom:0.8rem;">Freddie Mercury: El
+                Showman Inigualable</h2>
+            <p style="font-size:1.4rem;color:var(--accent);font-weight:700;margin-bottom:2rem;">Voz, carisma y genio
+                escénico</p>
+            <div style="flex:1;min-height:0;display:flex;gap:2rem;overflow:hidden;">
+                <div class="card accent" style="flex:4;min-width:0;display:flex;flex-direction:column;gap:1.2rem;">
+                    <div class="icon-wrapper"><i data-lucide="lightbulb"></i></div>
+                    <h3 style="font-size:2rem;margin-bottom:0.5rem;">Voz y Composición</h3>
+                    <p style="font-size:1.2rem;line-height:1.5;">Su asombroso rango vocal y habilidad compositiva lo
+                        convirtieron en uno de los artistas más versátiles de la historia del rock.</p>
+                </div>
+                <div class="card accent" style="flex:6;min-width:0;display:flex;flex-direction:column;gap:1.2rem;">
+                    <div class="icon-wrapper accent-2"><i data-lucide="star"></i></div>
+                    <h3 style="font-size:2rem;margin-bottom:0.5rem;">Carisma Escénico</h3>
+                    <p style="font-size:1.2rem;line-height:1.5;">El impacto de su presencia escénica teatral y
+                        cautivadora definió los estándares de los conciertos de rock de estadio.</p>
+                </div>
+            </div>
+            <div style="flex:1;min-height:0;display:flex;gap:2rem;margin-top:2rem;overflow:hidden;">
+                <div class="card accent" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1.2rem;">
+                    <div class="icon-wrapper"><i data-lucide="award"></i></div>
+                    <h3 style="font-size:2rem;margin-bottom:0.5rem;">Libertad Artística</h3>
+                    <p style="font-size:1.2rem;line-height:1.5;">Un icono de la autoexpresión y la libertad artística
+                        que inspiró a generaciones.</p>
+                </div>
+                <div style="flex:1;"></div>
+                <div style="flex:1;"></div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+            03 / 13</p>
+    </section>
+
+    <section class="s" style="padding:0;display:flex;flex-direction:row;position:relative;overflow:hidden;">
+        <div class="img-slot" data-image-slot="1" data-image-keyword="Brian May Red Special guitar"
+            style="flex:0 0 420px;border-radius:0;overflow:hidden;min-height:auto;border-right:1px solid var(--border);">
+            <div class="img-bg1"></div>
+            <div class="img-bg2"></div>
+        </div>
+        <div
+            style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;overflow:hidden;">
+            <div class="tag">El Guitarrista</div>
+            <h2 style="font-size:5rem;line-height:1.05;letter-spacing:-.02em;margin-bottom:0.8rem;">Brian May: El
+                Arquitecto Sonoro</h2>
+            <p style="font-size:1.4rem;color:var(--accent);font-weight:700;margin-bottom:2rem;">Guitarras, ciencia y
+                melodía</p>
+            <div style="display:flex;flex-direction:column;gap:1.5rem;flex:1;min-height:0;overflow:hidden;">
+                <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+                    <div
+                        style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;">
+                    </div>
+                    <p style="font-size:1.3rem;line-height:1.5;"><strong style="color:var(--text);">Estilo de guitarra
+                            innovador:</strong> Su uso de la 'Red Special' creadora y técnica de múltiples capas.</p>
+                </div>
+                <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+                    <div
+                        style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;">
+                    </div>
+                    <p style="font-size:1.3rem;line-height:1.5;"><strong style="color:var(--text);">Compositor y
+                            arreglista:</strong> Contribuciones fundamentales en la mayoría de los grandes éxitos.</p>
+                </div>
+                <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+                    <div
+                        style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;">
+                    </div>
+                    <p style="font-size:1.3rem;line-height:1.5;"><strong style="color:var(--text);">Astrofísica y
+                            música:</strong> Fusión única entre su amor por la ciencia y el arte sonoro.</p>
+                </div>
+            </div>
+            <p
+                style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+                04 / 13</p>
+        </div>
+    </section>
+
+    <section class="s" style="position:relative;overflow:hidden;">
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%;">
+            <div class="tag">El Baterista</div>
+            <h2 style="font-size:4rem;line-height:1.1;letter-spacing:-.02em;margin-bottom:1rem;">Roger Taylor: El
+                Corazón Rítmico y la Voz Aguda</h2>
+            <p style="font-size:1.4rem;color:var(--accent);font-weight:700;margin-bottom:2rem;">Percusión, composiciones
+                y coros</p>
+            <div
+                style="flex:1;display:flex;justify-content:center;align-items:center;gap:8rem;min-height:0;overflow:hidden;">
+                <div style="text-align:center;">
+                    <div class="mega-stat-2">Agudos Vocales</div>
+                    <p style="font-size:2rem;font-weight:700;color:var(--text);margin-top:1rem;">Roger Taylor</p>
+                    <p style="font-size:0.9rem;opacity:0.4;margin-top:0.5rem;">Potencia en armonías</p>
+                </div>
+                <div style="text-align:center;">
+                    <div class="mega-stat">Ritmo Energético</div>
+                    <p style="font-size:2rem;font-weight:700;color:var(--text);margin-top:1rem;">Composiciones Clave</p>
+                    <p style="font-size:0.9rem;opacity:0.4;margin-top:0.5rem;">Radio Ga Ga, A Kind of Magic</p>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+            05 / 13</p>
+    </section>
+
+    <section class="s" style="position:relative;overflow:hidden;">
+        <div
+            style="position:absolute;top:40px;left:48px;width:32px;height:32px;border-top:1px solid var(--accent);border-left:1px solid var(--accent);opacity:.3;z-index:0;">
+        </div>
+        <div
+            style="position:absolute;bottom:40px;right:48px;width:32px;height:32px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);opacity:.3;z-index:0;">
+        </div>
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;height:100%;">
+            <div class="tag">Bajo</div>
+            <h2 style="font-size:5.5rem;line-height:1.05;letter-spacing:-.02em;margin-bottom:1rem;">John Deacon: El
+                Pilar Silencioso</h2>
+            <p style="font-size:1.6rem;color:var(--accent-2);font-weight:700;margin-bottom:2.5rem;">Bajo, ingenio y
+                éxitos perdurables</p>
+            <div style="max-width:55rem;">
+                <p style="font-size:1.3rem;line-height:1.6;margin-bottom:1.2rem;">Su estilo de bajo melódico proporcionó
+                    el fundamento rítmico que sostuvo la complejidad de Queen.</p>
+                <p style="font-size:1.3rem;line-height:1.6;margin-bottom:1.2rem;">Autor de algunos de los mayores éxitos
+                    de la banda: <strong>'Another One Bites the Dust'</strong> e <strong>'I Want to Break
+                        Free'</strong>.</p>
+                <p style="font-size:1.3rem;line-height:1.6;">Su contribución a la <strong
+                        style="color:var(--accent);">cohesión musical</strong> del grupo fue fundamental y perdurable.
+                </p>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+            06 / 13</p>
+    </section>
+
+    <section class="s" style="position:relative;overflow:hidden;">
+        <div
+            style="position:absolute;inset:0;background-image:repeating-linear-gradient(transparent,transparent 59px,rgba(255,255,255,.035) 59px,rgba(255,255,255,.035) 60px);pointer-events:none;z-index:0;">
+        </div>
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%;">
+            <div class="tag">Cronología</div>
+            <h2 style="font-size:4.5rem;line-height:1.1;letter-spacing:-.02em;margin-bottom:0.5rem;">La Ascensión: Una
+                Línea de Tiempo de Éxitos</h2>
+            <p style="font-size:1.4rem;color:var(--accent);font-weight:700;margin-bottom:2rem;">Del debut al estrellato
+                mundial</p>
+            <div style="flex:1;min-height:0;display:flex;justify-content:center;flex-direction:column;">
+                <div style="display:flex;width:100%;gap:1.5rem;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;margin-bottom:1.4rem;">
+                            <div
+                                style="width:12px;height:12px;border-radius:50%;background:var(--accent-2);flex-shrink:0;">
+                            </div>
+                            <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+                        </div>
+                        <p
+                            style="font-size:1.1rem;letter-spacing:.12em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.6rem;">
+                            1973</p>
+                        <div
+                            style="font-size:1.6rem;font-weight:700;color:var(--accent-2);line-height:1.2;margin-bottom:.8rem;">
+                            Queen</div>
+                        <p style="font-size:1rem;line-height:1.4;color:var(--text-dim);">Debut discográfico</p>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;margin-bottom:1.4rem;">
+                            <div
+                                style="width:12px;height:12px;border-radius:50%;background:var(--accent-2);flex-shrink:0;">
+                            </div>
+                            <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+                        </div>
+                        <p
+                            style="font-size:1.1rem;letter-spacing:.12em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.6rem;">
+                            1974</p>
+                        <div
+                            style="font-size:1.6rem;font-weight:700;color:var(--accent-2);line-height:1.2;margin-bottom:.8rem;">
+                            Killer Queen</div>
+                        <p style="font-size:1rem;line-height:1.4;color:var(--text-dim);">Primer gran éxito</p>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;margin-bottom:1.4rem;">
+                            <div
+                                style="width:12px;height:12px;border-radius:50%;background:var(--accent-2);flex-shrink:0;">
+                            </div>
+                            <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+                        </div>
+                        <p
+                            style="font-size:1.1rem;letter-spacing:.12em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.6rem;">
+                            1975</p>
+                        <div
+                            style="font-size:1.6rem;font-weight:700;color:var(--accent-2);line-height:1.2;margin-bottom:.8rem;">
+                            Bohemian Rhapsody</div>
+                        <p style="font-size:1rem;line-height:1.4;color:var(--text-dim);">El himno épico</p>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;margin-bottom:1.4rem;">
+                            <div
+                                style="width:12px;height:12px;border-radius:50%;background:var(--accent-2);flex-shrink:0;">
+                            </div>
+                            <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+                        </div>
+                        <p
+                            style="font-size:1.1rem;letter-spacing:.12em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.6rem;">
+                            1977</p>
+                        <div
+                            style="font-size:1.6rem;font-weight:700;color:var(--accent-2);line-height:1.2;margin-bottom:.8rem;">
+                            We Will Rock You</div>
+                        <p style="font-size:1rem;line-height:1.4;color:var(--text-dim);">Himnos de estadio</p>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;margin-bottom:1.4rem;">
+                            <div
+                                style="width:12px;height:12px;border-radius:50%;background:var(--accent-2);flex-shrink:0;">
+                            </div>
+                        </div>
+                        <p
+                            style="font-size:1.1rem;letter-spacing:.12em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.6rem;">
+                            1985</p>
+                        <div
+                            style="font-size:1.6rem;font-weight:700;color:var(--accent-2);line-height:1.2;margin-bottom:.8rem;">
+                            Live Aid</div>
+                        <p style="font-size:1rem;line-height:1.4;color:var(--text-dim);">Actuación legendaria</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+            07 / 13</p>
+    </section>
+
+    <section class="s" style="position:relative;overflow:hidden;">
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%;">
+            <div class="tag">Innovación</div>
+            <h2 style="font-size:4rem;line-height:1.1;letter-spacing:-.02em;margin-bottom:0.5rem;">Innovación Sonora:
+                Más Allá del Rock</h2>
+            <p style="font-size:1.4rem;color:var(--accent-2);font-weight:700;margin-bottom:1.5rem;">Un legado de
+                experimentación y maestría</p>
+            <div
+                style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:3rem;min-height:0;overflow:hidden;">
+                <div style="display:flex;align-items:baseline;gap:3rem;">
+                    <div style="text-align:center;flex:1;">
+                        <div class="mega-stat" style="font-size:6rem;">Más de 300 millones</div>
+                        <p style="font-size:1.5rem;font-weight:600;margin-top:0.8rem;">discos vendidos mundialmente</p>
+                        <p style="font-size:0.8rem;opacity:0.4;margin-top:0.4rem;">Estimaciones de la industria musical
+                        </p>
+                    </div>
+                    <div style="text-align:center;flex:1;">
+                        <div class="mega-stat-2" style="font-size:5rem;">18</div>
+                        <p style="font-size:1.2rem;font-weight:600;margin-top:0.8rem;">álbumes de estudio</p>
+                        <p style="font-size:0.8rem;opacity:0.4;margin-top:0.4rem;">Discografía oficial</p>
+                    </div>
+                </div>
+                <div style="display:flex;gap:2rem;">
+                    <div style="flex:1;display:flex;gap:1rem;align-items:flex-start;">
+                        <div
+                            style="width:4px;height:4px;border-radius:50%;background:var(--accent);margin-top:.8rem;flex-shrink:0;">
+                        </div>
+                        <p style="font-size:1.1rem;line-height:1.5;">Fusión de géneros: rock, ópera, pop, hard rock,
+                            disco</p>
+                    </div>
+                    <div style="flex:1;display:flex;gap:1rem;align-items:flex-start;">
+                        <div
+                            style="width:4px;height:4px;border-radius:50%;background:var(--accent-2);margin-top:.8rem;flex-shrink:0;">
+                        </div>
+                        <p style="font-size:1.1rem;line-height:1.5;">Uso pionero de técnicas de grabación y capas
+                            vocales</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+            08 / 13</p>
+    </section>
+
+    <section class="s" style="padding:0;display:flex;flex-direction:row;position:relative;overflow:hidden;">
+        <div
+            style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;overflow:hidden;">
+            <div class="tag">En Vivo</div>
+            <h2 style="font-size:4.5rem;line-height:1.1;letter-spacing:-.02em;margin-bottom:0.8rem;">Actuaciones
+                Legendarias: El Poder de Queen en Vivo</h2>
+            <p style="font-size:1.4rem;color:var(--accent-2);font-weight:700;margin-bottom:2rem;">Escenarios que
+                cambiaron la historia</p>
+            <div style="display:flex;flex-direction:column;gap:1.5rem;flex:1;min-height:0;overflow:hidden;">
+                <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+                    <div
+                        style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;">
+                    </div>
+                    <p style="font-size:1.3rem;line-height:1.5;"><strong style="color:var(--text);">Live Aid
+                            1985:</strong> A menudo citada como la mejor actuación en vivo de todos los tiempos.</p>
+                </div>
+                <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+                    <div
+                        style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;">
+                    </div>
+                    <p style="font-size:1.3rem;line-height:1.5;"><strong style="color:var(--text);">Conexión y
+                            energía:</strong> La energía y la conexión con el público en Wembley fue histórica.</p>
+                </div>
+                <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+                    <div
+                        style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;">
+                    </div>
+                    <p style="font-size:1.3rem;line-height:1.5;"><strong style="color:var(--text);">Innovación en
+                            espectáculos:</strong> Transformaron los conciertos de rock de estadio para siempre.</p>
+                </div>
+            </div>
+            <p
+                style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+                09 / 13</p>
+        </div>
+        <div class="img-slot" data-image-slot="2" data-image-keyword="Queen Live Aid concert"
+            style="flex:0 0 420px;border-radius:0;overflow:hidden;min-height:auto;border-left:1px solid var(--border);">
+            <div class="img-bg1"></div>
+            <div class="img-bg2"></div>
+        </div>
+    </section>
+
+    <section class="s" style="position:relative;overflow:hidden;">
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%;">
+            <div class="tag">Legado</div>
+            <h2 style="font-size:4rem;line-height:1.1;letter-spacing:-.02em;margin-bottom:0.5rem;">Impacto Cultural y
+                Legado</h2>
+            <p style="font-size:1.4rem;color:var(--accent);font-weight:700;margin-bottom:1.5rem;">Una influencia que
+                perdura</p>
+            <div
+                style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:3rem;min-height:0;overflow:hidden;">
+                <div style="display:flex;align-items:baseline;gap:3rem;">
+                    <div style="text-align:center;flex:1;">
+                        <div class="mega-stat" style="font-size:6rem;">Miles</div>
+                        <p style="font-size:1.5rem;font-weight:600;margin-top:0.8rem;">de covers y remezclas de sus
+                            canciones</p>
+                        <p style="font-size:0.8rem;opacity:0.4;margin-top:0.4rem;">Plataformas de streaming y bases de
+                            datos musicales</p>
+                    </div>
+                    <div style="text-align:center;flex:1;">
+                        <div class="mega-stat-2" style="font-size:5rem;">1</div>
+                        <p style="font-size:1.2rem;font-weight:600;margin-top:0.8rem;">película biográfica exitosa</p>
+                        <p style="font-size:0.8rem;opacity:0.4;margin-top:0.4rem;">'Bohemian Rhapsody' - Industria
+                            cinematográfica</p>
+                    </div>
+                </div>
+                <div style="display:flex;gap:2rem;">
+                    <div style="flex:1;display:flex;gap:1rem;align-items:flex-start;">
+                        <div
+                            style="width:4px;height:4px;border-radius:50%;background:var(--accent);margin-top:.8rem;flex-shrink:0;">
+                        </div>
+                        <p style="font-size:1.1rem;line-height:1.5;">Inspiración para generaciones de músicos</p>
+                    </div>
+                    <div style="flex:1;display:flex;gap:1rem;align-items:flex-start;">
+                        <div
+                            style="width:4px;height:4px;border-radius:50%;background:var(--accent-2);margin-top:.8rem;flex-shrink:0;">
+                        </div>
+                        <p style="font-size:1.1rem;line-height:1.5;">Presencia continua en películas, televisión y
+                            eventos deportivos</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+            10 / 13</p>
+    </section>
+
+    <section class="s" style="position:relative;overflow:hidden;">
+        <div
+            style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;">
+        </div>
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%;">
+            <div class="tag">Evolución Musical</div>
+            <h2 style="font-size:4.5rem;line-height:1.1;letter-spacing:-.02em;margin-bottom:0.5rem;text-align:center;">
+                La Música de Queen: Un Legado Ecléctico</h2>
+            <p style="font-size:1.4rem;color:var(--accent);font-weight:700;margin-bottom:2rem;text-align:center;">De
+                'Keep Yourself Alive' a 'The Show Must Go On'</p>
+            <div style="flex:1;min-height:0;display:flex;gap:0;overflow:hidden;">
+                <div
+                    style="flex:0 0 35%;background:var(--accent);padding:2.5rem;display:flex;flex-direction:column;justify-content:center;border-radius:0;">
+                    <h3 style="font-size:2.5rem;font-weight:800;color:#fff;margin-bottom:1.5rem;">Primeros Trabajos</h3>
+                    <div style="display:flex;flex-direction:column;gap:1rem;">
+                        <p style="font-size:1.2rem;line-height:1.5;color:rgba(255,255,255,0.9);">Hard rock</p>
+                        <p style="font-size:1.2rem;line-height:1.5;color:rgba(255,255,255,0.9);">Glamrock</p>
+                        <p style="font-size:1.2rem;line-height:1.5;color:rgba(255,255,255,0.9);">Influencias clásicas
+                        </p>
+                    </div>
+                </div>
+                <div style="width:2px;background:#fff;opacity:0.5;"></div>
+                <div
+                    style="flex:1;background:var(--accent-2);padding:2.5rem;display:flex;flex-direction:column;justify-content:center;border-radius:0;">
+                    <h3 style="font-size:2.5rem;font-weight:800;color:#1a1a2e;margin-bottom:1.5rem;">Últimos Trabajos
+                    </h3>
+                    <div style="display:flex;flex-direction:column;gap:1rem;">
+                        <p style="font-size:1.2rem;line-height:1.5;color:#1a1a2e;">Experimentación con ópera</p>
+                        <p style="font-size:1.2rem;line-height:1.5;color:#1a1a2e;">Pop y funk</p>
+                        <p style="font-size:1.2rem;line-height:1.5;color:#1a1a2e;">Profundidad emocional y temas épicos
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+            11 / 13</p>
+    </section>
+
+    <section class="s" style="position:relative;overflow:hidden;">
+        <div style="position:absolute;inset:28px;border:1px solid rgba(255,255,255,.12);pointer-events:none;z-index:0;">
+        </div>
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;height:100%;">
+            <div class="tag">Citas Memorables</div>
+            <h2 style="font-size:4rem;line-height:1.1;letter-spacing:-.02em;margin-bottom:0.5rem;">La Voz de una Era:
+                Citas Clave</h2>
+            <p style="font-size:1.4rem;color:var(--accent);font-weight:700;margin-bottom:2.5rem;">Palabras que definen
+                su espíritu</p>
+            <div style="display:flex;flex-direction:column;gap:2.5rem;flex:1;min-height:0;overflow:hidden;">
+                <p style="font-size:3.5rem;line-height:1.3;font-weight:700;color:var(--accent);font-style:italic;">
+                    "Somos una banda de público. Tratamos de complacer a la audiencia."</p>
+                <p style="font-size:1rem;color:var(--text-dim);">— Freddie Mercury</p>
+                <p style="font-size:2.5rem;line-height:1.3;font-weight:700;color:var(--accent-2);">"Intentamos hacer
+                    algo nuevo, algo que no se hubiera hecho antes."</p>
+                <p style="font-size:1rem;color:var(--text-dim);">— Brian May</p>
+                <p style="font-size:1.6rem;line-height:1.4;color:var(--text-dim);">La música de Queen es inmortal, su
+                    legado está asegurado.</p>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">
+            12 / 13</p>
+    </section>
+
+
+    <script src="/features/shared/lucide-init.js"></script>
+</body>
+
+</html>

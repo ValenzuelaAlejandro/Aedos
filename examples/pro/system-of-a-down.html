@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: rgba(255, 255, 255, 0.03);
+      --surface2: rgba(255, 255, 255, 0.06);
+      --text: #f1f5f9;
+      --text-dim: #94a3b8;
+      --border: rgba(255, 255, 255, 0.07);
+      --accent: #CCFF00;
+      --accent-dim: rgba(204, 255, 0, 0.15);
+      --accent-light: #E6FFE0;
+      --accent-2: #FF0033;
+      --accent-2-dim: rgba(255, 0, 51, 0.15);
+      --base-p: 1.35rem;
+      --base-h2: 3.2rem;
+      --base-h3: 2rem;
+      --base-gap: 1.5rem;
+    }
+    html { font-size: 10px; }
+    body { margin: 0; font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--bg); }
+    * { box-sizing: border-box; }
+    section.s { width: 1122px; height: 631px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); page-break-after: always; padding: 4rem 5rem; box-sizing: border-box; position: relative; }
+    @media print { body { margin: 0; } @page { size: 1122px 631px; margin: 0; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
+    h1, h2, h3, h4 { font-family: 'Bebas Neue', sans-serif; margin: 0; line-height: 1.15; color: var(--text); flex-shrink: 0; }
+    h1 { font-size: 5rem; font-weight: 700; letter-spacing: -0.04em; }
+    h2 { font-size: var(--base-h2); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+    h3 { font-size: var(--base-h3); font-weight: 700; margin-bottom: 0.4rem; flex-shrink: 0; }
+    p { font-size: var(--base-p); line-height: 1.5; margin: 0; color: var(--text-dim); flex-shrink: 0; }
+    ul { margin: 0.8rem 0 0; padding-left: 1.8rem; }
+    ul li { font-size: var(--base-p); line-height: 1.6; color: var(--text-dim); margin-bottom: 0.4rem; }
+    .tag { font-size: 1.3rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem; flex-shrink: 0; }
+    .tag::before { content: ''; width: 1rem; height: 2px; background: var(--accent); flex-shrink: 0; }
+    .subtitle { font-size: calc(var(--base-p) * 1.25); color: var(--text-dim); max-width: 80%; margin-bottom: 2.5rem; line-height: 1.4; flex-shrink: 0; }
+    .big-number { font-size: 7rem; font-weight: 700; color: var(--accent); line-height: 1; font-family: 'Bebas Neue', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .big-label { font-size: 1.3rem; color: var(--text-dim); margin-top: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .quote-block { border-left: 4px solid var(--accent); padding-left: 2rem; margin: 1rem 0; }
+    .quote-block blockquote { font-size: 2rem; font-style: italic; color: var(--text); margin: 0 0 0.8rem; line-height: 1.4; }
+    .quote-block cite { font-size: 1.3rem; color: var(--accent); font-style: normal; }
+    
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--base-gap); width: 100%; flex: 1; min-height: 0; align-items: start; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: calc(var(--base-gap) * 0.8); width: 100%; flex: 1; min-height: 0; align-items: start; }
+    .flex-row { display: flex; gap: var(--base-gap); align-items: stretch; width: 100%; flex: 1; min-height: 0; overflow: hidden; }
+    .flex-col { display: flex; flex-direction: column; gap: calc(var(--base-gap) * 0.8); flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 0px; padding: var(--base-gap); display: flex; flex-direction: column; align-items: flex-start; overflow: hidden; min-height: 0; min-width: 0; word-wrap: break-word; }
+    .card.accent { background: var(--accent-dim); border-color: var(--accent); }
+    .card.accent-2 { background: var(--accent-2-dim); border-color: var(--accent-2); }
+    .icon-wrapper { width: 40px; height: 40px; border-radius: 2px; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; flex-shrink: 0; transform: rotate(-3deg); }
+    .icon-wrapper.sec { background: var(--accent-2-dim); transform: rotate(3deg); }
+    [data-lucide], svg.lucide { width: 20px; height: 20px; stroke-width: 2; flex-shrink: 0; color: var(--accent); }
+    .icon-wrapper.sec [data-lucide] { color: var(--accent-2); }
+    .accent-bar { width: 4rem; height: 4px; background: var(--accent); margin-bottom: 2rem; flex-shrink: 0; }
+    
+    /* Stat Grid Specifics */
+    .stat-grid { display: flex; height: 100%; gap: 2rem; }
+    .stat-box { background: var(--surface2); border: 1px solid var(--border); flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem; }
+    
+    /* LAYOUT HARDENING */
+    .flex-row > * { min-width: 0; box-sizing: border-box; }
+    .card { flex: 1 1 0%; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .card h1, .card h2, .card h3, .card h4 { flex: 0 0 auto; display: block; margin: 0 0 0.5rem; max-height: calc(3 * 1.2rem); overflow: hidden; text-overflow: ellipsis; }
+    .card p { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    .icon-wrapper { flex: 0 0 auto; }
+    h1 { font-size: clamp(2.5rem, 4.8vw, 6rem); }
+    h2 { font-size: clamp(2rem, 3.5vw, var(--base-h2)); }
+    h3 { font-size: clamp(1.2rem, 2.2vw, var(--base-h3)); }
+  </style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1: COVER -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(255,255,255,.012) 40px,rgba(255,255,255,.012) 41px);pointer-events:none;z-index:0;"></div>
+  
+  <div class="tag" style="position:absolute;top:4rem;right:5rem;align-items:center;gap:0;">
+    <div style="width:100%;height:1px;background:var(--accent);margin-left:-2rem;"></div>
+    MUSIC HISTORY
+  </div>
+  
+  <h1 style="color:var(--accent);font-size:6.5rem;line-height:.92;letter-spacing:-.03em;margin-bottom:1.2rem;transform:skewX(-2deg);">SYSTEM OF A DOWN</h1>
+  <p style="font-size:1.8rem;color:var(--text);margin-bottom:2rem;text-transform:uppercase;letter-spacing:.1em;">1994 PRESENT</p>
+  
+  <div style="position:absolute;bottom:4rem;right:5rem;display:flex;flex-direction:column;align-items:flex-end;gap:1rem;">
+    <p style="color:var(--text-dim);font-family:monospace;line-height:1.2;">GENRES: Alternative Metal • Heavy Metal</p>
+    <p style="color:var(--accent-dim);font-family:monospace;line-height:1.2;">PLACE: East Hollywood, CA</p>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;">1 / 5</p>
+  </div>
+</section>
+
+<!-- SLIDE 2: CARDS (The Founders) -->
+<section class="s">
+  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(transparent,transparent 59px,rgba(255,255,255,.035) 59px,rgba(255,255,255,.035) 60px);pointer-events:none;z-index:0;"></div>
+  
+  <div class="tag">The Founders</div>
+  <h2>The Lineup</h2>
+  <p class="subtitle">The distinct personalities that formed the band's core identity and sonic chaos.</p>
+  
+  <div class="grid-2" style="flex:1;min-height:0;">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="mic-vocal"></i></div>
+      <h3>SERJ TANKIAN</h3>
+      <p>Lead vocals, keyboards. Known for his wide vocal range and political activism.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper sec"><i data-lucide="guitar"></i></div>
+      <h3>DARON MALAKIAN</h3>
+      <p>Guitar, vocals, co-founder. Primary songwriter and main source of riffs.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper"><i data-lucide="user-check"></i></div>
+      <h3>JAVAD ODATJIAN</h3>
+      <p>Bassist, backing vocals, creative director. The visual architect of the band.</p>
+    </div>
+    <div class="card accent-2">
+      <div class="icon-wrapper"><i data-lucide="activity"></i></div>
+      <h3>JOHN DOLMAYAN</h3>
+      <p>Drums, percussion. Contributed to the band's rhythmic complexity and punk influence.</p>
+    </div>
+  </div>
+  
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;">2 / 5</p>
+</section>
+
+<!-- SLIDE 3: CARDS (Musical Style) -->
+<section class="s">
+  <div style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2228%22 height=%2228%22%3E%3Ccircle cx=%221%22 cy=%221%22 r=%221%22 fill=%22rgba(255%2C255%2C255%2C0.05)%22/%3E%3C/svg%3E');pointer-events:none;z-index:0;"></div>
+  
+  <div class="tag">Sonic Disruption</div>
+  <h2>Musical Style</h2>
+  <p class="subtitle">A chaotic fusion of heavy metal, Armenian traditional music, and punk rock.</p>
+  
+  <div class="grid-3" style="flex:1;min-height:0;">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="music"></i></div>
+      <h3>Unpredictable</h3>
+      <p>Frequent shifts in tempo, time signatures, and structural chaos. Unconventional songwriting.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper"><i data-lucide="brain"></i></div>
+      <h3>Political Lyrics</h3>
+      <p>Songs heavily focused on war, corruption, and social issues. "War?" / "B.Y.O.B."</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper"><i data-lucide="zap"></i></div>
+      <h3>Vocal Contrast</h3>
+      <p>From crooning melodies to sharp screaming. Armenian scale influences.</p>
+    </div>
+  </div>
+  
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;">3 / 5</p>
+</section>
+
+<!-- SLIDE 4: COMPARISON/STATS (Legacy) -->
+<section class="s">
+  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px),repeating-linear-gradient(-45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px);pointer-events:none;z-index:0;"></div>
+  
+  <div class="tag" style="position:absolute;top:4rem;left:5rem;">The Numbers</div>
+  
+  <div class="stat-grid">
+    <div class="stat-box">
+      <div class="big-number">35M+</div>
+      <div class="big-label">Albums Sold Globally</div>
+    </div>
+    <div class="stat-box">
+      <div class="big-number">1</div>
+      <div class="big-label">Grammy Award (2006)</div>
+    </div>
+    <div class="stat-box">
+      <div class="big-number">#4</div>
+      <div class="big-label">BET Top Rock Album</div>
+    </div>
+  </div>
+  
+  <div class="flex-row" style="margin-top:2rem;flex:1;min-height:0;">
+    <div style="flex:1;min-height:0;padding:2rem 2rem;border-left:1px solid var(--border);">
+      <h3 style="color:var(--accent);margin-bottom:1rem;"><i data-lucide="trophy"></i> Commercial Peak</h3>
+      <p>The album "Mezmerize" debuted at #3 on the Billboard 200 charts. "Chop Suey!" was the band's breakthrough hit.</p>
+    </div>
+    <div style="flex:1;min-height:0;padding:2rem 2rem;">
+      <h3 style="color:var(--accent-2);margin-bottom:1rem;"><i data-lucide="star"></i> Cultural Impact</h3>
+      <p>Inducted into the Armenian Songwriters Hall of Fame. A defining voice for the Armenian diaspora.</p>
+    </div>
+  </div>
+  
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;">4 / 5</p>
+</section>
+
+<!-- SLIDE 5: CONCLUSION -->
+<section class="s" style="align-items:center;justify-content:center;text-align:center;overflow:hidden;">
+  <div style="position:absolute;top:0;left:0;right:0;height:5px;background:var(--accent);z-index:0;"></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:var(--accent);z-index:0;"></div>
+  
+  <div style="width:2px;height:5rem;background:var(--accent);margin-bottom:3rem;"></div>
+  
+  <h2 style="max-width:70%;text-align:center;margin-bottom:2rem;font-size:3.5rem;line-height:1.1;">Continuing Influence</h2>
+  <p style="max-width:60%;text-align:center;margin-bottom:3rem;line-height:1.6;">Their experimental sound continues to influence modern nu-metal bands, and their active touring in the late 2010s revived interest for a new generation.</p>
+  
+  <div class="flex-row" style="width:100%;margin-bottom:2rem;justify-content:center;gap:4rem;">
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <i data-lucide="arrow-right" style="color:var(--accent);width:16px;height:16px;"></i>
+      <span style="font-size:1.1rem;letter-spacing:.05em;">2020+ TOURS</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <i data-lucide="shield-check" style="color:var(--accent);width:16px;height:16px;"></i>
+      <span style="font-size:1.1rem;letter-spacing:.05em;">NEW ERA</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <i data-lucide="flag" style="color:var(--accent);width:16px;height:16px;"></i>
+      <span style="font-size:1.1rem;letter-spacing:.05em;">ARME.NIA</span>
+    </div>
+  </div>
+  
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;">5 / 5</p>
+</section>
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

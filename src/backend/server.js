@@ -35,7 +35,12 @@ app.disable('x-powered-by');
 // Trust Render's proxy to get real client IPs for rate limiting
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
+const RUNTIME_ENV = (process.env.NODE_ENV || 'development').toLowerCase();
+const IS_DEVELOPMENT = RUNTIME_ENV === 'development';
 const TMP_DIR = path.join(__dirname, '..', '..', 'tmp');
+const EXAMPLES_DIR = path.join(__dirname, '..', '..', 'examples');
+const EXAMPLES_FLASH_DIR = path.join(EXAMPLES_DIR, 'flash');
+const EXAMPLES_PRO_DIR = path.join(EXAMPLES_DIR, 'pro');
 let requestSequence = 0;
 
 // Queue System State
@@ -44,12 +49,25 @@ const queue = [];
 // Max concurrent generations 
 const MAX_CONCURRENT_GENERATIONS = 10;
 
-// Fallback model list used only if callOpenRouter is called without an explicit models array.
-// In practice every stage passes its own list (OPENROUTER_QWEN or OPENROUTER_MINIMAX).
-const OPENROUTER_MODEL_LIST = (process.env.OPENROUTER_MODEL_LIST || 'minimax/minimax-m2.7,qwen/qwen3.5-flash-02-23')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
+// Global fallback list for OpenRouter when callOpenRouter is invoked without
+// an explicit stage list. Keep Stage3-only models (like minimax) out of here.
+function parseModelList(rawValue, fallbackCsv) {
+    return (rawValue || fallbackCsv)
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+}
+
+const OPENROUTER_MODEL_LIST = parseModelList(
+    process.env.OPENROUTER_MODEL_LIST,
+    'qwen/qwen3.5-flash-02-23'
+);
+
+// Models that must never run outside Stage3 (configured in .env).
+const OPENROUTER_MODELS_STAGE3_ONLY = parseModelList(
+    process.env.OPENROUTER_MODELS_STAGE3_ONLY,
+    process.env.OPENROUTER_MODELS_STAGE3 || ''
+).map(model => String(model).trim().toLowerCase());
 
 function processQueue() {
     if (activeGenerations < MAX_CONCURRENT_GENERATIONS && queue.length > 0) {
@@ -178,8 +196,8 @@ function validateEnvironment() {
     log.success(ErrorCategory.CONFIG, 'Gemini API key configuration present');
     if (process.env.OPENROUTER_API_KEY) {
         log.success(ErrorCategory.CONFIG, 'OpenRouter API key present', {
-            flashModel: 'qwen',
-            stage3Model: 'minimax'
+            flashFallback: 'OPENROUTER_MODELS_FLASH',
+            stage3Primary: 'OPENROUTER_MODELS_STAGE3'
         });
     } else {
         log.warn(ErrorCategory.CONFIG, 'OpenRouter API key not set, provider fallback disabled');
@@ -280,10 +298,18 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 
-// Create /tmp/ folder if it doesn't exist
-if (!fs.existsSync(TMP_DIR)) {
-    fs.mkdirSync(TMP_DIR, { recursive: true });
-    log.info(ErrorCategory.FILESYSTEM, 'Temporary directory created', { path: TMP_DIR });
+function ensureDirectory(dirPath, description) {
+    if (fs.existsSync(dirPath)) return;
+    fs.mkdirSync(dirPath, { recursive: true });
+    log.info(ErrorCategory.FILESYSTEM, `${description} directory created`, { path: dirPath });
+}
+
+// Create output folders used for local debug artifacts.
+ensureDirectory(TMP_DIR, 'Temporary');
+if (IS_DEVELOPMENT) {
+    ensureDirectory(EXAMPLES_DIR, 'Examples');
+    ensureDirectory(EXAMPLES_FLASH_DIR, 'Examples flash');
+    ensureDirectory(EXAMPLES_PRO_DIR, 'Examples pro');
 }
 
 // Strips <script> blocks, inline event handlers, and javascript: URLs from
@@ -307,6 +333,58 @@ function sanitizeGeneratedHtml(html) {
     //   "Refused to apply style … MIME type text/html"
     html = html.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
     return html;
+}
+
+function decodeBasicHtmlEntities(value) {
+    return String(value || '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>');
+}
+
+function normalizeTextContent(value) {
+    return decodeBasicHtmlEntities(String(value || '').replace(/<[^>]+>/g, ' '))
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function extractPresentationTitle(html) {
+    if (typeof html !== 'string') return '';
+
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (titleMatch && titleMatch[1]) return normalizeTextContent(titleMatch[1]);
+
+    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    if (h1Match && h1Match[1]) return normalizeTextContent(h1Match[1]);
+
+    const configTitleMatch = html.match(/"title"\s*:\s*"([^"]+)"/i);
+    if (configTitleMatch && configTitleMatch[1]) return configTitleMatch[1].trim();
+
+    return '';
+}
+
+function buildFileStemFromTitle(title) {
+    const stem = String(title || 'presentation')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 90);
+    return stem || 'presentation';
+}
+
+function resolveUniqueHtmlPath(dirPath, stem) {
+    let candidate = path.join(dirPath, `${stem}.html`);
+    let index = 2;
+    while (fs.existsSync(candidate)) {
+        candidate = path.join(dirPath, `${stem}-${index}.html`);
+        index += 1;
+    }
+    return candidate;
 }
 
 const SAFETY = [
@@ -358,9 +436,27 @@ async function callOpenRouter(prompt, stageName, openrouterModels) {
 
     // Allow callers to override the global OPENROUTER_MODEL_LIST by providing
     // an explicit `openrouterModels` array. Fall back to the global list.
-    const modelsToTry = (Array.isArray(openrouterModels) && openrouterModels.length > 0)
+    const requestedModels = (Array.isArray(openrouterModels) && openrouterModels.length > 0)
         ? openrouterModels
         : OPENROUTER_MODEL_LIST;
+
+    // Policy guard: Stage3-only OpenRouter models are blocked outside Stage3.
+    let modelsToTry = requestedModels;
+    if (stageName !== 'Stage3' && OPENROUTER_MODELS_STAGE3_ONLY.length > 0) {
+        const stage3OnlySet = new Set(OPENROUTER_MODELS_STAGE3_ONLY);
+        modelsToTry = requestedModels.filter((model) => {
+            const normalized = String(model || '').trim().toLowerCase();
+            return !stage3OnlySet.has(normalized);
+        });
+    }
+
+    if (!modelsToTry.length) {
+        providerLog.warn(ErrorCategory.CONFIG, 'No OpenRouter models available for stage after policy filtering', {
+            stage: stageName,
+            requestedModels
+        });
+        throw new Error('OPENROUTER_MODELS_UNAVAILABLE');
+    }
 
     // Try each configured OpenRouter model until one responds
     for (const model of modelsToTry) {
@@ -469,9 +565,24 @@ async function callGemini(apiKey, modelList, prompt, stageName) {
 }
 
 // Model lists
-const GEMINI_MODELS  = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
-const OPENROUTER_QWEN    = ['qwen/qwen3.5-flash-02-23'];
-const OPENROUTER_MINIMAX = ['minimax/minimax-m2.7'];
+// Ordered lists come from .env for easier model swaps.
+// First item is always primary; later items are fallbacks.
+const GEMINI_MODELS_FLASH = parseModelList(
+    process.env.GEMINI_MODELS_FLASH,
+    'gemini-3-flash-preview'
+);
+const GEMINI_MODELS  = parseModelList(
+    process.env.GEMINI_MODELS_PIPELINE,
+    'gemini-2.5-flash-lite,gemini-2.5-flash'
+);
+const OPENROUTER_MODELS_FLASH = parseModelList(
+    process.env.OPENROUTER_MODELS_FLASH,
+    'qwen/qwen3.5-flash-02-23'
+);
+const OPENROUTER_MODELS_STAGE3 = parseModelList(
+    process.env.OPENROUTER_MODELS_STAGE3,
+    process.env.OPENROUTER_MODEL_LIST || ''
+);
 
 /**
  * Builds a caller that tries each provider/model in order until one succeeds.
@@ -500,13 +611,13 @@ function makeCallerFn(apiKey, stageName, sequence) {
 }
 
 // Stage routing
-// Flash  : qwen → gemini-2.5-flash → gemini-2.5-flash-lite
+// Flash  : gemini-3-flash-preview → qwen
 // Stage 1: gemini-2.5-flash-lite → gemini-2.5-flash  (Gemini only, no OpenRouter)
 // Stage 2: same as Stage 1
 // Stage 3: minimax → gemini-2.5-flash-lite → gemini-2.5-flash  (qwen never used here)
 const tryModelsFlash = makeCallerFn(KEY1, 'Flash', [
-    { provider: 'openrouter', models: OPENROUTER_QWEN },
-    { provider: 'gemini',     models: GEMINI_MODELS },
+    { provider: 'gemini',     models: GEMINI_MODELS_FLASH },
+    { provider: 'openrouter', models: OPENROUTER_MODELS_FLASH },
 ]);
 const tryModelsStage1 = makeCallerFn(KEY1, 'Stage1', [
     { provider: 'gemini', models: GEMINI_MODELS },
@@ -515,7 +626,7 @@ const tryModelsStage2 = makeCallerFn(KEY2, 'Stage2', [
     { provider: 'gemini', models: GEMINI_MODELS },
 ]);
 const tryModelsStage3 = makeCallerFn(KEY3, 'Stage3', [
-    { provider: 'openrouter', models: OPENROUTER_MINIMAX },
+    { provider: 'openrouter', models: OPENROUTER_MODELS_STAGE3 },
     { provider: 'gemini',     models: GEMINI_MODELS },
 ]);
 
@@ -1090,8 +1201,8 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                 cleanedOutput = '<!DOCTYPE html>\n' + cleanedOutput;
             }
 
-            // 4. Dev-only: save generated HTML to tmp/ for easier debugging
-            if ((process.env.NODE_ENV || 'development') !== 'production') {
+            // 4. Dev-only (NODE_ENV=development): save generated HTML artifacts.
+            if (IS_DEVELOPMENT) {
                 const debugPath = path.join(TMP_DIR, 'last_generated.html');
                 fs.writeFile(debugPath, cleanedOutput, 'utf8', (err) => {
                     if (err) {
@@ -1104,6 +1215,31 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
                     devLog.success(ErrorCategory.FILESYSTEM, 'Saved generated debug HTML', {
                         requestId,
                         path: debugPath
+                    });
+                });
+
+                const titleForFile = extractPresentationTitle(cleanedOutput) || opciones.tema || 'presentation';
+                const stem = buildFileStemFromTitle(titleForFile);
+                const modeFolder = usePipeline ? 'pro' : 'flash';
+                const modeExamplesDir = usePipeline ? EXAMPLES_PRO_DIR : EXAMPLES_FLASH_DIR;
+                const examplePath = resolveUniqueHtmlPath(modeExamplesDir, stem);
+
+                fs.writeFile(examplePath, cleanedOutput, 'utf8', (err) => {
+                    if (err) {
+                        devLog.warn(classifyError(err, ErrorCategory.FILESYSTEM), 'Failed to save generated example HTML', {
+                            requestId,
+                            error: err,
+                            title: titleForFile,
+                            mode: modeFolder
+                        });
+                        return;
+                    }
+
+                    devLog.success(ErrorCategory.FILESYSTEM, 'Saved generated example HTML', {
+                        requestId,
+                        path: examplePath,
+                        title: titleForFile,
+                        mode: modeFolder
                     });
                 });
             }

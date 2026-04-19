@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: rgba(255, 255, 255, .03);
+            --surface2: rgba(255, 255, 255, .06);
+            --accent: #00FF00;
+            --accent-light: #33FF33;
+            --accent-dim: rgba(0, 255, 0, .12);
+            --accent-2: #008000;
+            --accent-2-dim: rgba(0, 128, 0, .12);
+            --text: #e8e8e8;
+            --text-dim: #6a6a6a;
+            --border: rgba(255, 255, 255, .08);
+        }
+
+        html {
+            font-size: 10px;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        section.s {
+            width: 1122px;
+            height: 631px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            page-break-after: always;
+            padding: 4rem 5rem;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        @media print {
+            body {
+                margin: 0
+            }
+
+            @page {
+                size: 1122px 631px;
+                margin: 0
+            }
+
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important
+            }
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-family: 'Space Grotesk', sans-serif;
+            margin: 0;
+            line-height: 1.15;
+            color: var(--text);
+        }
+
+        h1 {
+            font-size: 5rem;
+            font-weight: 800;
+            letter-spacing: -.02em;
+        }
+
+        h2 {
+            font-size: 4rem;
+            font-weight: 700;
+            letter-spacing: -.01em;
+        }
+
+        h3 {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        p {
+            font-size: 1.5rem;
+            line-height: 1.5;
+            margin: 0;
+            color: var(--text-dim);
+        }
+
+        .tag {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: .15rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: .8rem;
+        }
+
+        .tag::before {
+            content: '';
+            width: 2rem;
+            height: 2px;
+            background: var(--accent);
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0px;
+            padding: 2.5rem;
+        }
+
+        .card.accent {
+            background: var(--surface);
+            border-color: var(--accent);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2.5rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        .icon-wrapper {
+            width: 40px;
+            height: 40px;
+            border-radius: 0px;
+            background: var(--surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--accent);
+        }
+
+        .icon-wrapper i {
+            width: 22px;
+            height: 22px;
+            stroke: var(--accent);
+            fill: none;
+        }
+
+        .code-text {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-main {
+            font-size: 7rem;
+            font-weight: 800;
+            color: var(--accent);
+            line-height: .9;
+        }
+
+        .stat-secondary {
+            font-size: 4.5rem;
+            font-weight: 700;
+            color: var(--accent-2);
+            line-height: 1;
+        }
+
+        .label-dim {
+            font-size: 1.2rem;
+            color: var(--text-dim);
+            opacity: .6;
+        }
+
+        .source-dim {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .9rem;
+            color: var(--text-dim);
+            opacity: .35;
+        }
+
+        .accent-line {
+            width: 30rem;
+            height: 4px;
+            background: var(--accent);
+        }
+
+        .v-divider {
+            width: 2px;
+            background: var(--accent);
+            opacity: .25;
+            align-self: stretch;
+        }
+
+        .dot-marker {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            flex-shrink: 0;
+        }
+
+        /* Terminal aesthetic override */
+        .card {
+            border-radius: 0px !important;
+            background: var(--surface) !important;
+            border: 1px solid var(--border) !important;
+        }
+
+        .icon-wrapper {
+            border-radius: 0px !important;
+            background: var(--surface) !important;
+            border: 1px solid var(--accent) !important;
+        }
+    </style>
+    <script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js"
+        integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei"
+        crossorigin="anonymous"></script>
+</head>
+
+<body>
+
+    <section class="s">
+        <div
+            style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;">
+        </div>
+        <div class="tag">ARQUITECTURAS DB VECTORIALES</div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;">
+            <h1 style="font-size:7rem;letter-spacing:-.03em;line-height:.95;"><span
+                    style="color:var(--accent);">VECTOR</span> DATABASE ARCHITECTURES</h1>
+            <h2 style="font-size:3.5rem;font-weight:400;letter-spacing:-.02em;opacity:.5;margin-top:1.5rem;">HNSW &
+                IVFFLAT DEEP DIVE<span style="color:var(--accent);opacity:.7;"> _</span></h2>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+            <p
+                style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--accent);opacity:.35;letter-spacing:.1em;">
+                $ ./index --analyze --depth=expert</p>
+            <p style="font-family:'JetBrains Mono',monospace;font-size:1.2rem;color:var(--text-dim);opacity:.4;">01 / 08
+            </p>
+        </div>
+    </section>
+
+    <section class="s">
+        <div
+            style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;">
+        </div>
+        <div class="tag">PRINCIPIOS FUNDAMENTALES</div>
+        <h2 style="font-size:4.5rem;margin-bottom:2rem;">PRINCIPIOS DE INDEXACIÓN VECTORIAL</h2>
+        <p style="font-size:1.4rem;opacity:.5;margin-bottom:2.5rem;">Cuantización y Estructuras de Grafos</p>
+        <div class="grid-3" style="flex:1;min-height:0;">
+            <div class="card accent">
+                <div class="icon-wrapper" style="margin-bottom:1.5rem;"><i data-lucide="search"></i></div>
+                <h3 style="margin-bottom:1rem;">Búsqueda ANN</h3>
+                <p style="font-size:1.2rem;line-height:1.6;">Búsqueda de <strong style="color:var(--text);">Vecino Más
+                        Cercano Aproximado</strong>: compromiso entre precisión y velocidad.</p>
+            </div>
+            <div class="card accent">
+                <div class="icon-wrapper" style="margin-bottom:1.5rem;"><i data-lucide="layers"></i></div>
+                <h3 style="margin-bottom:1rem;">Proyecciones y Clustering</h3>
+                <p style="font-size:1.2rem;line-height:1.6;">Reducción de dimensionalidad y agrupamiento de vectores
+                    similares.</p>
+            </div>
+            <div class="card accent">
+                <div class="icon-wrapper" style="margin-bottom:1.5rem;"><i data-lucide="git-branch"></i></div>
+                <h3 style="margin-bottom:1rem;">Estructuras de Grafos</h3>
+                <p style="font-size:1.2rem;line-height:1.6;">Aprovechamiento de la conectividad para recorrido
+                    eficiente.</p>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--text-dim);opacity:.4;">
+            02 / 08</p>
+    </section>
+
+    <section class="s">
+        <div
+            style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;">
+        </div>
+        <div class="tag">HNSW</div>
+        <h2 style="font-size:5.5rem;letter-spacing:-.03em;margin-bottom:2.5rem;">HNSW: MUNDOS PEQUEÑOS NAVEGABLES
+            JERÁRQUICOS</h2>
+        <p style="font-size:1.3rem;opacity:.45;margin-bottom:2rem;max-width:90rem;">Construcción de Grafos Multicapa</p>
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:1.5rem;max-width:95rem;">
+            <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+                <div class="dot-marker" style="margin-top:.6rem;"></div>
+                <p style="font-size:1.35rem;line-height:1.5;"><strong style="color:var(--text);">ESTRUCTURA EN
+                        CAPAS:</strong> Cada nivel es un grafo no dirigido (<span class="code-text">SL</span>).</p>
+            </div>
+            <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+                <div class="dot-marker" style="margin-top:.6rem;"></div>
+                <p style="font-size:1.35rem;line-height:1.5;"><strong style="color:var(--text);">PUNTO DE
+                        ENTRADA:</strong> Nodo inicial fijo para todas las búsquedas.</p>
+            </div>
+            <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+                <div class="dot-marker" style="margin-top:.6rem;"></div>
+                <p style="font-size:1.35rem;line-height:1.5;"><strong style="color:var(--text);">HEURÍSTICA DE
+                        INSERCIÓN:</strong> Asignación probabilística a capas basada en distancia.</p>
+            </div>
+            <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+                <div class="dot-marker" style="margin-top:.6rem;"></div>
+                <p style="font-size:1.35rem;line-height:1.5;"><strong style="color:var(--text);">ALGORITMO DE
+                        BÚSQUEDA:</strong> Recorrido codicioso desde punto de entrada, descendiendo entre capas.</p>
+            </div>
+            <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+                <div class="dot-marker" style="margin-top:.6rem;"></div>
+                <p style="font-size:1.35rem;line-height:1.5;"><strong style="color:var(--text);">PARÁMETROS
+                        CLAVE:</strong> <span class="code-text">M</span> (conexiones máx. por nodo), <span
+                        class="code-text">efConstruction</span> (exploración durante construcción), <span
+                        class="code-text">efSearch</span> (exploración durante consulta).</p>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--text-dim);opacity:.4;">
+            03 / 08</p>
+    </section>
+
+    <section class="s" style="justify-content:center;align-items:center;">
+        <div
+            style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;">
+        </div>
+        <div class="tag" style="position:absolute;top:4rem;left:5rem;">PERFIL HNSW</div>
+        <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:2rem;">
+            <div class="stat-main">99.9%</div>
+            <p class="label-dim" style="max-width:45rem;text-align:center;">Recall alcanzable con <span
+                    class="code-text">efSearch</span> óptimo</p>
+            <p class="source-dim">Análisis Teórico</p>
+        </div>
+        <div style="position:absolute;bottom:5rem;left:5rem;display:flex;flex-direction:column;gap:.5rem;">
+            <div class="stat-secondary">10x</div>
+            <p class="label-dim">Aceleración sobre búsqueda ANN por fuerza bruta</p>
+            <p class="source-dim">Benchmarks Empíricos</p>
+        </div>
+        <div style="position:absolute;bottom:5rem;right:5rem;text-align:right;">
+            <p style="font-size:1.2rem;opacity:.4;margin-bottom:.5rem;">Tiempo de construcción: <span
+                    class="code-text">O(N log N)</span></p>
+            <p style="font-size:1.2rem;opacity:.4;margin-bottom:.5rem;">Tiempo de consulta: <span
+                    class="code-text">O(log N)</span></p>
+            <p style="font-size:1.2rem;opacity:.4;">Memoria: <span class="code-text">O(N * M)</span></p>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--text-dim);opacity:.4;">
+            04 / 08</p>
+    </section>
+
+    <section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+        <div
+            style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;">
+        </div>
+        <div
+            style="flex:1;padding:4rem 4rem;display:flex;flex-direction:column;justify-content:center;min-width:0;border-right:2px solid var(--accent);opacity:.3;position:relative;z-index:1;">
+            <div class="tag" style="margin-bottom:2rem;">PRE-ENTRENAMIENTO</div>
+            <h3 style="font-size:2.4rem;margin-bottom:1.5rem;color:var(--accent);">K-MEANS</h3>
+            <p style="font-size:1.3rem;line-height:1.7;opacity:.75;">Identificar <strong style="color:var(--text);">k
+                    centroides</strong> que representen la distribución de los datos mediante clustering iterativo.</p>
+            <div style="margin-top:2rem;padding:1.5rem;background:var(--surface);border:1px solid var(--border);">
+                <p class="code-text" style="font-size:1.1rem;">k = número de clusters</p>
+            </div>
+        </div>
+        <div
+            style="flex:1;padding:4rem 4rem;display:flex;flex-direction:column;justify-content:center;min-width:0;position:relative;z-index:1;">
+            <div class="tag" style="margin-bottom:2rem;">ARCHIVO INVERTIDO</div>
+            <h3 style="font-size:2.4rem;margin-bottom:1.5rem;color:var(--accent);">PARTICIÓN</h3>
+            <p style="font-size:1.3rem;line-height:1.7;opacity:.75;">Cada centroide mapea a una <strong
+                    style="color:var(--text);">lista</strong> de vectores más cercanos (buckets de celdas Voronoi).</p>
+            <div style="margin-top:2rem;padding:1.5rem;background:var(--surface);border:1px solid var(--border);">
+                <p class="code-text" style="font-size:1.1rem;">nprobe = centros a explorar</p>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--text-dim);opacity:.4;">
+            05 / 08</p>
+    </section>
+
+    <section class="s" style="justify-content:center;align-items:center;">
+        <div
+            style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;">
+        </div>
+        <div class="tag" style="position:absolute;top:4rem;left:5rem;">PERFIL IVFFLAT</div>
+        <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:2rem;">
+            <div class="stat-main">1000+</div>
+            <p class="label-dim" style="max-width:45rem;text-align:center;">Centroides (k) comúnmente usados en datasets
+                grandes</p>
+            <p class="source-dim">Implementaciones Prácticas</p>
+        </div>
+        <div
+            style="position:absolute;bottom:5rem;right:5rem;display:flex;flex-direction:column;gap:.5rem;align-items:flex-end;">
+            <div class="stat-secondary">50%</div>
+            <p class="label-dim">Degradación de recall con distribuciones no uniformes</p>
+            <p class="source-dim">Estudios de Benchmarking</p>
+        </div>
+        <div style="position:absolute;bottom:5rem;left:5rem;">
+            <p style="font-size:1.2rem;opacity:.4;margin-bottom:.5rem;">Tiempo de construcción: <span
+                    class="code-text">O(k * iteraciones) + O(N)</span></p>
+            <p style="font-size:1.2rem;opacity:.4;margin-bottom:.5rem;">Tiempo de consulta: <span
+                    class="code-text">O(nprobe * N_cell)</span></p>
+            <p style="font-size:1.2rem;opacity:.4;">Memoria: <span class="code-text">O(N * D + k * D)</span></p>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--text-dim);opacity:.4;">
+            06 / 08</p>
+    </section>
+
+    <section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+        <div
+            style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;">
+        </div>
+        <div
+            style="flex:1;padding:4rem 4rem;display:flex;flex-direction:column;justify-content:center;min-width:0;position:relative;z-index:1;">
+            <h3 style="font-size:2.4rem;margin-bottom:2rem;color:var(--accent);">ESTRUCTURA HNSW</h3>
+            <div style="display:flex;flex-direction:column;gap:1.8rem;flex:1;min-height:0;">
+                <div style="display:flex;gap:1rem;align-items:flex-start;">
+                    <div class="dot-marker" style="margin-top:.5rem;"></div>
+                    <p style="font-size:1.25rem;line-height:1.5;">Grafo jerárquico multinivel</p>
+                </div>
+                <div style="display:flex;gap:1rem;align-items:flex-start;">
+                    <div class="dot-marker" style="margin-top:.5rem;"></div>
+                    <p style="font-size:1.25rem;line-height:1.5;">Recorrido codicioso por grafo</p>
+                </div>
+                <div style="display:flex;gap:1rem;align-items:flex-start;">
+                    <div class="dot-marker" style="margin-top:.5rem;"></div>
+                    <p style="font-size:1.25rem;line-height:1.5;">Escalabilidad superior en alta dimensionalidad</p>
+                </div>
+                <div style="display:flex;gap:1rem;align-items:flex-start;">
+                    <div class="dot-marker" style="margin-top:.5rem;"></div>
+                    <p style="font-size:1.25rem;line-height:1.5;"><span class="code-text">M</span>, <span
+                            class="code-text">efConstruction</span>, <span class="code-text">efSearch</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="v-divider" style="margin:4rem 0;"></div>
+        <div
+            style="flex:1;padding:4rem 4rem;display:flex;flex-direction:column;justify-content:center;min-width:0;position:relative;z-index:1;">
+            <h3 style="font-size:2.4rem;margin-bottom:2rem;color:var(--accent);">ESTRUCTURA IVFFLAT</h3>
+            <div style="display:flex;flex-direction:column;gap:1.8rem;flex:1;min-height:0;">
+                <div style="display:flex;gap:1rem;align-items:flex-start;">
+                    <div class="dot-marker" style="margin-top:.5rem;"></div>
+                    <p style="font-size:1.25rem;line-height:1.5;">Buckets particionados por centroides</p>
+                </div>
+                <div style="display:flex;gap:1rem;align-items:flex-start;">
+                    <div class="dot-marker" style="margin-top:.5rem;"></div>
+                    <p style="font-size:1.25rem;line-height:1.5;">Búsqueda por centroides + escaneo</p>
+                </div>
+                <div style="display:flex;gap:1rem;align-items:flex-start;">
+                    <div class="dot-marker" style="margin-top:.5rem;"></div>
+                    <p style="font-size:1.25rem;line-height:1.5;">Potencialmente más eficiente en memoria</p>
+                </div>
+                <div style="display:flex;gap:1rem;align-items:flex-start;">
+                    <div class="dot-marker" style="margin-top:.5rem;"></div>
+                    <p style="font-size:1.25rem;line-height:1.5;"><span class="code-text">k</span>, <span
+                            class="code-text">nprobe</span> + distribución</p>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--text-dim);opacity:.4;">
+            07 / 08</p>
+    </section>
+
+    <section class="s">
+        <div
+            style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;">
+        </div>
+        <div class="tag">INDEXACIÓN VECTORIAL AVANZADA</div>
+        <h1 style="font-size:6rem;letter-spacing:-.03em;line-height:.95;margin-bottom:1rem;"><span
+                style="color:var(--accent);">OPCIONES</span> ESTRATÉGICAS DE IMPLEMENTACIÓN</h1>
+        <div class="accent-line" style="margin-bottom:3rem;"></div>
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:1.5rem;max-width:70rem;">
+            <p style="font-size:1.35rem;line-height:1.6;opacity:.6;"><strong style="color:var(--text);">SIN BALA DE
+                    PLATA:</strong> El índice óptimo se dicta por objetivos de recall, tamaño de dataset,
+                dimensionalidad y requisitos de latencia.</p>
+            <p style="font-size:1.35rem;line-height:1.6;opacity:.6;"><strong style="color:var(--text);">DOMINIO DE
+                    PARÁMETROS:</strong> <span class="code-text">M</span>, <span
+                    class="code-text">efConstruction</span>, <span class="code-text">efSearch</span> para HNSW; <span
+                    class="code-text">k</span>, <span class="code-text">nprobe</span> para IVFFlat.</p>
+            <p style="font-size:1.35rem;line-height:1.6;opacity:.6;"><strong style="color:var(--text);">ENFOQUES
+                    HÍBRIDOS:</strong> Combinar técnicas (IVF para grueso, HNSW para fino) frecuentemente produce
+                resultados superiores.</p>
+            <p style="font-size:1.35rem;line-height:1.6;opacity:.6;"><strong style="color:var(--text);">EVALUACIÓN
+                    CONTINUA:</strong> El benchmarking es esencial para validar elecciones de configuración.</p>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--text-dim);opacity:.4;">
+            08 / 08</p>
+    </section>
+
+    <script src="/features/shared/lucide-init.js"></script>
+</body>
+
+</html>

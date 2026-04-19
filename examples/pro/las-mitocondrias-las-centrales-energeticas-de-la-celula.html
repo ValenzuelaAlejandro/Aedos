@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --bg: #FFFFFF;
+            --surface: #F5F5F5;
+            --surface2: #EBEBEB;
+            --accent: #346B34;
+            --accent-dim: rgba(52, 107, 52, .12);
+            --accent-2: #FFD700;
+            --accent-2-dim: rgba(255, 215, 0, .15);
+            --accent-3: #5A8A5A;
+            --accent-3-dim: rgba(90, 138, 90, .12);
+            --accent-4: #1A1A1A;
+            --text: #1A1A1A;
+            --text-dim: #4A4A4A;
+            --border: rgba(26, 26, 26, .08);
+        }
+
+        html {
+            font-size: 10px;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'IBM Plex Sans', sans-serif;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        section.s {
+            width: 1122px;
+            height: 631px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            page-break-after: always;
+            padding: 4rem 5rem;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        @media print {
+            body {
+                margin: 0
+            }
+
+            @page {
+                size: 1122px 631px;
+                margin: 0
+            }
+
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important
+            }
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-family: 'IBM Plex Serif', serif;
+            margin: 0;
+            line-height: 1.15;
+            color: var(--text);
+        }
+
+        h1 {
+            font-size: 5rem;
+            font-weight: 800;
+            letter-spacing: -.02em;
+        }
+
+        h2 {
+            font-size: 4rem;
+            font-weight: 700;
+            letter-spacing: -.01em;
+        }
+
+        h3 {
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        p {
+            font-size: 1.5rem;
+            line-height: 1.5;
+            margin: 0;
+            color: var(--text-dim);
+        }
+
+        .tag {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: .15rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: .8rem;
+        }
+
+        .tag::before {
+            content: '';
+            width: 2rem;
+            height: 2px;
+            background: var(--accent);
+        }
+
+        .card {
+            background: rgba(26, 26, 26, .025);
+            border: 1px solid rgba(26, 26, 26, .06);
+            border-radius: 12px;
+            padding: 2.5rem;
+        }
+
+        .card.accent {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2.5rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 2.5rem;
+            align-items: stretch;
+        }
+
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .icon-wrapper {
+            width: 40px;
+            height: 40px;
+            border-radius: 0px;
+            background: var(--accent-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-wrapper i {
+            width: 22px;
+            height: 22px;
+            stroke: var(--accent);
+            fill: none;
+        }
+
+        .accent-bar {
+            width: 4rem;
+            height: 3px;
+            background: var(--accent);
+            border-radius: 0px;
+        }
+
+        .v-divider {
+            width: 2px;
+            background: var(--accent);
+            opacity: .3;
+            align-self: stretch;
+        }
+
+        .key-point {
+            display: flex;
+            gap: 1.2rem;
+            align-items: flex-start;
+        }
+
+        .key-point-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            margin-top: .6rem;
+            flex-shrink: 0;
+        }
+
+        .img-slot {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        .img-slot .img-bg1 {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            background: linear-gradient(135deg, var(--accent-dim), var(--bg), var(--accent-2-dim));
+            pointer-events: none;
+        }
+
+        .img-slot .img-bg2 {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            background: linear-gradient(to right, rgba(0, 0, 0, .15), transparent);
+            pointer-events: none;
+        }
+
+        .stat-value {
+            font-size: 8rem;
+            font-weight: 900;
+            color: var(--accent-2);
+            line-height: .9;
+        }
+
+        .stat-label {
+            font-size: 1.2rem;
+            color: var(--text);
+            margin-top: .8rem;
+        }
+
+        .stat-source {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .95rem;
+            color: var(--text);
+            opacity: .5;
+            margin-top: .4rem;
+        }
+
+        .left-border-list {
+            border-left: 2px solid var(--accent);
+            padding-left: 1.5rem;
+        }
+
+        .left-border-list .key-point {
+            margin-bottom: 1.2rem;
+        }
+
+        .left-border-list .key-point:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+    <script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js"
+        integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei"
+        crossorigin="anonymous"></script>
+</head>
+
+<body>
+
+    <!-- SLIDE 1: COVER -->
+    <section class="s" style="justify-content:center;align-items:center;text-align:center;">
+        <div
+            style="position:absolute;inset:0;background-image:repeating-linear-gradient(transparent,transparent 59px,rgba(52,107,52,.03) 59px,rgba(52,107,52,.03) 60px);pointer-events:none;z-index:0;">
+        </div>
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:0;">
+            <div class="tag" style="justify-content:center;margin-bottom:2rem;">Biología Celular</div>
+            <div style="width:60%;height:1px;background:var(--accent);opacity:.4;margin-bottom:2rem;"></div>
+            <h1 style="font-size:6.5rem;line-height:.95;letter-spacing:-.03em;margin-bottom:1.5rem;">Las Mitocondrias:
+                Las <span style="color:var(--accent);">Centrales Energéticas</span> de la Célula</h1>
+            <div style="width:60%;height:1px;background:var(--accent);opacity:.4;margin-bottom:2rem;"></div>
+            <p style="font-size:1.4rem;color:var(--text-dim);max-width:55rem;line-height:1.6;">Explorando su Estructura
+                y Función</p>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;font-family:'JetBrains Mono',monospace;">
+            01 / 07</p>
+    </section>
+
+    <!-- SLIDE 2: CONCEPT - CARDS -->
+    <section class="s" style="padding:4rem 5rem;">
+        <div
+            style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2228%22 height=%2228%22%3E%3Ccircle cx=%221%22 cy=%221%22 r=%221%22 fill=%22rgba(52%2C107%2C52%2C0.05)%22/%3E%3C/svg%3E');pointer-events:none;z-index:0;">
+        </div>
+        <div style="position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;">
+            <div class="tag">Analogía</div>
+            <h2 style="font-size:4.5rem;line-height:1.05;font-weight:700;margin-bottom:1rem;">¿Por Qué Son <span
+                    style="color:var(--accent);">Importantes</span> las Mitocondrias?</h2>
+            <p style="font-size:1.3rem;color:var(--text-dim);max-width:65rem;line-height:1.6;margin-bottom:3rem;">Una
+                Analogía Sencilla para comprender su papel fundamental en la célula.</p>
+            <div class="grid-3" style="flex:1;min-height:0;align-content:start;">
+                <div class="card">
+                    <div class="icon-wrapper" style="margin-bottom:1.5rem;"><i data-lucide="factory"></i></div>
+                    <h3 style="font-size:2rem;font-weight:600;margin-bottom:1rem;color:var(--text);">Central Eléctrica
+                    </h3>
+                    <p style="font-size:1.2rem;line-height:1.6;">Imagina las mitocondrias como la central eléctrica de
+                        una ciudad, generando toda la energía necesaria.</p>
+                </div>
+                <div class="card">
+                    <div class="icon-wrapper" style="margin-bottom:1.5rem;"><i data-lucide="fuel"></i></div>
+                    <h3 style="font-size:2rem;font-weight:600;margin-bottom:1rem;color:var(--text);">Conversión de
+                        Energía</h3>
+                    <p style="font-size:1.2rem;line-height:1.6;">Toman el "combustible" (nutrientes) y lo convierten en
+                        "electricidad" (ATP) utilizable.</p>
+                </div>
+                <div class="card">
+                    <div class="icon-wrapper" style="margin-bottom:1.5rem;"><i data-lucide="zap"></i></div>
+                    <h3 style="font-size:2rem;font-weight:600;margin-bottom:1rem;color:var(--text);">Función Vital</h3>
+                    <p style="font-size:1.2rem;line-height:1.6;">Sin esta energía, la célula no podría realizar ninguna
+                        de sus funciones esenciales.</p>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;font-family:'JetBrains Mono',monospace;">
+            02 / 07</p>
+    </section>
+
+    <!-- SLIDE 3: INTERNALS - EDITORIAL WITH IMAGE -->
+    <section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+        <div
+            style="position:absolute;top:40px;left:48px;width:32px;height:32px;border-top:1px solid var(--accent);border-left:1px solid var(--accent);opacity:.3;z-index:0;">
+        </div>
+        <div
+            style="position:absolute;bottom:40px;right:48px;width:32px;height:32px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);opacity:.3;z-index:0;">
+        </div>
+        <div
+            style="flex:1;min-width:0;padding:4rem 5rem;display:flex;flex-direction:column;position:relative;z-index:1;min-height:0;">
+            <div class="tag">Anatomía</div>
+            <h2 style="font-size:4.5rem;line-height:1.05;font-weight:700;margin-bottom:1rem;">La Estructura de la <span
+                    style="color:var(--accent);">Mitocondria</span></h2>
+            <p style="font-size:1.3rem;color:var(--text-dim);max-width:50rem;line-height:1.6;margin-bottom:2.5rem;">
+                Capas y Compartimentos Clave que permiten su funcionamiento.</p>
+            <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:1.5rem;">
+                <div class="key-point">
+                    <div class="key-point-dot"></div>
+                    <p style="font-size:1.2rem;color:var(--text);"><strong>Membrana Externa:</strong> Una barrera lisa y
+                        permeable que rodea toda la mitocondria.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-dot"></div>
+                    <p style="font-size:1.2rem;color:var(--text);"><strong>Espacio Intermembrana:</strong> El área
+                        estrecha entre las dos membranas.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-dot"></div>
+                    <p style="font-size:1.2rem;color:var(--text);"><strong>Membrana Interna:</strong> Posee pliegues
+                        complejos llamados crestas, donde ocurren las reacciones clave.</p>
+                </div>
+                <div class="key-point">
+                    <div class="key-point-dot"></div>
+                    <p style="font-size:1.2rem;color:var(--text);"><strong>Matriz Mitocondrial:</strong> El espacio
+                        interior lleno de enzimas y ADN propio.</p>
+                </div>
+            </div>
+        </div>
+        <div class="img-slot" data-image-slot="1" data-image-keyword="mitochondria diagram"
+            style="flex:0 0 420px;min-height:auto;border-radius:0;border-left:1px solid var(--border);">
+            <div class="img-bg1"></div>
+            <div class="img-bg2"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:3;">
+                <p style="font-size:1.1rem;color:var(--accent);opacity:.6;text-align:center;padding:2rem;">Diagrama de
+                    la<br>Estructura Mitocondrial</p>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;font-family:'JetBrains Mono',monospace;">
+            03 / 07</p>
+    </section>
+
+    <!-- SLIDE 4: PROCESS - STATS -->
+    <section class="s" style="padding:4rem 5rem;">
+        <div
+            style="position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 50%,transparent);z-index:0;">
+        </div>
+        <div style="position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;">
+            <div class="tag">Metabolismo</div>
+            <h2 style="font-size:3.5rem;line-height:1.1;font-weight:700;margin-bottom:1rem;">El Proceso de Producción de
+                <span style="color:var(--accent);">Energía</span></h2>
+            <p style="font-size:1.3rem;color:var(--text-dim);max-width:60rem;line-height:1.6;margin-bottom:3rem;">De
+                Nutrientes a ATP: Respiración Celular Mitocondrial</p>
+            <div style="flex:1;min-height:0;display:flex;gap:3rem;align-items:flex-start;">
+                <div
+                    style="flex:0 0 55%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+                    <div class="stat-value">~30-32</div>
+                    <p class="stat-label">Moléculas de ATP por molécula de glucosa</p>
+                    <p class="stat-source">Biología celular estándar</p>
+                </div>
+                <div class="left-border-list" style="flex:1;min-width:0;padding-top:.5rem;">
+                    <div class="key-point">
+                        <p style="font-size:1.2rem;color:var(--text);">Las mitocondrias toman <strong>glucosa</strong> y
+                            <strong>oxígeno</strong> como materias primas.</p>
+                    </div>
+                    <div class="key-point">
+                        <p style="font-size:1.2rem;color:var(--text);">A través del <strong>ciclo de Krebs</strong> y la
+                            <strong>cadena de transporte de electrones</strong>.</p>
+                    </div>
+                    <div class="key-point">
+                        <p style="font-size:1.2rem;color:var(--text);">Se produce <strong>ATP</strong> (adenosín
+                            trifosfato), la moneda energética celular.</p>
+                    </div>
+                    <div class="key-point">
+                        <p style="font-size:1.2rem;color:var(--text);">Se libera <strong>CO₂</strong> y
+                            <strong>agua</strong> como subproductos.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;font-family:'JetBrains Mono',monospace;">
+            04 / 07</p>
+    </section>
+
+    <!-- SLIDE 5: DATA - STATS (HEALTH) -->
+    <section class="s" style="padding:4rem 5rem;">
+        <div style="position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;">
+            <div class="tag">Salud</div>
+            <h2 style="font-size:3.5rem;line-height:1.1;font-weight:700;margin-bottom:1rem;">La Mitocondria y la <span
+                    style="color:var(--accent);">Salud Celular</span></h2>
+            <p style="font-size:1.3rem;color:var(--text-dim);max-width:60rem;line-height:1.6;margin-bottom:3rem;">Cuando
+                las Centrales Eléctricas Celulares Fallan</p>
+            <div style="flex:1;min-height:0;display:flex;gap:3rem;align-items:flex-start;">
+                <div class="left-border-list" style="flex:0 0 45%;padding-top:.5rem;">
+                    <div class="key-point">
+                        <p style="font-size:1.2rem;color:var(--text);">Las disfunciones mitocondriales están asociadas a
+                            <strong>diversas enfermedades</strong>.</p>
+                    </div>
+                    <div class="key-point">
+                        <p style="font-size:1.2rem;color:var(--text);"><strong>Enfermedades neurodegenerativas:</strong>
+                            Alzheimer, Parkinson.</p>
+                    </div>
+                    <div class="key-point">
+                        <p style="font-size:1.2rem;color:var(--text);"><strong>Enfermedades cardíacas</strong> y
+                            musculares.</p>
+                    </div>
+                    <div class="key-point">
+                        <p style="font-size:1.2rem;color:var(--text);"><strong>Envejecimiento</strong> y ciertos tipos
+                            de cáncer.</p>
+                    </div>
+                    <p style="font-size:1.1rem;color:var(--text);opacity:.7;margin-top:1.5rem;font-style:italic;">La
+                        fragilidad de las "centrales energéticas" celulares frente a fallos.</p>
+                </div>
+                <div
+                    style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+                    <div class="stat-value">1.5 – 2.5×</div>
+                    <p class="stat-label">Aumento del riesgo de enfermedad de Parkinson con mutaciones del ADN
+                        mitocondrial</p>
+                    <p class="stat-source">Estudios genéticos y neurológicos</p>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;font-family:'JetBrains Mono',monospace;">
+            05 / 07</p>
+    </section>
+
+    <!-- SLIDE 6: EXAMPLE - SPLIT WITH IMAGE -->
+    <section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+        <div
+            style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(52,107,52,.012) 20px,rgba(52,107,52,.012) 21px),repeating-linear-gradient(-45deg,transparent,transparent 20px,rgba(52,107,52,.012) 20px,rgba(52,107,52,.012) 21px);pointer-events:none;z-index:0;">
+        </div>
+        <div class="img-slot" data-image-slot="2" data-image-keyword="cellular activity"
+            style="flex:0 0 420px;min-height:auto;border-radius:0;border-right:1px solid var(--border);">
+            <div class="img-bg1"></div>
+            <div class="img-bg2"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:3;">
+                <p style="font-size:1.1rem;color:var(--accent);opacity:.6;text-align:center;padding:2rem;">Actividad
+                    Celular<br>Variaciones Energéticas</p>
+            </div>
+        </div>
+        <div
+            style="flex:1;min-width:0;padding:4rem 5rem;display:flex;flex-direction:column;position:relative;z-index:1;min-height:0;">
+            <div class="tag">Casos</div>
+            <h2 style="font-size:4.5rem;line-height:1.05;font-weight:700;margin-bottom:1rem;">Mitocondrias en <span
+                    style="color:var(--accent);">Acción</span></h2>
+            <p style="font-size:1.3rem;color:var(--text-dim);max-width:50rem;line-height:1.6;margin-bottom:2.5rem;">
+                Diferentes Células, Diferentes Demandas Energéticas</p>
+            <div class="left-border-list" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:1.5rem;">
+                <div class="key-point">
+                    <p style="font-size:1.2rem;color:var(--text);"><strong>Células musculares:</strong> Poseen muchas
+                        mitocondrias para soportar la actividad física constante.</p>
+                </div>
+                <div class="key-point">
+                    <p style="font-size:1.2rem;color:var(--text);"><strong>Neuronas:</strong> Requieren un suministro
+                        constante de energía para la transmisión de señales.</p>
+                </div>
+                <div class="key-point">
+                    <p style="font-size:1.2rem;color:var(--text);"><strong>Células hepáticas:</strong> Participan en
+                        numerosos procesos metabólicos con alto requerimiento energético.</p>
+                </div>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;font-family:'JetBrains Mono',monospace;">
+            06 / 07</p>
+    </section>
+
+    <!-- SLIDE 7: CONCLUSION - MANIFESTO -->
+    <section class="s" style="justify-content:center;align-items:center;text-align:center;">
+        <div style="position:absolute;inset:28px;border:1px solid rgba(52,107,52,.1);pointer-events:none;z-index:0;">
+        </div>
+        <div style="position:absolute;top:0;left:0;right:0;height:10px;background:var(--accent);z-index:0;"></div>
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;max-width:75rem;">
+            <div class="tag" style="justify-content:center;margin-bottom:2rem;">Conclusión</div>
+            <h2 style="font-size:5.5rem;line-height:.95;font-weight:800;margin-bottom:1.5rem;">Las Mitocondrias: El
+                <span style="color:var(--accent);">Motor Vital</span> de la Célula</h2>
+            <p style="font-size:1.4rem;color:var(--text-dim);max-width:60rem;line-height:1.6;margin-bottom:3rem;">Una
+                Mirada Final a su importancia fundamental</p>
+            <div style="display:flex;flex-direction:column;gap:1.2rem;max-width:65rem;text-align:left;">
+                <p style="font-size:1.2rem;line-height:1.6;color:var(--text);">Las mitocondrias son organelos dinámicos
+                    esenciales para la supervivencia celular.</p>
+                <p style="font-size:1.2rem;line-height:1.6;color:var(--text);">Su compleja estructura permite la
+                    eficiente conversión de nutrientes en ATP.</p>
+                <p style="font-size:1.2rem;line-height:1.6;color:var(--text);">La salud de nuestras "centrales
+                    energéticas" celulares es fundamental para nuestra propia salud.</p>
+                <p style="font-size:1.2rem;line-height:1.6;color:var(--text);">Su mal funcionamiento tiene consecuencias
+                    graves para todo el organismo.</p>
+            </div>
+        </div>
+        <p
+            style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;font-family:'JetBrains Mono',monospace;">
+            07 / 07</p>
+    </section>
+
+    <script src="/features/shared/lucide-init.js"></script>
+</body>
+
+</html>

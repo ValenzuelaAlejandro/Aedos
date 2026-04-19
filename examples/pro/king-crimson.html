@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#0d0d10;
+    --surface:rgba(255,255,255,.03);
+    --surface2:rgba(255,255,255,.06);
+    --accent:#CC0000;
+    --accent-dim:rgba(204, 0, 0, .15);
+    --accent-2:#A00000;
+    --text:#f1f5f9;
+    --text-dim:#94a3b8;
+    --border:rgba(255,255,255,.07);
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'DM Sans',sans-serif; color:var(--text); background:var(--bg); }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; box-sizing:border-box; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  * { box-sizing: border-box; }
+  h1,h2,h3,h4 { font-family:'Bebas Neue',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; text-wrap:balance; }
+  h1 { font-size:7rem; font-weight:400; letter-spacing:.02em; }
+  h2 { font-size:5.5rem; font-weight:400; letter-spacing:.02em; }
+  h3 { font-size:1.8rem; font-weight:400; color:var(--text); margin:0; }
+  p { font-size:1.4rem; line-height:1.5; margin:0; color:var(--text-dim); flex-shrink:0; text-wrap:pretty; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:0px; padding:2rem; display:flex; flex-direction:column; gap:1rem; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:2rem; }
+  .icon-wrapper { width:44px; height:44px; border-radius:0px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .icon-wrapper i { width:22px; height:22px; stroke:var(--accent); fill:none; }
+  .key-point { display:flex; gap:1.2rem; align-items:flex-start; padding-left:1.5rem; border-left:2px solid var(--accent); }
+  .key-point p { font-size:1.3rem; line-height:1.5; color:var(--text); }
+  .img-slot { position:relative; overflow:hidden; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2)); pointer-events:none; }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.3),transparent); pointer-events:none; }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+  <!-- Slide 1: Cover -->
+  <section class="s" style="justify-content:center;align-items:center;text-align:center;overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:4px;background:var(--accent);z-index:0;"></div>
+    <div class="tag" style="justify-content:center;margin-bottom:2rem;">King Crimson</div>
+    <h1 style="font-size:7rem;line-height:.95;letter-spacing:.02em;margin-bottom:.5rem;">King Crimson:</h1>
+    <h1 style="font-size:7rem;line-height:.95;letter-spacing:.02em;color:var(--accent);margin-bottom:2.5rem;">An Exploration of Three Masterpieces</h1>
+    <p style="font-size:1.4rem;color:var(--text-dim);max-width:60rem;text-align:center;">Epitaph, In the Court of the Crimson King, and Moonchild</p>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">01 / 06</p>
+  </section>
+
+  <!-- Slide 2: Epitaph -->
+  <section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+    <div style="position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 50%,transparent);z-index:0;"></div>
+    <div style="flex:1;padding:4rem 5rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;min-width:0;">
+      <div class="tag">Epitaph</div>
+      <h2 style="font-size:5.5rem;line-height:.95;letter-spacing:.02em;margin-bottom:1rem;"><span style="color:var(--accent);">A</span> Prophetic Lament</h2>
+      <p style="font-size:1.3rem;color:var(--text-dim);max-width:60rem;margin-bottom:2.5rem;">From 'In the Wind' (1969)</p>
+      <div style="display:flex;flex-direction:column;gap:1.5rem;max-width:65rem;">
+        <div class="key-point"><p>Lyrical themes: war, death, and existential dread.</p></div>
+        <div class="key-point"><p>Greg Lake's melancholic vocal performance.</p></div>
+        <div class="key-point"><p>The use of Mellotron and string arrangements to build atmosphere.</p></div>
+        <div class="key-point"><p>A stark premonition of future conflicts.</p></div>
+      </div>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--text-dim);opacity:.4;margin-top:2.5rem;">King Crimson · In the Court of the Crimson King · 1969</p>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">02 / 06</p>
+  </section>
+
+  <!-- Slide 3: In the Court of the Crimson King -->
+  <section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+    <div style="flex:1;padding:4rem 4rem 4rem 5rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;min-width:0;">
+      <div class="tag">In the Court of the Crimson King</div>
+      <h2 style="font-size:4.5rem;line-height:.95;letter-spacing:.02em;margin-bottom:1rem;">The Defining Work of Progressive Rock</h2>
+      <p style="font-size:1.2rem;color:var(--text-dim);margin-bottom:2.5rem;">The title track and the album itself established new benchmarks for sonic complexity, lyrical ambition, and artistic presentation in rock music.</p>
+      <div class="grid-3" style="gap:1.5rem;">
+        <div class="card">
+          <div class="icon-wrapper"><i data-lucide="cpu"></i></div>
+          <h3>Synthesizers & Mellotron</h3>
+          <p style="font-size:1.1rem;line-height:1.4;">Groundbreaking use of synthesizers and Mellotron.</p>
+        </div>
+        <div class="card">
+          <div class="icon-wrapper"><i data-lucide="music"></i></div>
+          <h3>Complex Structures</h3>
+          <p style="font-size:1.1rem;line-height:1.4;">Intricate arrangements and instrumental passages.</p>
+        </div>
+        <div class="card">
+          <div class="icon-wrapper"><i data-lucide="image"></i></div>
+          <h3>Iconic Cover Art</h3>
+          <p style="font-size:1.1rem;line-height:1.4;">Barry Godber's unsettling illustration set a visual benchmark.</p>
+        </div>
+      </div>
+    </div>
+    <div class="img-slot" data-image-slot="1" data-image-keyword="surreal abstract progressive rock album art" style="flex:0 0 320px;min-height:auto;">
+      <div class="img-bg1"></div>
+      <div class="img-bg2"></div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">03 / 06</p>
+  </section>
+
+  <!-- Slide 4: Moonchild -->
+  <section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+    <div style="flex:0 0 35%;min-width:0;background:#111111;padding:4rem 3rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;">
+      <div class="tag" style="margin-bottom:1.5rem;">Moonchild</div>
+      <h2 style="font-size:4rem;line-height:.95;letter-spacing:.02em;margin-bottom:2rem;">Ethereal Ballad</h2>
+      <p style="font-size:1.2rem;line-height:1.5;">The song's gentle opening movement presents a delicate ballad that establishes the ethereal atmosphere characteristic of King Crimson's experimental range.</p>
+    </div>
+    <div style="flex:0 0 2px;background:var(--accent);opacity:.7;align-self:stretch;flex-shrink:0;"></div>
+    <div style="flex:1;min-width:0;background:var(--accent);padding:4rem 4rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;">
+      <div class="tag" style="color:var(--text);">From 'In the Court of the Crimson King'</div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+        <h2 style="font-size:4rem;line-height:.95;letter-spacing:.02em;color:var(--text);margin-bottom:2rem;">Avant-Garde Improvisation</h2>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text);margin-bottom:1.5rem;">The 'Thessalonian' section marks a radical departure into free improvisation and noise, pushing the boundaries of what a 'song' could be.</p>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text);opacity:.8;">An abrupt shift from melodic beauty to chaotic sonic textures — a testament to the band's fearless experimentation.</p>
+      </div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">04 / 06</p>
+  </section>
+
+  <!-- Slide 5: Legacy Stats -->
+  <section class="s" style="justify-content:center;align-items:center;text-align:center;overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:4px;background:var(--accent);z-index:0;"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;">
+      <div class="tag" style="justify-content:center;margin-bottom:2rem;">Legacy</div>
+      <h2 style="font-size:5.5rem;line-height:.95;letter-spacing:.02em;margin-bottom:3rem;">King Crimson's Lasting Influence</h2>
+      <div style="font-size:8rem;font-weight:400;color:var(--accent);line-height:1;margin-bottom:1rem;">5M+</div>
+      <p style="font-size:1.2rem;color:var(--text-dim);margin-bottom:3rem;">Estimated album sales worldwide</p>
+      <div style="display:flex;flex-direction:column;gap:1rem;max-width:55rem;text-align:left;">
+        <p style="font-size:1.2rem;line-height:1.5;">Cited by numerous artists across genres, from rock to electronic music.</p>
+        <p style="font-size:1.2rem;line-height:1.5;">Complex arrangements and lyrical depth remain a benchmark for experimental music.</p>
+        <p style="font-size:1.2rem;line-height:1.5;">Their fearless experimentation continues to inspire new generations.</p>
+      </div>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--text-dim);opacity:.4;margin-top:2rem;">Various music industry reports</p>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">05 / 06</p>
+  </section>
+
+  <!-- Slide 6: Conclusion -->
+  <section class="s" style="justify-content:center;align-items:center;text-align:center;overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:8px;background:var(--accent);z-index:0;"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;max-width:80rem;">
+      <div class="tag" style="justify-content:center;margin-bottom:2rem;">Conclusion</div>
+      <h2 style="font-size:6rem;line-height:.95;letter-spacing:.02em;color:var(--accent);margin-bottom:1rem;">Echoes of Crimson</h2>
+      <p style="font-size:1.6rem;color:var(--text-dim);margin-bottom:3rem;">The Enduring Power of Three Songs</p>
+      <div style="display:flex;flex-direction:column;gap:1.2rem;align-items:center;">
+        <p style="font-size:1.3rem;line-height:1.5;">These three songs exemplify King Crimson's groundbreaking approach to music.</p>
+        <p style="font-size:1.3rem;line-height:1.5;">Their thematic depth and sonic innovation remain relevant today.</p>
+        <p style="font-size:1.3rem;line-height:1.5;">A legacy built on artistic integrity and fearless experimentation.</p>
+        <p style="font-size:1.3rem;line-height:1.5;">The 'red crimson' hue of their sound continues to paint the musical landscape.</p>
+      </div>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text-dim);opacity:.3;margin-top:3rem;">© King Crimson Legacy</p>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">06 / 06</p>
+  </section>
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

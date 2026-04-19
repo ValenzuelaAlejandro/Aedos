@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#0d0d10; --surface:rgba(255,255,255,.03); --surface2:rgba(255,255,255,.06);
+    --text:#f1f5f9; --text-dim:#94a3b8; --border:rgba(255,255,255,.07);
+    --accent:#C9A66B; --accent-dim:rgba(201, 166, 107, 0.15); --accent-light:rgba(201, 166, 107, 0.9);
+    --accent-2:#3B5F7C; --accent-2-dim:rgba(59, 95, 124, 0.15);
+    --base-p:1.5rem; --base-h2:4rem;
+    --base-h3:2.2rem; --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'DM Sans',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; box-sizing:border-box; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'Syne',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; flex-shrink:0; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); flex-shrink:0; }
+  ul { margin:.8rem 0 0; padding-left:1.8rem; }
+  ul li { font-size:var(--base-p); line-height:1.6; color:var(--text-dim); margin-bottom:.4rem; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; flex-shrink:0; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); flex-shrink:0; }
+  .subtitle { font-size:calc(var(--base-p)*1.25); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; flex-shrink:0; }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); line-height:1; font-family:'Syne',serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+  .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--text); margin:0 0 .8rem; line-height:1.4; }
+  .quote-block cite { font-size:1.3rem; color:var(--accent); font-style:normal; }
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; min-height:0; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; }
+  .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+  .step-content { min-width:0; flex:1; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2.5rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); min-width:0; container-type:inline-size; overflow:hidden; }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; align-items:start; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; align-items:start; }
+  .flex-row { display:flex; gap:var(--base-gap); align-items:stretch; width:100%; flex:1; min-height:0; overflow:hidden; }
+  .flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; min-width:0; overflow:hidden; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; min-height:0; min-width:0; word-wrap:break-word; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
+  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; flex-shrink:0; }
+  .icon-wrapper.sec { background:var(--accent-2-dim); }
+  [data-lucide],svg.lucide { width:20px; height:20px; stroke-width:2; flex-shrink:0; color:var(--accent); }
+  .icon-wrapper.sec [data-lucide] { color:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; margin-bottom:2rem; flex-shrink:0; }
+  .v-divider { width:2px; background:var(--accent); opacity:.3; align-self:stretch; flex-shrink:0; }
+  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
+  
+  .s[style*="flex-direction:row"] > div { flex:1 1 0%; min-width:0; }
+  h1 { font-size: clamp(2.5rem, 4.8vw, 6rem); }
+  h2 { font-size: clamp(2rem, 3.5vw, var(--base-h2)); }
+  h3 { font-size: clamp(1.2rem, 2.2vw, var(--base-h3)); }
+
+  /* USAGE NOTES: Strict rules for authoring HTML/CSS in Phase 2 */
+  /* - Do NOT set headings (h1-h4) to flex:1 or display:flex. */
+  /* - Use flex:1 only on containers that should expand (e.g., .card, .step-content, .stat-box). */
+  /* - Always include min-width:0 and min-height:0 on flex children. */
+  /* - Prefer shared classes and CSS variables; avoid repeating long inline style blocks except for atmosphere overlays. */
+
+  /* ENGLISH + SIZE OPTIMIZATION (project override): */
+  /* All visible text, attribute values (image keywords, tag labels, icon names), and the CONFIG fields MUST be in English. */
+  /* Do NOT include emojis or pictographic characters anywhere in the output. */
+  /* Optimize for compact HTML: reuse classes from the single <style> block and avoid redundant inline CSS. */
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+  <section class="s" style="justify-content:center;overflow:hidden;">
+    <div class="tag">Blast City</div>
+    <h1 style="color:var(--accent);font-size:6rem;line-height:.92;letter-spacing:-.03em;margin-bottom:2rem;">Cowboy Bebop</h1>
+    <p class="subtitle">Bounty Hunters. Space Cowboys. Jazz Noir.</p>
+    <div class="accent-bar"></div>
+    <p style="font-size:1.4rem;margin-top:2rem;color:var(--text-dim);">The ultimate space western meets the blues.</p>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 10</p>
+  </section>
+
+  <section class="s">
+    <div class="tag">2 · Concept</div>
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
+      <div>
+        <h2 style="font-size:4.5rem;line-height:.95;letter-spacing:-.02em;margin-bottom:2rem;">Space is a <em style="color:var(--accent);font-style:normal;">Desert</em></h2>
+        <p style="font-size:1.4rem;line-height:1.65;color:var(--text-dim);max-width:48rem;">In the year 2071, humanity has colonized the solar system. An accident on the moon has rendered Earth uninhabitable. Now, bounty hunters chase criminals across the stars, carrying the weight of their own history.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:1rem;">
+        <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Year 2071. Solar System.</p></div>
+        <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Interstellar Enforcement Agency.</p></div>
+        <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">One crew. One ship. No past.</p></div>
+      </div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 10</p>
+  </section>
+
+  <section class="s">
+    <div class="tag">3 · Crew</div>
+    <div class="grid-2" style="flex:1;min-height:0;">
+      <div class="card accent"><div class="icon-wrapper"><i data-lucide="eye"></i></div><h3>Spike Spiegel</h3><p class="subtitle">The Handsome Bastard</p><p>Laid-back, deadbeat, and haunted. An escaped criminal with a sword and a motorcycle.</p></div>
+      <div class="card"><div class="icon-wrapper sec"><i data-lucide="shield"></i></div><h3>Jet Black</h3><p class="subtitle">The Iron Man</p><p>Ex-cop turned captain. Loyal father figure to the ship's dog, and the only rational one aboard.</p></div>
+      <div class="card"><div class="icon-wrapper"><i data-lucide="skull"></i></div><h3>Faye Valentine</h3><p class="subtitle">The Gambler</p><p>Beautiful, wealthy in the past, and broke now. Chasing a memory she forgot long ago.</p></div>
+      <div class="card accent-2"><div class="icon-wrapper sec"><i data-lucide="cpu"></i></div><h3>Ed</h3><p class="subtitle">The Witch</p><p>Genius hacker. Eccentric. Lives on the Bebop just to eat junk food and play games.</p></div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 10</p>
+  </section>
+
+  <section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+    <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--bg);">
+      <div class="tag">Loneliness vs Reality</div>
+      <h2 style="font-size:3rem;color:var(--accent);">The Trap</h2>
+      <p>They run from the past but are defined by it.</p>
+      <ul><li>Isolation in space.</li><li>Ambition clashing with apathy.</li><li>The futility of memory.</li></ul>
+    </div>
+    <div style="width:2px;background:var(--border);flex-shrink:0;"></div>
+    <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--surface);">
+      <div class="tag">The Light</div>
+      <h2 style="font-size:3rem;color:var(--accent-2);">The Bond</h2>
+      <p>Despite the darkness, they find family.</p>
+      <ul><li>Found family on the Bebop.</li><li>Sacrificial acts of kindness.</li><li>Shared grief.</li></ul>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 10</p>
+  </section>
+
+  <section class="s">
+    <div class="tag">5 · Soundtrack</div>
+    <h2>Yoko Kanno's Genius</h2>
+    <p class="subtitle">Jazz, Bebop, and Classical fusion.</p>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="big-number">∞</div><div class="big-label">Streaming Hours</div></div>
+      <div class="stat-box"><div class="big-number">100%</div><div class="big-label">Critical Acclaim</div></div>
+      <div class="stat-box"><div class="big-number">2X</div><div class="big-label">Industry Standard</div></div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 10</p>
+  </section>
+
+  <section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+    <div class="img-slot" data-image-slot="1" data-image-keyword="cowboy bebop spaceship interior"
+         style="flex:0 0 400px;border-radius:0;min-height:auto;">
+      <div class="img-bg1"></div><div class="img-bg2"></div>
+    </div>
+    <div style="flex:1;min-width:0;padding:3.5rem 4rem;display:flex;flex-direction:column;gap:2rem;overflow:hidden;">
+      <div class="tag">Animation</div>
+      <h2 style="margin-bottom:0;">Fluid Motion</h2>
+      <div class="flex-col" style="flex:1;min-height:0;">
+        <div class="card accent"><div class="icon-wrapper"><i data-lucide="layers"></i></div><h3>Hand-Drawn</h3><p>Traditional animation with a gritty, film grain texture that feels authentic.</p></div>
+        <div class="card"><div class="icon-wrapper sec"><i data-lucide="zap"></i></div><h3>Zero-G Combat</h3><p>Pioneering physics-based fighting sequences that changed the anime industry.</p></div>
+      </div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 10</p>
+  </section>
+
+  <section class="s">
+    <div class="tag">7 · History</div>
+    <h2>The Narrative Arc</h2>
+    <div style="flex:1;min-height:0;display:flex;justify-content:center;flex-direction:column;">
+      <div style="display:flex;width:100%;gap:2rem;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+            <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+            <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+          </div>
+          <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">Ep 1-20</p>
+          <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">The Adventures</div>
+          <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Episodic bounty hunting. Showcasing individual character backstories.</p>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+            <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+            <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+          </div>
+          <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">Ep 21-23</p>
+          <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">The Past Returns</div>
+          <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Drama intensifies. Vicious closes the net.</p>
+        </div>
+        <div style="flex:0 0 auto;max-width:300px;">
+          <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+            <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          </div>
+          <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">Ep 25-26</p>
+          <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">The Duel</div>
+          <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Spike's choice. The cost of letting go.</p>
+        </div>
+      </div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">7 / 10</p>
+  </section>
+
+  <section class="s" style="justify-content:center;overflow:hidden;">
+    <div class="tag">8 · Reflection</div>
+    <div class="quote-block">
+      <blockquote>"If you don't like the way you're doing something, you're gonna be miserable forever."</blockquote>
+      <cite>— Vicious, Ep 10</cite>
+    </div>
+    <p style="margin-top:3rem;max-width:65%;">The show is a meditation on regret. You can run from your past, but you can't outrun your own reflection.</p>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">8 / 10</p>
+  </section>
+
+  <section class="s">
+    <div class="tag">9 · Legacy</div>
+    <p class="subtitle">Gateway drug for anime.</p>
+    <div class="grid-2" style="flex:1;min-height:0;">
+      <div class="card accent"><div class="icon-wrapper"><i data-lucide="globe"></i></div><h3>The West</h3><p>Introduced Western audiences to mature storytelling in the 90s.</p></div>
+      <div class="card"><div class="icon-wrapper sec"><i data-lucide="trophy"></i></div><h3>Iconic</h3><p>Defined the 'Sci-Fi Noir' aesthetic for generations.</p></div>
+      <div class="card"><div class="icon-wrapper"><i data-lucide="share"></i></div><h3>Influence</h3><p>Shaped everything from *Cowboy Bebop* to modern cyberpunk.</p></div>
+      <div class="card accent-2"><div class="icon-wrapper sec"><i data-lucide="music"></i></div><h3>Soundtrack</h3><p>Yoko Kanno's work remains the gold standard for anime music.</p></div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">9 / 10</p>
+  </section>
+
+  <section class="s" style="align-items:center;justify-content:center;text-align:center;overflow:hidden;">
+    <div class="accent-bar" style="margin:0 auto 2rem;"></div>
+    <h2 style="max-width:72%;text-align:center;margin-bottom:2rem;">"You're gonna carry that weight."</h2>
+    <p class="subtitle" style="text-align:center;margin:0 auto;">A timeless classic in animation history.</p>
+    <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">10 / 10</p>
+  </section>
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

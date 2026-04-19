@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#1A1A2E;
+    --surface:rgba(255,255,255,.04);
+    --surface2:rgba(255,255,255,.08);
+    --text:#eef2f7;
+    --text-dim:#8fa3b1;
+    --border:rgba(255,255,255,.09);
+    --accent:#FF8C42;
+    --accent-dim:rgba(255, 140, 66, .15);
+    --accent-light:rgba(255, 140, 66, .25);
+    --accent-2:#3B82F6;
+    --accent-2-dim:rgba(59, 130, 246, .15);
+    --accent-3:#4CAF50;
+    --accent-3-dim:rgba(76, 175, 80, .15);
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'DM Sans',sans-serif; color:var(--text); background:var(--bg); }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; box-sizing:border-box; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  * { box-sizing: border-box; }
+  h1,h2,h3,h4 { font-family:'Bebas Neue',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; text-wrap:balance; }
+  p { font-size:1.5rem; line-height:1.5; margin:0; color:var(--text-dim); flex-shrink:0; text-wrap:pretty; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:2.5rem; }
+  .icon-wrapper { width:40px; height:40px; border-radius:8px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .icon-wrapper i { width:22px; height:22px; stroke:var(--accent); fill:none; }
+  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); pointer-events:none; }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); pointer-events:none; }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- Slide 1: Cover -->
+<section class="s" style="position:relative;">
+  <!-- Accent bar right side -->
+  <div style="position:absolute;top:0;right:0;width:280px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 70%);opacity:.85;z-index:0;"></div>
+  
+  <div style="flex:1;padding-right:3.5rem;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:1;min-width:0;">
+    <div class="tag">City Pop · Japanese Fusion</div>
+    
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;">
+      <h1 style="font-size:7rem;line-height:.88;letter-spacing:-.02em;">The Sunny Rhythms of<br><span style="color:var(--accent);">Masayoshi Takanaka</span></h1>
+    </div>
+    
+    <p style="font-size:1.4rem;max-width:55rem;line-height:1.6;opacity:.85;">Exploring his Top 5 Joyful and Creative Tracks</p>
+  </div>
+  
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">01 / 06</p>
+</section>
+
+<!-- Slide 2: Rainbow Tour -->
+<section class="s" style="display:flex;flex-direction:row;padding:0;position:relative;overflow:hidden;">
+  <div class="img-slot" data-image-slot="1" data-image-keyword="guitarist on rainbow road, city pop art" style="flex:0 0 420px;min-height:auto;border-radius:0;border-right:1px solid var(--border);">
+    <div class="img-bg1"></div>
+    <div class="img-bg2"></div>
+  </div>
+  
+  <div style="flex:1;min-width:0;padding:4rem 4.5rem;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:1;">
+    <div>
+      <div class="tag">02 · EXPLORATION</div>
+      <h2 style="font-size:5.5rem;line-height:.88;letter-spacing:-.02em;margin-top:1.5rem;margin-bottom:1rem;">Song 1: <span style="color:var(--accent);">Rainbow Tour</span> <span style="font-size:4rem;">(1981)</span></h2>
+      <p style="font-size:1.3rem;color:var(--text-dim);margin-bottom:2rem;">A Journey of Melodic Exploration</p>
+      
+      <div style="display:flex;flex-direction:column;gap:1.2rem;flex:1;min-height:0;overflow:hidden;">
+        <div style="display:flex;gap:1rem;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.5rem;flex-shrink:0;"></div>
+          <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">Features a driving beat and soaring guitar solos that feel like a vibrant journey.</p>
+        </div>
+        <div style="display:flex;gap:1rem;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.5rem;flex-shrink:0;"></div>
+          <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">The interplay between rhythm and melody creates a sense of adventure.</p>
+        </div>
+        <div style="display:flex;gap:1rem;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.5rem;flex-shrink:0;"></div>
+          <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">Often cited for its uplifting and escapist qualities.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">02 / 06</p>
+</section>
+
+<!-- Slide 3: Blue Lagoon -->
+<section class="s" style="position:relative;">
+  <div style="position:absolute;top:40px;left:48px;width:32px;height:32px;border-top:1px solid var(--accent);border-left:1px solid var(--accent);opacity:.3;z-index:0;"></div>
+  <div style="position:absolute;bottom:40px;right:48px;width:32px;height:32px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);opacity:.3;z-index:0;"></div>
+  
+  <div style="flex:1;padding:0 5rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;min-width:0;">
+    <div>
+      <div class="tag">03 · SERENITY</div>
+      <h2 style="font-size:4.5rem;line-height:.9;letter-spacing:-.02em;margin-top:1.5rem;margin-bottom:1rem;">Song 2: <span style="color:var(--accent-2);">Blue Lagoon</span> <span style="font-size:3.5rem;">(1979)</span></h2>
+      <p style="font-size:1.3rem;color:var(--text-dim);margin-bottom:2.5rem;">Tropical Serenity and Lush Soundscapes</p>
+    </div>
+    
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;margin-top:0;">
+      <div class="card" style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="icon-wrapper"><i data-lucide="droplet"></i></div>
+        <h3 style="font-size:2rem;color:var(--accent);margin:0;">Gentle Arpeggios</h3>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);margin:0;">Characterized by its gentle guitar arpeggios and calming bassline.</p>
+      </div>
+      
+      <div class="card" style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="icon-wrapper" style="background:var(--accent-2-dim);"><i data-lucide="wind" style="stroke:var(--accent-2);"></i></div>
+        <h3 style="font-size:2rem;color:var(--accent-2);margin:0;">Watery Atmosphere</h3>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);margin:0;">The use of reverb and chorus effects enhances the watery, serene atmosphere.</p>
+      </div>
+      
+      <div class="card" style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="icon-wrapper" style="background:var(--accent-3-dim);"><i data-lucide="palette" style="stroke:var(--accent-3);"></i></div>
+        <h3 style="font-size:2rem;color:var(--accent-3);margin:0;">Sonic Landscapes</h3>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);margin:0;">A perfect example of Takanaka's ability to paint vivid sonic landscapes.</p>
+      </div>
+    </div>
+  </div>
+  
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">03 / 06</p>
+</section>
+
+<!-- Slide 4: Summer Breeze -->
+<section class="s" style="position:relative;">
+  <div style="position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 50%,transparent);z-index:0;"></div>
+  
+  <div style="flex:1;padding:0 5rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;min-width:0;">
+    <div>
+      <div class="tag">04 · SUMMER VIBES</div>
+      <h2 style="font-size:6rem;line-height:.85;letter-spacing:-.02em;margin-top:1.5rem;margin-bottom:1rem;">Song 3: <span style="color:var(--accent);">Summer Breeze</span> <span style="font-size:4.5rem;">(1977)</span></h2>
+      <p style="font-size:1.3rem;color:var(--text-dim);margin-bottom:2rem;">Effortless Groove and Sunny Vibes</p>
+    </div>
+    
+    <p style="font-size:1.4rem;line-height:1.6;color:var(--text);max-width:60rem;margin-bottom:2.5rem;">'Summer Breeze' is a quintessential Takanaka track, blending infectious rhythm with bright guitar work.</p>
+    
+    <div style="display:flex;flex-direction:column;gap:1.2rem;flex:1;min-height:0;overflow:hidden;">
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.6rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">Its iconic guitar riff is instantly recognizable and highly danceable.</p>
+      </div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.6rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">The arrangement is tight and groovy, making it a fan favorite for its pure joy.</p>
+      </div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.6rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">Embodies the carefree spirit of summer.</p>
+      </div>
+    </div>
+  </div>
+  
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">04 / 06</p>
+</section>
+
+<!-- Slide 5: Tropic Birds & Akashia no Machi -->
+<section class="s" style="display:flex;flex-direction:row;padding:0;position:relative;overflow:hidden;">
+  <div style="flex:1;min-width:0;padding:4rem 4.5rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;">
+    <div>
+      <div class="tag">05 · VERSATILITY</div>
+      <h2 style="font-size:5rem;line-height:.9;letter-spacing:-.02em;margin-top:1.5rem;margin-bottom:1rem;">Song 4 &amp; 5: <span style="color:var(--accent);">Tropic Birds</span> &amp; <span style="color:var(--accent);">Akashia no Machi</span></h2>
+      <p style="font-size:1.3rem;color:var(--text-dim);margin-bottom:2rem;">Vibrant Rhythms and Urban Melodies</p>
+    </div>
+    
+    <p style="font-size:1.4rem;line-height:1.6;color:var(--text);max-width:50rem;margin-bottom:2.5rem;">These two tracks highlight Takanaka's versatility, from exotic island soundscapes to sophisticated urban melodies.</p>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;flex:1;min-height:0;">
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent-2);margin-top:.6rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);"><strong style="color:var(--text);">Tropic Birds</strong> — lively, percussive guitar with tropical theme.</p>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent-2);margin-top:.6rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);"><strong style="color:var(--text);">Akashia no Machi</strong> — mellow, urban jazz-influenced sound.</p>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent-2);margin-top:.6rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">Both demonstrate masterful command of melody and harmony.</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="img-slot" data-image-slot="2" data-image-keyword="tropical city skyline fusion art" style="flex:0 0 420px;min-height:auto;border-radius:0;border-left:1px solid var(--border);">
+    <div class="img-bg1"></div>
+    <div class="img-bg2"></div>
+  </div>
+</section>
+
+<!-- Slide 6: Conclusion -->
+<section class="s" style="justify-content:center;align-items:center;text-align:center;position:relative;">
+  <div style="position:absolute;top:0;left:0;right:0;height:5px;background:var(--accent);z-index:0;"></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:var(--accent);z-index:0;"></div>
+  
+  <div style="flex:1;padding:4rem 5rem;display:flex;flex-direction:column;align-items:center;justify-content:center;max-width:70rem;position:relative;z-index:1;min-width:0;">
+    <div class="tag" style="justify-content:center;">Conclusion</div>
+    
+    <h2 style="font-size:6rem;line-height:.9;letter-spacing:-.02em;margin-top:1rem;margin-bottom:1.5rem;">The Enduring Sparkle of <span style="color:var(--accent);">Takanaka</span></h2>
+    <p style="font-size:1.3rem;color:var(--text-dim);margin-bottom:2.5rem;">A Legacy of Joyful Creation</p>
+    
+    <p style="font-size:1.4rem;line-height:1.6;color:var(--text);max-width:55rem;margin-bottom:2.5rem;">Masayoshi Takanaka's music continues to inspire with its unique blend of technical skill and unadulterated joy.</p>
+    
+    <div style="display:flex;flex-direction:column;gap:1rem;text-align:left;border-left:2px solid var(--accent);padding-left:2rem;margin-top:1rem;">
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.6rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">His top songs, like 'Rainbow Tour' and 'Blue Lagoon', are testaments to his creative genius.</p>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.6rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">The playful use of color in his music mirrors the vibrant imagery evoked by his guitar.</p>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.6rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;color:var(--text-dim);">Takanaka's fusion sound remains a beacon of optimistic and expertly crafted music.</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Guitar silhouette -->
+  <div style="position:absolute;bottom:5rem;right:5rem;opacity:.12;z-index:0;">
+    <svg width="80" height="140" viewBox="0 0 80 140" fill="none">
+      <path d="M40 10 L55 30 L50 30 L50 55 L55 55 L55 80 L50 80 L50 140 L30 140 L30 80 L25 80 L25 55 L30 55 L30 30 L25 30 L40 10Z" fill="var(--accent)"/>
+      <ellipse cx="40" cy="35" rx="10" ry="12" fill="var(--bg)"/>
+    </svg>
+  </div>
+  
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.5;z-index:2;">06 / 06</p>
+</section>
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

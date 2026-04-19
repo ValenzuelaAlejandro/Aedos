@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#1A1A1A; --surface:rgba(255,255,255,.03); --surface2:rgba(255,255,255,.06);
+    --text:#F5F5DC; --text-dim:rgba(245,245,220,.7); --border:rgba(255,255,255,.07);
+    --accent:#D4AF37; --accent-dim:rgba(212,175,55,.15);
+    --accent-2:#8B1A1A; --accent-2-dim:rgba(139,26,26,.15);
+    --accent-3:#1A1A1A; --accent-3-dim:rgba(26,26,26,.15);
+    --accent-4:#2C2C2C; --accent-4-dim:rgba(44,44,44,.15);
+    --accent-5:#F5F5DC; --accent-5-dim:rgba(245,245,220,.15);
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'Lato',sans-serif; color:var(--text); background:var(--bg); }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; box-sizing:border-box; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  * { box-sizing: border-box; }
+  h1,h2,h3,h4 { font-family:'Playfair Display',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; text-wrap:balance; }
+  h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:4rem; font-weight:700; letter-spacing:-.01em; }
+  h3 { font-size:2.2rem; font-weight:700; flex-shrink:0; }
+  p { font-size:1.5rem; line-height:1.5; margin:0; color:var(--text-dim); flex-shrink:0; text-wrap:pretty; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:0px; padding:2.5rem; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:2.5rem; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:2rem; }
+  .flex-row { display:flex; gap:2.5rem; align-items:stretch; }
+  .flex-col { display:flex; flex-direction:column; gap:2rem; }
+  .big-number { font-size:clamp(3rem,10cqi,5rem); font-weight:800; color:var(--accent); line-height:1; white-space:nowrap; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
+  .icon-wrapper { width:40px; height:40px; border-radius:0px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; }
+  .icon-wrapper i { width:22px; height:22px; stroke:var(--accent); fill:none; }
+  .icon-wrapper.crimson { background:var(--accent-2-dim); }
+  .icon-wrapper.crimson i { stroke:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:var(--accent); border-radius:0px; }
+  .v-divider { width:2px; background:var(--accent); opacity:.3; align-self:stretch; }
+  .mono { font-family:'JetBrains Mono',monospace; }
+  .ruled-line { width:100%; height:1px; background:var(--accent); opacity:.2; margin:2rem 0; }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1: COVER -->
+<section class="s" style="justify-content:center;align-items:center;text-align:center;">
+  <!-- atmosphere: ruled-lines -->
+  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(transparent,transparent 59px,rgba(255,255,255,.035) 59px,rgba(255,255,255,.035) 60px);pointer-events:none;z-index:0;"></div>
+  <!-- warm amber glow bottom corners -->
+  <div style="position:absolute;bottom:0;left:0;width:300px;height:200px;background:radial-gradient(ellipse at bottom left,rgba(212,175,55,.08) 0%,transparent 70%);pointer-events:none;z-index:0;"></div>
+  <div style="position:absolute;bottom:0;right:0;width:300px;height:200px;background:radial-gradient(ellipse at bottom right,rgba(212,175,55,.08) 0%,transparent 70%);pointer-events:none;z-index:0;"></div>
+  <!-- content -->
+  <div style="position:relative;z-index:1;">
+    <p style="position:absolute;top:0;left:0;font-size:1rem;color:var(--text);opacity:.15;letter-spacing:.15em;text-transform:uppercase;">Guide · Gold Stake</p>
+    <h1 style="font-size:6.5rem;line-height:.95;margin-bottom:1.5rem;">
+      <span style="display:block;color:var(--accent);">Mastering</span>
+      <span style="display:block;color:var(--text);">the Ghost Deck</span>
+    </h1>
+    <div style="width:8rem;height:2px;background:var(--accent);margin:2.5rem auto;"></div>
+    <p style="font-size:1.5rem;max-width:55rem;color:var(--text-dim);line-height:1.6;">Gold Stake Balatro Setup — A Strategic Guide to Unlocking Synergies</p>
+  </div>
+  <p style="position:absolute;bottom:3.5rem;right:5rem;font-size:1rem;color:var(--text);opacity:.15;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;z-index:2;">01 / 07</p>
+</section>
+
+<!-- SLIDE 2: CORE MECHANICS -->
+<section class="s">
+  <!-- atmosphere: vertical-left-edge -->
+  <div style="position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 50%,transparent);z-index:0;"></div>
+  <!-- subtle ruled lines -->
+  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(transparent,transparent 59px,rgba(255,255,255,.02) 59px,rgba(255,255,255,.02) 60px);pointer-events:none;z-index:0;"></div>
+  <!-- content -->
+  <div style="position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;">
+    <div class="tag">Core Mechanics</div>
+    <h2 style="font-size:4.5rem;line-height:1.1;margin-bottom:2.5rem;">
+      <span>The Ghost Deck: </span><span style="color:var(--accent-2);">Leveraging</span><br>
+      <span style="color:var(--accent-2);">Negative</span><span> Effects</span>
+    </h2>
+    <div style="max-width:65rem;">
+      <p style="font-size:1.4rem;line-height:1.7;margin-bottom:2rem;">The Ghost deck's primary mechanic involves <strong style="color:var(--text);">negative effects</strong> that, when managed, can fuel powerful synergies.</p>
+      <div style="display:flex;flex-direction:column;gap:1.5rem;margin-top:2.5rem;">
+        <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.8rem;flex-shrink:0;"></div>
+          <p style="font-size:1.3rem;line-height:1.6;">Ghosts are <strong style="color:var(--text);">removed from the deck after use</strong>, creating scarcity and forcing strategic choices.</p>
+        </div>
+        <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--accent-2);margin-top:.8rem;flex-shrink:0;"></div>
+          <p style="font-size:1.3rem;line-height:1.6;">Certain jokers and consumables interact with removed cards, turning a drawback into an advantage.</p>
+        </div>
+        <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.8rem;flex-shrink:0;"></div>
+          <p style="font-size:1.3rem;line-height:1.6;">Focus on building a <strong style="color:var(--text);">small, potent deck</strong> rather than a large, inconsistent one.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3.5rem;right:5rem;font-size:1rem;color:var(--text);opacity:.15;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;z-index:2;">02 / 07</p>
+</section>
+
+<!-- SLIDE 3: ESSENTIAL JOKERS -->
+<section class="s">
+  <!-- atmosphere: dot-grid -->
+  <div style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2228%22 height=%2228%22%3E%3Ccircle cx=%221%22 cy=%221%22 r=%221%22 fill=%22rgba(255%2C255%2C255%2C0.05)%22/%3E%3C/svg%3E');pointer-events:none;z-index:0;"></div>
+  <!-- content -->
+  <div style="position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;">
+    <div class="tag">Key Jokers</div>
+    <h2 style="font-size:3.8rem;margin-bottom:1rem;">Essential Jokers for Gold Stake</h2>
+    <p style="font-size:1.3rem;color:var(--text-dim);margin-bottom:2.5rem;">Synergies That Define the Run</p>
+    <div class="grid-3" style="flex:1;min-height:0;align-content:start;">
+      <!-- Card 1: The Grim -->
+      <div class="card" style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="icon-wrapper"><i data-lucide="star"></i></div>
+        <h3 style="color:var(--accent);">The Grim</h3>
+        <p style="font-size:1.2rem;line-height:1.6;">When a Ghost card is played, gain +1 Mult for the hand. Essential for scaling damage.</p>
+        <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);">
+          <p style="font-size:1rem;color:var(--accent);letter-spacing:.05em;text-transform:uppercase;">Mandatory</p>
+        </div>
+      </div>
+      <!-- Card 2: The Echo -->
+      <div class="card" style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="icon-wrapper"><i data-lucide="lightbulb"></i></div>
+        <h3 style="color:var(--accent-2);">The Echo</h3>
+        <p style="font-size:1.2rem;line-height:1.6;">When a Ghost card is played, randomly discard one card and draw a new one.</p>
+        <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);">
+          <p style="font-size:1rem;color:var(--accent-2);letter-spacing:.05em;text-transform:uppercase;">Recommended</p>
+        </div>
+      </div>
+      <!-- Card 3: The Reapers -->
+      <div class="card" style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="icon-wrapper"><i data-lucide="zap"></i></div>
+        <h3 style="color:var(--accent);">The Reapers</h3>
+        <p style="font-size:1.2rem;line-height:1.6;">Adds a Ghost card to your discard pile when you play a Spade. Synergistic power.</p>
+        <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);">
+          <p style="font-size:1rem;color:var(--accent);letter-spacing:.05em;text-transform:uppercase;">Synergistic</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3.5rem;right:5rem;font-size:1rem;color:var(--text);opacity:.15;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;z-index:2;">03 / 07</p>
+</section>
+
+<!-- SLIDE 4: HAND COMPOSITION - STAT DOMINANT -->
+<section class="s">
+  <!-- atmosphere: none (content dominates) -->
+  <!-- content -->
+  <div style="position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+    <div class="tag" style="justify-content:center;">Optimal Hand Strategy</div>
+    <div style="margin:3rem 0;">
+      <p style="font-size:1.8rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:1rem;">Prioritize</p>
+      <h2 style="font-size:5.5rem;font-weight:800;color:var(--accent);letter-spacing:-.02em;line-height:1;">FOUR OF A KIND</h2>
+    </div>
+    <div style="display:flex;gap:6rem;margin:2rem 0;">
+      <div>
+        <p style="font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.5rem;">Also Strong</p>
+        <h3 style="font-size:2.8rem;color:var(--accent-2);">FULL HOUSE</h3>
+      </div>
+      <div>
+        <p style="font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.5rem;">Key Synergy</p>
+        <h3 style="font-size:2.8rem;color:var(--accent-2);">FIVE OF A KIND</h3>
+      </div>
+    </div>
+    <div style="margin-top:3rem;max-width:60rem;">
+      <p style="font-size:1.3rem;line-height:1.7;">With limited cards, prioritizing <strong style="color:var(--text);">high-scoring hand types</strong> and ensuring their consistency is paramount. The goal is to play fewer, more powerful hands per blind.</p>
+    </div>
+    <p style="margin-top:3rem;font-size:1rem;color:var(--text);opacity:.2;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;">SOURCE: BALATRO WIKI</p>
+  </div>
+  <p style="position:absolute;bottom:3.5rem;right:5rem;font-size:1rem;color:var(--text);opacity:.15;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;z-index:2;">04 / 07</p>
+</section>
+
+<!-- SLIDE 5: CONSUMABLES -->
+<section class="s">
+  <!-- atmosphere: crosshatch -->
+  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px),repeating-linear-gradient(-45deg,transparent,transparent 20px,rgba(255,255,255,.015) 20px,rgba(255,255,255,.015) 21px);pointer-events:none;z-index:0;"></div>
+  <!-- content -->
+  <div style="position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;">
+    <div class="tag">Deck Manipulation</div>
+    <h2 style="font-size:3.8rem;margin-bottom:1rem;">Consumables & Tools</h2>
+    <p style="font-size:1.3rem;color:var(--text-dim);margin-bottom:2.5rem;">Refining Your Arsenal</p>
+    <div class="grid-3" style="flex:1;min-height:0;align-content:start;">
+      <!-- Card 1: Joker Wild -->
+      <div class="card" style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="icon-wrapper crimson"><i data-lucide="tool"></i></div>
+        <h3 style="color:var(--accent);">Joker Wild</h3>
+        <p style="font-size:1.2rem;line-height:1.6;">Converts non-Joker cards to Jokers, essential for setting up specific joker plays.</p>
+      </div>
+      <!-- Card 2: Reinforced Deck -->
+      <div class="card" style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="icon-wrapper crimson"><i data-lucide="clipboard"></i></div>
+        <h3 style="color:var(--accent-2);">Reinforced Deck</h3>
+        <p style="font-size:1.2rem;line-height:1.6;">Used early to ensure higher-value cards are present in your hand pool.</p>
+      </div>
+      <!-- Card 3: Hickory Dice -->
+      <div class="card" style="display:flex;flex-direction:column;gap:1.5rem;">
+        <div class="icon-wrapper crimson"><i data-lucide="box"></i></div>
+        <h3 style="color:var(--accent);">Hickory Dice</h3>
+        <p style="font-size:1.2rem;line-height:1.6;">Invaluable for increasing chip count of your primary scoring cards.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3.5rem;right:5rem;font-size:1rem;color:var(--text);opacity:.15;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;z-index:2;">05 / 07</p>
+</section>
+
+<!-- SLIDE 6: RUN PROGRESSION -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+  <!-- atmosphere: coarse-grain on right panel -->
+  <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(255,255,255,.012) 40px,rgba(255,255,255,.012) 41px);pointer-events:none;z-index:0;"></div>
+  <!-- left panel: 45% -->
+  <div style="flex:0 0 45%;padding:4rem 3.5rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;min-width:0;border-right:1px solid var(--border);">
+    <div class="tag">Early Game Focus</div>
+    <h2 style="font-size:3.2rem;line-height:1.1;margin-top:1rem;">Securing<br>Early Wins</h2>
+    <div style="margin-top:2.5rem;display:flex;flex-direction:column;gap:1.2rem;">
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;">Win early blinds to accumulate chips and gold for the shop.</p>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;">Focus on simple pairs or three of a kind to preserve Ghost cards.</p>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:flex-start;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div>
+        <p style="font-size:1.2rem;line-height:1.5;">Prioritize drawing Spades for The Reapers synergy.</p>
+      </div>
+    </div>
+  </div>
+  <!-- right panel: 55% with coarse-grain -->
+  <div style="flex:0 0 55%;padding:4rem 4rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1;min-width:0;background:var(--surface);">
+    <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(255,255,255,.015) 40px,rgba(255,255,255,.015) 41px);pointer-events:none;z-index:0;"></div>
+    <div style="position:relative;z-index:1;">
+      <div style="margin-bottom:3rem;">
+        <p style="font-size:1.1rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:.8rem;font-weight:700;">Blind 1–3</p>
+        <h3 style="font-size:2rem;color:var(--accent);margin-bottom:1rem;">Aim for Grim & Echo</h3>
+        <p style="font-size:1.2rem;line-height:1.6;color:var(--text-dim);">Acquire the core Ghost-synergy jokers as early as possible to establish your scoring engine.</p>
+      </div>
+      <div class="ruled-line"></div>
+      <div style="margin-top:3rem;">
+        <p style="font-size:1.1rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-2);margin-bottom:.8rem;font-weight:700;">Shop Strategy</p>
+        <h3 style="font-size:2rem;color:var(--accent-2);margin-bottom:1rem;">Invest in Mult & Draw</h3>
+        <p style="font-size:1.2rem;line-height:1.6;color:var(--text-dim);">Focus on jokers that boost Mult or provide card draw and manipulation for consistency.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3.5rem;right:5rem;font-size:1rem;color:var(--text);opacity:.15;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;z-index:2;">06 / 07</p>
+</section>
+
+<!-- SLIDE 7: CONCLUSION -->
+<section class="s">
+  <!-- atmosphere: museum-frame -->
+  <div style="position:absolute;inset:28px;border:1px solid rgba(255,255,255,.07);pointer-events:none;z-index:0;"></div>
+  <!-- corner markers -->
+  <div style="position:absolute;top:40px;left:48px;width:32px;height:32px;border-top:1px solid var(--accent);border-left:1px solid var(--accent);opacity:.15;z-index:0;"></div>
+  <div style="position:absolute;bottom:40px;right:48px;width:32px;height:32px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);opacity:.15;z-index:0;"></div>
+  <!-- content -->
+  <div style="position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+    <div class="tag" style="justify-content:center;">Conclusion</div>
+    <h2 style="font-size:4.5rem;line-height:1.05;max-width:70rem;margin-bottom:2rem;">
+      Mastering the <span style="color:var(--accent);">Ghost's Embrace</span>
+    </h2>
+    <p style="font-size:1.5rem;max-width:55rem;color:var(--text-dim);line-height:1.7;margin-bottom:3rem;">A high-risk, high-reward playstyle that rewards careful planning and synergy exploitation.</p>
+    <div style="display:flex;gap:3rem;margin-top:1rem;">
+      <div style="text-align:center;">
+        <p style="font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.5rem;">Key Insight</p>
+        <p style="font-size:1.3rem;color:var(--text);">Embrace removal as opportunity</p>
+      </div>
+      <div style="width:2px;background:var(--border);align-self:stretch;"></div>
+      <div style="text-align:center;">
+        <p style="font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.5rem;">Core Strategy</p>
+        <p style="font-size:1.3rem;color:var(--text);">Lean, high-value hands</p>
+      </div>
+      <div style="width:2px;background:var(--border);align-self:stretch;"></div>
+      <div style="text-align:center;">
+        <p style="font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.5rem;">Essential Tools</p>
+        <p style="font-size:1.3rem;color:var(--text);">Grim, Echo, consumables</p>
+      </div>
+    </div>
+  </div>
+  <!-- full-width crimson bar at bottom -->
+  <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:var(--accent-2);display:flex;align-items:center;justify-content:center;z-index:0;">
+    <p style="font-size:1.4rem;font-weight:700;color:var(--text);letter-spacing:.08em;margin:0;opacity:.95;">By understanding and leveraging these elements, players can consistently succeed with the Ghost deck.</p>
+  </div>
+  <p style="position:absolute;top:3.5rem;right:5rem;font-size:1rem;color:var(--text);opacity:.15;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;z-index:2;">07 / 07</p>
+</section>
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>
