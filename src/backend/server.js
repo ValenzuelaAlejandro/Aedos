@@ -59,6 +59,44 @@ const PRO_PAUSE_ACTIVE_GENERATIONS = parsePositiveInt(
 );
 const PRESSURE_RETRY_AFTER_SEC = parsePositiveInt(process.env.PRESSURE_RETRY_AFTER_SEC, 30);
 
+// Puppeteer System State
+let activeFinalize = 0;
+const finalizeQueue = [];
+const PUPPETEER_MAX_CONCURRENT = parsePositiveInt(process.env.PUPPETEER_MAX_CONCURRENT, 3);
+const PUPPETEER_MAX_QUEUE = parsePositiveInt(process.env.PUPPETEER_MAX_QUEUE, 10);
+
+function processFinalizeQueue() {
+    if (finalizeQueue.length > 0 && activeFinalize < PUPPETEER_MAX_CONCURRENT) {
+        const item = finalizeQueue.shift();
+        activeFinalize++;
+        item.resolve();
+        puppeteerLog.info(ErrorCategory.QUEUE, 'Puppeteer queued request resumed', {
+            activeFinalize,
+            queueDepth: finalizeQueue.length
+        });
+    }
+}
+
+function checkFinalizePressure(req, res, next) {
+    if (
+        activeFinalize >= PUPPETEER_MAX_CONCURRENT &&
+        finalizeQueue.length >= PUPPETEER_MAX_QUEUE
+    ) {
+        puppeteerLog.warn(ErrorCategory.QUEUE, 'Puppeteer queue full - request rejected', {
+            requestId: req.requestId,
+            ip: req.ip,
+            activeFinalize,
+            queueDepth: finalizeQueue.length
+        });
+        return res.status(429).json({
+            error: 'QUEUE_FULL',
+            retryAfterSec: PRESSURE_RETRY_AFTER_SEC,
+            message: 'The PDF generation server is at capacity. Please try again in a few seconds.'
+        });
+    }
+    next();
+}
+
 function parsePositiveInt(value, fallback) {
     const parsed = parseInt(value || '', 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -1396,8 +1434,31 @@ app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, c
 });
 
 // Finalize: receive (possibly modified) HTML, convert to PDF
-app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizeLimits, async (req, res) => {
+app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, checkFinalizeLimits, async (req, res) => {
     const requestId = req.requestId || 'n/a';
+
+    if (activeFinalize >= PUPPETEER_MAX_CONCURRENT) {
+        puppeteerLog.warn(ErrorCategory.QUEUE, 'Puppeteer queued due to concurrency limit', {
+            requestId,
+            activeFinalize,
+            queueDepth: finalizeQueue.length
+        });
+        const obtainedSlot = await new Promise((resolve) => {
+            const item = { resolve: () => resolve(true) };
+            finalizeQueue.push(item);
+            req.on('close', () => {
+                const idx = finalizeQueue.indexOf(item);
+                if (idx !== -1) {
+                    finalizeQueue.splice(idx, 1);
+                    resolve(false);
+                }
+            });
+        });
+        if (!obtainedSlot) return; // Client disconnected
+    } else {
+        activeFinalize++;
+    }
+
     try {
         const { html, title } = req.body;
 
@@ -1527,7 +1588,8 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizeLimits, asyn
                 width: '29.7cm',
                 height: '16.7cm',
                 printBackground: true,
-                margin: { top: 0, right: 0, bottom: 0, left: 0 }
+                margin: { top: 0, right: 0, bottom: 0, left: 0 },
+                timeout: 45000 // 45 seconds hard limit per PDF render
             });
         } finally {
             await page.close();
@@ -1555,6 +1617,9 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizeLimits, asyn
             error
         });
         res.status(500).json({ error: 'Error generating PDF: ' + (error.message || error) });
+    } finally {
+        activeFinalize--;
+        processFinalizeQueue();
     }
 });
 
