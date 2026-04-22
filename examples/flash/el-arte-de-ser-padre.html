@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#F9F7F2;
+    --surface:#FFFFFF;
+    --surface2:#F0EDE8;
+    --accent:#8B5E3C;
+    --accent-dim:rgba(139, 94, 60, 0.1);
+    --accent-light:#A67B5B;
+    --accent-2:#5D737E;
+    --accent-2-dim:rgba(93, 115, 126, 0.1);
+    --text:#2C241E;
+    --text-dim:#5A5149;
+    --border:#E5E1D8;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'IBM Plex Sans',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'IBM Plex Serif',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:5rem; font-weight:700; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  ul { margin:.8rem 0 0; padding-left:1.8rem; }
+  ul li { font-size:var(--base-p); line-height:1.6; color:var(--text-dim); margin-bottom:.4rem; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .subtitle { font-size:calc(var(--base-p)*1.25); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; }
+  .big-number { font-size:7rem; font-weight:700; color:var(--accent); line-height:1; font-family:'IBM Plex Serif',serif; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+  .quote-block blockquote { font-size:2.4rem; font-style:italic; color:var(--text); margin:0 0 .8rem; line-height:1.4; }
+  .quote-block cite { font-size:1.4rem; color:var(--accent); font-style:normal; font-weight:600; }
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; min-height:0; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; }
+  .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+  .step-content { min-width:0; flex:1; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2.5rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); min-width:0; overflow:hidden; }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; align-items:start; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; align-items:start; }
+  .flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; min-width:0; overflow:hidden; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; min-height:0; min-width:0; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
+  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; flex-shrink:0; }
+  .icon-wrapper.sec { background:var(--accent-2-dim); }
+  [data-lucide],svg.lucide { width:20px; height:20px; stroke-width:2; flex-shrink:0; color:var(--accent); }
+  .icon-wrapper.sec [data-lucide] { color:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; margin-bottom:2rem; flex-shrink:0; }
+  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
+  .card h3 { margin:0 0 .5rem; }
+  .card p { flex:1 1 auto; min-height:0; overflow:hidden; }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1: COVER -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div class="tag">CÓMO SER UN BUEN PADRE</div>
+  <h1 style="color:var(--accent);font-size:6rem;line-height:.92;letter-spacing:-.03em;margin-bottom:2rem;">El Arte de ser Padre</h1>
+  <p class="subtitle">Construyendo un legado de amor y presencia constante.</p>
+  <div class="accent-bar"></div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 8</p>
+</section>
+
+<!-- SLIDE 2: CARDS-3 -->
+<section class="s">
+  <div class="tag">02 · DESAFÍOS</div>
+  <h2>Desafíos de la Paternidad Moderna</h2>
+  <p class="subtitle">La desconexión es el mayor obstáculo en la crianza actual.</p>
+  <div class="grid-3" style="flex:1;min-height:0;">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="clock"></i></div>
+      <h3>Tiempo de Calidad</h3>
+      <p>La dificultad de encontrar momentos significativos en una agenda saturada.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper sec"><i data-lucide="alert-circle"></i></div>
+      <h3>Distracción Digital</h3>
+      <p>Estar presente físicamente pero ausente emocionalmente por el uso de pantallas.</p>
+    </div>
+    <div class="card accent-2">
+      <div class="icon-wrapper"><i data-lucide="dollar-sign"></i></div>
+      <h3>Presión de Proveer</h3>
+      <p>El estrés de cumplir con las expectativas económicas a costa de la cercanía.</p>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 8</p>
+</section>
+
+<!-- SLIDE 3: EDITORIAL -->
+<section class="s">
+  <div class="tag">03 · CONCEPTO</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
+    <div>
+      <h2 style="font-size:5rem;line-height:.95;letter-spacing:-.02em;margin-bottom:2rem;"><span style="color:var(--accent)">Presencia</span> sobre Providencia</h2>
+      <p style="font-size:1.4rem;line-height:1.65;color:var(--text-dim);max-width:48rem;">Ser padre es mucho más que proveer recursos materiales. La verdadera riqueza que un hijo recibe es la seguridad de saber que su padre está disponible, atento y emocionalmente conectado.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:1rem;">
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Disponibilidad emocional constante.</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Escucha activa y sin juicios previos.</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Participación activa en las rutinas diarias.</p></div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 8</p>
+</section>
+
+<!-- SLIDE 4: STATS -->
+<section class="s">
+  <div class="tag">04 · IMPACTO</div>
+  <h2>El Impacto de un Padre Activo</h2>
+  <p class="subtitle">La ciencia respalda los beneficios de una figura paterna presente.</p>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="big-number">85%</div><div class="big-label">mayor confianza</div></div>
+    <div class="stat-box"><div class="big-number">2x</div><div class="big-label">más resiliencia</div></div>
+    <div class="stat-box"><div class="big-number">70%</div><div class="big-label">éxito escolar</div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 8</p>
+</section>
+
+<!-- SLIDE 5: STEPS -->
+<section class="s">
+  <div class="tag">05 · PROCESO</div>
+  <h2>Pasos hacia una Mejor Conexión</h2>
+  <p class="subtitle">Pequeñas acciones diarias construyen grandes vínculos.</p>
+  <div class="steps-list">
+    <div class="step-item"><div class="step-num">1</div><div class="step-content"><h3>Establecer rituales</h3><p>Momentos sagrados como el cuento antes de dormir o el desayuno juntos.</p></div></div>
+    <div class="step-item"><div class="step-num">2</div><div class="step-content"><h3>Validar emociones</h3><p>Permitir que el hijo exprese miedo, tristeza o rabia sin ser reprimido.</p></div></div>
+    <div class="step-item"><div class="step-num">3</div><div class="step-content"><h3>Jugar activamente</h3><p>Entrar en su mundo, ensuciarse las manos y compartir su alegría.</p></div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 8</p>
+</section>
+
+<!-- SLIDE 6: QUOTE -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div class="tag">06 · SABIDURÍA</div>
+  <div class="quote-block">
+    <blockquote>"Un padre no es el que da la vida, eso sería demasiado fácil, un padre es el que da el amor y el ejemplo diario."</blockquote>
+    <cite>Inspiración para la Paternidad Consciente</cite>
+  </div>
+  <p style="margin-top:3rem;max-width:65%;">El ejemplo es la herramienta de enseñanza más poderosa que posees. Tus hijos no escuchan lo que dices, observan lo que haces.</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 8</p>
+</section>
+
+<!-- SLIDE 7: COMPARISON -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--bg);">
+    <div class="tag">Tradicional</div>
+    <h2 style="font-size:3rem;color:var(--accent-2);">Padre Proveedor</h2>
+    <p>Enfoque en la autoridad y la provisión material.</p>
+    <ul>
+      <li>Distancia emocional</li>
+      <li>Disciplina basada en el miedo</li>
+      <li>Rol periférico en la crianza</li>
+    </ul>
+  </div>
+  <div style="width:2px;background:var(--border);flex-shrink:0;"></div>
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--surface2);">
+    <div class="tag">Moderno</div>
+    <h2 style="font-size:3rem;color:var(--accent);">Padre Consciente</h2>
+    <p>Enfoque en la empatía y la presencia activa.</p>
+    <ul>
+      <li>Cercanía y vulnerabilidad</li>
+      <li>Disciplina basada en el respeto</li>
+      <li>Rol central y corresponsable</li>
+    </ul>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">7 / 8</p>
+</section>
+
+<!-- SLIDE 8: CONCLUSION -->
+<section class="s" style="align-items:center;justify-content:center;text-align:center;overflow:hidden;">
+  <div class="accent-bar" style="margin:0 auto 2rem;"></div>
+  <h2 style="max-width:72%;text-align:center;margin-bottom:2rem;">Tu Mayor Obra</h2>
+  <p class="subtitle" style="text-align:center;margin:0 auto;">El tiempo que inviertes en tus hijos es la mejor inversión que harás en tu vida. No se trata de perfección, sino de presencia.</p>
+  <p style="margin-top:2.5rem;font-weight:600;color:var(--accent);font-size:1.6rem;">Comienza hoy mismo</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">8 / 8</p>
+</section>
+
+
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

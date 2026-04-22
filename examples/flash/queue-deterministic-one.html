@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#0f172a;
+    --surface:#1e293b;
+    --surface2:#334155;
+    --accent:#3b82f6;
+    --accent-dim:rgba(59, 130, 246, 0.15);
+    --accent-light:#93c5fd;
+    --accent-2:#f59e0b;
+    --accent-2-dim:rgba(245, 158, 11, 0.15);
+    --text:#f8fafc;
+    --text-dim:#94a3b8;
+    --border:#334155;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'IBM Plex Sans',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'IBM Plex Serif',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  ul { margin:.8rem 0 0; padding-left:1.8rem; }
+  ul li { font-size:var(--base-p); line-height:1.6; color:var(--text-dim); margin-bottom:.4rem; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .subtitle { font-size:calc(var(--base-p)*1.25); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); line-height:1; font-family:'IBM Plex Serif',serif; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+  .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--text); margin:0 0 .8rem; line-height:1.4; }
+  .quote-block cite { font-size:1.3rem; color:var(--accent); font-style:normal; }
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; min-height:0; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; }
+  .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+  .step-content { min-width:0; flex:1; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2.5rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); min-width:0; overflow:hidden; }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; align-items:start; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; align-items:start; }
+  .flex-row { display:flex; gap:var(--base-gap); align-items:stretch; width:100%; flex:1; min-height:0; overflow:hidden; }
+  .flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; min-width:0; overflow:hidden; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; min-height:0; min-width:0; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
+  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; flex-shrink:0; }
+  .icon-wrapper.sec { background:var(--accent-2-dim); }
+  [data-lucide],svg.lucide { width:20px; height:20px; stroke-width:2; flex-shrink:0; color:var(--accent); }
+  .icon-wrapper.sec [data-lucide] { color:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; margin-bottom:2rem; flex-shrink:0; }
+  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
+  .flex-row > *, .grid-2 > *, .grid-3 > * { min-width:0; box-sizing:border-box; }
+  .card { flex:1 1 0%; }
+  .card h1, .card h2, .card h3, .card h4 { margin:0 0 .5rem; }
+  .card p { flex:1 1 auto; min-height:0; overflow:hidden; }
+  h1 { font-size: clamp(2.5rem, 4.8vw, 6rem); }
+  h2 { font-size: clamp(2rem, 3.5vw, var(--base-h2)); }
+  h3 { font-size: clamp(1.2rem, 2.2vw, var(--base-h3)); }
+  .s[style*='flex-direction:row'] > div { flex:1 1 0%; min-width:0; }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- Slide 1: COVER -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div class="tag">Queue deterministic one</div>
+  <h1 style="color:var(--accent);font-size:6rem;line-height:.92;letter-spacing:-.03em;margin-bottom:2rem;">Queue Deterministic One</h1>
+  <p class="subtitle">The fundamental principles of predictable first-in-first-out systems.</p>
+  <div class="accent-bar"></div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 8</p>
+</section>
+
+<!-- Slide 2: EDITORIAL -->
+<section class="s">
+  <div class="tag">02 · CONCEPT</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
+    <div>
+      <h2 style="font-size:5rem;line-height:.95;letter-spacing:-.02em;margin-bottom:2rem;">The Logic of <span style="color:var(--accent)">Determinism</span></h2>
+      <p style="font-size:1.4rem;line-height:1.65;color:var(--text-dim);max-width:48rem;">In a deterministic queue, the system state is entirely defined by initial conditions and inputs. Every action is a direct consequence of a preceding cause, leaving no room for random variance.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:1rem;">
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Fixed service times remove variance</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Input sequence dictates output exactly</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Mathematical certainty in scheduling</p></div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 8</p>
+</section>
+
+<!-- Slide 3: STEPS -->
+<section class="s">
+  <div class="tag">03 · PROCESS</div>
+  <h2>The Processing Lifecycle</h2>
+  <p class="subtitle">The three-stage journey of a data unit through a deterministic buffer.</p>
+  <div class="steps-list">
+    <div class="step-item"><div class="step-num">1</div><div class="step-content"><h3>Arrival & Enqueue</h3><p>Data enters the system and is assigned a fixed position in the sequence based on arrival time.</p></div></div>
+    <div class="step-item"><div class="step-num">2</div><div class="step-content"><h3>Synchronous Wait</h3><p>Units wait for their allocated processing window, maintaining strict order without preemption.</p></div></div>
+    <div class="step-item"><div class="step-num">3</div><div class="step-content"><h3>Scheduled Dequeue</h3><p>The unit exits the queue at a mathematically predictable time interval, ensuring zero jitter.</p></div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 8</p>
+</section>
+
+<!-- Slide 4: STATS -->
+<section class="s">
+  <div class="tag">04 · DATA</div>
+  <h2>Performance Benchmarks</h2>
+  <p class="subtitle">Deterministic systems prioritize consistency over maximum burst speed.</p>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="big-number">0ms</div><div class="big-label">Target Jitter</div></div>
+    <div class="stat-box"><div class="big-number">100%</div><div class="big-label">Order Integrity</div></div>
+    <div class="stat-box"><div class="big-number">1:1</div><div class="big-label">Input Ratio</div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 8</p>
+</section>
+
+<!-- Slide 5: CARDS-3 -->
+<section class="s">
+  <div class="tag">05 · CONCEPT</div>
+  <h2>Core System Attributes</h2>
+  <p class="subtitle">Essential characteristics that define a deterministic queuing model.</p>
+  <div class="grid-3" style="flex:1;min-height:0;">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="layers"></i></div>
+      <h3>Sequence Preservation</h3>
+      <p>The system ensures that the output order matches the input order without any deviation or reordering.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper sec"><i data-lucide="cpu"></i></div>
+      <h3>Resource Allocation</h3>
+      <p>Fixed processing power is dedicated to each unit, preventing resource contention or starvation.</p>
+    </div>
+    <div class="card accent-2">
+      <div class="icon-wrapper"><i data-lucide="activity"></i></div>
+      <h3>Predictable Delay</h3>
+      <p>Latency is constant and calculable, allowing for high-precision synchronization in complex networks.</p>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 8</p>
+</section>
+
+<!-- Slide 6: COMPARISON -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--bg);">
+    <div class="tag">System A</div>
+    <h2 style="font-size:3rem;color:var(--accent);">Deterministic</h2>
+    <p>Fixed Service Time</p>
+    <ul>
+      <li>Guaranteed Latency</li>
+      <li>Zero Jitter</li>
+      <li>Strict FIFO Logic</li>
+    </ul>
+  </div>
+  <div style="width:2px;background:var(--border);flex-shrink:0;"></div>
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--surface);">
+    <div class="tag">System B</div>
+    <h2 style="font-size:3rem;color:var(--accent-2);">Stochastic</h2>
+    <p>Random Service Time</p>
+    <ul>
+      <li>Probabilistic Delay</li>
+      <li>High Throughput Burst</li>
+      <li>Statistical Efficiency</li>
+    </ul>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 8</p>
+</section>
+
+<!-- Slide 7: TIMELINE -->
+<section class="s">
+  <div class="tag">07 · HISTORY</div>
+  <h2>Evolution of Order</h2>
+  <div style="flex:1;min-height:0;display:flex;justify-content:center;flex-direction:column;">
+    <div style="display:flex;width:100%;gap:2rem;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">1950s - 1960s</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Punched Cards</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Physical sorting systems where order was governed by mechanical card feed rates.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">1980s - 1990s</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Mainframe Batch</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">The rise of batch processing where deterministic scheduling maximized resource utilization.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">2020s - Future</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">TSN & Real-time</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Time-Sensitive Networking (TSN) brings nanosecond-level determinism to modern data flows.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">7 / 8</p>
+</section>
+
+<!-- Slide 8: CONCLUSION -->
+<section class="s" style="align-items:center;justify-content:center;text-align:center;overflow:hidden;">
+  <div class="accent-bar" style="margin:0 auto 2rem;"></div>
+  <h2 style="max-width:72%;text-align:center;margin-bottom:2rem;">The Value of Predictability</h2>
+  <p class="subtitle" style="text-align:center;margin:0 auto;">Deterministic queuing is the backbone of reliable industrial and computing architectures.</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">8 / 8</p>
+</section>
+
+
+
+  lucide.createIcons();
+</script</body></html>

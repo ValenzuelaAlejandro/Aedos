@@ -9,8 +9,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { runPipeline, buildLegacyPrompt } = require('./prompts/pipeline');
 const buildPrompt = require('./prompts/base'); // kept for fallback
 
-const rateLimit = require('express-rate-limit');
 const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
+const { verifyConnection: verifyRedis, checkRateLimits, checkFinalizeLimits } = require('./utils/rate-limiter');
 
 const log = createLogger({ scope: 'SERVER' });
 const providerLog = log.child('PROVIDER');
@@ -47,7 +47,76 @@ let requestSequence = 0;
 let activeGenerations = 0;
 const queue = [];
 // Max concurrent generations 
-const MAX_CONCURRENT_GENERATIONS = 10;
+const MAX_CONCURRENT_GENERATIONS = parsePositiveInt(process.env.MAX_CONCURRENT_GENERATIONS, 10);
+const MAX_QUEUE_DEPTH = parsePositiveInt(process.env.MAX_QUEUE_DEPTH, 40);
+const PRO_PAUSE_QUEUE_DEPTH = parsePositiveInt(
+    process.env.PRO_PAUSE_QUEUE_DEPTH,
+    Math.max(8, Math.floor(MAX_QUEUE_DEPTH * 0.6))
+);
+const PRO_PAUSE_ACTIVE_GENERATIONS = parsePositiveInt(
+    process.env.PRO_PAUSE_ACTIVE_GENERATIONS,
+    Math.max(1, MAX_CONCURRENT_GENERATIONS - 2)
+);
+const PRESSURE_RETRY_AFTER_SEC = parsePositiveInt(process.env.PRESSURE_RETRY_AFTER_SEC, 30);
+
+function parsePositiveInt(value, fallback) {
+    const parsed = parseInt(value || '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function normalizeGenerationMode(body) {
+    return body?.mode === 'pro' ? 'pro' : 'flash';
+}
+
+function checkGenerationPressure(req, res, next) {
+    const requestId = req.requestId || 'n/a';
+    const mode = normalizeGenerationMode(req.body);
+
+    if (
+        mode === 'pro' &&
+        (
+            activeGenerations >= PRO_PAUSE_ACTIVE_GENERATIONS ||
+            queue.length >= PRO_PAUSE_QUEUE_DEPTH
+        )
+    ) {
+        queueLog.warn(ErrorCategory.QUEUE, 'Pro mode temporarily paused due to high load', {
+            requestId,
+            ip: req.ip,
+            mode,
+            activeGenerations,
+            queueDepth: queue.length,
+            proPauseActiveThreshold: PRO_PAUSE_ACTIVE_GENERATIONS,
+            proPauseQueueThreshold: PRO_PAUSE_QUEUE_DEPTH
+        });
+        return res.status(503).json({
+            error: 'PRO_TEMPORARILY_PAUSED',
+            retryAfterSec: PRESSURE_RETRY_AFTER_SEC,
+            message: 'Pro mode is temporarily paused due to high system load. Please retry shortly or use Flash mode.'
+        });
+    }
+
+    if (
+        activeGenerations >= MAX_CONCURRENT_GENERATIONS &&
+        queue.length >= MAX_QUEUE_DEPTH
+    ) {
+        queueLog.warn(ErrorCategory.QUEUE, 'Queue full - request rejected', {
+            requestId,
+            ip: req.ip,
+            mode,
+            activeGenerations,
+            queueDepth: queue.length,
+            maxConcurrent: MAX_CONCURRENT_GENERATIONS,
+            maxQueueDepth: MAX_QUEUE_DEPTH
+        });
+        return res.status(429).json({
+            error: 'QUEUE_FULL',
+            retryAfterSec: PRESSURE_RETRY_AFTER_SEC,
+            message: 'The generation queue is full. Please try again in a few seconds.'
+        });
+    }
+
+    next();
+}
 
 // Global fallback list for OpenRouter when callOpenRouter is invoked without
 // an explicit stage list. Keep Stage3-only models (like minimax) out of here.
@@ -81,31 +150,9 @@ function processQueue() {
     }
 }
 
-const flashLimiter = rateLimit({
-    windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    max: 5,
-    message: { error: 'DAILY_LIMIT_EXCEEDED_FLASH' }
-});
-
-const proLimiter = rateLimit({
-    windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    max: 3,
-    message: { error: 'DAILY_LIMIT_EXCEEDED_PRO' }
-});
-
-const checkDailyLimits = (req, res, next) => {
-    if (req.body.mode === 'pro') {
-        proLimiter(req, res, next);
-    } else {
-        flashLimiter(req, res, next);
-    }
-};
-
-const finalizeLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: { error: 'RATE_LIMIT_EXCEEDED' }
-});
+// Rate limiting is handled by Upstash Redis (see utils/rate-limiter.js).
+// checkRateLimits   → daily limits + cooldown for /generate
+// checkFinalizeLimits → window limit for /finalize
 
 if (SHOULD_PRINT_STARTUP_BANNER) {
     log.banner(AEDOS_LOGO, 'cyan');
@@ -738,7 +785,7 @@ function sanitizeTema(input) {
     return { valid: true, tema: cleanedString };
 }
 
-app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (req, res) => {
+app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     let cancelled = false;
     let completed = false;
     let sseKeepAlive = null;
@@ -825,6 +872,7 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
 
         // Keep the SSE stream alive during slow model responses so the browser/proxy
         // does not assume the request stalled while OpenRouter is still generating.
@@ -836,6 +884,40 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
 
         // Manage Entry to the Queue
         if (activeGenerations >= MAX_CONCURRENT_GENERATIONS) {
+            if (queue.length >= MAX_QUEUE_DEPTH) {
+                queueLog.warn(ErrorCategory.QUEUE, 'Queue reached hard cap while request was entering queue', {
+                    requestId,
+                    activeGenerations,
+                    queueDepth: queue.length,
+                    maxConcurrent: MAX_CONCURRENT_GENERATIONS,
+                    maxQueueDepth: MAX_QUEUE_DEPTH
+                });
+                res.write(`data: ${JSON.stringify({ error: 'QUEUE_FULL', retryAfterSec: PRESSURE_RETRY_AFTER_SEC })}\n\n`);
+                completed = true;
+                res.end();
+                return;
+            }
+
+            if (
+                usePipeline &&
+                (
+                    activeGenerations >= PRO_PAUSE_ACTIVE_GENERATIONS ||
+                    queue.length >= PRO_PAUSE_QUEUE_DEPTH
+                )
+            ) {
+                queueLog.warn(ErrorCategory.QUEUE, 'Pro mode request rejected while entering queue due to pressure', {
+                    requestId,
+                    activeGenerations,
+                    queueDepth: queue.length,
+                    proPauseActiveThreshold: PRO_PAUSE_ACTIVE_GENERATIONS,
+                    proPauseQueueThreshold: PRO_PAUSE_QUEUE_DEPTH
+                });
+                res.write(`data: ${JSON.stringify({ error: 'PRO_TEMPORARILY_PAUSED', retryAfterSec: PRESSURE_RETRY_AFTER_SEC })}\n\n`);
+                completed = true;
+                res.end();
+                return;
+            }
+
             queueLog.warn(ErrorCategory.QUEUE, 'Generation queued due to concurrency limit', {
                 requestId,
                 activeGenerations,
@@ -1314,7 +1396,7 @@ app.post('/generate', express.json({ limit: '8kb' }), checkDailyLimits, async (r
 });
 
 // Finalize: receive (possibly modified) HTML, convert to PDF
-app.post('/finalize', express.json({ limit: '50mb' }), finalizeLimiter, async (req, res) => {
+app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizeLimits, async (req, res) => {
     const requestId = req.requestId || 'n/a';
     try {
         const { html, title } = req.body;
@@ -1534,16 +1616,25 @@ app.get('/download/:filename', (req, res) => {
 });
 
 if (require.main === module) {
-    const server = app.listen(PORT, () => {
-        log.success(ErrorCategory.BOOT, 'Aedos server started', {
-            url: `http://localhost:${PORT}`,
-            env: process.env.NODE_ENV || 'development'
-        });
-    });
+    // Verify Upstash connection before accepting traffic
+    verifyRedis().then((ok) => {
+        if (!ok) {
+            log.warn(ErrorCategory.BOOT,
+                'Upstash Redis is NOT connected — rate limiting will be DISABLED');
+        }
 
-    // Allow long-running AI generations before Node gives up on the request.
-    server.requestTimeout = 10 * 60 * 1000;
-    server.headersTimeout = 11 * 60 * 1000;
+        const server = app.listen(PORT, () => {
+            log.success(ErrorCategory.BOOT, 'Aedos server started', {
+                url: `http://localhost:${PORT}`,
+                env: process.env.NODE_ENV || 'development',
+                rateLimiting: ok ? 'upstash' : 'disabled',
+            });
+        });
+
+        // Allow long-running AI generations before Node gives up on the request.
+        server.requestTimeout = 10 * 60 * 1000;
+        server.headersTimeout = 11 * 60 * 1000;
+    });
 }
 
 module.exports = { sanitizeTema, buildPrompt };

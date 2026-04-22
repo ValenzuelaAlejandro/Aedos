@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1122, height=631, initial-scale=1.0">
+<style>
+  :root {
+    --bg: #0A0A0A; --surface: rgba(255, 255, 255, .03); --surface2: rgba(255, 255, 255, .06);
+    --accent: #007AFF; --accent-dim: rgba(0, 122, 255, .15);
+    --accent-2: #667085; --accent-2-dim: rgba(102, 112, 133, .15);
+    --text: #F2F4F7; --text-dim: #94A3B8; --border: rgba(255, 255, 255, .07);
+    --font-head: 'Syne', sans-serif; --font-body: 'DM Sans', sans-serif;
+  }
+  html { font-size: 10px; }
+  body { margin: 0; font-family: var(--font-body); color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+  section.s { width: 1122px; height: 631px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); page-break-after: always; position: relative; }
+  @media print { @page { size: 1122px 631px; margin: 0 } }
+  
+  /* Typography */
+  h1, h2, h3 { font-family: var(--font-head); margin: 0; line-height: 1.15; color: var(--text); flex-shrink: 0; text-wrap: balance; }
+  h1 { font-size: clamp(4rem, 8vw, 8rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+  h2 { font-size: clamp(3rem, 5vw, 4.5rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+  h3 { font-size: 1.8rem; font-weight: 600; line-height: 1.2; color: var(--text); }
+  p { font-size: 1.4rem; line-height: 1.5; margin: 0; color: var(--text-dim); flex-shrink: 0; text-wrap: pretty; }
+  strong { color: var(--text); font-weight: 600; }
+  em { font-style: italic; color: var(--accent); }
+  
+  /* Layout Helpers */
+  .tag { font-size: 1rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem; }
+  .tag::before { content: ''; width: 3rem; height: 2px; background: var(--accent); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 0px; padding: 2.5rem; display: flex; flex-direction: column; gap: 1.5rem; height: 100%; }
+  .icon-wrapper { width: 48px; height: 48px; background: var(--accent-dim); border: 1px solid var(--accent-light); display: flex; align-items: center; justify-content: center; border-radius: 0; flex-shrink: 0; }
+  .icon-wrapper i { width: 24px; height: 24px; stroke: var(--accent); fill: none; }
+  .stat-box { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .stat-value { font-size: clamp(4rem, 8vw, 6rem); font-weight: 800; color: var(--text); line-height: 1; letter-spacing: -0.04em; }
+  .stat-value.accent { color: var(--accent); }
+  .stat-label { font-size: 1.2rem; color: var(--text-dim); margin-top: 1rem; letter-spacing: 0.02em; }
+  .stat-sub { display: flex; flex-direction: column; gap: 2rem; margin-top: 3rem; }
+  .img-slot { position: relative; overflow: hidden; background: var(--surface); }
+  .img-slot .img-bg1 { position: absolute; inset: 0; background: linear-gradient(135deg, var(--accent-dim), var(--bg)); opacity: 0.4; }
+  .img-slot .img-bg2 { position: absolute; inset: 4rem; border-radius: 12px; border: 1px solid var(--border); opacity: 0.3; }
+  
+  /* Structure Accents */
+  .accent-bar-top { position: absolute; top: 0; left: 0; right: 0; height: 5px; background: var(--accent); z-index: 0; }
+  .accent-bar-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 5px; background: var(--accent); z-index: 0; }
+
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1: COVER -->
+<section class="s" style="justify-content: center; align-items: center; text-align: center; padding: 0;">
+  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, rgba(0, 122, 255, 0.1) 0%, transparent 60%); pointer-events: none; z-index: 0;"></div>
+  
+  <div style="position: absolute; top: 4.5rem; left: 4.5rem; z-index: 2;">
+    <div style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent); opacity: 0.8;">Philosophy</div>
+  </div>
+
+  <div style="position: relative; z-index: 1; max-width: 800px; padding: 0 5rem;">
+    <h1>The "Pro" First<br>Approach</h1>
+    <div style="width: 5rem; height: 4px; background: var(--accent); margin: 2rem auto;"></div>
+    <p style="font-size: 1.8rem; color: var(--text); font-weight: 300; max-width: 600px; margin: 0 auto; letter-spacing: 0.05em;">
+      Maximizing Value for Daily Use
+    </p>
+  </div>
+
+  <p style="position: absolute; bottom: 4rem; right: 5rem; font-family: 'JetBrains Mono', monospace; font-size: 1rem; color: var(--text-dim); opacity: 0.5;">01 / 06</p>
+</section>
+
+<!-- SLIDE 2: CONCEPT -->
+<section class="s" style="padding: 4rem 5rem;">
+  <div style="display: flex; flex-direction: row; gap: 3rem; max-height: 450px; align-items: flex-start;">
+    <div style="flex: 0; width: 600px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div class="tag">Concept</div>
+        <h2 style="font-size: 4.8rem; line-height: 1.1;">Defining "Pro First"</h2>
+        <p style="font-size: 1.5rem; color: var(--text-dim); margin-top: 1rem; line-height: 1.6;">
+          Beyond the Expert User—designing for the most demanding users to improve everyday life.
+        </p>
+      </div>
+    </div>
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 2.5rem;">
+      <div class="card">
+        <div class="icon-wrapper"><i data-lucide="cpu"></i></div>
+        <h3>Robust Functionality</h3>
+        <p>Prioritizing power ensures that everyday tasks run on a foundation built for peak performance, eliminating bottlenecks before they exist.</p>
+      </div>
+      <div class="card">
+        <div class="icon-wrapper"><i data-lucide="rocket"></i></div>
+        <h3>Efficiency & Power</h3>
+        <p>Optimized for speed. The processing power and resources designed for experts automatically make casual workflows feel instant and fluid.</p>
+      </div>
+      <div class="card">
+        <div class="icon-wrapper"><i data-lucide="lightbulb"></i></div>
+        <h3>Intuitive Design</h3>
+        <p>When complexity is handled by the system, the interface becomes simpler. Advanced capabilities are there, but they don't clutter the view.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; flex: 1; gap: 2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--accent); opacity: 0.6;">
+        <div>SYSTEM.VER.2.0</div>
+        <div>STATUS: STABLE</div>
+      </div>
+    </div>
+  </div>
+  <p style="position: absolute; bottom: 3rem; right: 5rem; font-size: 1rem; color: var(--text-dim); opacity: 0.5;">02 / 06</p>
+</section>
+
+<!-- SLIDE 3: DATA -->
+<section class="s" style="padding: 4rem 5rem;">
+  <div style="display: flex; flex-direction: row; height: 100%; justify-content: space-between;">
+    <div style="flex: 0; width: 400px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div class="tag">Data</div>
+        <h2 style="font-size: 4.5rem;">The Benefits of<br><em>Advanced</em> Features</h2>
+      </div>
+      <div style="background: var(--surface); border: 1px solid var(--border); padding: 2rem;">
+        <p style="font-size: 0.9rem; text-transform: uppercase; color: var(--accent); margin-bottom: 0.5rem;">Internal Analysis</p>
+        <p style="font-size: 1.2rem; line-height: 1.5; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); opacity: 0.8;">
+          Comparative study between "Consumer" vs. "Pro First" architectures.<br><br>
+          Key metric: <strong>Time-to-Task Completion</strong>.
+        </p>
+      </div>
+    </div>
+    
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 3rem; padding-right: 2rem;">
+      <div class="stat-box" style="align-items: flex-end; text-align: right;">
+        <div class="stat-value accent">30%</div>
+        <div class="stat-label">Faster task completion</div>
+        <div style="font-size: 0.9rem; color: var(--accent-2); margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace;">Source: Hypothetical</div>
+      </div>
+      
+      <div class="stat-box" style="align-items: flex-end; text-align: right;">
+        <div class="stat-value accent-2">20%</div>
+        <div class="stat-label">Longer product lifespan</div>
+        <div style="font-size: 0.9rem; color: var(--accent-2); margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace;">Source: Analysis</div>
+      </div>
+    </div>
+  </div>
+  <p style="position: absolute; bottom: 3rem; right: 5rem; font-size: 1rem; color: var(--text-dim); opacity: 0.5;">03 / 06</p>
+</section>
+
+<!-- SLIDE 4: EXAMPLE -->
+<section class="s" style="padding: 0; display: flex; flex-direction: row;">
+  <div class="img-slot" data-image-slot="1" data-image-keyword="interface"
+       style="flex: 0 0 420px; border-right: 1px solid var(--border); height: 100%;">
+    <div class="img-bg1"></div>
+    <div class="img-bg2"></div>
+  </div>
+  
+  <div style="flex: 1; padding: 5rem 4rem; display: flex; flex-direction: column; justify-content: center; overflow: hidden;">
+    <div style="max-width: 600px;">
+      <div class="tag">Case Study</div>
+      <h2 style="font-size: 4.2rem; line-height: 1.05; margin-bottom: 2rem;">
+        Empowering Creative<br>and Business Users
+      </h2>
+      <p style="font-size: 1.5rem; color: var(--text-dim); margin-bottom: 2rem; line-height: 1.6;">
+        Professional-grade software, like graphic design or video editing tools, offers powerful features that can be simplified for broader use.
+      </p>
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 1.5rem; flex: 1; justify-content: flex-end;">
+      <div style="display: flex; gap: 1.2rem; align-items: flex-start;">
+        <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-top: 0.8rem; flex-shrink: 0;"></div>
+        <p style="font-size: 1.2rem; line-height: 1.6;">
+          Features like layers, advanced editing suites, and scripting capabilities enable complex workflows.
+        </p>
+      </div>
+      <div style="display: flex; gap: 1.2rem; align-items: flex-start;">
+        <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); margin-top: 0.8rem; flex-shrink: 0;"></div>
+        <p style="font-size: 1.2rem; line-height: 1.6;">
+          Tools often include "auto" or "guided" modes that leverage underlying pro features for novice users.
+        </p>
+      </div>
+      <div style="display: flex; gap: 1.2rem; align-items: flex-start;">
+        <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); margin-top: 0.8rem; flex-shrink: 0;"></div>
+        <p style="font-size: 1.2rem; line-height: 1.6;">
+          Result: A steep learning curve for the advanced, but accessible power for the everyday.
+        </p>
+      </div>
+    </div>
+  </div>
+  <p style="position: absolute; bottom: 3rem; right: 5rem; font-size: 1rem; color: var(--text-dim); opacity: 0.5;">04 / 06</p>
+</section>
+
+<!-- SLIDE 5: PROCESS -->
+<section class="s" style="padding: 4rem 5rem;">
+  <div style="display: flex; flex-direction: column; width: 100%;">
+    <div class="tag">Process</div>
+    <h2 style="font-size: 4rem; margin-bottom: 4rem;">
+      From Pro to Everyday:<br><em>The Design Journey</em>
+    </h2>
+    
+    <div style="flex: 1; display: flex; flex-direction: row; gap: 2rem;">
+      <div style="flex: 1; position: relative;">
+        <div style="position: absolute; top: 0; left: -50px; width: 2px; height: 100%; background: var(--border); border-left: 2px solid var(--accent-2);"></div>
+        
+        <div style="margin-bottom: 3rem;">
+          <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg);"></div>
+            <p style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent);">Step 01</p>
+          </div>
+          <div style="font-size: 1.4rem; color: var(--text); font-weight: 500;">User research focusing on expert pain points.</div>
+          <div style="width: 100px; height: 2px; background: var(--accent); margin-top: 1rem;"></div>
+        </div>
+        
+        <div style="margin-bottom: 3rem;">
+          <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg);"></div>
+            <p style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent);">Step 02</p>
+          </div>
+          <div style="font-size: 1.4rem; color: var(--text); font-weight: 500;">Developing intuitive interfaces and clear feedback.</div>
+          <div style="width: 100px; height: 2px; background: var(--accent); margin-top: 1rem;"></div>
+        </div>
+        
+        <div>
+          <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg);"></div>
+            <p style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent);">Step 03</p>
+          </div>
+          <div style="font-size: 1.4rem; color: var(--text); font-weight: 500;">Implementing smart defaults and progressive disclosure.</div>
+        </div>
+      </div>
+      
+      <div style="flex: 1; padding-left: 2rem; border-left: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center;">
+        <p style="font-size: 1.6rem; line-height: 1.6; color: var(--text);">
+          The <em>Pro First</em> design process involves iterative refinement to make advanced capabilities user-friendly without losing power.
+        </p>
+      </div>
+    </div>
+  </div>
+  <p style="position: absolute; bottom: 3rem; right: 5rem; font-size: 1rem; color: var(--text-dim); opacity: 0.5;">05 / 06</p>
+</section>
+
+<!-- SLIDE 6: CONCLUSION -->
+<section class="s">
+  <div class="accent-bar-top"></div>
+  <div class="accent-bar-bottom"></div>
+
+  <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 10rem;">
+    <h1 style="font-size: 6rem; max-width: 800px; line-height: 1.1;">
+      The Future is <br><span style="color: var(--accent);">"Pro First"</span>
+    </h1>
+    <div style="height: 1px; width: 150px; background: var(--accent-dim); margin: 3rem 0;"></div>
+    
+    <p style="font-size: 1.6rem; color: var(--text); max-width: 700px; line-height: 1.6;">
+      Elevating Everyday Potential. Embracing the <em>Pro First</em> philosophy isn't just for experts; it's for everyone seeking a better experience.
+    </p>
+    
+    <div style="display: flex; gap: 2rem; margin-top: 4rem;">
+      <div style="background: var(--surface); padding: 1.5rem 3rem; border: 1px solid var(--border);">
+        <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--accent-2);">Innovation</div>
+      </div>
+      <div style="background: var(--surface); padding: 1.5rem 3rem; border: 1px solid var(--border);">
+        <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--accent-2);">Reliability</div>
+      </div>
+      <div style="background: var(--surface); padding: 1.5rem 3rem; border: 1px solid var(--border);">
+        <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--accent-2);">Value</div>
+      </div>
+    </div>
+
+    <p style="position: absolute; bottom: 3rem; right: 5rem; font-size: 1rem; color: var(--text-dim); opacity: 0.5;">06 / 06</p>
+  </div>
+</section>
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

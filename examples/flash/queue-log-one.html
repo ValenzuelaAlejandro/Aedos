@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#0A0A0B;
+    --surface:#141416;
+    --surface2:#1C1C1F;
+    --accent:#00F0FF;
+    --accent-dim:rgba(0,240,255,.15);
+    --accent-light:#70FFFF;
+    --accent-2:#7000FF;
+    --accent-2-dim:rgba(112,0,255,.15);
+    --text:#F1F1F1;
+    --text-dim:#A1A1A1;
+    --border:#2A2A2D;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'Inter',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'Space Grotesk',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  ul { margin:.8rem 0 0; padding-left:1.8rem; }
+  ul li { font-size:var(--base-p); line-height:1.6; color:var(--text-dim); margin-bottom:.4rem; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .subtitle { font-size:calc(var(--base-p)*1.25); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); line-height:1; font-family:'Space Grotesk',serif; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+  .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--text); margin:0 0 .8rem; line-height:1.4; }
+  .quote-block cite { font-size:1.3rem; color:var(--accent); font-style:normal; }
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; min-height:0; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; }
+  .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+  .step-content { min-width:0; flex:1; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2.5rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); min-width:0; overflow:hidden; }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; align-items:start; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; align-items:start; }
+  .flex-row { display:flex; gap:var(--base-gap); align-items:stretch; width:100%; flex:1; min-height:0; overflow:hidden; }
+  .flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; min-width:0; overflow:hidden; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; min-height:0; min-width:0; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
+  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; flex-shrink:0; }
+  .icon-wrapper.sec { background:var(--accent-2-dim); }
+  [data-lucide],svg.lucide { width:20px; height:20px; stroke-width:2; flex-shrink:0; color:var(--accent); }
+  .icon-wrapper.sec [data-lucide] { color:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; margin-bottom:2rem; flex-shrink:0; }
+  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
+  .flex-row > *, .grid-2 > *, .grid-3 > * { min-width:0; box-sizing:border-box; }
+  .card { flex:1 1 0%; }
+  .card h1, .card h2, .card h3, .card h4 { margin:0 0 .5rem; }
+  .card p { flex:1 1 auto; min-height:0; overflow:hidden; }
+  h1 { font-size: clamp(2.5rem, 4.8vw, 6rem); }
+  h2 { font-size: clamp(2rem, 3.5vw, var(--base-h2)); }
+  h3 { font-size: clamp(1.2rem, 2.2vw, var(--base-h3)); }
+  .s[style*='flex-direction:row'] > div { flex:1 1 0%; min-width:0; }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- Slide 1: Cover -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div class="tag">Queue log management</div>
+  <h1 style="color:var(--accent);font-size:6rem;line-height:.92;letter-spacing:-.03em;margin-bottom:2rem;">Queue Log One</h1>
+  <p class="subtitle">Streamlining sequential data processing architectures.</p>
+  <div class="accent-bar"></div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 8</p>
+</section>
+
+<!-- Slide 2: Editorial -->
+<section class="s">
+  <div class="tag">02 · CONCEPT</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
+    <div>
+      <h2 style="font-size:5rem;line-height:.95;letter-spacing:-.02em;margin-bottom:2rem;">The Core <span style="color:var(--accent)">Architecture</span></h2>
+      <p style="font-size:1.4rem;line-height:1.65;color:var(--text-dim);max-width:48rem;">A queue log is the backbone of modern distributed systems, providing a unified interface for data producers and consumers through a high-performance sequential stream.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:1rem;">
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Append-only storage ensures write speed</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">FIFO processing guarantees order</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Immutable data streams for auditability</p></div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 8</p>
+</section>
+
+<!-- Slide 3: Cards-2 -->
+<section class="s">
+  <div class="tag">03 · PROBLEM</div>
+  <h2>Distributed Bottlenecks</h2>
+  <p class="subtitle">Without robust logging, data consistency fails under load.</p>
+  <div class="grid-2" style="flex:1;min-height:0;">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="activity"></i></div>
+      <h3>Latency Spikes</h3>
+      <p>Unbuffered writes to traditional databases cause blocking during peak traffic periods, degrading user experience.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper sec"><i data-lucide="alert-circle"></i></div>
+      <h3>Data Loss</h3>
+      <p>Unacknowledged writes and transient network failures lead to dropped messages without a persistent log buffer.</p>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 8</p>
+</section>
+
+<!-- Slide 4: Steps -->
+<section class="s">
+  <div class="tag">04 · PROCESS</div>
+  <h2>The Ingestion Flow</h2>
+  <p class="subtitle">Three stages of data lifecycle within the log.</p>
+  <div class="steps-list">
+    <div class="step-item"><div class="step-num">1</div><div class="step-content"><h3>Producer Push</h3><p>Applications emit events directly to the log tail with minimal overhead.</p></div></div>
+    <div class="step-item"><div class="step-num">2</div><div class="step-content"><h3>Sequential Indexing</h3><p>The log engine assigns a monotonic offset, ensuring strict temporal ordering.</p></div></div>
+    <div class="step-item"><div class="step-num">3</div><div class="step-content"><h3>Consumer Pull</h3><p>Downstream services read from specific offsets at their own processing pace.</p></div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 8</p>
+</section>
+
+<!-- Slide 5: Stats -->
+<section class="s">
+  <div class="tag">05 · DATA</div>
+  <h2>System Performance</h2>
+  <p class="subtitle">Benchmarking Queue Log One against legacy buffers.</p>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="big-number">99.9%</div><div class="big-label">Uptime Reliability</div></div>
+    <div class="stat-box"><div class="big-number">&lt;2ms</div><div class="big-label">End-to-End Latency</div></div>
+    <div class="stat-box"><div class="big-number">500k</div><div class="big-label">Operations / Sec</div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 8</p>
+</section>
+
+<!-- Slide 6: Comparison -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--bg);">
+    <div class="tag">In-Memory Queues</div>
+    <h2 style="font-size:3rem;color:var(--accent);">Volatile</h2>
+    <p>Fast but ephemeral storage for temporary buffers.</p>
+    <ul><li>Lowest latency</li><li>No persistence</li><li>Risk of data loss</li></ul>
+  </div>
+  <div style="width:2px;background:var(--border);flex-shrink:0;"></div>
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--surface);">
+    <div class="tag">Persistent Logs</div>
+    <h2 style="font-size:3rem;color:var(--accent-2);">Durable</h2>
+    <p>Hardened storage for mission-critical event streams.</p>
+    <ul><li>Disk-backed storage</li><li>Replay capability</li><li>Fault tolerant</li></ul>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 8</p>
+</section>
+
+<!-- Slide 7: Timeline -->
+<section class="s">
+  <div class="tag">07 · TIMELINE</div>
+  <h2>Evolution of Logs</h2>
+  <div style="flex:1;min-height:0;display:flex;justify-content:center;flex-direction:column;">
+    <div style="display:flex;width:100%;gap:2rem;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">2010</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Simple Buffers</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Basic in-memory queues for task offloading.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent-2);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent-2);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">2015</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Kafka Era</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Distributed log partitioning and replication.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">2023</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height
+<script src="/features/shared/lucide-init.js"></script></section></body></html>

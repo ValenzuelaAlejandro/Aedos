@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8">
+<style>
+  :root {
+    --bg: #1E1E1E;
+    --surface: rgba(255,255,255,0.04);
+    --surface2: rgba(255,255,255,0.08);
+    --text: #E2E8F0;
+    --text-dim: #94A3B8;
+    --border: rgba(255,255,255,0.1);
+    --accent: #C5A028;
+    --accent-dim: rgba(197, 160, 40, 0.15);
+    --accent-light: rgba(197, 160, 40, 0.25);
+    --accent-2: #8B1A1A;
+    --accent-2-dim: rgba(139, 26, 26, 0.15);
+    
+    --beige: #E0D8C0;
+    --beige-dim: #c5bda3;
+  }
+  
+  html { font-size: 10px; }
+  body { margin: 0; font-family: 'Lato', sans-serif; color: var(--text); background: var(--bg); }
+  
+  section.s { 
+    width: 1122px; height: 631px; overflow: hidden; 
+    display: flex; flex-direction: column; 
+    background: var(--bg); 
+    padding: 4rem 5rem; 
+    box-sizing: border-box; 
+    position: relative; 
+  }
+
+  @media print { 
+    body { margin: 0; } 
+    @page { size: 1122px 631px; margin: 0; } 
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } 
+  }
+
+  * { box-sizing: border-box; }
+
+  h1, h2, h3, h4 { 
+    font-family: 'Playfair Display', serif; 
+    margin: 0; 
+    line-height: 1.15; 
+    color: var(--text); 
+    flex-shrink: 0; 
+    text-wrap: balance; 
+  }
+  h1 { font-size: 5rem; font-weight: 800; letter-spacing: -.02em; }
+  h2 { font-size: 4rem; font-weight: 700; letter-spacing: -.01em; }
+  h3 { font-size: 2.2rem; font-weight: 700; flex-shrink: 0; }
+  
+  p { font-size: 1.5rem; line-height: 1.6; margin: 0; color: var(--text-dim); flex-shrink: 0; text-wrap: pretty; }
+
+  .tag { 
+    font-size: 1.1rem; font-weight: 700; color: var(--accent); text-transform: uppercase; 
+    letter-spacing: .15rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: .8rem;
+  }
+  .tag::before { content: ''; width: 2rem; height: 2px; background: var(--accent); }
+
+  /* Card System */
+  .card { 
+    background: var(--surface); 
+    border: 1px solid var(--border); 
+    border-radius: 12px; 
+    padding: 2.5rem; 
+    display: flex; flex-direction: column; gap: 1.2rem;
+  }
+  .card.accent { background: var(--accent-dim); border-color: var(--accent); }
+  
+  /* Grids */
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.5rem; flex: 1; align-content: start; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+  .flex-row { display: flex; gap: 2.5rem; align-items: stretch; }
+  .flex-col { display: flex; flex-direction: column; gap: 2rem; }
+  
+  /* Utilities */
+  .big-number { font-size: clamp(3rem, 10cqi, 5rem); font-weight: 800; color: var(--accent); line-height: 1; white-space: nowrap; }
+  .icon-wrapper { 
+    width: 40px; height: 40px; border-radius: 12px; background: var(--accent-dim); 
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .icon-wrapper i { width: 20px; height: 20px; stroke: var(--accent); fill: none; stroke-width: 2; }
+  .accent-bar { width: 4rem; height: 3px; background: var(--accent); border-radius: 0; }
+  .v-divider { width: 2px; background: var(--accent); opacity: .3; align-self: stretch; }
+
+  /* Specific overrides for lighter slides */
+  .light-bg { background: var(--beige); color: #1a1a1a; }
+  .light-bg h1, .light-bg h2, .light-bg h3, .light-bg p { color: #1a1a1a; }
+  .light-bg .tag, .light-bg .tag::before { color: var(--accent-2); }
+  .light-bg p { color: var(--beige-dim); }
+  .light-bg .v-divider { background: var(--accent-2); opacity: .2; }
+
+  /* Image Slot */
+  .img-slot { position: relative; overflow: hidden; border-radius: 12px; }
+  .img-slot .img-bg1 { position: absolute; inset: 0; z-index: 0; background: linear-gradient(135deg, var(--accent-dim), var(--bg), var(--accent-2-dim)); pointer-events: none; }
+  .img-slot .img-bg2 { position: absolute; inset: 0; z-index: 2; background: linear-gradient(to right, rgba(0,0,0,0.25), transparent); pointer-events: none; }
+  
+  /* Timeline */
+  .timeline-node { flex: 1; position: relative; padding-top: 2rem; }
+  .timeline-node::before { 
+    content: ''; position: absolute; top: 0; left: 50%; 
+    transform: translateX(-50%); 
+    width: 12px; height: 12px; border-radius: 50%; 
+    background: var(--beige); border: 2px solid var(--accent-2); 
+  }
+  .timeline-line {
+    position: absolute; top: 6px; left: 0; right: 0; height: 2px; background: var(--accent-2); opacity: 0.3; z-index: 0;
+  }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <!-- SLIDE 1: COVER -->
+  <section class="s" style="justify-content: center; align-items: center; text-align: center; background: var(--beige); color: #1a1a1a;">
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 8px; background: var(--accent); z-index: 1;"></div>
+    
+    <div class="tag" style="margin-bottom: 2rem; color: #8B1A1A; background: transparent; border-bottom: 1px solid var(--accent-2); width: auto; padding-bottom: 1rem;">
+      <span>Paternidad Consciente</span>
+    </div>
+
+    <h1 style="font-size: 7rem; line-height: 0.9; margin-bottom: 1.5rem;"><span style="color: #1a1a1a;">El Arte de</span><br><span style="color: var(--accent); display: block;">Ser un Buen Padre</span></h1>
+    
+    <p style="font-size: 1.8rem; line-height: 1.4; color: var(--beige-dim); max-width: 60rem; text-wrap: balance;">Guía para construir vínculos fuertes y duraderos</p>
+    
+    <p style="font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.4rem; margin-top: 3rem; opacity: .6;">Ser un buen padre es un viaje de crecimiento, amor y conexión.</p>
+
+    <p style="position: absolute; bottom: 4rem; right: 5rem; font-size: 1.1rem; color: var(--beige-dim); opacity: .5; z-index: 2;">01 / 08</p>
+  </section>
+
+  <!-- SLIDE 2: PILARS (Cards) -->
+  <section class="s">
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+      <div class="grid-2" style="flex-direction: column; gap: 2rem; overflow: hidden;">
+        
+        <!-- Card 1 -->
+        <div class="card" style="flex: 1; min-height: 0;">
+          <div class="icon-wrapper" style="background: var(--beige); margin-bottom: 1rem;">
+             <i data-lucide="heart"></i>
+          </div>
+          <h3 style="color: var(--accent);">Amor Incondicional</h3>
+          <p>Aceptar y valorar a tus hijos tal como son, más allá de sus logros o fallas.</p>
+        </div>
+        
+        <!-- Card 2 -->
+        <div class="card" style="flex: 1; min-height: 0; border-color: var(--accent-2); background: var(--accent-2-dim);">
+          <div class="icon-wrapper" style="background: rgba(224, 216, 192, 1); margin-bottom: 1rem;">
+             <i data-lucide="message-square"></i>
+          </div>
+          <h3 style="color: var(--accent-2);">Comunicación Efectiva</h3>
+          <p>Escuchar activamente y expresar sentimientos abiertamente sin juzgar.</p>
+        </div>
+        
+        <!-- Card 3 -->
+        <div class="card" style="flex: 1; min-height: 0;">
+          <div class="icon-wrapper" style="background: var(--beige); margin-bottom: 1rem;">
+             <i data-lucide="user-check"></i>
+          </div>
+          <h3 style="color: var(--accent);">Presencia Activa</h3>
+          <p>Dedicar tiempo de calidad y estar genuinamente involucrado en sus vidas.</p>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="card" style="flex: 1; min-height: 0; border-color: var(--accent-2); background: var(--accent-2-dim);">
+          <div class="icon-wrapper" style="background: rgba(224, 216, 192, 1); margin-bottom: 1rem;">
+             <i data-lucide="shield-check"></i>
+          </div>
+          <h3 style="color: var(--accent-2);">Límites Claros</h3>
+          <p>Guiar con estructura, consistencia y límites firmes pero amorosos.</p>
+        </div>
+        
+      </div>
+    </div>
+    <p style="position: absolute; bottom: 4rem; right: 5rem; font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">02 / 08</p>
+  </section>
+
+  <!-- SLIDE 3: UNCONDITIONAL LOVE (Editorial Drop Cap) -->
+  <section class="s">
+    <div class="tag" style="position: absolute; top: 4rem; left: 5rem;">El Poder del Amor Incondicional</div>
+    
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2rem; font-size: 1.4rem;">
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 1.5rem; justify-content: center;">
+        <h2 style="font-size: 5rem;">Validación<br><span style="font-style: italic; color: var(--accent);">y Aceptación</span></h2>
+        <p style="margin-left: 4rem; font-family: 'Lato'; line-height: 1.8;">
+          <span style="font-size: 7rem; font-family: 'Playfair Display', serif; font-weight: 700; color: var(--accent); float: left; line-height: .8; margin-right: .5rem; margin-top: -1rem;">M</span>
+          ostrar amor sin condiciones es crucial para la autoestima y seguridad emocional del niño. Al celebrar sus logros y apoyarlos en sus fracasos, construyes un refugio seguro. Evita las críticas destructivas y enfócate en el esfuerzo. Expresa afecto físico y verbalmente de forma regular.
+        </p>
+        <div style="margin-left: 4rem; display: flex; margin-top: 1rem;">
+          <div style="width: 4px; height: 30px; background: var(--accent-2);"></div>
+          <p style="margin-left: 1rem;">Demostrar que su valor no depende de su rendimiento.</p>
+        </div>
+      </div>
+    </div>
+    <p style="position: absolute; bottom: 4rem; right: 5rem; font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">03 / 08</p>
+  </section>
+
+  <!-- SLIDE 4: COMMUNICATION (List) -->
+  <section class="s">
+    <div class="tag" style="position: absolute; top: 4rem; left: 5rem;">Comunicación</div>
+    
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+      <div style="flex: 1; min-width: 0; padding-left: 4rem; border-left: 2px solid var(--accent-2);">
+        <h2 style="font-size: 5rem;">El Puente Hacia sus<br><span style="color: var(--accent);">Corazones</span></h2>
+        <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 2rem;">
+          <div style="display: flex; gap: 1rem;">
+            <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); flex-shrink: 0; margin-top: 0.8rem;"></div>
+            <p>Practicar la escucha activa: prestar atención sin interrupciones.</p>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); flex-shrink: 0; margin-top: 0.8rem;"></div>
+            <p>Validar sus emociones, incluso si no las entiendes completamente.</p>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); flex-shrink: 0; margin-top: 0.8rem;"></div>
+            <p>Fomentar un diálogo honesto sobre sus experiencias y sentimientos.</p>
+          </div>
+           <div style="display: flex; gap: 1rem;">
+            <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); flex-shrink: 0; margin-top: 0.8rem;"></div>
+            <p>Compartir tus propias experiencias y vulnerabilidades de forma apropiada.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="position: absolute; bottom: 4rem; right: 5rem; font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">04 / 08</p>
+  </section>
+
+  <!-- SLIDE 5: ACTIVE PRESENCE (Split Image) -->
+  <section class="s" style="padding: 0; display: flex; flex-direction: row; position: relative; overflow: hidden; background: transparent; border: 1px solid var(--border);">
+     
+     <!-- Image Slot -->
+     <div class="img-slot" data-image-slot="1" data-image-keyword="family board game"
+          style="flex: 0 0 420px; min-height: auto; overflow: hidden; border-right: 1px solid var(--border); z-index: 1;">
+       <!-- Placeholder for Image -->
+       <div style="width: 100%; height: 100%; background: linear-gradient(to right, transparent, var(--accent-2)), url('data:image/svg+xml;charset=utf8,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MjAiIGhlaWdodD0iNjMxIj48cmVjdCB3aWR0aD0iNDIwIiBoZWlnaHQ9IjYzMSIgZmlsbD0iIzJFMkUyRSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iNDAiIGZpbGw9IiM5NDkzQjgiIGRvY3VtZW50LWJhc2luZz0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GYW1pbHkgVGltZTwvdGV4dD48L3N2Zz4=')">
+         <!-- Note: img-bg classes are injected if needed, kept simple here as per SVG placeholder -->
+         <div class="img-bg1"></div><div class="img-bg2"></div>
+         <img src="data:image/svg+xml;charset=utf8,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MjAiIGhlaWdodD0iNjMxIj48cmVjdCB3aWR0aD0iNDIwIiBoZWlnaHQ9IjYzMSIgZmlsbD0iIzJFMkUyRSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iNDAiIGZpbGw9IiM5NDkzQjgiIGRvY3VtZW50LWJhc2luZz0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GYW1pbHkgVGltZTwvdGV4dD48L3N2Zz4=" style="width:100%; height:100%; object-fit:cover; opacity:0.5;" alt="placeholder">
+       </div>
+     </div>
+
+     <!-- Content -->
+     <div style="flex: 1; min-width: 0; padding: 4rem 5rem; display: flex; flex-direction: column; justify-content: center;">
+       <div class="tag">Presencia Activa</div>
+       <h2 style="font-size: 4.5rem; margin-bottom: 1.5rem;">Tiempo de Calidad</h2>
+       <p style="max-width: 60rem; margin-bottom: 3rem; font-size: 1.5rem;">La calidad del tiempo compartido es más importante que la cantidad.</p>
+       
+       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; flex: 1; align-content: start;">
+         <div>
+           <p style="font-size: 1.3rem;"><span style="font-weight: 700; color: var(--accent);">// Participar</span><br>Crecer en sus juegos e intereses es la forma más profunda de validar su mundo.</p>
+         </div>
+         <div>
+           <p style="font-size: 1.3rem;"><span style="font-weight: 700; color: var(--accent);">// Rituales</span><br>Crear tradiciones como cenas o salidas genera un sentido de pertenencia único.</p>
+         </div>
+         <div>
+           <p style="font-size: 1.3rem;"><span style="font-weight: 700; color: var(--accent);">// Disponibilidad</span><br>Estar disponible emocionalmente cuando lo necesiten.</p>
+         </div>
+         <div>
+           <p style="font-size: 1.3rem;"><span style="font-weight: 700; color: var(--accent);">// Sin Distracciones</span><br>Desconectar de tecnología durante los momentos familiares cruciales.</p>
+         </div>
+       </div>
+     </div>
+     <p style="position: absolute; bottom: 4rem; right: 5rem; font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">05 / 08</p>
+  </section>
+
+  <!-- SLIDE 6: BOUNDARIES (Split) -->
+  <section class="s">
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 2rem;">
+      
+      <!-- Left Side (Structure) -->
+      <div style="flex: 0 0 40%; background: var(--surface); padding: 3rem; border-radius: 12px; display: flex; flex-direction: column; justify-content: center;">
+        <div class="tag" style="align-self: flex-start;">Límites y Disciplina</div>
+        <h2 style="font-size: 3.5rem; margin-bottom: 1rem;">Amor con<br><span style="color: var(--accent);">Estructura</span></h2>
+        <div class="v-divider" style="margin: 2rem 0;"></div>
+        <p style="font-size: 1.3rem;">La disciplina no es el opuesto del amor, es la forma en que estructuramos el entorno para que el amor florezca.</p>
+      </div>
+
+      <!-- Divider -->
+      <div class="v-divider" style="width: 4px; background: var(--accent); opacity: 1; margin: 0;"></div>
+
+      <!-- Right Side (Growth) -->
+      <div style="flex: 1; min-width: 0; background: var(--beige); color: #1a1a1a; padding: 3rem; border-radius: 12px; display: flex; flex-direction: column; justify-content: center;">
+        <h2 style="font-size: 3rem; margin-bottom: 2rem; color: #1a1a1a;">Guía el Camino</h2>
+        <div style="display: flex; flex-direction: column; gap: 1.2rem; flex: 1;">
+          
+          <div style="display: flex; gap: 1rem;">
+            <div class="icon-wrapper" style="background: var(--accent); width: 24px; height: 24px; margin-top: 2px;">
+              <i data-lucide="star" style="stroke: #1a1a1a;"></i>
+            </div>
+            <p style="color: #1a1a1a; margin: 0;">Establecer reglas razonables y explicarlas claramente.</p>
+          </div>
+
+          <div style="display: flex; gap: 1rem;">
+            <div class="icon-wrapper" style="background: var(--accent); width: 24px; height: 24px; margin-top: 2px;">
+              <i data-lucide="star" style="stroke: #1a1a1a;"></i>
+            </div>
+            <p style="color: #1a1a1a; margin: 0;">Aplicar consecuencias lógicas y consistentes.</p>
+          </div>
+
+          <div style="display: flex; gap: 1rem;">
+            <div class="icon-wrapper" style="background: var(--accent); width: 24px; height: 24px; margin-top: 2px;">
+              <i data-lucide="star" style="stroke: #1a1a1a;"></i>
+            </div>
+            <p style="color: #1a1a1a; margin: 0;">Enfocarse en enseñar habilidades, no solo castigar.</p>
+          </div>
+
+          <div style="display: flex; gap: 1rem;">
+            <div class="icon-wrapper" style="background: var(--accent); width: 24px; height: 24px; margin-top: 2px;">
+              <i data-lucide="star" style="stroke: #1a1a1a;"></i>
+            </div>
+            <p style="color: #1a1a1a; margin: 0;">Ser el modelo del comportamiento deseado.</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <p style="position: absolute; bottom: 4rem; right: 5rem; font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">06 / 08</p>
+  </section>
+
+  <!-- SLIDE 7: TIMELINE (Process) -->
+  <section class="s">
+    <div style="position: absolute; top: 4rem; left: 5rem;" class="tag">Adaptándose a Cada Etapa</div>
+    
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative;">
+      <h2 style="font-size: 4rem; margin-bottom: 1.5rem;">Un viaje en constante<br><span style="color: var(--beige);">evolución</span></h2>
+      
+      <div style="flex: 1; min-width: 0; display: flex; gap: 2rem; position: relative; padding-top: 3rem;">
+        <!-- Timeline Line -->
+        <div style="position: absolute; top: 6px; left: 0; right: 0; height: 2px; background: var(--accent-2); opacity: 0.3;"></div>
+
+        <!-- Node 1 -->
+        <div class="timeline-node" style="text-align: center; flex: 1; z-index: 1;">
+          <div style="margin-left: 40px; display: flex; flex-direction: column;">
+            <p style="color: var(--accent-2); font-size: 1.2rem; text-transform: uppercase; font-weight: 700; margin-bottom: 1rem;">Infancia</p>
+            <h3 style="color: var(--beige); font-size: 2rem;">Seguridad & Apego</h3>
+            <p style="font-size: 1.2rem; margin-top: 0.5rem;">Exploración segura y la base de la confianza.</p>
+          </div>
+        </div>
+        
+        <!-- Node 2 -->
+        <div class="timeline-node" style="text-align: center; flex: 1; z-index: 1;">
+          <div style="margin-left: 40px; display: flex; flex-direction: column;">
+            <p style="color: var(--accent-2); font-size: 1.2rem; text-transform: uppercase; font-weight: 700; margin-bottom: 1rem;">Niñez</p>
+            <h3 style="color: var(--beige); font-size: 2rem;">Aprendizaje</h3>
+            <p style="font-size: 1.2rem; margin-top: 0.5rem;">Fomento de independencia y socialización.</p>
+          </div>
+        </div>
+
+        <!-- Node 3 -->
+        <div class="timeline-node" style="text-align: center; flex: 1; z-index: 1;">
+          <div style="margin-left: 40px; display: flex; flex-direction: column;">
+            <p style="color: var(--accent-2); font-size: 1.2rem; text-transform: uppercase; font-weight: 700; margin-bottom: 1rem;">Adolescencia</p>
+            <h3 style="color: var(--beige); font-size: 2rem;">Diálogo</h3>
+            <p style="font-size: 1.2rem; margin-top: 0.5rem;">Respeto, libertad guiada e identidad.</p>
+          </div>
+        </div>
+
+        <!-- Node 4 -->
+        <div class="timeline-node" style="text-align: center; flex: 1; z-index: 1;">
+          <div style="margin-left: 40px; display: flex; flex-direction: column;">
+            <p style="color: var(--accent-2); font-size: 1.2rem; text-transform: uppercase; font-weight: 700; margin-bottom: 1rem;">Juventud</p>
+            <h3 style="color: var(--beige); font-size: 2rem;">Autonomía</h3>
+            <p style="font-size: 1.2rem; margin-top: 0.5rem;">Confianza y preparación para la vida adulta.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="position: absolute; bottom: 4rem; right: 5rem; font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">07 / 08</p>
+  </section>
+
+  <!-- SLIDE 8: CONCLUSION -->
+  <section class="s" style="justify-content: center; align-items: center; text-align: center; background: var(--beige);">
+    <!-- Frame decoration -->
+    <div style="position: absolute; inset: 28px; border: 1px solid rgba(0,0,0,0.1); pointer-events: none; z-index: 0;"></div>
+
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 700px; z-index: 1;">
+      <div class="tag" style="opacity: .5; margin-bottom: 0;">Reflexión</div>
+      
+      <h1 style="font-size: 5rem; line-height: 1.1; margin-bottom: 2rem;">
+        El Legado de un <span style="color: var(--accent);">Buen Padre</span>
+      </h1>
+      
+      <p style="font-size: 1.8rem; max-width: 600px; margin: 0 auto 3rem auto; line-height: 1.5;">
+        Ser un buen padre es un compromiso continuo que moldea no solo a los hijos, sino también al propio padre y al futuro de la familia.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem; align-items: flex-start; margin-bottom: 2rem;">
+        <p style="color: var(--accent-2);">• Cada interacción es una oportunidad.</p>
+        <p style="color: var(--accent-2);">• Paciencia, empatía y amor son herramientas.</p>
+        <p style="color: var(--accent-2);">• El viaje es tan gratificante como desafiante.</p>
+      </div>
+
+      <div style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid rgba(0,0,0,0.1);">
+        <p style="font-family: 'Playfair Display', serif; font-style: italic; color: var(--accent);">"Empieza hoy a construir una relación más fuerte con tus hijos."</p>
+      </div>
+    </div>
+    
+    <p style="position: absolute; bottom: 4rem; right: 5rem; font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">08 / 08</p>
+  </section>
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

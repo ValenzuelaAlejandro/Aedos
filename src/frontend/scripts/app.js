@@ -999,6 +999,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 const serverErr = errorData.error || `Server error: ${response.status}`;
+                const retryAfter = Number(errorData.retryAfterSec);
+                if (Number.isFinite(retryAfter) && retryAfter > 0) {
+                    throw new Error(`${serverErr}|RETRY_AFTER=${retryAfter}`);
+                }
                 throw new Error(serverErr);
             }
 
@@ -1312,11 +1316,53 @@ document.addEventListener('DOMContentLoaded', () => {
             if (errTitle) errTitle.textContent = window.__t ? window.__t('error_title', "Something didn't go as planned") : "Something didn't go as planned";
             if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('error_subtitle', "The AI service is temporarily unavailable. This is usually resolved quickly.") : "The AI service is temporarily unavailable. This is usually resolved quickly.";
 
-            const msg = error.message || '';
+            const rawMsg = error.message || '';
+            const retryAfterMatch = rawMsg.match(/\|RETRY_AFTER=(\d+)/);
+            const retryAfterSec = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) : null;
+            const msg = rawMsg.replace(/\|RETRY_AFTER=\d+/, '');
 
             if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCEEDED_PRO')) {
                 if (errTitle) errTitle.textContent = window.__t ? window.__t('daily_limit_title', "You've reached today's limit") : "You've reached today's limit";
                 if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('daily_limit_msg', "Free generations reset every 24 hours. Come back tomorrow or try again later.") : "Free generations reset every 24 hours. Come back tomorrow or try again later.";
+            } else if (msg.includes('COOLDOWN_ACTIVE')) {
+                if (errTitle) errTitle.textContent = window.__t ? window.__t('cooldown_title', "Wait a moment") : "Wait a moment";
+                if (errSubtitle) {
+                    if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+                        const tpl = window.__t
+                            ? window.__t('cooldown_msg_with_seconds', "Please wait {sec}s before generating again.")
+                            : "Please wait {sec}s before generating again.";
+                        errSubtitle.textContent = tpl.replace('{sec}', String(retryAfterSec));
+                    } else {
+                        errSubtitle.textContent = window.__t ? window.__t('cooldown_msg', "Please wait at least one minute between generations.") : "Please wait at least one minute between generations.";
+                    }
+                }
+            } else if (msg.includes('GLOBAL_DAILY_LIMIT_EXCEEDED')) {
+                if (errTitle) errTitle.textContent = window.__t ? window.__t('global_daily_limit_title', "Today's global capacity was reached") : "Today's global capacity was reached";
+                if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('global_daily_limit_msg', "The system reached its daily generation capacity. Please try again tomorrow.") : "The system reached its daily generation capacity. Please try again tomorrow.";
+            } else if (msg.includes('QUEUE_FULL')) {
+                if (errTitle) errTitle.textContent = window.__t ? window.__t('queue_full_title', "Queue is full right now") : "Queue is full right now";
+                if (errSubtitle) {
+                    if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+                        const tpl = window.__t
+                            ? window.__t('queue_full_msg_with_seconds', "Too many simultaneous requests. Try again in {sec}s.")
+                            : "Too many simultaneous requests. Try again in {sec}s.";
+                        errSubtitle.textContent = tpl.replace('{sec}', String(retryAfterSec));
+                    } else {
+                        errSubtitle.textContent = window.__t ? window.__t('queue_full_msg', "Too many simultaneous requests. Try again in a few seconds.") : "Too many simultaneous requests. Try again in a few seconds.";
+                    }
+                }
+            } else if (msg.includes('PRO_TEMPORARILY_PAUSED')) {
+                if (errTitle) errTitle.textContent = window.__t ? window.__t('pro_paused_title', "Pro mode is temporarily paused") : "Pro mode is temporarily paused";
+                if (errSubtitle) {
+                    if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+                        const tpl = window.__t
+                            ? window.__t('pro_paused_msg_with_seconds', "High load detected. Retry Pro mode in {sec}s or switch to Flash mode.")
+                            : "High load detected. Retry Pro mode in {sec}s or switch to Flash mode.";
+                        errSubtitle.textContent = tpl.replace('{sec}', String(retryAfterSec));
+                    } else {
+                        errSubtitle.textContent = window.__t ? window.__t('pro_paused_msg', "High load detected. Please retry Pro mode shortly or switch to Flash mode.") : "High load detected. Please retry Pro mode shortly or switch to Flash mode.";
+                    }
+                }
             } else if (msg.includes('RATE_LIMIT_EXCEEDED')) {
                 if (errTitle) errTitle.textContent = window.__t ? window.__t('rate_limit_title', "Slow down a bit") : "Slow down a bit";
                 if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('rate_limit_msg', "Too many requests in a short time. Wait a few minutes and try again.") : "Too many requests in a short time. Wait a few minutes and try again.";

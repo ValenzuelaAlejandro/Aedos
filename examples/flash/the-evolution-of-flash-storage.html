@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#050508;
+    --surface:#0e0e16;
+    --surface2:#161622;
+    --accent:#00F0FF;
+    --accent-dim:rgba(0,240,255,.15);
+    --accent-light:#70f8ff;
+    --accent-2:#AD00FF;
+    --accent-2-dim:rgba(173,0,255,.15);
+    --text:#ffffff;
+    --text-dim:#a0a0b0;
+    --border:#222233;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'Inter',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; border: 1px solid #111; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'Space Grotesk',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  ul { margin:.8rem 0 0; padding-left:1.8rem; }
+  ul li { font-size:var(--base-p); line-height:1.6; color:var(--text-dim); margin-bottom:.4rem; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .subtitle { font-size:calc(var(--base-p)*1.25); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); line-height:1; font-family:'Space Grotesk',serif; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+  .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--text); margin:0 0 .8rem; line-height:1.4; }
+  .quote-block cite { font-size:1.3rem; color:var(--accent-2); font-style:normal; }
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; min-height:0; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; }
+  .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+  .step-content { min-width:0; flex:1; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2.5rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); min-width:0; overflow:hidden; }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; align-items:start; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; align-items:start; }
+  .flex-row { display:flex; gap:var(--base-gap); align-items:stretch; width:100%; flex:1; min-height:0; overflow:hidden; }
+  .flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; min-width:0; overflow:hidden; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; min-height:0; min-width:0; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
+  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; flex-shrink:0; }
+  .icon-wrapper.sec { background:var(--accent-2-dim); }
+  [data-lucide],svg.lucide { width:20px; height:20px; stroke-width:2; flex-shrink:0; color:var(--accent); }
+  .icon-wrapper.sec [data-lucide] { color:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; margin-bottom:2rem; flex-shrink:0; }
+  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
+  h1 { font-size: clamp(2.5rem, 4.8vw, 6rem); }
+  h2 { font-size: clamp(2rem, 3.5vw, var(--base-h2)); }
+  h3 { font-size: clamp(1.2rem, 2.2vw, var(--base-h3)); }
+</style>
+
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1 -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div class="tag">Flash Memory Technology</div>
+  <h1 style="color:var(--accent);font-size:6rem;line-height:.92;letter-spacing:-.03em;margin-bottom:2rem;">The Evolution of Flash Storage</h1>
+  <p class="subtitle">From floating gates to the backbone of the digital world.</p>
+  <div class="accent-bar"></div>
+  <p style="font-size:1.3rem;margin-top:1.5rem;color:var(--text-dim);">test flash 2</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 8</p>
+</section>
+
+<!-- SLIDE 2 -->
+<section class="s">
+  <div class="tag">02 · PROBLEM</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
+    <div>
+      <h2 style="font-size:5rem;line-height:.95;letter-spacing:-.02em;margin-bottom:2rem;">The Mechanical <span style="color:var(--accent)">Bottleneck</span></h2>
+      <p style="font-size:1.4rem;line-height:1.65;color:var(--text-dim);max-width:48rem;">Legacy hard disk drives (HDDs) relied on physical spinning platters and moving heads. As CPU speeds increased exponentially, these mechanical components became a severe bottleneck for data throughput.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:1rem;">
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">High latency in HDDs</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Fragile moving parts</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Power inefficiency</p></div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 8</p>
+</section>
+
+<!-- SLIDE 3 -->
+<section class="s">
+  <div class="tag">03 · CONCEPT</div>
+  <h2>Core Flash Architectures</h2>
+  <p class="subtitle">Understanding the two primary types of flash memory.</p>
+  <div class="grid-3" style="flex:1;min-height:0;">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="database"></i></div>
+      <h3>NAND</h3>
+      <p>High density for storage. Used in SSDs and USB drives for bulk data retention.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper sec"><i data-lucide="cpu"></i></div>
+      <h3>NOR</h3>
+      <p>Fast read performance. Typically used for firmware and code execution.</p>
+    </div>
+    <div class="card accent-2">
+      <div class="icon-wrapper"><i data-lucide="layers"></i></div>
+      <h3>3D NAND</h3>
+      <p>Vertical stacking of cells to bypass physical scaling limits of 2D planes.</p>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 8</p>
+</section>
+
+<!-- SLIDE 4 -->
+<section class="s">
+  <div class="tag">04 · DATA</div>
+  <h2>Performance Metrics</h2>
+  <p class="subtitle">Flash memory outperforms legacy media across all key metrics.</p>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="big-number">100x</div><div class="big-label">faster than HDD</div></div>
+    <div class="stat-box"><div class="big-number">95%</div><div class="big-label">of data centers</div></div>
+    <div class="stat-box"><div class="big-number">0.1ms</div><div class="big-label">access time</div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 8</p>
+</section>
+
+<!-- SLIDE 5 -->
+<section class="s">
+  <div class="tag">05 · PROCESS</div>
+  <h2>How Flash Writes Data</h2>
+  <p class="subtitle">The quantum mechanics of Fowler-Nordheim tunneling.</p>
+  <div class="steps-list">
+    <div class="step-item"><div class="step-num">1</div><div class="step-content"><h3>Electron Injection</h3><p>Applying high voltage to the control gate to pull electrons onto the floating gate.</p></div></div>
+    <div class="step-item"><div class="step-num">2</div><div class="step-content"><h3>Floating Gate Trapping</h3><p>Electrons remain trapped in the isolated gate, maintaining state without power.</p></div></div>
+    <div class="step-item"><div class="step-num">3</div><div class="step-content"><h3>Threshold Sensing</h3><p>The presence or absence of charge shifts the threshold voltage, read as 0 or 1.</p></div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 8</p>
+</section>
+
+<!-- SLIDE 6 -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div class="tag">06 · QUOTE</div>
+  <div class="quote-block">
+    <blockquote>"Flash memory is the foundation of the mobile era, enabling high-performance computing in the palm of your hand."</blockquote>
+    <cite>Industry Perspective</cite>
+  </div>
+  <p style="margin-top:3rem;max-width:65%;">The transition to solid-state storage was not just an upgrade; it was the catalyst for the modern smartphone and ultra-thin laptop.</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 8</p>
+</section>
+
+<!-- SLIDE 7 -->
+<section class="s">
+  <div class="tag">07 · TIMELINE</div>
+  <h2>A History of Innovation</h2>
+  <div style="flex:1;min-height:0;display:flex;justify-content:center;flex-direction:column;">
+    <div style="display:flex;width:100%;gap:2rem;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">1980</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">Invention</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Dr. Fujio Masuoka invents flash memory at Toshiba.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent-2);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">1987</p>
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:.8rem;">NAND Launch</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">First commercial NAND flash is introduced to the market.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:.6rem;">2013</p>
+        <div style="font-size:2.5rem;font-weight:
+<script src="/features/shared/lucide-init.js"></script></section></body></html>

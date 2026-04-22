@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#0A0B0D;
+    --surface:#14161A;
+    --surface2:#1C1F26;
+    --accent:#FF6B00;
+    --accent-dim:rgba(255,107,0,.15);
+    --accent-light:#FF8533;
+    --accent-2:#00E5FF;
+    --accent-2-dim:rgba(0,229,255,.15);
+    --text:#FFFFFF;
+    --text-dim:#A0A0A0;
+    --border:#2A2D35;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'Inter',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'Space Grotesk',sans-serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  ul { margin:.8rem 0 0; padding-left:1.8rem; }
+  ul li { font-size:var(--base-p); line-height:1.6; color:var(--text-dim); margin-bottom:.4rem; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .subtitle { font-size:calc(var(--base-p)*1.25); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); line-height:1; font-family:'Space Grotesk',sans-serif; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+  .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--text); margin:0 0 .8rem; line-height:1.4; }
+  .quote-block cite { font-size:1.3rem; color:var(--accent); font-style:normal; }
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; min-height:0; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; }
+  .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+  .step-content { min-width:0; flex:1; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2.5rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); min-width:0; overflow:hidden; }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; align-items:start; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; align-items:start; }
+  .flex-row { display:flex; gap:var(--base-gap); align-items:stretch; width:100%; flex:1; min-height:0; overflow:hidden; }
+  .flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; min-width:0; overflow:hidden; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; min-height:0; min-width:0; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
+  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; flex-shrink:0; }
+  .icon-wrapper.sec { background:var(--accent-2-dim); }
+  [data-lucide],svg.lucide { width:20px; height:20px; stroke-width:2; flex-shrink:0; color:var(--accent); }
+  .icon-wrapper.sec [data-lucide] { color:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; margin-bottom:2rem; flex-shrink:0; }
+  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
+  .flex-row > *, .grid-2 > *, .grid-3 > * { min-width:0; box-sizing:border-box; }
+  .card { flex:1 1 0%; }
+  h1 { font-size: clamp(2.5rem, 4.8vw, 6rem); }
+  h2 { font-size: clamp(2rem, 3.5vw, var(--base-h2)); }
+  h3 { font-size: clamp(1.2rem, 2.2vw, var(--base-h3)); }
+</style>
+
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1 -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div class="tag">Flash Second Immediate</div>
+  <h1 style="color:var(--accent);font-size:6rem;line-height:.92;letter-spacing:-.03em;margin-bottom:2rem;">Flash Second Immediate</h1>
+  <p class="subtitle">Mastering nanosecond synchronization in high-speed capture.</p>
+  <div class="accent-bar"></div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 8</p>
+</section>
+
+<!-- SLIDE 2 -->
+<section class="s">
+  <div class="tag">02 · CONCEPT</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
+    <div>
+      <h2 style="font-size:5rem;line-height:.95;letter-spacing:-.02em;margin-bottom:2rem;">The Instantaneous <span style="color:var(--accent)">Burst</span></h2>
+      <p style="font-size:1.4rem;line-height:1.65;color:var(--text-dim);max-width:48rem;">Immediate illumination requires the perfect orchestration of electronic discharge and chemical reaction. High-speed strobe units rely on the rapid ionization of xenon gas to produce light within microseconds of a trigger signal.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:1rem;">
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Ionization of xenon gas</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Capacitor discharge curves</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Pulse duration vs. intensity</p></div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 8</p>
+</section>
+
+<!-- SLIDE 3 -->
+<section class="s">
+  <div class="tag">03 · PROBLEM</div>
+  <h2>Latency Barriers</h2>
+  <p class="subtitle">Overcoming the mechanical and electronic delays in capture.</p>
+  <div class="grid-3" style="flex:1;min-height:0;">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="clock"></i></div>
+      <h3>Shutter Lag</h3>
+      <p>The physical movement of mechanical shutters creates a significant delay in the capture window.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper sec"><i data-lucide="activity"></i></div>
+      <h3>Signal Delay</h3>
+      <p>Electronic signal propagation through cables and wireless receivers adds nanoseconds of latency.</p>
+    </div>
+    <div class="card accent-2">
+      <div class="icon-wrapper"><i data-lucide="alert-circle"></i></div>
+      <h3>Readout Sync</h3>
+      <p>Sensor readout timing must align perfectly with the peak of the flash discharge.</p>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 8</p>
+</section>
+
+<!-- SLIDE 4 -->
+<section class="s">
+  <div class="tag">04 · PROCESS</div>
+  <h2>The Trigger Sequence</h2>
+  <p class="subtitle">A three-step microsecond workflow for immediate response.</p>
+  <div class="steps-list">
+    <div class="step-item"><div class="step-num">1</div><div class="step-content"><h3>Signal Emission</h3><p>The camera sends a trigger pulse the moment the shutter reaches the open state.</p></div></div>
+    <div class="step-item"><div class="step-num">2</div><div class="step-content"><h3>Processing Logic</h3><p>On-board microprocessors calculate the required power and timing offset.</p></div></div>
+    <div class="step-item"><div class="step-num">3</div><div class="step-content"><h3>High-Voltage Discharge</h3><p>Capacitors dump energy into the flash tube, creating an immediate light burst.</p></div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 8</p>
+</section>
+
+<!-- SLIDE 5 -->
+<section class="s">
+  <div class="tag">05 · DATA</div>
+  <h2>Performance Metrics</h2>
+  <p class="subtitle">Quantifying the 'Immediate' in flash technology.</p>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="big-number">1.2ms</div><div class="big-label">Trigger Latency</div></div>
+    <div class="stat-box"><div class="big-number">1/8k</div><div class="big-label">Sync Speed</div></div>
+    <div class="stat-box"><div class="big-number">99.9%</div><div class="big-label">Reliability</div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 8</p>
+</section>
+
+<!-- SLIDE 6 -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--bg);">
+    <div class="tag">Method A</div>
+    <h2 style="font-size:3rem;color:var(--accent);">Optical Sync</h2>
+    <p>Line-of-sight triggering using light pulses.</p>
+    <ul><li>Zero radio interference</li><li>Instantaneous speed of light</li><li>Limited by obstacles</li></ul>
+  </div>
+  <div style="width:2px;background:var(--border);flex-shrink:0;"></div>
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--surface);">
+    <div class="tag">Method B</div>
+    <h2 style="font-size:3rem;color:var(--accent-2);">Radio Trigger</h2>
+    <p>Encoded signals sent over 2.4GHz frequencies.</p>
+    <ul><li>Long range capability</li><li>Multi-channel support</li><li>Slight electronic latency</li></ul>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 8</p>
+</section>
+
+<!-- SLIDE 7 -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+  <div class="img-slot" data-image-slot="7" data-image-keyword="high-speed" style="flex:0 0 400px;border-radius:0;min-height:auto;">
+    <div class="img-bg1"></div><div class="img-bg2"></div>
+  </div>
+  <div style="flex:1;min-width:0;padding:3.5rem 4rem;display:flex;flex-direction:column;gap:2rem;overflow:hidden;">
+    <div class="tag">07 · EXAMPLE</div>
+    <h2 style="margin-bottom:0;">High-Speed Use Cases</h2>
+    <div class="flex-col" style="flex:1;min-height:0;">
+      <div class="card accent">
+        <div class="icon-wrapper"><i data-lucide="target"></i></div>
+        <h3>Ballistics Tracking</h3>
+        <p>Capturing projectiles in flight requires sub-millisecond precision and immediate flash response.</p>
+      </div>
+      <div class="card">
+        <div class="icon-wrapper sec"><i data-lucide="zap"></i></div>
+        <h3>Fluid Dynamics</h3>
+        <p>Freezing the motion of liquid droplets to study surface tension and collision physics.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">7 / 8</p>
+</section>
+
+<!-- SLIDE 8 -->
+<section class="s" style="align-items:center;justify-content:center;text-align:center;overflow:hidden;">
+  <div class="accent-bar" style="margin:0 auto 2rem;"></div>
+  <h2 style="max-width:72%;text-align:center;margin-bottom:2rem;">Toward zero-latency light synchronization.</h2>
+  <p class="subtitle" style="text-align:center;margin:0 auto;">The convergence of global shutters and fiber-optic triggering will redefine the limits of immediate capture.</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">8 / 8</p>
+</section>
+
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html><!-- CONFIG
+{
+  "topic": "Flash Second Immediate",
+  "language": "en",
+  "slide_count": 8,
+  "tone": "documentary",
+  "audience": "experts",
+  "text_density": "medium",
+  "narrative": "problem-solution",
+  "author": null,
+  "team": null,
+  "teacher": null,
+  "subject": null,
+  "institution": null,
+  "date": null,
+  "cta": null,
+  "visual_world": {
+    "real_world_analog": "1970s high-speed strobe unit with brushed aluminum casing and neon orange indicators",
+    "color_rationale": "Brushed metal provides a deep dark background, while neon orange and electric cyan represent the high-energy discharge and precision timing."
+  },
+  "palette": {
+    "colors_hex": ["#FF6B00", "#00E5FF"],
+    "bg_hex": "#0A0B0D",
+    "bg_mode": "deep-dark"
+  },
+  "font -->

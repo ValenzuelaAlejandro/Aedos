@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+
+<style>
+  :root {
+    --bg:#FFFBEB;
+    --surface:#FFFFFF;
+    --surface2:#FEF3C7;
+    --accent:#D97706;
+    --accent-dim:rgba(217, 119, 6, .15);
+    --accent-light:#FDE68A;
+    --accent-2:#F59E0B;
+    --accent-2-dim:rgba(245, 158, 11, .15);
+    --text:#451a03;
+    --text-dim:#78350f;
+    --border:#FDE68A;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'Lato',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'Playfair Display',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  ul { margin:.8rem 0 0; padding-left:1.8rem; }
+  ul li { font-size:var(--base-p); line-height:1.6; color:var(--text-dim); margin-bottom:.4rem; }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .subtitle { font-size:calc(var(--base-p)*1.25); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); line-height:1; font-family:'Playfair Display',serif; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+  .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--text); margin:0 0 .8rem; line-height:1.4; }
+  .quote-block cite { font-size:1.3rem; color:var(--accent); font-style:normal; }
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; min-height:0; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; }
+  .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+  .step-content { min-width:0; flex:1; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2.5rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); min-width:0; overflow:hidden; }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); width:100%; flex:1; min-height:0; align-items:start; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; align-items:start; }
+  .flex-row { display:flex; gap:var(--base-gap); align-items:stretch; width:100%; flex:1; min-height:0; overflow:hidden; }
+  .flex-col { display:flex; flex-direction:column; gap:calc(var(--base-gap)*.8); flex:1; min-height:0; min-width:0; overflow:hidden; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; min-height:0; min-width:0; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
+  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; flex-shrink:0; }
+  .icon-wrapper.sec { background:var(--accent-2-dim); }
+  [data-lucide],svg.lucide { width:20px; height:20px; stroke-width:2; flex-shrink:0; color:var(--accent); }
+  .icon-wrapper.sec [data-lucide] { color:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; margin-bottom:2rem; flex-shrink:0; }
+  .img-slot { position:relative; overflow:hidden; border-radius:12px; }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
+  .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.15),transparent); }
+  .flex-row > *, .grid-2 > *, .grid-3 > * { min-width:0; box-sizing:border-box; }
+  .card { flex:1 1 0%; }
+  .card h1, .card h2, .card h3, .card h4 { margin:0 0 .5rem; }
+  .card p { flex:1 1 auto; min-height:0; overflow:hidden; }
+  h1 { font-size: clamp(2.5rem, 4.8vw, 6rem); }
+  h2 { font-size: clamp(2rem, 3.5vw, var(--base-h2)); }
+  h3 { font-size: clamp(1.2rem, 2.2vw, var(--base-h3)); }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1: COVER -->
+<section class="s" style="justify-content:center;overflow:hidden;">
+  <div class="tag">Pancakes</div>
+  <h1 style="color:var(--accent);font-size:6rem;line-height:.92;letter-spacing:-.03em;margin-bottom:2rem;">Pancakes Perfectos</h1>
+  <p class="subtitle">El arte de crear el desayuno ideal en casa</p>
+  <div class="accent-bar"></div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 8</p>
+</section>
+
+<!-- SLIDE 2: CARDS-3 -->
+<section class="s">
+  <div class="tag">02 · Ingredientes</div>
+  <h2>Ingredientes Clave</h2>
+  <p class="subtitle">La base de una textura esponjosa</p>
+  <div class="grid-3" style="flex:1;min-height:0;">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="archive"></i></div>
+      <h3>Secos</h3>
+      <p>Harina de trigo de todo uso y polvo de hornear para el volumen.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrapper sec"><i data-lucide="droplet"></i></div>
+      <h3>Líquidos</h3>
+      <p>Leche fresca y huevos a temperatura ambiente para emulsionar.</p>
+    </div>
+    <div class="card accent-2">
+      <div class="icon-wrapper"><i data-lucide="sun"></i></div>
+      <h3>Toque Final</h3>
+      <p>Mantequilla derretida y una pizca de azúcar para el dorado.</p>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 8</p>
+</section>
+
+<!-- SLIDE 3: STEPS -->
+<section class="s">
+  <div class="tag">03 · Preparación</div>
+  <h2>La Mezcla Ideal</h2>
+  <p class="subtitle">El secreto está en no sobrebatir la masa para evitar pancakes duros.</p>
+  <div class="steps-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>Mezclar Secos</h3>
+        <p>Tamiza la harina con el polvo de hornear y el azúcar en un bol grande.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>Añadir Líquidos</h3>
+        <p>Integra la leche, el huevo y la mantequilla sin batir en exceso; los grumos son normales.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>Reposo</h3>
+        <p>Deja descansar la masa 5 minutos para que los agentes leudantes se activen.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 8</p>
+</section>
+
+<!-- SLIDE 4: EDITORIAL -->
+<section class="s">
+  <div class="tag">04 · Técnica</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
+    <div>
+      <h2 style="font-size:5rem;line-height:.95;letter-spacing:-.02em;margin-bottom:2rem;">El Arte del <span style="color:var(--accent)">Volteo</span></h2>
+      <p style="font-size:1.4rem;line-height:1.65;color:var(--text-dim);max-width:48rem;">Cocinar pancakes requiere paciencia. El calor debe ser constante pero no agresivo para permitir que el centro se cocine mientras el exterior se dora a la perfección.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:1rem;">
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Espera a que aparezcan burbujas en la superficie.</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Usa fuego medio-bajo para evitar quemarlos.</p></div>
+      <div style="display:flex;gap:1.2rem;align-items:flex-start;"><div style="width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:.7rem;flex-shrink:0;"></div><p style="font-size:1.3rem;line-height:1.5;">Voltea solo una vez con un movimiento firme.</p></div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 8</p>
+</section>
+
+<!-- SLIDE 5: STATS -->
+<section class="s">
+  <div class="tag">05 · Datos</div>
+  <h2>El Desayuno Favorito</h2>
+  <p class="subtitle">Estadísticas de consumo y preferencias globales.</p>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="big-number">85%</div><div class="big-label">Prefieren Miel</div></div>
+    <div class="stat-box"><div class="big-number">12m</div><div class="big-label">Tiempo Total</div></div>
+    <div class="stat-box"><div class="big-number">4u</div><div class="big-label">Por Persona</div></div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 8</p>
+</section>
+
+<!-- SLIDE 6: COMPARISON -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--bg);">
+    <div class="tag">Tradicional</div>
+    <h2 style="font-size:3rem;color:var(--accent);">Americano</h2>
+    <p>El clásico disco dorado y esponjoso.</p>
+    <ul><li>Textura densa</li><li>Sabor a mantequilla</li><li>Rápido de cocinar</li></ul>
+  </div>
+  <div style="width:2px;background:var(--border);flex-shrink:0;"></div>
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--surface);">
+    <div class="tag">Moderno</div>
+    <h2 style="font-size:3rem;color:var(--accent-2);">Japonés</h2>
+    <p>Altos, ligeros y con textura de nube.</p>
+    <ul><li>Estilo Soufflé</li><li>Requiere merengue</li><li>Cocción lenta al vapor</li></ul>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 8</p>
+</section>
+
+<!-- SLIDE 7: SPLIT IMAGE + CARDS -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;overflow:hidden;">
+  <div class="img-slot" style="flex:0 0 400px;border-radius:0;min-height:auto;">
+    <div class="img-bg1"></div><div class="img-bg2"></div>
+    <div style="position:absolute;bottom:2rem;left:2rem;z-index:3;color:white;font-weight:bold;">Toppings Creativos</div>
+  </div>
+  <div style="flex:1;min-width:0;padding:3.5rem 4rem;display:flex;flex-direction:column;gap:2rem;overflow:hidden;">
+    <div class="tag">07 · Personalización</div>
+    <h2 style="margin-bottom:0;">Secretos del Chef</h2>
+    <div class="flex-col" style="flex:1;min-height:0;">
+      <div class="card accent">
+        <div class="icon-wrapper"><i data-lucide="heart"></i></div>
+        <h3>Frutas Frescas</h3>
+        <p>Bayas y plátano añaden frescura y dulzor natural.</p>
+      </div>
+      <div class="card">
+        <div class="icon-wrapper sec"><i data-lucide="star"></i></div>
+        <h3>Texturas</h3>
+        <p>Nueces picadas o chispas de chocolate para un toque crujiente.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">7 / 8</p>
+</section>
+
+<!-- SLIDE 8: CONCLUSION -->
+<section class="s" style="align-items:center;justify-content:center;text-align:center;overflow:hidden;">
+  <div class="accent-bar" style="margin:0 auto 2rem;"></div>
+  <h2 style="max-width:72%;text-align:center;margin-bottom:2rem;">¡Buen Provecho!</h2>
+  <p class="subtitle" style="text-align:center;margin:0 auto;">La mejor parte de cocinar es compartir el resultado con quienes más quieres.</p>
+  <p style="margin-top:2.5rem;font-weight:600;color:var(--accent);font-size:1.6rem;">Sirve caliente con tu sirope favorito</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">8 / 8</p>
+</section>
+
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>
