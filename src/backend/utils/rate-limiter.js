@@ -35,7 +35,7 @@ const GLOBAL_DAILY_LIMIT = (() => {
 })();
 
 const FINALIZE_WINDOW_SEC = 15 * 60; // 15 minutes
-const FINALIZE_MAX = 10;
+const FINALIZE_MAX = parseInt(process.env.LIMITS_FINALIZE_MAX || '10', 10);
 
 // ── Redis client (lazy singleton) ────────────────────────────────────────────
 let redis = null;
