@@ -854,6 +854,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function setupDevelopmentDebugMode() {
         if (!debugLastGeneratedBtn) return;
 
+        // Extra safety: Never show debug button on production domains
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!isLocal) return;
+
         try {
             const response = await fetch('/__dev__/last-generated', { method: 'HEAD', cache: 'no-store' });
             if (!response.ok) return;
