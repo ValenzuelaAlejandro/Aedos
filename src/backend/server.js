@@ -772,7 +772,8 @@ app.get('/', (req, res) => {
     // We allow 'localhost' so Puppeteer can still render the slides internally.
     const host = req.headers.host || '';
     if (process.env.NODE_ENV === 'production' && !host.includes('localhost')) {
-        return res.redirect(301, 'https://aedoslab.xyz');
+        const frontendUrl = process.env.FRONTEND_URL || 'https://aedoslab.xyz';
+        return res.redirect(301, frontendUrl);
     }
 
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');

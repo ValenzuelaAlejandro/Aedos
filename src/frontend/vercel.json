@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/(generate|finalize|download|__dev__)(.*)",
-      "destination": "https://aedos-backend.onrender.com/$1$2"
+      "destination": "https://aedos.onrender.com/$1$2"
     },
     {
       "source": "/",
