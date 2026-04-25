@@ -768,6 +768,13 @@ process.on('SIGINT', async () => {
 
 // Routes
 app.get('/', (req, res) => {
+    // Security: If someone hits the Render URL directly in production, redirect to the main domain.
+    // We allow 'localhost' so Puppeteer can still render the slides internally.
+    const host = req.headers.host || '';
+    if (process.env.NODE_ENV === 'production' && !host.includes('localhost')) {
+        return res.redirect(301, 'https://aedoslab.xyz');
+    }
+
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
