@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#0F0F0D;
+    --surface:#1A1A17;
+    --surface2:#242420;
+    --accent:#E3B448;
+    --accent-dim:rgba(227, 180, 72, 0.15);
+    --accent-light:#F5D17E;
+    --accent-2:#3D6144;
+    --accent-2-dim:rgba(61, 97, 68, 0.15);
+    --rust:#5E2C15;
+    --text:#F0F0F0;
+    --text-dim:#A0A090;
+    --border:#33332E;
+    --base-p:1.5rem;
+    --base-h2:4.5rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'DM Sans',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; border: 1px solid #1a1a1a; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  h1,h2,h3,h4 { font-family:'Bebas Neue',serif; margin:0; line-height:1; color:var(--text); flex-shrink:0; text-transform: uppercase; }
+  h1 { font-size:7rem; font-weight:800; letter-spacing:-.01em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:0.02em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; color: var(--accent); }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  ul { margin:.8rem 0 0; padding-left:1.8rem; }
+  ul li { font-size:var(--base-p); line-height:1.6; color:var(--text-dim); margin-bottom:.4rem; }
+  
+  /* Periodic Table Tag Style */
+  .tag { 
+    font-family: 'Bebas Neue', serif;
+    font-size: 2.2rem; 
+    font-weight: 700; 
+    color: var(--accent); 
+    margin-bottom: 1.5rem; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    width: 5rem;
+    height: 5rem;
+    border: 2px solid var(--accent);
+    background: var(--accent-dim);
+  }
+  
+  .subtitle { font-size:calc(var(--base-p)*1.2); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; border-left: 2px solid var(--rust); padding-left: 1.5rem; }
+  .big-number { font-size:8rem; font-weight:800; color:var(--accent); line-height:1; font-family:'Bebas Neue',serif; }
+  .big-label { font-size:1.4rem; color:var(--text-dim); margin-top:.5rem; text-transform: uppercase; letter-spacing: 0.1em; }
+  
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; min-height:0; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; min-width:0; padding: 1.5rem; background: var(--surface); border-left: 4px solid var(--accent-2); }
+  .step-num { width:3.2rem; height:3.2rem; background:var(--accent-2); display:flex; align-items:center; justify-content:center; font-size:1.8rem; font-family: 'Bebas Neue'; color:var(--bg); flex-shrink:0; }
+  .step-content { min-width:0; flex:1; }
+  
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; min-height:0; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:3.5rem 2.5rem; background:var(--surface); border:1px solid var(--border); position: relative; }
+  .stat-box::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--accent); }
+
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:calc(var(--base-gap)*.8); width:100%; flex:1; min-height:0; align-items:stretch; }
+  .card { background:var(--surface); border:1px solid var(--border); padding:var(--base-gap); display:flex; flex-direction:column; align-items:flex-start; overflow:hidden; min-height:0; min-width:0; }
+  .card.accent { border-top: 4px solid var(--accent); }
+  .card.accent-2 { border-top: 4px solid var(--accent-2); }
+  
+  .icon-wrapper { width:45px; height:45px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem; flex-shrink:0; border: 1px solid var(--accent); }
+  .icon-wrapper.sec { background:var(--accent-2-dim); border-color: var(--accent-2); }
+  [data-lucide],svg.lucide { width:24px; height:24px; stroke-width:2; flex-shrink:0; color:var(--accent); }
+  .icon-wrapper.sec [data-lucide] { color:var(--accent-2); }
+  
+  .accent-bar { width:6rem; height:4px; background:var(--accent); margin-bottom:2.5rem; flex-shrink:0; }
+  
+  .img-slot { position:relative; overflow:hidden; background: #111; border: 1px solid var(--border); }
+  .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background: radial-gradient(circle at center, var(--accent-2-dim), var(--bg)); opacity: 0.6; }
+  .img-slot::after { content: 'PUREZA 99.1%'; position: absolute; bottom: 1rem; left: 1rem; font-family: 'Bebas Neue'; font-size: 1.2rem; color: var(--accent-2); opacity: 0.5; }
+
+  .s::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Cfilter id='noiseFilter'%3%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+  }
+</style>
+
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1: COVER -->
+<section class="s" style="justify-content:center;">
+  <div class="tag">Br</div>
+  <h1 style="color:var(--accent);font-size:9rem;margin-bottom:1rem;">BREAKING BAD</h1>
+  <p class="subtitle" style="border:none; padding:0; font-size: 2.2rem; font-family: 'Bebas Neue'; letter-spacing: 0.2rem;">EL IMPERIO AZUL</p>
+  <div class="accent-bar"></div>
+  <p style="font-size:1.4rem; color:var(--rust); font-weight: bold; letter-spacing: 0.1em;">ALBUQUERQUE, NM · 2008-2013</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">1 / 8</p>
+</section>
+
+<!-- SLIDE 2: EDITORIAL (Br) -->
+<section class="s">
+  <div class="tag">Br</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
+    <div>
+      <h2 style="font-size:6rem; color:var(--accent-2);">El <span style="color:var(--text);">Catalizador</span></h2>
+      <p style="font-size:1.6rem;line-height:1.7;color:var(--text-dim);max-width:48rem; margin-top: 2rem;">
+        Walter White, un profesor de química sobrecalificado y subestimado, se enfrenta a una sentencia de muerte. El bromo no es solo un elemento; es el inicio de una reacción violenta que transformará la desesperación en un imperio de cristal.
+      </p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2rem;padding-top:2rem;">
+      <div style="display:flex;gap:1.5rem;align-items:flex-start; background: var(--surface); padding: 1.5rem; border-left: 3px solid var(--accent);">
+        <p style="font-size:1.4rem;line-height:1.5;">Genio desperdiciado en una escuela secundaria.</p>
+      </div>
+      <div style="display:flex;gap:1.5rem;align-items:flex-start; background: var(--surface); padding: 1.5rem; border-left: 3px solid var(--accent-2);">
+        <p style="font-size:1.4rem;line-height:1.5;">Diagnóstico de cáncer de pulmón inoperable.</p>
+      </div>
+      <div style="display:flex;gap:1.5rem;align-items:flex-start; background: var(--surface); padding: 1.5rem; border-left: 3px solid var(--rust);">
+        <p style="font-size:1.4rem;line-height:1.5;">La química como única vía de escape.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">2 / 8</p>
+</section>
+
+<!-- SLIDE 3: CARDS (Ba) -->
+<section class="s">
+  <div class="tag">Ba</div>
+  <h2>La Necesidad</h2>
+  <p class="subtitle">Tres pilares que justifican lo injustificable.</p>
+  <div class="grid-3">
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="briefcase"></i></div>
+      <h3>Finanzas</h3>
+      <p>Asegurar el futuro de su familia tras su muerte inminente. El dinero como métrica de éxito.</p>
+    </div>
+    <div class="card accent-2">
+      <div class="icon-wrapper sec"><i data-lucide="home"></i></div>
+      <h3>Familia</h3>
+      <p>La máscara perfecta para ocultar la ambición. "Lo hice por la familia" se vuelve un mantra vacío.</p>
+    </div>
+    <div class="card accent">
+      <div class="icon-wrapper"><i data-lucide="alert-circle"></i></div>
+      <h3>Control</h3>
+      <p>Recuperar el poder sobre una vida que le fue arrebatada por la enfermedad y el destino.</p>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">3 / 8</p>
+</section>
+
+<!-- SLIDE 4: TIMELINE -->
+<section class="s">
+  <div class="tag">Te</div>
+  <h2>El Ascenso de Heisenberg</h2>
+  <div style="flex:1;min-height:0;display:flex;justify-content:center;flex-direction:column;">
+    <div style="display:flex;width:100%;gap:4rem;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:16px;height:16px;background:var(--accent);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;margin-bottom:.6rem;">El Inicio</p>
+        <div style="font-size:2.5rem;font-weight:700;font-family:'Bebas Neue';color:var(--text);line-height:1.2;margin-bottom:.8rem;">El Cocinero</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Producción artesanal en una RV vieja en medio del desierto.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:16px;height:16px;background:var(--accent-2);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:var(--accent-2);opacity:.3;margin-left:1rem;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:var(--accent-2);text-transform:uppercase;margin-bottom:.6rem;">Expansión</p>
+        <div style="font-size:2.5rem;font-weight:700;font-family:'Bebas Neue';color:var(--text);line-height:1.2;margin-bottom:.8rem;">Los Pollos Hermanos</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">Alianza con Gus Fring y el salto a la escala industrial.</p>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;margin-bottom:1.6rem;">
+          <div style="width:16px;height:16px;background:var(--rust);flex-shrink:0;"></div>
+        </div>
+        <p style="font-size:1.1rem;letter-spacing:.12em;color:var(--rust);text-transform:uppercase;margin-bottom:.6rem;">Caída</p>
+        <div style="font-size:2.5rem;font-weight:700;font-family:'Bebas Neue';color:var(--text);line-height:1.2;margin-bottom:.8rem;">Ozymandias</div>
+        <p style="font-size:1.3rem;line-height:1.5;color:var(--text-dim);">El colapso total del imperio y la pérdida de todo lo construido.</p>
+      </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">4 / 8</p>
+</section>
+
+<!-- SLIDE 5: STATS -->
+<section class="s">
+  <div class="tag">Au</div>
+  <h2>La Economía del Cristal</h2>
+  <p class="subtitle">Datos de una operación sin precedentes en el suroeste.</p>
+  <div class="stat-grid">
+    <div class="stat-box">
+        <div class="big-number">99.1%</div>
+        <div class="big-label">Pureza Química</div>
+    </div>
+    <div class="stat-box">
+        <div class="big-number">$80M</div>
+        <div class="big-label">Efectivo Enterrado</div>
+    </div>
+    <div class="stat-box">
+        <div class="big-number">#1</div>
+        <div class="big-label">Cuota de Mercado</div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">5 / 8</p>
+</section>
+
+<!-- SLIDE 6: STEPS -->
+<section class="s">
+  <div class="tag">P</div>
+  <h2>El Proceso</h2>
+  <p class="subtitle">La ciencia aplicada a la manufactura clandestina.</p>
+  <div class="steps-list">
+    <div class="step-item">
+        <div class="step-num">1</div>
+        <div class="step-content">
+            <h3>Preparación</h3>
+            <p>Obtención de metilamina a través de robos industriales estratégicos.</p>
+        </div>
+    </div>
+    <div class="step-item">
+        <div class="step-num">2</div>
+        <div class="step-content">
+            <h3>Síntesis</h3>
+            <p>Reacción en cadena controlada en laboratorios de alta tecnología.</p>
+        </div>
+    </div>
+    <div class="step-item">
+        <div class="step-num">3</div>
+        <div class="step-content">
+            <h3>Distribución</h3>
+            <p>Uso de fachadas comerciales y redes de lavado de dinero profesionales.</p>
+        </div>
+    </div>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">6 / 8</p>
+</section>
+
+<!-- SLIDE 7: COMPARISON -->
+<section class="s" style="padding:0;display:flex;flex-direction:row;">
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--bg);">
+    <div class="tag">Ww</div>
+    <h2 style="font-size:4rem;color:var(--accent);">Walter White</h2>
+    <p>El hombre que el mundo conocía.</p>
+    <ul>
+        <li>Vulnerable y temeroso</li>
+        <li>Profesor de secundaria</li>
+        <li>Padre de familia devoto</li>
+    </ul>
+  </div>
+  <div style="width:2px;background:var(--border);flex-shrink:0;"></div>
+  <div style="flex:1;min-width:0;padding:4rem;display:flex;flex-direction:column;gap:1.5rem;background:var(--surface);">
+    <div class="tag">Hs</div>
+    <h2 style="font-size:4rem;color:var(--accent-2);">Heisenberg</h2>
+    <p>El monstruo que él mismo creó.</p>
+    <ul>
+        <li>Implacable y calculador</li>
+        <li>Lord de la droga</li>
+        <li>"El que llama a la puerta"</li>
+    </ul>
+  </div>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">7 / 8</p>
+</section>
+
+<!-- SLIDE 8: CONCLUSION -->
+<section class="s" style="align-items:center;justify-content:center;text-align:center;">
+  <div class="accent-bar" style="margin:0 auto 2rem; width: 10rem;"></div>
+  <h2 style="max-width:80%;text-align:center;margin-bottom:2rem; font-size: 6rem;">"I did it for me. I was good at it."</h2>
+  <p class="subtitle" style="text-align:center;margin:0 auto; border: none;">La honestidad final de un hombre que lo perdió todo para sentirse vivo.</p>
+  <p style="margin-top:4rem;font-weight:700;color:var(--accent);font-size:2.4rem; font-family: 'Bebas Neue'; letter-spacing: 0.3rem;">DÍ MI NOMBRE.</p>
+  <p style="position:absolute;bottom:3rem;right:5rem;font-size:1.1rem;color:var(--text-dim);opacity:.45;z-index:2;">8 / 8</p>
+</section>
+
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

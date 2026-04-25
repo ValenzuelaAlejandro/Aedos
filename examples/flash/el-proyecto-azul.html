@@ -1,0 +1,218 @@
+cl
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <style>
+    :root {
+      --bg: #1c1c1a;
+      --surface: #2d2d2a;
+      --border: #444;
+      --accent: #d4a017;
+      --accent-2: #4a6741;
+      --text: #e0e0e0;
+      --text-dim: #a0a09a;
+      --h-font: 'Space Grotesk';
+      --b-font: 'Inter';
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 10px;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--b-font), sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    section.s {
+      width: 1122px;
+      height: 631px;
+      padding: 5rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      font-family: var(--h-font);
+      font-size: 7rem;
+      margin: 0;
+      color: var(--accent);
+    }
+
+    h2 {
+      font-family: var(--h-font);
+      font-size: 4rem;
+      color: #fff;
+      margin-bottom: 2rem;
+    }
+
+    .tag {
+      font-size: 1.2rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.3rem;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .tag::before {
+      content: '';
+      width: 3rem;
+      height: 3px;
+      background: var(--accent);
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+      flex: 1;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 3rem;
+      border-radius: 4px;
+    }
+
+    .big-number {
+      font-size: 8rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .quote-block {
+      border-left: 5px solid var(--accent);
+      padding-left: 3rem;
+    }
+
+    .counter {
+      position: absolute;
+      bottom: 3rem;
+      right: 5rem;
+      color: #555;
+    }
+  </style>
+  <script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js"
+    integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei"
+    crossorigin="anonymous"></script>
+</head>
+
+<body>
+
+  <section class="s">
+    <div class="tag">Breaking Bad Strategy</div>
+    <h1>EL PROYECTO AZUL</h1>
+    <p>Análisis de mercado: Pureza 99.1% · Gestión de Pureza · Walter White</p>
+    <div class="counter">01/08</div>
+  </section>
+
+  <section class="s">
+    <div class="tag">Metodología</div>
+    <h2>QUÍMICA Y MERCADO</h2>
+    <ul>
+      <li>La precisión dicta el valor del activo.</li>
+      <li>La metodología científica como ventaja competitiva.</li>
+      <li>La estandarización reduce el riesgo de inconsistencia.</li>
+    </ul>
+    <div class="counter">02/08</div>
+  </section>
+
+  <section class="s">
+    <div class="tag">Infraestructura</div>
+    <h2>ELEMENTOS CORE</h2>
+    <div class="grid-3">
+      <div class="card">
+        <h3>Precursores</h3>
+        <p>Abastecimiento estratégico y control de inventario.</p>
+      </div>
+      <div class="card">
+        <h3>Síntesis</h3>
+        <p>Procesos catalíticos de alta eficiencia.</p>
+      </div>
+      <div class="card">
+        <h3>Distribución</h3>
+        <p>Optimización logística en zonas críticas.</p>
+      </div>
+    </div>
+    <div class="counter">03/08</div>
+  </section>
+
+  <section class="s">
+    <div class="tag">Resultados</div>
+    <h2>MÉTRICAS</h2>
+    <div class="grid-3">
+      <div class="card">
+        <div class="big-number">99.1</div>
+        <p>Grado de pureza (%)</p>
+      </div>
+      <div class="card">
+        <div class="big-number">12x</div>
+        <p>Escalabilidad de producción</p>
+      </div>
+      <div class="card">
+        <div class="big-number">0%</div>
+        <p>Tasa de fallos operativos</p>
+      </div>
+    </div>
+    <div class="counter">04/08</div>
+  </section>
+
+  <section class="s">
+    <div class="tag">Auditoría</div>
+    <h2>RIESGO VS RECOMPENSA</h2>
+    <div style="display:flex; gap: 4rem;">
+      <div style="flex:1; border-top: 5px solid var(--accent); padding-top: 1rem;">
+        <h3>Riesgo</h3>
+        <p>Exposición regulatoria extrema.</p>
+      </div>
+      <div style="flex:1; border-top: 5px solid var(--accent-2); padding-top: 1rem;">
+        <h3>Recompensa</h3>
+        <p>Monopolio de mercado sin competencia.</p>
+      </div>
+    </div>
+    <div class="counter">05/08</div>
+  </section>
+
+  <section class="s">
+    <div class="tag">Localización</div>
+    <h2>OPERACIONES: ÁLBUQUERQUE</h2>
+    <p>Gestión de activos en zonas áridas y desdibujadas del mapa civil.</p>
+    <div class="counter">06/08</div>
+  </section>
+
+  <section class="s">
+    <div class="tag">Estrategia</div>
+    <div class="quote-block">
+      <blockquote style="font-size: 3rem;">"Esfuerzo, precisión y control. La ciencia permite dominar el caos."
+      </blockquote>
+    </div>
+    <div class="counter">07/08</div>
+  </section>
+
+  <section class="s">
+    <div class="tag">Cierre</div>
+    <h2>EL LEGADO</h2>
+    <p>Sostenibilidad del modelo a largo plazo según los estándares de calidad establecidos.</p>
+    <div class="counter">08/08</div>
+  </section>
+
+  <script src="/features/shared/lucide-init.js"></script>
+</body>
+
+</html>

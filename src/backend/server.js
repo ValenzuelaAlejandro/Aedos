@@ -613,11 +613,10 @@ async function callGemini(apiKey, modelList, prompt, stageName) {
             model: modelName
         });
         try {
-            const gemini = genAI.getGenerativeModel({ 
-                model: modelName, 
+            const gemini = genAI.getGenerativeModel({
+                model: modelName,
                 safetySettings: SAFETY,
                 generationConfig: {
-                    maxOutputTokens: 8192,
                     temperature: 0.7
                 }
             });
@@ -667,7 +666,7 @@ const GEMINI_MODELS_FLASH = parseModelList(
     process.env.GEMINI_MODELS_FLASH,
     'gemini-3-flash-preview'
 );
-const GEMINI_MODELS  = parseModelList(
+const GEMINI_MODELS = parseModelList(
     process.env.GEMINI_MODELS_PIPELINE,
     'gemini-2.5-flash-lite,gemini-2.5-flash'
 );
@@ -707,13 +706,12 @@ function makeCallerFn(apiKey, stageName, sequence) {
 }
 
 // Stage routing
-// Flash  : gemini-3-flash-preview → qwen
+// Flash  : gemini-3-flash-preview
 // Stage 1: gemini-2.5-flash-lite → gemini-2.5-flash  (Gemini only, no OpenRouter)
 // Stage 2: same as Stage 1
-// Stage 3: minimax → gemini-2.5-flash-lite → gemini-2.5-flash  (qwen never used here)
+// Stage 3: gemini-3-flash-preview → minimax
 const tryModelsFlash = makeCallerFn(KEY1, 'Flash', [
-    { provider: 'openrouter', models: OPENROUTER_MODELS_FLASH },
-    { provider: 'gemini',     models: GEMINI_MODELS_FLASH },
+    { provider: 'gemini', models: GEMINI_MODELS_FLASH },
 ]);
 const tryModelsStage1 = makeCallerFn(KEY1, 'Stage1', [
     { provider: 'gemini', models: GEMINI_MODELS },
@@ -722,8 +720,8 @@ const tryModelsStage2 = makeCallerFn(KEY2, 'Stage2', [
     { provider: 'gemini', models: GEMINI_MODELS },
 ]);
 const tryModelsStage3 = makeCallerFn(KEY3, 'Stage3', [
+    { provider: 'gemini', models: GEMINI_MODELS_FLASH },
     { provider: 'openrouter', models: OPENROUTER_MODELS_STAGE3 },
-    { provider: 'gemini',     models: GEMINI_MODELS },
 ]);
 
 // Legacy alias kept for any remaining references

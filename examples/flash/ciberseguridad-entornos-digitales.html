@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#0D0F0D;
+    --surface:#151815;
+    --surface2:#1c201c;
+    --accent:#00FF41;
+    --accent-dim:rgba(0,255,65,.15);
+    --accent-light:#50E878;
+    --accent-2:#50C878;
+    --accent-2-dim:rgba(80,200,120,.15);
+    --text:#e0e0e0;
+    --text-dim:#a0a0a0;
+    --border:#2a2f2a;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'Inter',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; border-bottom:1px solid #1a1a1a; }
+  h1,h2,h3,h4 { font-family:'Space Grotesk',sans-serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:6rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; color:var(--accent); }
+  p { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:'$'; color:var(--accent); }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:2rem; flex:1; align-items:center; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; padding:2rem; background:var(--surface); border:1px solid var(--border); }
+  .card { background:var(--surface); border:1px solid var(--border); padding:2rem; border-radius:4px; display:flex; flex-direction:column; flex:1; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:2rem; flex:1; }
+  .steps-list { display:flex; flex-direction:column; gap:2rem; }
+  .step-item { display:flex; gap:2rem; align-items:center; }
+  .step-num { font-family:'Space Grotesk'; font-size:3rem; color:var(--accent); font-weight:bold; }
+  .accent-bar { width:6rem; height:4px; background:var(--accent); margin:2rem 0; }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+<section class="s" style="justify-content:center;">
+    <div class="tag">CIBERSEGURIDAD</div>
+    <h1>Ciberseguridad:<br>Entornos Digitales</h1>
+    <div class="accent-bar"></div>
+    <p>Defensa en la era de la información.</p>
+    <p style="position:absolute;bottom:3rem;right:5rem;">1 / 8</p>
+</section>
+
+<section class="s">
+    <div class="tag">AMENAZAS</div>
+    <h2>Panorama Actual</h2>
+    <div class="grid-3" style="margin-top:2rem;">
+        <div class="card"><h3>Phishing</h3><p>Engaños sofisticados por correo.</p></div>
+        <div class="card"><h3>Ransomware</h3><p>Secuestro de activos digitales.</p></div>
+        <div class="card"><h3>Zero-day</h3><p>Ataques a vulnerabilidades nuevas.</p></div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;">2 / 8</p>
+</section>
+
+<section class="s">
+    <div class="tag">METRICAS</div>
+    <h2>Impacto Estadístico</h2>
+    <div class="stat-grid">
+        <div class="stat-box"><div class="big-number">60%</div><p>Incremento ataques</p></div>
+        <div class="stat-box"><div class="big-number">$4M</div><p>Costo promedio</p></div>
+        <div class="stat-box"><div class="big-number">85%</div><p>Error humano</p></div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;">3 / 8</p>
+</section>
+
+<section class="s">
+    <div class="tag">CONCEPTOS</div>
+    <h2>Pilares de la Defensa</h2>
+    <div class="grid-3" style="margin-top:2rem;">
+        <div class="card"><h3>Confidencialidad</h3><p>Acceso restringido.</p></div>
+        <div class="card"><h3>Integridad</h3><p>Datos no alterados.</p></div>
+        <div class="card"><h3>Disponibilidad</h3><p>Servicios activos.</p></div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;">4 / 8</p>
+</section>
+
+<section class="s">
+    <div class="tag">TIMELINE</div>
+    <h2>Evolución</h2>
+    <div style="margin-top:4rem; border-left:2px solid var(--accent); padding-left:2rem;">
+        <h3>1990s: Firewalls primarios</h3>
+        <p>Seguridad de perímetro simple.</p>
+        <br>
+        <h3>2010s: Cifrado extremo</h3>
+        <p>Protección en reposo y tránsito.</p>
+        <br>
+        <h3>2024: IA/ML</h3>
+        <p>Defensa predictiva y autónoma.</p>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;">5 / 8</p>
+</section>
+
+<section class="s">
+    <div class="tag">PROCESOS</div>
+    <h2>Respuesta ante Incidencias</h2>
+    <div class="steps-list" style="margin-top:3rem;">
+        <div class="step-item"><div class="step-num">01</div><div><h3>Identificación</h3><p>Detectar el vector de ataque.</p></div></div>
+        <div class="step-item"><div class="step-num">02</div><div><h3>Contención</h3><p>Aislar los sistemas afectados.</p></div></div>
+        <div class="step-item"><div class="step-num">03</div><div><h3>Recuperación</h3><p>Restaurar desde copias seguras.</p></div></div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;">6 / 8</p>
+</section>
+
+<section class="s" style="padding:0;">
+    <div style="flex:1; display:flex; flex-direction:row;">
+        <div style="flex:1; padding:4rem; background:var(--surface);">
+            <h3>PROACTIVO</h3>
+            <p>Prevención, hardening, parches.</p>
+        </div>
+        <div style="flex:1; padding:4rem; border-left:1px solid var(--border);">
+            <h3>REACTIVO</h3>
+            <p>Incident response, forense, patching tras brecha.</p>
+        </div>
+    </div>
+    <p style="position:absolute;bottom:3rem;right:5rem;">7 / 8</p>
+</section>
+
+<section class="s" style="justify-content:center; align-items:center; text-align:center;">
+    <div class="accent-bar"></div>
+    <h1>Seguridad = Hábito</h1>
+    <p>La ciberseguridad no es un destino,<br>es un proceso continuo de mejora.</p>
+    <p style="position:absolute;bottom:3rem;right:5rem;">8 / 8</p>
+</section>
+<script src="/features/shared/lucide-init.js"></script>
+</body></html>

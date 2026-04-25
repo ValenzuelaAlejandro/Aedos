@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --bg: #1A1A18; --surface: #262624; --border: #3D3D39;
+            --accent: #D4AF37; --accent-2: #2E4A3D; --accent-dim: #2e2e28;
+            --text: #F2F2F2; --text-dim: #A8A8A8;
+            --h-font: 'Space Grotesk', sans-serif; --b-font: 'Inter', sans-serif;
+        }
+        * { box-sizing: border-box; }
+        html { font-size: 10px; }
+        body { margin: 0; font-family: var(--b-font); color: var(--text); background: var(--bg); }
+        section.s { width: 1122px; height: 631px; padding: 4rem 5rem; position: relative; border-bottom: 1px solid #333; }
+        h1, h2 { font-family: var(--h-font); }
+        .tag { font-size: 1.2rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .2rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2.5rem; flex:1; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        .big-number { font-size: 7rem; font-weight: 800; color: var(--accent); }
+        .counter { position: absolute; bottom: 3rem; right: 5rem; font-size: 1.2rem; color: var(--text-dim); }
+    </style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+    <section class="s">
+        <div class="tag">ANÁLISIS DE PROCESOS</div>
+        <h1 style="font-size: 7rem; margin: 2rem 0;">EL MÉTODO <br>WALTER WHITE</h1>
+        <p style="font-size: 2rem; opacity: 0.8;">Estrategias de escalabilidad frente a condiciones de alta volatilidad industrial.</p>
+        <p style="margin-top: 4rem; color: var(--text-dim);">Departamento Estratégico · Equipo de Operaciones · Albuquerque Research Hub</p>
+        <div class="counter">01/08</div>
+    </section>
+
+    <section class="s">
+        <div class="tag">CARBONO · ELEMENTO 06</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 5rem;">
+            <div>
+                <h2>La Estructura Central</h2>
+                <p>La base de cualquier operación química compleja es la estabilidad de sus precursores. Analizamos cómo el carbono dicta la pureza del resultado final en entornos de laboratorio improvisados en el desierto.</p>
+            </div>
+            <div class="card">
+                <h3>Takeaways</h3>
+                <ul><li>Control de temperatura crítico.</li><li>Reactivos de alta pureza.</li><li>Reducción de subproductos.</li></ul>
+            </div>
+        </div>
+        <div class="counter">02/08</div>
+    </section>
+
+    <section class="s">
+        <div class="tag">DATOS · MÉTRICAS DE PRODUCCIÓN</div>
+        <h2>Eficacia en Alta Presión</h2>
+        <div class="grid-3">
+            <div class="card"><div class="big-number">99.1%</div><p>Pureza química lograda bajo estricta supervisión técnica.</p></div>
+            <div class="card" style="border: 2px solid var(--accent);"><div class="big-number">96%</div><p>Eficiencia operativa vs. competencia regional directa.</p></div>
+            <div class="card"><div class="big-number">14h</div><p>Ciclo de producción optimizado por lote en Albuquerque.</p></div>
+        </div>
+        <div class="counter">03/08</div>
+    </section>
+
+    <section class="s">
+        <div class="tag">HIDRÓGENO · LOGÍSTICA</div>
+        <h2>Red de Distribución</h2>
+        <div class="grid-3">
+            <div class="card"><h3>Adaptabilidad</h3><p>Capacidad de respuesta ante cambios abruptos en la demanda del mercado.</p></div>
+            <div class="card" style="background: var(--accent-dim);"><h3>Seguridad</h3><p>Implementación de protocolos de encubrimiento y protección de activos.</p></div>
+            <div class="card"><h3>Crecimiento</h3><p>Expansión escalable sin sacrificar la integridad del núcleo operativo.</p></div>
+        </div>
+        <div class="counter">04/08</div>
+    </section>
+
+    <section class="s" style="padding:0; overflow: hidden; display: flex;">
+        <div style="background:var(--accent-2); width: 40%; display: flex; align-items: center; justify-content: center;">[VISUAL ALBUQUERQUE]</div>
+        <div style="padding: 4rem; width: 60%; display: flex; flex-direction: column; justify-content: center;">
+            <div class="tag">OXÍGENO · ENTORNO</div>
+            <h2>Gestión de Riesgos</h2>
+            <p>El desierto no es solo un emplazamiento; es un activo estratégico. La elección geográfica permite mitigar el ruido industrial y maximizar la discreción operativa fundamental para la longevidad del negocio.</p>
+        </div>
+        <div class="counter">05/08</div>
+    </section>
+
+    <section class="s">
+        <div class="tag">NITRÓGENO · ESTRUCTURA</div>
+        <h2>Jerarquías de Mando</h2>
+        <p>En organizaciones de esta envergadura, el modelo de trabajo en silos garantiza que la información crítica permanezca compartimentada, evitando riesgos de seguridad ante auditorías externas o interferencias del entorno competitivo.</p>
+        <div class="card" style="margin-top: 2rem;">
+            <h3>Silos de Trabajo:</h3>
+            <p>Producción (Laboratorio) | Distribución (Transporte) | Inteligencia (Limpieza financiera)</p>
+        </div>
+        <div class="counter">06/08</div>
+    </section>
+
+    <section class="s">
+        <div class="tag">SALIDAS · RESULTADOS</div>
+        <div class="grid-3">
+            <div class="card"><h2 style="font-size: 5rem;">ROI</h2><p>Maximización constante sobre la inversión de capital inicial.</p></div>
+            <div class="card"><h2 style="font-size: 5rem;">CRÍTICO</h2><p>Punto de equilibrio alcanzado tras siete ciclos logísticos.</p></div>
+            <div class="card"><h2 style="font-size: 5rem;">FINAL</h2><p>Estabilización de mercado post-análisis de calidad.</p></div>
+        </div>
+        <div class="counter">07/08</div>
+    </section>
+
+    <section class="s">
+        <div class="tag">CONCLUSIONES</div>
+        <h1 style="font-size: 6rem;">LA CALIDAD ES LA LEY</h1>
+        <p style="font-size: 2rem;">En un mercado saturado, el único diferenciador es la perfección química del producto final.</p>
+        <div style="margin-top: 4rem; border-top: 2px solid var(--accent); padding-top: 2rem;">
+            <h3>Contacto de Control de Calidad</h3>
+            <p>Albuquerque Research Hub · 2023</p>
+        </div>
+        <div class="counter">08/08</div>
+    </section>
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#1A1A18;
+    --surface:#262624;
+    --surface2:#333330;
+    --accent:#D4AF37;
+    --accent-dim:rgba(212,175,55,.15);
+    --accent-light:#f0d47a;
+    --accent-2:#4A7C59;
+    --accent-2-dim:rgba(74,124,89,.15);
+    --text:#EAEAEA;
+    --text-dim:#A0A0A0;
+    --border:#333330;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'DM Sans',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; }
+  h1,h2,h3,h4 { font-family:'Bebas Neue',sans-serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:6rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); }
+  h3 { font-size:var(--base-h3); margin-bottom:.4rem; }
+  p { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .subtitle { font-size:1.8rem; color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); }
+  .big-label { font-size:1.3rem; color:var(--text-dim); }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); }
+  .card { padding:var(--base-gap); background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+  .card.accent { border-color:var(--accent); }
+  .card.accent-2 { border-color:var(--accent-2); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); margin-bottom:2rem; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; }
+  blockquote { font-size:2.5rem; margin:0; font-style:italic; }
+  cite { color:var(--accent); }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+<section class="s" style="justify-content:center"><div class="tag">Breaking Bad</div><h1 style="color:var(--accent)">EL MÉTODO WALTER WHITE</h1><p class="subtitle">Análisis estético y narrativo de una obra maestra.</p><div class="accent-bar"></div><p style="position:absolute;bottom:3rem;right:5rem">1 / 8</p></section>
+<section class="s"><div class="tag">Concepto</div><h2>ELEMENTOS DE COMPOSICIÓN</h2><p class="subtitle">La paleta cromática define la psicología de la serie.</p><div class="grid-3"><div class="card accent"><h3>Amarillo</h3><p>Representa el entorno industrial y la protección.</p></div><div class="card"><h3>Verde</h3><p>La pureza técnica del producto resultante.</p></div><div class="card accent-2"><h3>Óxido</h3><p>El terreno árido donde nace el imperio.</p></div></div><p style="position:absolute;bottom:3rem;right:5rem">2 / 8</p></section>
+<section class="s"><div class="tag">Datos</div><h2>MÉTRICAS DE CALIDAD</h2><p class="subtitle">El impacto cultural cuantificado.</p><div class="stat-grid"><div class="stat-box"><div class="big-number">99%</div><div class="big-label">Aprobación crítica</div></div><div class="stat-box"><div class="big-number">9.5</div><div class="big-label">IMDB Score</div></div><div class="stat-box"><div class="big-number">5</div><div class="big-label">TEMPORADAS</div></div></div><p style="position:absolute;bottom:3rem;right:5rem">3 / 8</p></section>
+<section class="s"><div class="tag">Proceso</div><h2>EVOLUCIÓN NARRATIVA</h2><p class="subtitle">Del hombre corriente al imperio.</p><div class="card"><h3>1. Transformación</h3><p>El catalizador cambia la identidad del protagonista.</p></div><div class="card" style="margin-top:1rem"><h3>2. Riesgo</h3><p>La escalada de tensión industrial.</p></div><div class="card" style="margin-top:1rem"><h3>3. Colapso</h3><p>El inevitable final de la red criminal.</p></div><p style="position:absolute;bottom:3rem;right:5rem">4 / 8</p></section>
+<section class="s" style="padding:0;flex-direction:row"><div style="flex:1;padding:4rem;background:var(--surface2)"><div class="tag">Dualidad</div><h2 style="color:var(--accent)">WALTER</h2><p>El hombre de familia atrapado en la mediocridad técnica.</p></div><div style="flex:1;padding:4rem"><div class="tag">Dualidad</div><h2 style="color:var(--accent-2)">HEISENBERG</h2><p>La máscara necesaria para operar en la ilegalidad.</p></div><p style="position:absolute;bottom:3rem;right:5rem">5 / 8</p></section>
+<section class="s" style="justify-content:center"><div class="tag">Cita</div><div class="quote-block"><blockquote>"La excelencia es una forma de control absoluta."</blockquote><cite>Análisis narrativo</cite></div><p style="margin-top:2rem">La disciplina química reflejada en el comportamiento humano.</p><p style="position:absolute;bottom:3rem;right:5rem">6 / 8</p></section>
+<section class="s"><div class="tag">Ejemplo</div><h2>ESTÉTICA DE ALBUQUERQUE</h2><p class="subtitle">El entorno como personaje activo.</p><div class="grid-2"><div class="card accent"><h3>Desierto</h3><p>Espacio hostil y sin ley en contraste con el laboratorio.</p></div><div class="card"><h3>Industria</h3><p>Los interiores técnicos donde se fragua el éxito.</p></div></div><p style="position:absolute;bottom:3rem;right:5rem">7 / 8</p></section>
+<section class="s" style="align-items:center;justify-content:center;text-align:center"><div class="accent-bar"></div><h2>EL CIERRE DEL CICLO</h2><p class="subtitle">Todo lo que sube termina por colapsar bajo su propio peso ético.</p><p style="position:absolute;bottom:3rem;right:5rem">8 / 8</p></section>
+<script src="/features/shared/lucide-init.js"></script>
+</body></html>

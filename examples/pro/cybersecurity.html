@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg: #0A0A0A;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --accent: #00FF00;
+    --accent-dim: rgba(0, 255, 0, 0.05);
+    --accent-light: rgba(0, 255, 0, 0.2);
+    --text: #FFFFFF;
+    --text-dim: #CCCCCC;
+    --border: #333333;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  html { font-size: 10px; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: var(--bg); }
+  
+  section.s { 
+    width: 1122px; 
+    height: 631px; 
+    overflow: hidden; 
+    display: flex; 
+    flex-direction: column; 
+    background: var(--bg); 
+    page-break-after: always; 
+    padding: 4rem 5rem; 
+    box-sizing: border-box; 
+    position: relative; 
+  }
+
+  @media print { 
+    body { margin: 0; } 
+    @page { size: 1122px 631px; margin: 0; } 
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } 
+  }
+
+  * { box-sizing: border-box; }
+
+  h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; margin: 0; line-height: 1.1; color: var(--text); flex-shrink: 0; text-wrap: balance; }
+  h1 { font-size: 7rem; font-weight: 800; letter-spacing: -0.03em; }
+  h2 { font-size: 5.5rem; font-weight: 800; letter-spacing: -0.02em; }
+  h3 { font-size: 2.2rem; font-weight: 700; }
+  
+  p { font-size: 1.5rem; line-height: 1.5; margin: 0; color: var(--text-dim); flex-shrink: 0; text-wrap: pretty; }
+
+  .tag { 
+    font-family: var(--mono);
+    font-size: 1.2rem; 
+    font-weight: 700; 
+    color: var(--accent); 
+    text-transform: uppercase; 
+    letter-spacing: 0.2rem; 
+    margin-bottom: 2rem; 
+    display: flex; 
+    align-items: center; 
+    gap: 1rem; 
+  }
+  .tag::before { content: '>'; color: var(--accent); }
+
+  /* *** MINIMALIST TERMINAL OVERRIDE — ACTIVE *** */
+  .card { border-radius: 0px !important; background: var(--surface) !important; border: 1px solid var(--border) !important; padding: 2.5rem; }
+  .card.accent { background: var(--accent-dim) !important; border-color: var(--accent) !important; }
+  .icon-wrapper { border-radius: 0px !important; background: var(--surface) !important; border: 1px solid var(--accent) !important; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; }
+  .icon-wrapper i { width: 24px; height: 24px; stroke: var(--accent); fill: none; }
+  .accent-bar { border-radius: 0px !important; height: 2px; background: var(--accent); }
+
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.5rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; }
+  
+  .code-block { font-family: var(--mono); background: #000; border: 1px solid var(--border); padding: 1.5rem; color: var(--accent); font-size: 1.3rem; }
+  
+  .v-divider { width: 1px; background: var(--border); align-self: stretch; }
+
+  .list-item { display: flex; gap: 1.5rem; align-items: flex-start; margin-bottom: 1.2rem; }
+  .list-marker { font-family: var(--mono); color: var(--accent); font-weight: 700; flex-shrink: 0; }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <!-- SLIDE 1: COVER -->
+  <section class="s" style="justify-content: space-between; align-items: flex-start;">
+    <!-- Grid pattern using linear-gradients -->
+    <div style="position: absolute; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 60px 60px; opacity: 0.1; z-index: 0;"></div>
+    <!-- Top bar accent -->
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 5px; background: var(--accent); z-index: 2;"></div>
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 5px; background: var(--accent); z-index: 2;"></div>
+
+    <div style="z-index: 1; width: 100%;">
+      <div class="tag">ESTADO: SISTEMA ACTIVO</div>
+    </div>
+
+    <div style="z-index: 1; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center;">
+      <h1 style="color: var(--accent); margin-bottom: 1rem;">&gt; CYBERSECURITY</h1>
+      <h1 style="color: var(--text); font-size: 4rem;">INICIANDO PROTOCOLO</h1>
+      <p style="margin-top: 3rem; max-width: 60rem; font-family: var(--mono); color: var(--text-dim);">[ Introducción a los conceptos fundamentales de ciberseguridad y defensa digital ]</p>
+    </div>
+
+    <div style="z-index: 1; width: 100%; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div style="font-family: var(--mono); font-size: 1.1rem; color: var(--border);">SYS_LOAD: 0.42 / KERNEL: SECURE</div>
+      <p style="position: absolute; bottom: 3rem; right: 5rem; font-family: var(--mono); font-size: 1.2rem; color: var(--accent); z-index: 2;">01 / 08</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: DEFINICIÓN -->
+  <section class="s">
+    <div style="position: absolute; left: 0; top: 0; width: 4px; height: 100%; background: var(--accent); z-index: 0;"></div>
+    <div class="tag">DEFINICIÓN DE SISTEMA</div>
+    
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 3rem;">
+      <h2 style="max-width: 90rem;">&gt; DEFINE: <span style="color: var(--accent);">CYBERSECURITY</span></h2>
+      
+      <div style="display: flex; gap: 5rem; align-items: flex-start;">
+        <div style="flex: 1; min-width: 0;">
+          <p style="font-size: 2rem; color: var(--text); margin-bottom: 2.5rem; line-height: 1.4;">La ciberseguridad protege sistemas, redes y datos de ataques digitales malintencionados.</p>
+          <div class="code-block">
+            // STATUS: ACCESS_GRANTED<br>
+            // OBJETIVO: PROTECCIÓN TOTAL DE ACTIVOS
+          </div>
+        </div>
+        
+        <div style="flex: 1; min-width: 0; padding-left: 3rem; border-left: 2px solid var(--accent);">
+          <div class="list-item">
+            <span class="list-marker">[X]</span>
+            <p style="color: var(--text);"><strong>Confidencialidad:</strong> Solo personal autorizado accede a la información.</p>
+          </div>
+          <div class="list-item">
+            <span class="list-marker">[X]</span>
+            <p style="color: var(--text);"><strong>Integridad:</strong> Los datos no son alterados sin permiso.</p>
+          </div>
+          <div class="list-item">
+            <span class="list-marker">[X]</span>
+            <p style="color: var(--text);"><strong>Disponibilidad:</strong> Los sistemas están operativos cuando se necesitan.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <p style="position: absolute; bottom: 3rem; right: 5rem; font-family: var(--mono); font-size: 1.2rem; color: var(--text-dim); opacity: 0.5; z-index: 2;">02 / 08</p>
+  </section>
+
+  <!-- SLIDE 3: AMENAZAS (GRID 2x2) -->
+  <section class="s">
+    <div class="tag">ESCANEANDO VULNERABILIDADES</div>
+    <h2 style="margin-bottom: 4rem;">&gt; THREAT LANDSCAPE</h2>
+    
+    <div class="grid-2" style="flex: 1; min-height: 0;">
+      <div class="card">
+        <div class="icon-wrapper"><i data-lucide="shield"></i></div>
+        <h3 style="margin-bottom: 1rem;">Malware</h3>
+        <p>Software diseñado para infiltrarse o dañar un sistema sin el consentimiento del usuario (virus, troyanos).</p>
+      </div>
+      <div class="card">
+        <div class="icon-wrapper"><i data-lucide="mail"></i></div>
+        <h3 style="margin-bottom: 1rem;">Phishing</h3>
+        <p>Técnicas de engaño para obtener información sensible suplantando una fuente de confianza.</p>
+      </div>
+      <div class="card">
+        <div class="icon-wrapper"><i data-lucide="hard-drive"></i></div>
+        <h3 style="margin-bottom: 1rem;">Ransomware</h3>
+        <p>Secuestro de datos mediante cifrado, exigiendo un rescate económico para su liberación.</p>
+      </div>
+      <div class="card">
+        <div class="icon-wrapper"><i data-lucide="alert-circle"></i></div>
+        <h3 style="margin-bottom: 1rem;">Ataques DDoS</h3>
+        <p>Sobrecarga de servicios con tráfico masivo para interrumpir su funcionamiento normal.</p>
+      </div>
+    </div>
+    
+    <p style="position: absolute; bottom: 3rem; right: 5rem; font-family: var(--mono); font-size: 1.2rem; color: var(--text-dim); opacity: 0.5; z-index: 2;">03 / 08</p>
+  </section>
+
+  <!-- SLIDE 4: DEFENSA (STAT) -->
+  <section class="s" style="justify-content: center; align-items: center; text-align: center;">
+    <div style="position: absolute; top: 40px; left: 48px; width: 32px; height: 32px; border-top: 1px solid var(--accent); border-left: 1px solid var(--accent); opacity: 0.5; z-index: 0;"></div>
+    <div style="position: absolute; bottom: 40px; right: 48px; width: 32px; height: 32px; border-bottom: 1px solid var(--accent); border-right: 1px solid var(--accent); opacity: 0.5; z-index: 0;"></div>
+    
+    <div class="tag" style="position: absolute; top: 4rem; left: 5rem;">PROTOCOLO DE DEFENSA</div>
+    
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+      <div style="font-family: var(--mono); font-size: 1.4rem; color: var(--accent); letter-spacing: 0.5rem; margin-bottom: 2rem;">[ SYSTEM STATUS: ACTIVE ]</div>
+      <h1 style="font-size: 10rem; color: var(--accent); line-height: 0.9; margin: 0;">FIREWALL</h1>
+      <div style="font-family: var(--mono); font-size: 2.5rem; color: var(--text); margin-top: 1rem;">CONTROL DE ACCESO</div>
+      <p style="margin-top: 3rem; max-width: 50rem; font-size: 1.6rem;">Implementación de barreras de red y mecanismos de cifrado para mitigar riesgos críticos.</p>
+    </div>
+    
+    <div style="position: absolute; bottom: 8rem; display: flex; gap: 3rem;">
+      <div style="padding: 1rem 2rem; border: 1px solid var(--border); font-family: var(--mono); font-size: 1.2rem;">2FA: ENABLED</div>
+      <div style="padding: 1rem 2rem; border: 1px solid var(--border); font-family: var(--mono); font-size: 1.2rem;">SSL: ACTIVE</div>
+      <div style="padding: 1rem 2rem; border: 1px solid var(--border); font-family: var(--mono); font-size: 1.2rem;">AES-256: ON</div>
+    </div>
+
+    <p style="position: absolute; bottom: 3rem; right: 5rem; font-family: var(--mono); font-size: 1.2rem; color: var(--text-dim); opacity: 0.5; z-index: 2;">04 / 08</p>
+  </section>
+
+  <!-- SLIDE 5: PASSWORDS -->
+  <section class="s">
+    <div style="position: absolute; left: 0; top: 0; width: 4px; height: 100%; background: var(--border); z-index: 0;"></div>
+    <div class="tag">GESTIÓN DE CREDENCIALES</div>
+    
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+      <h2 style="margin-bottom: 4rem;">&gt; <span style="color: var(--accent);">PASSWORD SECURITY</span></h2>
+      
+      <div style="display: flex; gap: 6rem;">
+        <div style="flex: 1.2; min-width: 0;">
+          <p style="font-size: 1.8rem; color: var(--text); margin-bottom: 3rem;">Las contraseñas son la primera línea de defensa; su robustez es el pilar de la seguridad individual.</p>
+          <div class="code-block" style="font-size: 1.6rem; letter-spacing: 0.2rem;">
+            HASH_KEY: ****************<br>
+            SALT_VAL: 8f2a9c1e0b...
+          </div>
+        </div>
+        
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1.5rem;">
+          <div class="list-item">
+            <span class="list-marker">01.</span>
+            <p><strong>Complejidad:</strong> Mezclar mayúsculas, números y símbolos.</p>
+          </div>
+          <div class="list-item">
+            <span class="list-marker">02.</span>
+            <p><strong>Unicidad:</strong> Nunca reutilizar contraseñas entre servicios.</p>
+          </div>
+          <div class="list-item">
+            <span class="list-marker">03.</span>
+            <p><strong>Gestores:</strong> Utilizar herramientas de almacenamiento seguro.</p>
+          </div>
+          <div class="list-item">
+            <span class="list-marker">04.</span>
+            <p><strong>Rotación:</strong> Cambiar credenciales ante sospecha de brecha.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <p style="position: absolute; bottom: 3rem; right: 5rem; font-family: var(--mono); font-size: 1.2rem; color: var(--text-dim); opacity: 0.5; z-index: 2;">05 / 08</p>
+  </section>
+
+  <!-- SLIDE 6: SOCIAL ENGINEERING (GRID 1x3) -->
+  <section class="s">
+    <div class="tag">VULNERABILIDAD HUMANA</div>
+    <h2 style="margin-bottom: 4rem;">&gt; SOCIAL ENGINEERING</h2>
+    
+    <div class="grid-3" style="flex: 1; min-height: 0;">
+      <div class="card accent">
+        <div class="icon-wrapper"><i data-lucide="key"></i></div>
+        <h3 style="margin-bottom: 1rem; color: var(--text);">Pretexting</h3>
+        <p>Creación de un escenario falso para obtener información o acceso privilegiado.</p>
+      </div>
+      <div class="card accent">
+        <div class="icon-wrapper"><i data-lucide="user-plus"></i></div>
+        <h3 style="margin-bottom: 1rem; color: var(--text);">Baiting</h3>
+        <p>Uso de un señuelo (como un USB infectado) para tentar a la víctima a comprometer su sistema.</p>
+      </div>
+      <div class="card accent">
+        <div class="icon-wrapper"><i data-lucide="help-circle"></i></div>
+        <h3 style="margin-bottom: 1rem; color: var(--text);">Quid Pro Quo</h3>
+        <p>Promesa de un beneficio o servicio a cambio de información o acceso técnico.</p>
+      </div>
+    </div>
+    
+    <div style="margin-top: 3rem; padding: 1.5rem; border: 1px dashed var(--accent); text-align: center;">
+      <p style="color: var(--accent); font-family: var(--mono);">ADVERTENCIA: El factor humano es el eslabón más débil de la cadena de seguridad.</p>
+    </div>
+
+    <p style="position: absolute; bottom: 3rem; right: 5rem; font-family: var(--mono); font-size: 1.2rem; color: var(--text-dim); opacity: 0.5; z-index: 2;">06 / 08</p>
+  </section>
+
+  <!-- SLIDE 7: DATA -->
+  <section class="s">
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 5px; background: var(--accent); z-index: 0;"></div>
+    <div class="tag">REPORTE DE INCIDENTES GLOBALES</div>
+    
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+      <div style="text-align: center; margin-bottom: 6rem;">
+        <div style="font-size: 12rem; font-weight: 800; color: var(--accent); line-height: 0.8; font-family: 'Space Grotesk';">$10.5T</div>
+        <div style="font-family: var(--mono); font-size: 1.8rem; color: var(--accent); margin-top: 1.5rem; letter-spacing: 0.3rem;">COSTO ANUAL PROYECTADO 2025</div>
+      </div>
+      
+      <div style="display: flex; gap: 8rem; align-items: center; width: 100%; justify-content: center;">
+        <div style="text-align: center;">
+          <div style="font-size: 6rem; font-weight: 800; color: var(--text); line-height: 1;">95%</div>
+          <div style="font-family: var(--mono); font-size: 1.4rem; color: var(--text-dim); margin-top: 0.5rem;">ERROR HUMANO</div>
+        </div>
+        <div class="v-divider" style="height: 6rem;"></div>
+        <div style="max-width: 30rem;">
+          <p style="font-size: 1.3rem; line-height: 1.4;">La gran mayoría de las brechas de seguridad se deben a fallos en el comportamiento humano y no a fallos técnicos.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div style="position: absolute; bottom: 3rem; left: 5rem; font-family: var(--mono); font-size: 0.9rem; color: var(--border);">FUENTE: CYBERSECURITY VENTURES / IBM SECURITY</div>
+    <p style="position: absolute; bottom: 3rem; right: 5rem; font-family: var(--mono); font-size: 1.2rem; color: var(--text-dim); opacity: 0.5; z-index: 2;">07 / 08</p>
+  </section>
+
+  <!-- SLIDE 8: CONCLUSION -->
+  <section class="s" style="justify-content: center; align-items: center; text-align: center;">
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 5px; background: var(--accent); z-index: 0;"></div>
+    <div class="tag" style="position: absolute; top: 4rem; left: 5rem;">FIN DE SESIÓN</div>
+    
+    <div style="max-width: 80rem;">
+      <h2 style="font-size: 7rem; margin-bottom: 2rem;">&gt; <span style="color: var(--accent);">EXECUTION COMPLETE</span></h2>
+      <p style="font-size: 2rem; color: var(--text); line-height: 1.5; margin-bottom: 4rem;">La ciberseguridad es una responsabilidad compartida y un proceso continuo de vigilancia.</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 1rem; align-items: center;">
+        <div style="width: 100%; height: 1px; background: var(--border); margin-bottom: 2rem;"></div>
+        <div style="display: flex; gap: 4rem;">
+          <div style="font-family: var(--mono); font-size: 1.2rem; color: var(--accent);">[+] VIGILANCIA</div>
+          <div style="font-family: var(--mono); font-size: 1.2rem; color: var(--accent);">[+] EDUCACIÓN</div>
+          <div style="font-family: var(--mono); font-size: 1.2rem; color: var(--accent);">[+] ACTUALIZACIÓN</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="code-block" style="position: absolute; bottom: 8rem; width: 40rem; text-align: left;">
+      SESSION_TOKEN: 0x8821B<br>
+      LOGOUT_TIME: 23:59:59<br>
+      STATUS: SECURE_DISCONNECT
+    </div>
+
+    <p style="position: absolute; bottom: 3rem; right: 5rem; font-family: var(--mono); font-size: 1.2rem; color: var(--accent); z-index: 2;">08 / 08</p>
+  </section>
+
+  
+  
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

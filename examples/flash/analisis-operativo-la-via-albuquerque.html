@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#1A1A17;
+    --surface:#262624;
+    --surface2:#333330;
+    --accent:#D4AF37;
+    --accent-dim:rgba(212,175,55,.15);
+    --accent-light:#f0d468;
+    --accent-2:#2D5A27;
+    --accent-2-dim:rgba(45,90,39,.15);
+    --text:#F4F4F4;
+    --text-dim:#A0A09A;
+    --border:#40403D;
+    --base-p:1.5rem;
+    --base-h2:4rem;
+    --base-h3:2.2rem;
+    --base-gap:2.5rem;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'DM Sans',sans-serif; color:var(--text); background:var(--bg); }
+  * { box-sizing:border-box; }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; position:relative; }
+  h1,h2,h3,h4 { font-family:'Bebas Neue',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; }
+  h1 { font-size:5rem; font-weight:800; letter-spacing:-.02em; }
+  h2 { font-size:var(--base-h2); font-weight:700; letter-spacing:-.01em; margin-bottom:.5rem; }
+  h3 { font-size:var(--base-h3); font-weight:700; margin-bottom:.4rem; }
+  p  { font-size:var(--base-p); line-height:1.5; margin:0; color:var(--text-dim); }
+  .tag { font-size:1.1rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.15rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .subtitle { font-size:calc(var(--base-p)*1.25); color:var(--text-dim); max-width:80%; margin-bottom:2.5rem; line-height:1.4; }
+  .big-number { font-size:7rem; font-weight:800; color:var(--accent); line-height:1; font-family:'Bebas Neue',serif; }
+  .big-label { font-size:1.3rem; color:var(--text-dim); margin-top:.5rem; }
+  .quote-block { border-left:4px solid var(--accent); padding-left:2rem; margin:1rem 0; }
+  .quote-block blockquote { font-size:2rem; font-style:italic; color:var(--text); margin:0 0 .8rem; line-height:1.4; }
+  .quote-block cite { font-size:1.3rem; color:var(--accent); font-style:normal; }
+  .steps-list { display:flex; flex-direction:column; gap:1.2rem; flex:1; }
+  .step-item { display:flex; align-items:flex-start; gap:1.5rem; }
+  .step-num { width:3.2rem; height:3.2rem; border-radius:50%; background:var(--accent-dim); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700; color:var(--accent); flex-shrink:0; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; align-items:center; }
+  .stat-box { display:flex; flex-direction:column; align-items:center; text-align:center; padding:2.5rem; background:var(--surface); border-radius:12px; border:1px solid var(--border); }
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--base-gap); flex:1; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--base-gap); flex:1; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:var(--base-gap); display:flex; flex-direction:column; }
+  .card.accent { background:var(--accent-dim); border-color:var(--accent); }
+  .card.accent-2 { background:var(--accent-2-dim); border-color:var(--accent-2); }
+  .icon-wrapper { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; }
+  .icon-wrapper.sec { background:var(--accent-2-dim); }
+  .accent-bar { width:4rem; height:3px; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:2px; margin-bottom:2rem; }
+  .img-slot { position:relative; background:linear-gradient(135deg,#D4AF3744,#1A1A17,#2D5A2744); }
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+<section class="s" style="justify-content:center;"><div class="tag">Análisis Operativo: Breaking Bad</div><h1 style="color:var(--accent);font-size:6rem;line-height:.92;margin-bottom:2rem;">ANÁLISIS OPERATIVO:<br>LA VÍA ALBUQUERQUE</h1><p class="subtitle">El ascenso y la entropía de un sistema químico-criminal.</p><div class="accent-bar"></div><p style="position:absolute;bottom:3rem;right:5rem;opacity:.45;">1 / 8</p></section>
+<section class="s"><div class="tag">02 · Concepto</div><h2>ELEMENTO: CARBONO</h2><p class="subtitle">La base orgánica de toda transformación.</p><div class="grid-3"><div class="card accent"><h3>Origen precariedad</h3><p>La necesidad como motor inicial de la estructura química.</p></div><div class="card"><h3>Adaptación</h3><p>Resiliencia del sistema ante las condiciones del desierto.</p></div><div class="card accent-2"><h3>Ambición</h3><p>El catalizador que acelera la degradación sistemática.</p></div></div><p style="position:absolute;bottom:3rem;right:5rem;opacity:.45;">2 / 8</p></section>
+<section class="s"><div class="tag">03 · Proceso</div><h2>PROCESO: SÍNTESIS QUÍMICA</h2><p class="subtitle">El rigor técnico en condiciones adversas.</p><div class="steps-list"><div class="step-item"><div class="step-num">1</div><div class="step-content"><h3>Limpieza del catalizador</h3><p>Eliminación de impurezas para asegurar la pureza del resultado.</p></div></div><div class="step-item"><div class="step-num">2</div><div class="step-content"><h3>Purificación</h3><p>Cristalización fraccionada para alcanzar la excelencia operativa.</p></div></div><div class="step-item"><div class="step-num">3</div><div class="step-content"><h3>Estabilización</h3><p>Control térmico para evitar la desestabilización del compuesto.</p></div></div></div><p style="position:absolute;bottom:3rem;right:5rem;opacity:.45;">3 / 8</p></section>
+<section class="s"><div class="tag">04 · Stats</div><h2>MÉTRICAS DE RENDIMIENTO</h2><p class="subtitle">Optimización del producto final.</p><div class="stat-grid"><div class="stat-box"><div class="big-number">99.1%</div><div class="big-label">pureza</div></div><div class="stat-box"><div class="big-number">72h</div><div class="big-label">ciclo operativo</div></div><div class="stat-box"><div class="big-number">5k</div><div class="big-label">unidades/mes</div></div></div><p style="position:absolute;bottom:3rem;right:5rem;opacity:.45;">4 / 8</p></section>
+<section class="s" style="padding:0;flex-direction:row;"><div style="flex:1;padding:4rem;background:var(--bg);"><div class="tag">Estrategia A</div><h2 style="color:var(--accent);">Adaptabilidad</h2><p>Gestión de recursos mínimos en terreno hostil.</p></div><div style="width:2px;background:var(--border);"></div><div style="flex:1;padding:4rem;background:var(--surface);"><div class="tag">Estrategia B</div><h2 style="color:var(--accent-2);">Escalabilidad</h2><p>Expansión logística mediante redes de distribución complejas.</p></div><p style="position:absolute;bottom:3rem;right:5rem;opacity:.45;">5 / 8</p></section>
+<section class="s" style="padding:0;display:flex;flex-direction:row;"><div class="img-slot" style="flex:0 0 400px;"></div><div style="flex:1;padding:3.5rem 4rem;display:flex;flex-direction:column;gap:2rem;"><div class="tag">06 · Ejemplo</div><h2 style="margin-bottom:0;">ESCENARIO: EL DESIERTO</h2><div class="card accent"><h3>Aislamiento</h3><p>La geografía de Albuquerque como ventaja táctica.</p></div><div class="card"><h3>Exposición</h3><p>Gestión del riesgo en un entorno sin vigilancia.</p></div></div><p style="position:absolute;bottom:3rem;right:5rem;opacity:.45;">6 / 8</p></section>
+<section class="s" style="justify-content:center;"><div class="tag">07 · Cita</div><div class="quote-block"><blockquote>"La química es el estudio de la materia, pero yo prefiero verla como el estudio del cambio."</blockquote><cite>W. White</cite></div><p style="margin-top:3rem;">La transformación química es análoga a la transformación de la identidad personal bajo presión extrema.</p><p style="position:absolute;bottom:3rem;right:5rem;opacity:.45;">7 / 8</p></section>
+<section class="s" style="align-items:center;justify-content:center;text-align:center;"><div class="accent-bar"></div><h2 style="max-width:72%;">LA ENTROPÍA FINAL</h2><p class="subtitle" style="margin:0 auto;">Todo sistema complejo tiende hacia el caos cuando la integridad ética se ve superada por el imperativo técnico.</p><p style="position:absolute;bottom:3rem;right:5rem;opacity:.45;">8 / 8</p></section>
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>
