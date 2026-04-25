@@ -779,7 +779,7 @@ app.get('/', (req, res) => {
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     res.set('Surrogate-Control', 'no-store');
-    res.sendFile(path.join(__dirname, '..', 'frontend', 'pages', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
 });
 
 if ((process.env.NODE_ENV || 'development') !== 'production') {

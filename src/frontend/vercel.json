@@ -6,10 +6,6 @@
     {
       "source": "/(generate|finalize|download|__dev__)(.*)",
       "destination": "https://aedos.onrender.com/$1$2"
-    },
-    {
-      "source": "/",
-      "destination": "/pages/index.html"
     }
   ],
   "cleanUrls": true,
