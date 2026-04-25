@@ -106,11 +106,11 @@ async function verifyConnection() {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function resolveClientIp(req) {
-    // Priority: Cloudflare -> X-Forwarded-For (leftmost) -> X-Real-IP -> req.ip (Express resolved)
+    // Priority: Cloudflare -> X-Forwarded-For (leftmost) -> req.ip (Express resolved)
+    const forwardedFor = req.headers['x-forwarded-for'];
     const ip = 
-        req.headers['cf-connecting-ip'] ||
-        parseForwardedFor(req.headers['x-forwarded-for']) ||
-        req.headers['x-real-ip'] ||
+        req.headers['cf-connecting-ip'] || 
+        (forwardedFor ? String(forwardedFor).split(',')[0].trim() : null) ||
         req.ip ||
         req.socket?.remoteAddress ||
         'unknown';
