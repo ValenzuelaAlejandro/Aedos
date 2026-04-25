@@ -106,12 +106,12 @@ async function verifyConnection() {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function resolveClientIp(req) {
-    // Priority: Cloudflare -> Vercel Proxy -> X-Forwarded-For -> X-Real-IP -> req.ip
+    // Priority: Vercel Proxy -> X-Forwarded-For (leftmost) -> Cloudflare -> req.ip
     const xff = req.headers['x-forwarded-for'];
     const ip = 
-        req.headers['cf-connecting-ip'] || 
         req.headers['x-vercel-forwarded-for'] ||
         (xff ? String(xff).split(',')[0].trim() : null) ||
+        req.headers['cf-connecting-ip'] || 
         req.headers['x-real-ip'] ||
         req.ip ||
         req.socket?.remoteAddress ||
