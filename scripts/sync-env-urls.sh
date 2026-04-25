@@ -21,7 +21,7 @@ if [ -f "$INDEX_HTML" ]; then
 fi
 
 # 2. Update vercel.json destination
-VERCEL_JSON="src/frontend/vercel.json"
+VERCEL_JSON="vercel.json"
 if [ -f "$VERCEL_JSON" ]; then
   sed -i "s|https://aedos.onrender.com|$BACKEND_URL|g" "$VERCEL_JSON"
   echo "Updated $VERCEL_JSON destination"
