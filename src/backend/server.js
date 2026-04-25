@@ -712,8 +712,8 @@ function makeCallerFn(apiKey, stageName, sequence) {
 // Stage 2: same as Stage 1
 // Stage 3: minimax → gemini-2.5-flash-lite → gemini-2.5-flash  (qwen never used here)
 const tryModelsFlash = makeCallerFn(KEY1, 'Flash', [
-    { provider: 'gemini',     models: GEMINI_MODELS_FLASH },
     { provider: 'openrouter', models: OPENROUTER_MODELS_FLASH },
+    { provider: 'gemini',     models: GEMINI_MODELS_FLASH },
 ]);
 const tryModelsStage1 = makeCallerFn(KEY1, 'Stage1', [
     { provider: 'gemini', models: GEMINI_MODELS },
