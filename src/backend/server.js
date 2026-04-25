@@ -792,19 +792,19 @@ if ((process.env.NODE_ENV || 'development') !== 'production') {
         res.type('html');
         res.send(fs.readFileSync(debugPath, 'utf8'));
     });
-
-    app.get('/debug-ip', (req, res) => {
-        res.json({
-            resolvedIp: req.ip,
-            xff: req.headers['x-forwarded-for'],
-            xvf: req.headers['x-vercel-forwarded-for'],
-            xri: req.headers['x-real-ip'],
-            cf: req.headers['cf-connecting-ip'],
-            trustProxy: req.app.get('trust proxy'),
-            userAgent: req.headers['user-agent']
-        });
-    });
 }
+
+app.get('/debug-ip', (req, res) => {
+    res.json({
+        resolvedIp: req.ip,
+        xff: req.headers['x-forwarded-for'],
+        xvf: req.headers['x-vercel-forwarded-for'],
+        xri: req.headers['x-real-ip'],
+        cf: req.headers['cf-connecting-ip'],
+        trustProxy: req.app.get('trust proxy'),
+        userAgent: req.headers['user-agent']
+    });
+});
 
 
 
