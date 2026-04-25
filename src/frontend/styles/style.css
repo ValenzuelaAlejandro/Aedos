@@ -724,6 +724,10 @@
     font-weight: 600;
 }
 
+.chat-actions .btn-debug-last-generated[hidden] {
+    display: none !important;
+}
+
 /* ── Mode Toggle Button ─────────────────────────────────────────────── */
 .btn-mode-toggle {
     flex: 0 0 auto;
