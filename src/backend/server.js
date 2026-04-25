@@ -32,8 +32,8 @@ const SHOULD_PRINT_STARTUP_BANNER = require.main === module;
 const app = express();
 // Remove server fingerprint header
 app.disable('x-powered-by');
-// Trust Render's proxy to get real client IPs for rate limiting
-app.set('trust proxy', 1);
+// Trust proxies to get real client IPs for rate limiting
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 3000;
 const RUNTIME_ENV = (process.env.NODE_ENV || 'development').toLowerCase();
 const IS_DEVELOPMENT = RUNTIME_ENV === 'development';

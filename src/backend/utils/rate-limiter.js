@@ -106,11 +106,12 @@ async function verifyConnection() {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function resolveClientIp(req) {
-    // trust proxy is already set to 1 in server.js
-    const ip = req.ip ||
+    // Priority: Cloudflare -> X-Forwarded-For (leftmost) -> X-Real-IP -> req.ip (Express resolved)
+    const ip = 
         req.headers['cf-connecting-ip'] ||
-        req.headers['x-real-ip'] ||
         parseForwardedFor(req.headers['x-forwarded-for']) ||
+        req.headers['x-real-ip'] ||
+        req.ip ||
         req.socket?.remoteAddress ||
         'unknown';
 
