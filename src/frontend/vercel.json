@@ -4,7 +4,7 @@
   "name": "aedos-frontend",
   "rewrites": [
     {
-      "source": "/(generate|finalize|download|debug-ip|__dev__)(.*)",
+      "source": "/(generate|finalize|download|__dev__)(.*)",
       "destination": "https://aedos.onrender.com/$1$2"
     }
   ],
