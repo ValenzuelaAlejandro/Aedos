@@ -5,7 +5,7 @@ const translations = {
         "theme_dark": "Dark",
         "theme_light": "Light",
         "theme_toggle": "Toggle theme",
-        "language_label": "Language",
+
         "hero_line_1": "Got a spicy idea?",
         "app_microcopy": "8–12 slides &middot; Structured content &middot; Ready to download as PDF",
         "tema_error": "Please enter a topic to generate your presentation.",
@@ -137,7 +137,7 @@ const translations = {
         "gen_loading_final_mobile": "Almost done...",
         "discord": "Join Discord",
         "theme": "Toggle Theme",
-        "language": "Change Language"
+
     },
     es: {
         "brand_name": "Aedos",
@@ -145,7 +145,7 @@ const translations = {
         "theme_dark": "Oscuro",
         "theme_light": "Claro",
         "theme_toggle": "Cambiar tema",
-        "language_label": "Idioma",
+
         "hero_line_1": "Escribe tu idea. Boom",
         "app_microcopy": "8–12 diapositivas &middot; Contenido claro &middot; Lista para descargar en PDF",
         "tema_error": "Escribe un tema para poder generar tu presentación.",
@@ -277,7 +277,7 @@ const translations = {
         "gen_loading_final_mobile": "Casi listo...",
         "discord": "Únete a nuestro Discord",
         "theme": "Cambiar Tema",
-        "language": "Cambiar Idioma"
+
     }
 };
 
@@ -317,12 +317,7 @@ function applyI18nToDom() {
     });
 }
 
-window.__setLang = function (lang) {
-    if (!translations[lang]) return;
-    currentLang = lang;
-    window.currentLang = lang;
-    applyI18nToDom();
-};
+
 
 window.__applyTranslations = applyI18nToDom;
 

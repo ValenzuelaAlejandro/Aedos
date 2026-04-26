@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const root = document.documentElement;
         const themeToggleBtn = document.getElementById('theme-toggle-btn');
         const previewThemeToggleBtn = document.getElementById('preview-theme-toggle-btn');
-        const langSelect = document.getElementById('lang-select');
+
 
         function applyInputPlaceholder(lang) {
             const input = document.getElementById('w-tema');
@@ -433,24 +433,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        function applyLang(lang) {
-            const nextLang = lang === 'es' ? 'es' : 'en';
-            if (typeof window.__setLang === 'function') {
-                window.__setLang(nextLang);
-            }
-            applyInputPlaceholder(nextLang);
-            localStorage.setItem('app_lang', nextLang);
-            if (langSelect && langSelect.value !== nextLang) {
-                langSelect.value = nextLang;
-            }
-            if (typeof syncModeToggleI18n === 'function') syncModeToggleI18n();
-        }
+
 
         const savedTheme = localStorage.getItem('app_theme') || 'dark';
-        const savedLang = localStorage.getItem('app_lang') || window.currentLang || 'en';
-
         applyTheme(savedTheme);
-        applyLang(savedLang);
 
         if (themeToggleBtn) {
             themeToggleBtn.addEventListener('click', () => {
@@ -465,11 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        if (langSelect) {
-            langSelect.addEventListener('change', (e) => {
-                applyLang(e.target.value);
-            });
-        }
+
     })();
 
     // ── Smart Tooltips (JS singleton, position: fixed) ────────────────────
@@ -531,14 +513,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Event delegation — works for all 3 tooltip triggers
         document.addEventListener('mouseover', function(e) {
             const trigger = e.target.closest(
-                '.btn-mode-toggle[data-tooltip], .theme-toggle-btn[data-tooltip], .control-pill-icon[data-tooltip]'
+                '.btn-mode-toggle[data-tooltip], .theme-toggle-btn[data-tooltip]'
             );
             if (trigger && trigger.dataset.tooltip) showTip(trigger);
         });
 
         document.addEventListener('mouseout', function(e) {
             const trigger = e.target.closest(
-                '.btn-mode-toggle[data-tooltip], .theme-toggle-btn[data-tooltip], .control-pill-icon[data-tooltip]'
+                '.btn-mode-toggle[data-tooltip], .theme-toggle-btn[data-tooltip]'
             );
             if (trigger) hideTip();
         });

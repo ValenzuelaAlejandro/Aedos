@@ -263,84 +263,30 @@
     display: block;
 }
 
-.control-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    border: none;
-    border-radius: 12px;
-    padding: 0.35rem 0.5rem;
-    background: var(--surface2);
-}
 
-.control-label {
-    font-size: 0.72rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
 
-.control-select {
-    border: none;
-    background: transparent;
-    color: var(--text);
-    font-family: var(--font-body);
-    font-size: 0.84rem;
-    outline: none;
-    cursor: pointer;
-}
 
-.control-pill-icon {
-    position: relative;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    justify-content: center;
-    gap: 0;
-    overflow: visible;
-    cursor: pointer;
-    border: none;
-    transition: background 0.2s ease, transform 0.15s ease;
-}
 
-.control-pill-icon:hover {
-    background: rgba(255, 255, 255, 0.05);
-    transform: translateY(-1px);
-}
+
 
 .theme-toggle-btn:hover {
     background: rgba(255, 255, 255, 0.1);
     transform: translateY(-1px);
 }
 
-.control-icon {
-    color: var(--text);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-}
 
-.control-select-overlay {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    z-index: 1;
-    -webkit-appearance: none;
-    appearance: none;
-}
+
+
 
 /* Unified keyboard focus visibility for top-right controls */
 .theme-toggle-btn:focus-visible,
-.btn-mode-toggle:focus-visible,
-.control-pill-icon:focus-within {
+.btn-mode-toggle:focus-visible {
     outline: 2px solid rgba(0, 102, 255, 0.9);
     outline-offset: 2px;
 }
 
 :root[data-theme="light"] .theme-toggle-btn:focus-visible,
-:root[data-theme="light"] .btn-mode-toggle:focus-visible,
-:root[data-theme="light"] .control-pill-icon:focus-within {
+:root[data-theme="light"] .btn-mode-toggle:focus-visible {
     outline-color: rgba(0, 102, 255, 0.85);
 }
 
@@ -350,10 +296,7 @@
     backdrop-filter: none;
 }
 
-:root[data-theme="light"] .control-pill {
-    background: rgba(0, 0, 0, 0.03);
-    border: none;
-}
+
 
 :root[data-theme="light"] .theme-toggle-btn {
     background: rgba(0, 0, 0, 0.03);
@@ -361,19 +304,11 @@
     border-radius: 12px;
 }
 
-:root[data-theme="light"] .control-pill-icon {
-    background: rgba(0, 0, 0, 0.03);
-    border: none;
-}
 
-:root[data-theme="light"] .control-pill-icon:hover {
-    background: rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
-}
 
-:root[data-theme="light"] .control-icon {
-    color: var(--text);
-}
+
+
+
 
 :root[data-theme="light"] .theme-toggle-btn:hover {
     background: rgba(0, 0, 0, 0.08);
