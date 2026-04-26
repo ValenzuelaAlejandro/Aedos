@@ -691,6 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
             editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = false; });
 
             // Native textarea placeholder handles empty state.
+            if (typeof updateZoomDisplay === 'function') updateZoomDisplay();
         }
     }
 
