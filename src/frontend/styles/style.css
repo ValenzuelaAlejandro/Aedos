@@ -326,7 +326,7 @@
 }
 
 :root[data-theme="light"] .chat-input-wrapper.is-pro:focus-within {
-    border-color: #60A5FA;
+    border-color: #94A3B8;
     outline: none;
 }
 
@@ -340,7 +340,7 @@
 }
 
 :root[data-theme="light"] .chat-input-wrapper:not(.is-pro):focus-within {
-    border-color: #60A5FA;
+    border-color: #CBD5E1;
     outline: none;
     box-shadow: var(--shadow-md);
 }
@@ -571,7 +571,7 @@
     /* The core "light turning on/off" transition */
     transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
     /* Base glow state - matching neonInputPulse 0% for seamless start after transition */
-    box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.3), 0 0 25px rgba(0, 102, 255, 0.25);
+    box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.15), 0 0 15px rgba(0, 102, 255, 0.12);
 }
 
 /* Pro mode: activate neon glow on wrapper */
@@ -597,7 +597,7 @@
 
 
 .chat-input-wrapper.is-pro:focus-within {
-    border-color: rgba(0, 102, 255, 0.78);
+    border-color: rgba(255, 255, 255, 0.4);
     outline: none;
 }
 
@@ -609,7 +609,7 @@
 }
 
 .chat-input-wrapper:not(.is-pro):focus-within {
-    border-color: rgba(0, 102, 255, 0.65);
+    border-color: rgba(255, 255, 255, 0.3);
     outline: none;
 }
 
@@ -951,11 +951,11 @@
 @keyframes neonInputPulse {
     0%,
     100% {
-        box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.3), 0 0 25px rgba(0, 102, 255, 0.25);
+        box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.15), 0 0 15px rgba(0, 102, 255, 0.12);
     }
 
     50% {
-        box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.5), 0 0 45px rgba(0, 102, 255, 0.45);
+        box-shadow: 0 0 0 1.5px rgba(0, 102, 255, 0.25), 0 0 30px rgba(0, 102, 255, 0.2);
     }
 }
 
