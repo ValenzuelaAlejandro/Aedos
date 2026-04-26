@@ -137,6 +137,12 @@ const translations = {
         "gen_loading_final_mobile": "Almost done...",
         "discord": "Join Discord",
         "theme": "Toggle Theme",
+        "back": "Back to chat",
+        "zoom_in": "Zoom in",
+        "zoom_out": "Zoom out",
+        "background": "Background Settings",
+        "prev_slide": "Previous slide",
+        "next_slide": "Next slide"
 
     },
     es: {
@@ -277,6 +283,12 @@ const translations = {
         "gen_loading_final_mobile": "Casi listo...",
         "discord": "Únete a nuestro Discord",
         "theme": "Cambiar Tema",
+        "back": "Volver al chat",
+        "zoom_in": "Aumentar zoom",
+        "zoom_out": "Reducir zoom",
+        "background": "Ajustes de fondo",
+        "prev_slide": "Diapositiva anterior",
+        "next_slide": "Siguiente diapositiva"
 
     }
 };

@@ -380,11 +380,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? window.__t('theme_toggle')
                     : 'Toggle theme';
                 if (themeToggleBtn) {
-                    themeToggleBtn.title = title;
                     themeToggleBtn.setAttribute('aria-label', title);
                 }
                 if (previewThemeToggleBtn) {
-                    previewThemeToggleBtn.title = title;
                     previewThemeToggleBtn.setAttribute('aria-label', title);
                 }
                 // Propagate theme into live preview iframe (if present)
@@ -512,16 +510,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Event delegation — works for all 3 tooltip triggers
         document.addEventListener('mouseover', function(e) {
-            const trigger = e.target.closest(
-                '.btn-mode-toggle[data-tooltip], .theme-toggle-btn[data-tooltip]'
-            );
+            const trigger = e.target.closest('[data-tooltip]');
             if (trigger && trigger.dataset.tooltip) showTip(trigger);
         });
 
         document.addEventListener('mouseout', function(e) {
-            const trigger = e.target.closest(
-                '.btn-mode-toggle[data-tooltip], .theme-toggle-btn[data-tooltip]'
-            );
+            const trigger = e.target.closest('[data-tooltip]');
             if (trigger) hideTip();
         });
 

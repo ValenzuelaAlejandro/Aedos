@@ -61,7 +61,7 @@
                     <span class="top-brand-name" data-i18n="brand_name">Aedos</span>
                 </div>
                 <div class="top-controls">
-                    <a href="https://discord.gg/63tgKMUUmw" target="_blank" rel="noopener noreferrer" class="theme-toggle-btn" aria-label="Join Discord" title="Join Discord" data-i18n-title="discord" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">
+                    <a href="https://discord.gg/63tgKMUUmw" target="_blank" rel="noopener noreferrer" class="theme-toggle-btn" aria-label="Join Discord" data-i18n-title="discord" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true">
                             <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
                         </svg>
@@ -152,7 +152,7 @@
         <!-- Unified Sleek Header -->
         <div class="preview-unified-header">
             <div class="preview-unified-left">
-                <button type="button" id="btn-back-to-chat" class="header-icon-btn" title="Back">
+                <button type="button" id="btn-back-to-chat" class="header-icon-btn" data-i18n-title="back">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -171,14 +171,14 @@
             </div>
 
             <div class="preview-unified-right">
-                <button type="button" id="btn-undo" class="action-btn icon-only" title="Undo (⌘Z)" data-i18n-title="undo">
+                <button type="button" id="btn-undo" class="action-btn icon-only" data-i18n-title="undo">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 7v6h6" />
                         <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
                     </svg>
                 </button>
-                <button type="button" id="btn-redo" class="action-btn icon-only" title="Redo (⌘Y)" data-i18n-title="redo">
+                <button type="button" id="btn-redo" class="action-btn icon-only" data-i18n-title="redo">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 7v6h-6" />
@@ -186,7 +186,7 @@
                     </svg>
                 </button>
 
-                <button type="button" id="btn-zoom-out" class="action-btn icon-only" title="Zoom out" aria-label="Zoom out" data-i18n-title="zoom_out">
+                <button type="button" id="btn-zoom-out" class="action-btn icon-only" aria-label="Zoom out" data-i18n-title="zoom_out">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="8" y1="11" x2="14" y2="11"></line>
@@ -194,7 +194,7 @@
                     </svg>
                 </button>
                 <div id="canvas-zoom-display" class="zoom-display">100%</div>
-                <button type="button" id="btn-zoom-in" class="action-btn icon-only" title="Zoom in" aria-label="Zoom in" data-i18n-title="zoom_in">
+                <button type="button" id="btn-zoom-in" class="action-btn icon-only" aria-label="Zoom in" data-i18n-title="zoom_in">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="11" y1="8" x2="11" y2="14"></line>
@@ -203,7 +203,7 @@
                     </svg>
                 </button>
 
-                <button type="button" id="btn-present" class="action-btn icon-only" title="Present" data-i18n-title="present">
+                <button type="button" id="btn-present" class="action-btn icon-only" data-i18n-title="present">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
@@ -236,7 +236,7 @@
             <!-- Left Minimap -->
             <div class="editor-minimap" id="editor-minimap">
                 <div class="minimap-list" id="minimap-list"></div>
-                <button type="button" class="add-slide-btn" id="btn-add-slide" title="Add slide" data-i18n-title="add_slide">
+                <button type="button" class="add-slide-btn" id="btn-add-slide" data-i18n-title="add_slide">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
                         <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -269,24 +269,24 @@
 
             <!-- Floating Master Toolbar (Bottom Center) -->
             <div class="tools-add-elements" id="floating-toolbar">
-                <button type="button" id="btn-add-text" class="add-el-btn" title="Add Text" data-i18n-title="add_text">
+                <button type="button" id="btn-add-text" class="add-el-btn" data-i18n-title="add_text">
                     <i data-lucide="type"></i>
                     <span data-i18n="text">TEXTO</span>
                 </button>
-                <button type="button" id="btn-add-image" class="add-el-btn" title="Add Image" data-i18n-title="add_image">
+                <button type="button" id="btn-add-image" class="add-el-btn" data-i18n-title="add_image">
                     <i data-lucide="image-plus"></i>
                     <span data-i18n="image">IMAGEN</span>
                 </button>
-                <button type="button" id="btn-add-shape" class="add-el-btn" title="Add Shape" data-i18n-title="add_shape">
+                <button type="button" id="btn-add-shape" class="add-el-btn" data-i18n-title="add_shape">
                     <i data-lucide="shapes"></i>
                     <span data-i18n="shape">FORMA</span>
                 </button>
-                <button type="button" id="btn-add-icon" class="add-el-btn" title="Add Icon" data-i18n-title="add_icon">
+                <button type="button" id="btn-add-icon" class="add-el-btn" data-i18n-title="add_icon">
                     <i data-lucide="sparkles"></i>
                     <span data-i18n="icon">ICONO</span>
                 </button>
                 <div class="tools-v-separator"></div>
-                <button type="button" id="btn-edit-background" class="add-el-btn" title="Background Settings">
+                <button type="button" id="btn-edit-background" class="add-el-btn" data-i18n-title="background">
                     <i data-lucide="wallpaper"></i>
                     <span data-i18n="background">FONDO</span>
                 </button>
@@ -296,7 +296,7 @@
         <!-- Mobile Navigation (Moved inside preview-container stacking context) -->
         <div id="mobile-overlay"></div>
         <nav id="mobile-bottom-nav">
-            <button class="mobile-nav-btn mobile-prev-btn" aria-label="Previous slide">
+            <button class="mobile-nav-btn mobile-prev-btn" aria-label="Previous slide" data-i18n-title="prev_slide">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
@@ -305,7 +305,7 @@
                 <div id="mobile-slide-dots" class="mobile-slide-dots"></div>
                 <span id="mobile-slide-label" class="mobile-slide-label">1 / 1</span>
             </div>
-            <button class="mobile-nav-btn mobile-next-btn" aria-label="Next slide">
+            <button class="mobile-nav-btn mobile-next-btn" aria-label="Next slide" data-i18n-title="next_slide">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
