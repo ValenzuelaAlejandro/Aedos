@@ -1075,14 +1075,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                         display: flex !important;
                                         flex-direction: row !important;
                                         width: max-content !important;
-                                        height: 100vh !important;
+                                        height: 100% !important;
                                         margin: 0 !important;
                                         padding: 0 !important;
                                     }
                                     html section.s, html section[class*="slide"] {
                                         flex: 0 0 100vw !important;
                                         width: 100vw !important;
-                                        height: 100vh !important;
+                                        height: 100% !important;
                                         overflow: hidden !important;
                                         box-sizing: border-box !important;
                                         margin: 0 !important;
@@ -1262,6 +1262,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
                         if (previewHeader) previewHeader.classList.add('slide-down');
+                        
+                        // Force immediate scale calculation for mobile/Safari to avoid black-out state
+                        scaleIframe();
                         setTimeout(() => { showFloatingPills(); scaleIframe(); }, 800);
                     }
 
@@ -1452,6 +1455,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 (previewIframe.contentWindow && previewIframe.contentWindow.document);
             if (iDoc && iDoc.body && findSlides(iDoc).length === 0) return;
             setupDone = true;
+
+            // Safari iOS fix: force a style recalculation on the iframe after load
+            // This 'kick' prevents the "black slides" issue where the browser
+            // fails to paint the freshly injected iframe content.
+            try {
+                previewIframe.style.display = 'none';
+                void previewIframe.offsetHeight; // force reflow
+                previewIframe.style.display = '';
+                // Second kick: tiny scale change to trigger re-composition
+                previewIframe.style.opacity = '0.99';
+                setTimeout(() => { previewIframe.style.opacity = '1'; }, 10);
+            } catch (e) {}
+
             setupPreviewInteractions();
             if (typeof callback === 'function') callback();
         };
@@ -1518,12 +1534,24 @@ document.addEventListener('DOMContentLoaded', () => {
             // could fire our handler 300ms later on an empty document, setting
             // setupDone=true and permanently locking out the real setup.
             doc.open();
-            previewIframe.onload = () => {
-                uiLog.debug('PREVIEW', 'Iframe onload event fired');
+            
+            // On some versions of Safari iOS, setting onload after doc.open can be flaky.
+            // We use a combination of onload and an immediate next-tick check.
+            const onIframeLoad = () => {
+                if (setupDone) return;
+                uiLog.debug('PREVIEW', 'Iframe load event or completion detected');
                 setTimeout(doSetup, 300);
             };
+
+            previewIframe.onload = onIframeLoad;
+            
             doc.write('<!DOCTYPE html>' + html);
             doc.close();
+
+            // Extra safety for Safari: if the document is already parsed, fire doSetup
+            if (doc.readyState === 'complete' || doc.readyState === 'interactive') {
+                setTimeout(onIframeLoad, 500);
+            }
             try {
                 const theme = document.documentElement.getAttribute('data-theme') || localStorage.getItem('app_theme') || 'dark';
                 if (doc && doc.documentElement) doc.documentElement.setAttribute('data-theme', theme);
@@ -2098,7 +2126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mobileZoom = forceFitScale ? 1 : (window._mobile_zoom || 1);
         const totalScale = scale * mobileZoom;
 
-        previewIframe.style.transform = `scale(${totalScale})`;
+        previewIframe.style.transform = `scale(${totalScale}) translate3d(0,0,0)`;
         wrapper.style.height = `${iframeNativeHeight * totalScale}px`;
         wrapper.style.width = `${iframeNativeWidth * totalScale}px`;
 
@@ -2107,7 +2135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window._pan) { window._pan.x = 0; window._pan.y = 0; }
             wrapper.style.transform = 'translate(0,0)';
         } else if (window._pan) {
-            wrapper.style.transform = `translate(${window._pan.x}px, ${window._pan.y}px)`;
+            wrapper.style.transform = `translate3d(${window._pan.x}px, ${window._pan.y}px, 0)`;
         }
 
         // Inject scale into iframe for the visual editor's coordinate math

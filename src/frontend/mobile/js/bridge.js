@@ -118,14 +118,14 @@
             // Only update width/height when zoom actually changes (avoids layout on pure pan)
             if (totalScale !== _lastTotalScale) {
                 _lastTotalScale = totalScale;
-                iframe.style.transform = `scale(${totalScale})`;
+                iframe.style.transform = `scale(${totalScale}) translate3d(0,0,0)`;
                 wrapper.style.width  = `${scaledW}px`;
                 wrapper.style.height = `${scaledH}px`;
                 try { if (iframe.contentWindow) iframe.contentWindow._iframeScale = totalScale; } catch (_) {}
             }
 
             // Pan: transform-only, no layout
-            wrapper.style.transform = `translate(${window._pan.x}px, ${window._pan.y}px)`;
+            wrapper.style.transform = `translate3d(${window._pan.x}px, ${window._pan.y}px, 0)`;
         }
 
         function applyZoomAndPan() {
