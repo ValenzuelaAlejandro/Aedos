@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : 'Describe your presentation topic...';
         }
 
-        function applyTheme(theme, animate = false) {
+        function applyTheme(theme, animate = false, event = null) {
             const nextTheme = theme === 'light' ? 'light' : 'dark';
             
             const doChange = () => {
@@ -407,15 +407,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             transition.ready.then(() => {
-                const x = window.innerWidth / 2;
-                const y = window.innerHeight / 2;
-                const radius = Math.hypot(x, y);
+                const x = event ? event.clientX : window.innerWidth / 2;
+                const y = event ? event.clientY : window.innerHeight / 2;
+
+                // Calculate distance to the furthest corner to ensure full coverage
+                const endRadius = Math.hypot(
+                    Math.max(x, window.innerWidth - x),
+                    Math.max(y, window.innerHeight - y)
+                ) + 60; // Extra buffer for mobile toolbars
 
                 document.documentElement.animate(
                     {
                         clipPath: [
                             `circle(0px at ${x}px ${y}px)`,
-                            `circle(${radius}px at ${x}px ${y}px)`
+                            `circle(${endRadius}px at ${x}px ${y}px)`
                         ]
                     },
                     {
@@ -437,15 +442,15 @@ document.addEventListener('DOMContentLoaded', () => {
         applyTheme(savedTheme);
 
         if (themeToggleBtn) {
-            themeToggleBtn.addEventListener('click', () => {
+            themeToggleBtn.addEventListener('click', (e) => {
                 const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-                applyTheme(current === 'light' ? 'dark' : 'light', true);
+                applyTheme(current === 'light' ? 'dark' : 'light', true, e);
             });
         }
         if (previewThemeToggleBtn) {
-            previewThemeToggleBtn.addEventListener('click', () => {
+            previewThemeToggleBtn.addEventListener('click', (e) => {
                 const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-                applyTheme(current === 'light' ? 'dark' : 'light', true);
+                applyTheme(current === 'light' ? 'dark' : 'light', true, e);
             });
         }
 
