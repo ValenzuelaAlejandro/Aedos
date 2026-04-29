@@ -1067,7 +1067,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const skelStyle = `
                                 <style class="skeleton-injector">
                                     html {
-                                        overflow: hidden !important;
+                                        overflow-x: auto !important;
+                                        overflow-y: hidden !important;
+                                        scroll-behavior: smooth !important;
                                     }
                                     html body {
                                         display: flex !important;
@@ -1076,7 +1078,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                         height: 100% !important;
                                         margin: 0 !important;
                                         padding: 0 !important;
-                                        will-change: transform;
                                     }
                                     html section.s, html section[class*="slide"] {
                                         flex: 0 0 100vw !important;
@@ -1718,15 +1719,6 @@ document.addEventListener('DOMContentLoaded', () => {
         slideContainer.style.height = '100%';
         slideContainer.style.margin = '0';
         slideContainer.style.padding = '0';
-
-        // Reset any transform the skeleton-injector applied to body during streaming.
-        // skeleton-injector uses translateX(vw-units) for navigation, but the editor
-        // carousel uses translateX(1122px-based absolute pixels). We must clear the
-        // skeleton transform instantly (no transition) before applying the rewind.
-        slideContainer.style.transition = 'none';
-        slideContainer.style.transform = 'translateX(0)';
-        // Force reflow so browser registers the cleared position as the anchor
-        void slideContainer.offsetWidth;
 
         // Problem 9: Restore the "rewind" effect. 
         // We capture how far the skeleton went and start the final render from there.
