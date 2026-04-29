@@ -28,9 +28,17 @@
         if (slides.length > 0 && slides.length > skelLastCount) {
             skelLastCount = slides.length;
             window.parent.postMessage({ type: 'slideUpdate', count: skelLastCount }, '*');
+            // Use CSS transform instead of scrollIntoView to navigate to the
+            // latest slide. Safari iOS cannot properly paint overflow-scrolled
+            // content inside a CSS-transformed (scaled) iframe, causing slides
+            // to appear grey/blank. Transform-based navigation avoids this by
+            // keeping overflow:hidden and using GPU-composited positioning.
             setTimeout(() => {
-                if (slides[slides.length - 1]) {
-                    slides[slides.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+                const slideW = window.innerWidth;
+                const offset = -(slides.length - 1) * slideW;
+                if (document.body) {
+                    document.body.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+                    document.body.style.transform = 'translateX(' + offset + 'px)';
                 }
             }, 100);
         }

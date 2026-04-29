@@ -1067,9 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const skelStyle = `
                                 <style class="skeleton-injector">
                                     html {
-                                        overflow-x: auto !important;
-                                        overflow-y: hidden !important;
-                                        scroll-behavior: smooth !important;
+                                        overflow: hidden !important;
                                     }
                                     html body {
                                         display: flex !important;
@@ -1078,6 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         height: 100% !important;
                                         margin: 0 !important;
                                         padding: 0 !important;
+                                        will-change: transform;
                                     }
                                     html section.s, html section[class*="slide"] {
                                         flex: 0 0 100vw !important;
@@ -1456,16 +1455,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (iDoc && iDoc.body && findSlides(iDoc).length === 0) return;
             setupDone = true;
 
-            // Safari iOS fix: force a style recalculation on the iframe after load
-            // This 'kick' prevents the "black slides" issue where the browser
-            // fails to paint the freshly injected iframe content.
+            // Safari iOS: safe repaint trigger using rAF + transform nudge.
+            // Do NOT use display:none — Safari unloads iframe content on hide.
             try {
-                previewIframe.style.display = 'none';
-                void previewIframe.offsetHeight; // force reflow
-                previewIframe.style.display = '';
-                // Second kick: tiny scale change to trigger re-composition
-                previewIframe.style.opacity = '0.99';
-                setTimeout(() => { previewIframe.style.opacity = '1'; }, 10);
+                requestAnimationFrame(() => {
+                    previewIframe.style.willChange = 'transform';
+                    requestAnimationFrame(() => {
+                        previewIframe.style.willChange = '';
+                    });
+                });
             } catch (e) {}
 
             setupPreviewInteractions();
@@ -2133,7 +2131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Keep wrapper pan transform in sync with zoom state
         if (mobileZoom <= 1) {
             if (window._pan) { window._pan.x = 0; window._pan.y = 0; }
-            wrapper.style.transform = 'translate(0,0)';
+            wrapper.style.transform = 'translate3d(0,0,0)';
         } else if (window._pan) {
             wrapper.style.transform = `translate3d(${window._pan.x}px, ${window._pan.y}px, 0)`;
         }
