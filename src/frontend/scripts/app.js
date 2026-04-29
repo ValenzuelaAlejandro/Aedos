@@ -1719,6 +1719,15 @@ document.addEventListener('DOMContentLoaded', () => {
         slideContainer.style.margin = '0';
         slideContainer.style.padding = '0';
 
+        // Reset any transform the skeleton-injector applied to body during streaming.
+        // skeleton-injector uses translateX(vw-units) for navigation, but the editor
+        // carousel uses translateX(1122px-based absolute pixels). We must clear the
+        // skeleton transform instantly (no transition) before applying the rewind.
+        slideContainer.style.transition = 'none';
+        slideContainer.style.transform = 'translateX(0)';
+        // Force reflow so browser registers the cleared position as the anchor
+        void slideContainer.offsetWidth;
+
         // Problem 9: Restore the "rewind" effect. 
         // We capture how far the skeleton went and start the final render from there.
         const startSlide = currentSlide;
