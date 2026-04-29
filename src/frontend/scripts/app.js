@@ -1076,6 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         height: 100% !important;
                                         margin: 0 !important;
                                         padding: 0 !important;
+                                        gap: 0 !important;
                                         will-change: transform;
                                     }
                                     html section.s, html section[class*="slide"] {

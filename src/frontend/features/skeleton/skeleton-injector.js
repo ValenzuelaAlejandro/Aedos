@@ -34,9 +34,9 @@
             // to appear grey/blank. Transform-based navigation avoids this by
             // keeping overflow:hidden and using GPU-composited positioning.
             setTimeout(() => {
-                const slideW = window.innerWidth;
-                const offset = -(slides.length - 1) * slideW;
-                if (document.body) {
+                const targetSlide = slides[slides.length - 1];
+                if (targetSlide && document.body) {
+                    const offset = -targetSlide.offsetLeft;
                     document.body.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
                     document.body.style.transform = 'translateX(' + offset + 'px)';
                 }
