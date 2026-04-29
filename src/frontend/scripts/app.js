@@ -1067,9 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const skelStyle = `
                                 <style class="skeleton-injector">
                                     html {
-                                        overflow-x: auto !important;
-                                        overflow-y: hidden !important;
-                                        scroll-behavior: smooth !important;
+                                        overflow: hidden !important;
                                     }
                                     html body {
                                         display: flex !important;
@@ -1078,6 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         height: 100% !important;
                                         margin: 0 !important;
                                         padding: 0 !important;
+                                        will-change: transform;
                                     }
                                     html section.s, html section[class*="slide"] {
                                         flex: 0 0 100vw !important;
