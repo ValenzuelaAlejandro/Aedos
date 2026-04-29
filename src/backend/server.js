@@ -1543,8 +1543,30 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
             // (font metrics in Puppeteer can differ enough to push '30%' to 2 lines)
             await page.addStyleTag({
                 content: `
-                    section.s:last-of-type { page-break-after: avoid !important; }
-                    body { overflow: hidden; }
+                    @media print {
+                        @page { size: 29.7cm 16.7cm; margin: 0; }
+                        body, html { 
+                            width: 29.7cm !important; 
+                            height: auto !important; 
+                            margin: 0 !important; 
+                            padding: 0 !important; 
+                            overflow: visible !important; 
+                        }
+                        section.s {
+                            width: 29.7cm !important;
+                            height: 16.7cm !important;
+                            page-break-after: always !important;
+                            page-break-inside: avoid !important;
+                            break-inside: avoid !important;
+                            overflow: hidden !important;
+                            margin: 0 !important;
+                            padding: 0;
+                            box-sizing: border-box !important;
+                        }
+                        section.s:last-of-type { page-break-after: avoid !important; }
+                        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    }
+                    body { overflow: hidden; margin: 0; padding: 0; }
                     body > script { display: none; }
                     .big-number { white-space: nowrap !important; overflow: visible !important; text-overflow: clip !important; word-break: normal !important; overflow-wrap: normal !important; }
                 `
@@ -1588,6 +1610,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
                     requestId
                 });
             });
+
             await page.pdf({
                 path: pdfPath,
                 width: '29.7cm',
