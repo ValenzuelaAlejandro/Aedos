@@ -1081,6 +1081,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     html section.s, html section[class*="slide"] {
                                         flex: 0 0 100vw !important;
                                         width: 100vw !important;
+                                        max-width: 100vw !important;
+                                        min-width: 100vw !important;
                                         height: 100% !important;
                                         overflow: hidden !important;
                                         box-sizing: border-box !important;
