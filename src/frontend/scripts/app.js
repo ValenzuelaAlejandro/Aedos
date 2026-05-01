@@ -195,122 +195,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatInputWrapper = document.querySelector('.chat-input-wrapper');
     const generateBtnLabel = document.querySelector('#btn-generate .btn-generate-label');
 
-    function syncModeToggleI18n() {
-        // Set the initial tooltip via i18n
-        if (modeToggleBtn) {
-            modeToggleBtn.setAttribute('data-tooltip', window.__t(
-                proModeEnabled ? 'mode_tooltip_pro' : 'mode_tooltip_flash'
-            ));
-        }
-        // Sync generate button label
-        if (generateBtnLabel) {
-            const key = proModeEnabled ? 'generate_pro_presentation' : 'generate_presentation';
-            generateBtnLabel.setAttribute('data-i18n', key);
-            generateBtnLabel.textContent = window.__t(key);
-        }
-    }
-
     if (modeToggleBtn) {
-        const modeLabel = modeToggleBtn.querySelector('.btn-mode-label');
-        const modeSelectMobile = document.getElementById('mode-select-mobile');
-
-        // Set initial tooltip
-        syncModeToggleI18n();
-
         function updateModeUI() {
-            const btnGenerate = document.getElementById('btn-generate');
-            
-            // Capture initial widths
-            const initialModeWidth = modeToggleBtn.offsetWidth;
-            const initialGenWidth = btnGenerate ? btnGenerate.offsetWidth : 0;
-
-            // Clear inline styles to measure natural dimensions
-            modeToggleBtn.style.transition = 'none';
-            modeToggleBtn.style.width = 'auto';
-            if (btnGenerate) {
-                btnGenerate.style.transition = 'none';
-                btnGenerate.style.width = '100%'; 
-            }
-
-            // Apply content changes
             modeToggleBtn.setAttribute('aria-pressed', String(proModeEnabled));
-            modeToggleBtn.classList.toggle('is-active', proModeEnabled);
-            modeToggleBtn.classList.add('is-animating');
-            setTimeout(() => modeToggleBtn.classList.remove('is-animating'), 400);
-
+            
             if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', proModeEnabled);
 
-            const iconFlash = modeToggleBtn.querySelector('.btn-mode-icon--flash');
-            const iconPro = modeToggleBtn.querySelector('.btn-mode-icon--pro');
-            if (iconFlash) iconFlash.style.display = proModeEnabled ? 'none' : 'flex';
-            if (iconPro) iconPro.style.display = proModeEnabled ? 'flex' : 'none';
+            // Always show Pro mode tooltip
+            modeToggleBtn.setAttribute('data-tooltip', window.__t('mode_tooltip_pro'));
 
-            if (modeLabel) {
-                const labelKey = proModeEnabled ? 'mode_label_pro' : 'mode_label_flash';
-                modeLabel.setAttribute('data-i18n', labelKey);
-                modeLabel.textContent = window.__t(labelKey);
+            // Sync generate button label
+            if (generateBtnLabel) {
+                const key = proModeEnabled ? 'generate_pro_presentation' : 'generate_presentation';
+                generateBtnLabel.setAttribute('data-i18n', key);
+                generateBtnLabel.textContent = window.__t(key);
             }
-
-            if (modeSelectMobile) {
-                modeSelectMobile.value = proModeEnabled ? 'pro' : 'flash';
-            }
-
-            syncModeToggleI18n();
-
-            // Measure new widths
-            const finalModeWidth = modeToggleBtn.offsetWidth;
-            const finalGenWidth = btnGenerate ? btnGenerate.offsetWidth : 0;
-
-            // Revert back and force reflow
-            modeToggleBtn.style.width = initialModeWidth + 'px';
-            if (btnGenerate) btnGenerate.style.width = initialGenWidth + 'px';
-            modeToggleBtn.offsetHeight; // trigger reflow
-
-            // Apply transitions and set final widths
-            modeToggleBtn.style.transition = 'width 0.3s cubic-bezier(0.25, 1, 0.5, 1), background 0.4s ease, border-color 0.4s ease, color 0.4s ease';
-            if (btnGenerate) btnGenerate.style.transition = 'width 0.3s cubic-bezier(0.25, 1, 0.5, 1), background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease';
-
-            modeToggleBtn.style.width = finalModeWidth + 'px';
-            if (btnGenerate) btnGenerate.style.width = finalGenWidth + 'px';
-
-            // Cleanup explicit widths after transition
-            setTimeout(() => {
-                modeToggleBtn.style.width = '';
-                modeToggleBtn.style.transition = '';
-                if (btnGenerate) {
-                    btnGenerate.style.width = ''; // Let CSS take over
-                    btnGenerate.style.transition = '';
-                }
-            }, 300);
         }
 
-        const mobileModeController =
-            window.MobileRuntime && typeof window.MobileRuntime.initModeToggleMobileController === 'function'
-                ? window.MobileRuntime.initModeToggleMobileController({
-                    modeToggleBtn,
-                    modeSelectMobile,
-                    getModeValue: () => (proModeEnabled ? 'pro' : 'flash'),
-                    setModeValue: (value) => {
-                        proModeEnabled = (value === 'pro');
-                    },
-                    onModeChanged: updateModeUI
-                })
-                : null;
+        // Set initial state
+        updateModeUI();
 
-        modeToggleBtn.addEventListener('click', (e) => {
-            if (mobileModeController && mobileModeController.handleToggleClick(e)) return;
+        modeToggleBtn.addEventListener('click', () => {
             proModeEnabled = !proModeEnabled;
             updateModeUI();
         });
-
-        if (modeSelectMobile && (!mobileModeController || !mobileModeController.handlesNativeSelect)) {
-            modeSelectMobile.addEventListener('change', (e) => {
-                proModeEnabled = (e.target.value === 'pro');
-                updateModeUI();
-            });
-            // Stop propagation so the button click doesn't double-toggle
-            modeSelectMobile.addEventListener('click', (e) => e.stopPropagation());
-        }
     }
     // ─────────────────────────────────────────────────────────────────────
 

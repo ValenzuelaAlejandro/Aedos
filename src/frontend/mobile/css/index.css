@@ -478,7 +478,7 @@
 
     .chat-actions {
         display: grid !important;
-        grid-template-columns: 60px minmax(0, 1fr) !important;
+        grid-template-columns: auto minmax(0, 1fr) !important;
         gap: 0.6rem !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -494,210 +494,34 @@
         grid-column: 1 !important;
         position: relative !important;
         height: 44px !important;
-        width: 60px !important;
-        min-width: 60px !important;
+        width: auto !important;
+        min-width: 125px !important;
         border-radius: 12px !important;
-        padding: 0 0.6rem !important;
+        padding: 0 0.75rem !important;
         display: flex !important;
         align-items: center !important;
-        justify-content: center !important;
-        gap: 0.2rem !important;
+        gap: 0.6rem !important;
     }
 
     .btn-mode-label {
-        display: none !important;
-    }
-
-    .btn-mode-chevron {
-        display: flex !important;
-        opacity: 0.6;
-    }
-
-    /* Ocultar el select nativo — ahora usamos dropdown custom */
-    .mode-select-mobile {
-        display: none !important;
+        font-family: 'Space Grotesque', sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 0.85rem !important;
+        white-space: nowrap !important;
     }
 
     .btn-mode-toggle:disabled {
         opacity: 0.65 !important;
         cursor: not-allowed !important;
-        background: var(--surface2) !important;
+        background: transparent !important;
         color: var(--muted) !important;
         border-color: var(--border) !important;
         filter: brightness(0.85) saturate(0.75) !important;
     }
 
     .btn-mode-toggle:disabled:hover {
-        background: var(--surface2) !important;
+        background: transparent !important;
         border-color: var(--border) !important;
-    }
-
-    /* ── Custom Mode Dropdown ── */
-    .mode-dropdown-custom {
-        position: fixed;
-        z-index: 99999;
-        min-width: 210px;
-        background: var(--surface2, #1a1a1a);
-        border: 1px solid var(--border, rgba(255,255,255,0.12));
-        border-radius: 14px;
-        padding: 6px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.3);
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        opacity: 0;
-        transform: translateY(-4px) scale(0.96);
-        transform-origin: top left;
-        transition: opacity 0.18s cubic-bezier(0.16,1,0.3,1),
-                    transform 0.18s cubic-bezier(0.16,1,0.3,1);
-        pointer-events: none;
-    }
-
-    .mode-dropdown-custom.is-open {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-        pointer-events: auto;
-    }
-
-    .mode-dropdown-option {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 11px 14px;
-        border-radius: 10px;
-        border: 1px solid transparent;
-        background: transparent;
-        color: var(--text, #f0f0f0);
-        font-family: var(--font-body, sans-serif);
-        font-size: 0.9rem;
-        font-weight: 500;
-        cursor: pointer;
-        text-align: left;
-        width: 100%;
-        transition: background 0.14s ease, border-color 0.14s ease;
-        -webkit-tap-highlight-color: transparent;
-    }
-
-    .mode-dropdown-option:hover {
-        background: rgba(255,255,255,0.07);
-        border-color: rgba(255,255,255,0.08);
-    }
-
-    .mode-dropdown-option:active {
-        background: rgba(255,255,255,0.11) !important;
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option:hover {
-        background: rgba(0,0,0,0.08);
-        border-color: rgba(0,0,0,0.1);
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option:active {
-        background: rgba(0,0,0,0.14) !important;
-    }
-
-    .mode-dropdown-option.is-selected {
-        background: rgba(0, 102, 255, 0.12);
-        border-color: rgba(0, 102, 255, 0.3);
-        color: #5c9fff;
-    }
-
-    .mode-dropdown-option.is-selected .mode-dropdown-option-label {
-        color: #5c9fff;
-    }
-
-    .mode-dropdown-option.is-selected .mode-dropdown-option-sub {
-        color: rgba(92, 159, 255, 0.7);
-    }
-
-    .mode-dropdown-option.is-selected .mode-dropdown-option-icon,
-    .mode-dropdown-option.is-selected .mode-dropdown-check {
-        color: #5c9fff;
-    }
-
-    .mode-dropdown-option-icon {
-        display: flex;
-        align-items: center;
-        flex-shrink: 0;
-        color: var(--muted, rgba(255,255,255,0.5));
-    }
-
-    .mode-dropdown-option.is-selected .mode-dropdown-option-icon {
-        color: var(--text, #f0f0f0);
-    }
-
-    .mode-dropdown-option-text {
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-    }
-
-    .mode-dropdown-option-label {
-        font-size: 0.88rem;
-        font-weight: 600;
-        color: var(--text, #f0f0f0);
-        white-space: nowrap;
-    }
-
-    .mode-dropdown-option-sub {
-        font-size: 0.72rem;
-        color: var(--muted, rgba(255,255,255,0.5));
-        font-weight: 400;
-    }
-
-    .mode-dropdown-check {
-        margin-left: auto;
-        flex-shrink: 0;
-        color: var(--text, #f0f0f0);
-        opacity: 0;
-        transition: opacity 0.15s ease;
-    }
-
-    .mode-dropdown-option.is-selected .mode-dropdown-check {
-        opacity: 1;
-    }
-
-    /* Light theme */
-    :root[data-theme="light"] .mode-dropdown-custom {
-        background: #FFFFFF;
-        border-color: #D1D5DB;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option {
-        color: #111827;
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option.is-selected {
-        background: #EFF6FF;
-        border-color: #BFDBFE;
-        color: #1E40AF;
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option.is-selected .mode-dropdown-option-label {
-        color: #1E40AF;
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option.is-selected .mode-dropdown-option-sub {
-        color: #60A5FA;
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option.is-selected .mode-dropdown-option-icon,
-    :root[data-theme="light"] .mode-dropdown-option.is-selected .mode-dropdown-check {
-        color: #2563EB;
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option-label {
-        color: #111827;
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option-sub {
-        color: #4B5563;
-    }
-
-    :root[data-theme="light"] .mode-dropdown-option-icon,
-    :root[data-theme="light"] .mode-dropdown-check {
-        color: #1F2937;
     }
 
     .btn-generate-chat {
