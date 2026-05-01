@@ -294,6 +294,7 @@ validateEnvironment();
 function shouldTraceRequest(req) {
     const target = req.path || req.originalUrl || '';
     return target === '/' ||
+        target.startsWith('/health') ||
         target.startsWith('/generate') ||
         target.startsWith('/finalize') ||
         target.startsWith('/download') ||
@@ -765,6 +766,11 @@ process.on('SIGINT', async () => {
 });
 
 // Routes
+// Health endpoint for warm-up requests
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
 app.get('/', (req, res) => {
     // Security: If someone hits the Render URL directly in production, redirect to the main domain.
     // We allow 'localhost' so Puppeteer can still render the slides internally.

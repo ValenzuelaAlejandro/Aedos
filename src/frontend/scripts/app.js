@@ -459,8 +459,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const temaInput = document.getElementById('w-tema');
     const btnGenerate = document.getElementById('btn-generate');
 
+    let warmedUp = false;
     temaInput.addEventListener('input', () => {
         const val = temaInput.value;
+
+        // Warm up the backend if not already done
+        if (!warmedUp && val.length > 0) {
+            warmedUp = true;
+            fetch('/health').catch(() => {
+                // Silently fail, allow retry on next input if it failed
+                warmedUp = false;
+            });
+        }
 
         // Scroll to top if user starts typing while scrolled down
         if (window.scrollY > 200) {
