@@ -326,6 +326,7 @@
 }
 
 :root[data-theme="light"] .chat-input-wrapper.is-pro:focus-within {
+    border-color: #3B82F6;
     outline: none;
 }
 
@@ -339,6 +340,7 @@
 }
 
 :root[data-theme="light"] .chat-input-wrapper:not(.is-pro):focus-within {
+    border-color: #94A3B8;
     outline: none;
     box-shadow: var(--shadow-md);
 }
@@ -595,6 +597,7 @@
 
 
 .chat-input-wrapper.is-pro:focus-within {
+    border-color: rgba(0, 102, 255, 0.55);
     outline: none;
 }
 
@@ -606,6 +609,7 @@
 }
 
 .chat-input-wrapper:not(.is-pro):focus-within {
+    border-color: rgba(255, 255, 255, 0.28);
     outline: none;
 }
 
