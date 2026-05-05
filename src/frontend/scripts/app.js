@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const previewLabel = document.getElementById('preview-topic-label');
             if (previewLabel) {
                 // Keep it short if it's too long
-                let t = e.data.title.replace(/<[^>]+>/g, '').trim();
+                let t = e.data.title.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
                 if (t.length > 50) t = t.substring(0, 47) + '...';
                 previewLabel.textContent = t;
 
@@ -669,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
         if (h1Match && h1Match[1]) {
-            const cleanTitle = h1Match[1].replace(/<[^>]+>/g, '').trim();
+            const cleanTitle = h1Match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
             if (cleanTitle) return cleanTitle;
         }
 
@@ -1054,7 +1054,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 } else {
                                     const h1Match = generatedHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
                                     if (h1Match && h1Match[1]) {
-                                        displayTitle = h1Match[1].replace(/<[^>]+>/g, '').trim();
+                                        displayTitle = h1Match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
                                     }
                                 }
                             }

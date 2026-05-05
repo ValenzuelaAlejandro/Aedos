@@ -5,7 +5,6 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { runPipeline, buildLegacyPrompt } = require('./prompts/pipeline');
 const buildPrompt = require('./prompts/base'); // kept for fallback
 
@@ -165,15 +164,30 @@ function parseModelList(rawValue, fallbackCsv) {
         .filter(Boolean);
 }
 
-const OPENROUTER_MODEL_LIST = parseModelList(
-    process.env.OPENROUTER_MODEL_LIST,
+// Model lists ordered from .env
+const OPENROUTER_MODELS_FLASH = parseModelList(
+    process.env.OPENROUTER_MODELS_FLASH,
     'qwen/qwen3.5-flash-02-23'
 );
+const OPENROUTER_MODELS_STAGE1 = parseModelList(
+    process.env.OPENROUTER_MODELS_STAGE1,
+    'qwen/qwen3.5-flash-02-23'
+);
+const OPENROUTER_MODELS_STAGE2 = parseModelList(
+    process.env.OPENROUTER_MODELS_STAGE2,
+    'qwen/qwen3.5-flash-02-23'
+);
+const OPENROUTER_MODELS_STAGE3 = parseModelList(
+    process.env.OPENROUTER_MODELS_STAGE3,
+    'minimax/minimax-m2.7'
+);
+
+const OPENROUTER_MODEL_LIST = OPENROUTER_MODELS_FLASH;
 
 // Models that must never run outside Stage3 (configured in .env).
 const OPENROUTER_MODELS_STAGE3_ONLY = parseModelList(
     process.env.OPENROUTER_MODELS_STAGE3_ONLY,
-    process.env.OPENROUTER_MODELS_STAGE3 || ''
+    ''
 ).map(model => String(model).trim().toLowerCase());
 
 function processQueue() {
@@ -262,10 +276,6 @@ function validateEnvironment() {
         { key: 'PORT', value: process.env.PORT, fallback: '3000' },
     ];
 
-    if (!process.env.GEMINI_API_KEY && !(process.env.GEMINI_API_KEY_1 && process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_3)) {
-        throw new Error('Set either GEMINI_API_KEY or all three of GEMINI_API_KEY_1/2/3.');
-    }
-
     log.info(ErrorCategory.BOOT, 'Environment validation started');
     checks.forEach(({ key, value, fallback }) => {
         const val = value || fallback;
@@ -278,14 +288,16 @@ function validateEnvironment() {
             fallback: val
         });
     });
-    log.success(ErrorCategory.CONFIG, 'Gemini API key configuration present');
+
     if (process.env.OPENROUTER_API_KEY) {
         log.success(ErrorCategory.CONFIG, 'OpenRouter API key present', {
-            flashFallback: 'OPENROUTER_MODELS_FLASH',
-            stage3Primary: 'OPENROUTER_MODELS_STAGE3'
+            flash: 'OPENROUTER_MODELS_FLASH',
+            stage1: 'OPENROUTER_MODELS_STAGE1',
+            stage2: 'OPENROUTER_MODELS_STAGE2',
+            stage3: 'OPENROUTER_MODELS_STAGE3'
         });
     } else {
-        log.warn(ErrorCategory.CONFIG, 'OpenRouter API key not set, provider fallback disabled');
+        throw new Error('OPENROUTER_API_KEY is required.');
     }
 }
 
@@ -484,19 +496,9 @@ function resolveUniqueHtmlPath(dirPath, stem) {
     return candidate;
 }
 
-const SAFETY = [
-    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-];
+// Safety settings removed as they were Gemini-specific.
 
-// Per-stage API keys — each stage gets its own key so quotas are independent.
-// Falls back to GEMINI_API_KEY if a stage-specific key is not set.
-// Stage 1+2 prefer Gemini 2.5 Flash-Lite; Stage 3 prefers Qwen/OpenRouter.
-const KEY1 = process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY;
-const KEY2 = process.env.GEMINI_API_KEY_2 || process.env.GEMINI_API_KEY;
-const KEY3 = process.env.GEMINI_API_KEY_3 || process.env.GEMINI_API_KEY;
+// Provider logic simplified to OpenRouter only
 
 // ── OpenRouter fallback (try a list of models sequentially) ───────────────────
 async function* openRouterSSEToChunks(response) {
@@ -515,10 +517,7 @@ async function* openRouterSSEToChunks(response) {
                 const parsed = JSON.parse(data);
                 const content = parsed.choices?.[0]?.delta?.content || parsed.choices?.[0]?.content?.[0];
                 if (content) {
-                    yield {
-                        candidates: [{ content: { parts: [{ text: content }] } }],
-                        text: () => content
-                    };
+                    yield content;
                 }
             } catch (_) { /* skip malformed SSE frames */ }
         }
@@ -606,124 +605,21 @@ async function callOpenRouter(prompt, stageName, openrouterModels) {
     throw new Error('QUOTA_EXHAUSTED');
 }
 
-async function callGemini(apiKey, modelList, prompt, stageName) {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    for (const modelName of modelList) {
-        providerLog.info(ErrorCategory.PROVIDER, 'Trying Gemini model', {
-            stage: stageName,
-            model: modelName
-        });
-        try {
-            const gemini = genAI.getGenerativeModel({
-                model: modelName,
-                safetySettings: SAFETY,
-                generationConfig: {
-                    temperature: 0.7
-                }
-            });
-            const result = await gemini.generateContentStream(prompt);
-            if (result && result.response) result.response.catch(() => { });
-            providerLog.success(ErrorCategory.PROVIDER, 'Gemini model accepted request', {
-                stage: stageName,
-                model: modelName
-            });
-            return result;
-        } catch (err) {
-            const rawMsg = err.message || 'Unknown error';
-            const isQuota = rawMsg.includes('429') || rawMsg.toLowerCase().includes('quota');
-            const is404 = rawMsg.includes('404') || rawMsg.toLowerCase().includes('not found') || rawMsg.toLowerCase().includes('not available');
-
-            if (isQuota) {
-                providerLog.warn(ErrorCategory.QUOTA, 'Gemini model quota exhausted', {
-                    stage: stageName,
-                    model: modelName,
-                    details: rawMsg
-                });
-                continue;
-            }
-            if (is404) {
-                providerLog.warn(ErrorCategory.MODEL, 'Gemini model unavailable', {
-                    stage: stageName,
-                    model: modelName,
-                    details: rawMsg
-                });
-                continue;
-            }
-            providerLog.error(classifyError(err, ErrorCategory.PROVIDER), 'Gemini model unexpected error', {
-                stage: stageName,
-                model: modelName,
-                error: err
-            });
-            throw err;
-        }
-    }
-    throw new Error('QUOTA_EXHAUSTED');
-}
-
-// Model lists
-// Ordered lists come from .env for easier model swaps.
-// First item is always primary; later items are fallbacks.
-const GEMINI_MODELS_FLASH = parseModelList(
-    process.env.GEMINI_MODELS_FLASH,
-    'gemini-3-flash-preview'
-);
-const GEMINI_MODELS = parseModelList(
-    process.env.GEMINI_MODELS_PIPELINE,
-    'gemini-2.5-flash-lite,gemini-2.5-flash'
-);
-const OPENROUTER_MODELS_FLASH = parseModelList(
-    process.env.OPENROUTER_MODELS_FLASH,
-    'qwen/qwen3.5-flash-02-23'
-);
-const OPENROUTER_MODELS_STAGE3 = parseModelList(
-    process.env.OPENROUTER_MODELS_STAGE3,
-    process.env.OPENROUTER_MODEL_LIST || ''
-);
 
 /**
- * Builds a caller that tries each provider/model in order until one succeeds.
- * `sequence` is an array of { provider: 'gemini'|'openrouter', models?: string[] }.
+ * Builds a caller that tries OpenRouter models in order.
  */
-function makeCallerFn(apiKey, stageName, sequence) {
+function makeCallerFn(stageName, modelList) {
     return async function (prompt) {
-        let lastError = null;
-        for (const step of sequence) {
-            try {
-                if (step.provider === 'gemini') {
-                    return await callGemini(apiKey, step.models, prompt, stageName);
-                }
-                return await callOpenRouter(prompt, stageName, step.models);
-            } catch (err) {
-                lastError = err;
-                providerLog.warn(classifyError(err, ErrorCategory.PROVIDER), 'Provider step exhausted, trying next provider', {
-                    stage: stageName,
-                    provider: step.provider,
-                    details: err?.message
-                });
-            }
-        }
-        throw lastError || new Error('QUOTA_EXHAUSTED');
+        return await callOpenRouter(prompt, stageName, modelList);
     };
 }
 
 // Stage routing
-// Flash  : gemini-3-flash-preview
-// Stage 1: gemini-2.5-flash-lite → gemini-2.5-flash  (Gemini only, no OpenRouter)
-// Stage 2: same as Stage 1
-// Stage 3: gemini-3-flash-preview → minimax
-const tryModelsFlash = makeCallerFn(KEY1, 'Flash', [
-    { provider: 'gemini', models: GEMINI_MODELS_FLASH },
-]);
-const tryModelsStage1 = makeCallerFn(KEY1, 'Stage1', [
-    { provider: 'gemini', models: GEMINI_MODELS },
-]);
-const tryModelsStage2 = makeCallerFn(KEY2, 'Stage2', [
-    { provider: 'gemini', models: GEMINI_MODELS },
-]);
-const tryModelsStage3 = makeCallerFn(KEY3, 'Stage3', [
-    { provider: 'gemini', models: GEMINI_MODELS_FLASH },
-    { provider: 'openrouter', models: OPENROUTER_MODELS_STAGE3 },
-]);
+const tryModelsFlash = makeCallerFn('Flash', OPENROUTER_MODELS_FLASH);
+const tryModelsStage1 = makeCallerFn('Stage1', OPENROUTER_MODELS_STAGE1);
+const tryModelsStage2 = makeCallerFn('Stage2', OPENROUTER_MODELS_STAGE2);
+const tryModelsStage3 = makeCallerFn('Stage3', OPENROUTER_MODELS_STAGE3);
 
 // Legacy alias kept for any remaining references
 const tryModels = tryModelsFlash;
@@ -911,11 +807,11 @@ app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, c
             });
         }
 
-        if (!process.env.GEMINI_API_KEY && !(process.env.GEMINI_API_KEY_1 && process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_3)) {
-            log.error(ErrorCategory.CONFIG, 'Generation blocked: Gemini keys missing', {
+        if (!process.env.OPENROUTER_API_KEY) {
+            log.error(ErrorCategory.CONFIG, 'Generation blocked: OpenRouter key missing', {
                 requestId
             });
-            return res.status(500).json({ error: 'Gemini API Key is not configured in .env' });
+            return res.status(500).json({ error: 'OpenRouter API Key is not configured in .env' });
         }
 
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -1091,17 +987,7 @@ app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, c
                     break;
                 }
                 let chunkText = "";
-                try {
-                    if (chunk.candidates && chunk.candidates[0].content && chunk.candidates[0].content.parts[0].text) {
-                        chunkText = chunk.text();
-                    }
-                } catch (e) {
-                    log.debug(ErrorCategory.STREAM, 'Skipping non-text stream chunk', {
-                        requestId,
-                        error: e
-                    });
-                    continue;
-                }
+                chunkText = chunk;
 
                 if (!chunkText) continue;
 

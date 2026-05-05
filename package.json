@@ -9,7 +9,6 @@
     "build": "npm install && npx puppeteer browsers install chrome"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
     "@upstash/redis": "^1.37.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",

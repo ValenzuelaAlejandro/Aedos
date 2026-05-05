@@ -7,14 +7,14 @@
     const skelObs = new MutationObserver(() => {
         if (!sentTitle) {
             const h1 = document.querySelector('h1');
-            if (h1 && h1.textContent.trim().length > 3) {
+            if (h1 && h1.innerText.trim().length > 3) {
                 sentTitle = true;
-                window.parent.postMessage({ type: 'titleUpdate', title: h1.textContent.trim() }, '*');
+                window.parent.postMessage({ type: 'titleUpdate', title: h1.innerHTML.trim() }, '*');
             } else {
                 const titleTag = document.querySelector('title');
-                if (titleTag && titleTag.textContent.trim() && titleTag.textContent.trim() !== 'Document') {
+                if (titleTag && titleTag.innerText.trim() && titleTag.innerText.trim() !== 'Document') {
                     sentTitle = true;
-                    window.parent.postMessage({ type: 'titleUpdate', title: titleTag.textContent.trim() }, '*');
+                    window.parent.postMessage({ type: 'titleUpdate', title: titleTag.innerHTML.trim() }, '*');
                 }
             }
         }

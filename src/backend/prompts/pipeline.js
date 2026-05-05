@@ -61,13 +61,7 @@ async function runStage(tryModelsFn, prompt, stageName) {
   // Collect the full streamed response
   let fullText = '';
   for await (const chunk of result.stream) {
-    try {
-      if (chunk.candidates && chunk.candidates[0]?.content?.parts[0]?.text) {
-        fullText += chunk.text();
-      }
-    } catch (e) {
-      // Skip non-text chunks
-    }
+    fullText += chunk;
   }
   
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
