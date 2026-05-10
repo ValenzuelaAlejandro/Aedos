@@ -646,9 +646,24 @@ async function initBrowser() {
         browser = await puppeteer.launch(launchOptions);
         puppeteerLog.success(ErrorCategory.PUPPETEER, 'Puppeteer browser initialized');
     } catch (error) {
+        // Deep debug of the cache directory if initialization fails
+        let cacheDebug = {};
+        try {
+            const cachePath = path.join(__dirname, '..', '..', '.cache', 'puppeteer');
+            if (fs.existsSync(cachePath)) {
+                cacheDebug.exists = true;
+                cacheDebug.contents = fs.readdirSync(cachePath, { recursive: true }).slice(0, 20);
+            } else {
+                cacheDebug.exists = false;
+            }
+        } catch (e) {
+            cacheDebug.error = e.message;
+        }
+
         puppeteerLog.error(ErrorCategory.PUPPETEER, 'Failed to initialize Puppeteer browser', {
             error,
-            cachePath: path.join(__dirname, '..', '..', '.cache', 'puppeteer')
+            cacheDebug,
+            envExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH
         });
     }
 }
