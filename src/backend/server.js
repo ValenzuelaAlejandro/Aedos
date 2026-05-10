@@ -630,8 +630,8 @@ let browser;
 
 async function initBrowser() {
     try {
-        browser = await puppeteer.launch({
-            headless: 'new',
+        const launchOptions = {
+            headless: true,
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             args: [
                 '--no-sandbox',
@@ -641,11 +641,14 @@ async function initBrowser() {
                 '--no-first-run',
                 '--no-zygote'
             ]
-        });
+        };
+
+        browser = await puppeteer.launch(launchOptions);
         puppeteerLog.success(ErrorCategory.PUPPETEER, 'Puppeteer browser initialized');
     } catch (error) {
         puppeteerLog.error(ErrorCategory.PUPPETEER, 'Failed to initialize Puppeteer browser', {
-            error
+            error,
+            cachePath: path.join(__dirname, '..', '..', '.cache', 'puppeteer')
         });
     }
 }
