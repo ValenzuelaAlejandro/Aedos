@@ -633,11 +633,46 @@ const tryModels = tryModelsFlash;
 // Global Puppeteer Browser Instance
 let browser;
 
+/**
+ * Tentatively finds the Chrome executable in the cache directory.
+ * Puppeteer's default resolution can fail on Render's filesystem structure.
+ */
+function findChromeExecutable(cacheDir) {
+    if (!fs.existsSync(cacheDir)) return null;
+
+    const searchPaths = [
+        // Standard Puppeteer paths for Linux
+        path.join(cacheDir, 'chrome', 'linux-146.0.7680.76', 'chrome-linux64', 'chrome'),
+        path.join(cacheDir, 'chrome-headless-shell', 'linux-146.0.7680.76', 'chrome-headless-shell-linux64', 'chrome-headless-shell'),
+    ];
+
+    // Recursive search fallback
+    for (const p of searchPaths) {
+        if (fs.existsSync(p)) return p;
+    }
+
+    // Deep search if known paths fail
+    try {
+        const files = fs.readdirSync(cacheDir, { recursive: true });
+        const executable = files.find(f => 
+            (f.endsWith('/chrome') || f.endsWith('/chrome-headless-shell')) && 
+            !f.includes('.zip')
+        );
+        if (executable) return path.join(cacheDir, executable);
+    } catch (e) {
+        return null;
+    }
+    return null;
+}
+
 async function initBrowser() {
     try {
+        const cacheDir = process.env.PUPPETEER_CACHE_DIR || path.join(__dirname, '..', '..', 'puppeteer-cache');
+        const autoExecutablePath = findChromeExecutable(cacheDir);
+
         const launchOptions = {
             headless: true,
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || autoExecutablePath || undefined,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -648,20 +683,25 @@ async function initBrowser() {
             ]
         };
 
+        if (launchOptions.executablePath) {
+            puppeteerLog.info(ErrorCategory.PUPPETEER, 'Launching Puppeteer with explicit path', {
+                path: launchOptions.executablePath
+            });
+        }
+
         browser = await puppeteer.launch(launchOptions);
         puppeteerLog.success(ErrorCategory.PUPPETEER, 'Puppeteer browser initialized');
     } catch (error) {
         // Deep debug of the cache directory if initialization fails
         let cacheDebug = {};
         try {
-            const cachePath = process.env.PUPPETEER_CACHE_DIR;
+            const cachePath = process.env.PUPPETEER_CACHE_DIR || path.join(__dirname, '..', '..', 'puppeteer-cache');
             cacheDebug.configuredPath = cachePath;
             if (fs.existsSync(cachePath)) {
                 cacheDebug.exists = true;
                 cacheDebug.contents = fs.readdirSync(cachePath, { recursive: true }).slice(0, 30);
             } else {
                 cacheDebug.exists = false;
-                // Check common Render hidden paths
                 cacheDebug.oldPathExists = fs.existsSync(path.join(__dirname, '..', '..', '.cache', 'puppeteer'));
             }
         } catch (e) {
