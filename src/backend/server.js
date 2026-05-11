@@ -649,12 +649,15 @@ async function initBrowser() {
         // Deep debug of the cache directory if initialization fails
         let cacheDebug = {};
         try {
-            const cachePath = path.join(__dirname, '..', '..', '.cache', 'puppeteer');
+            const cachePath = path.join(__dirname, '..', '..', 'puppeteer-cache');
             if (fs.existsSync(cachePath)) {
                 cacheDebug.exists = true;
                 cacheDebug.contents = fs.readdirSync(cachePath, { recursive: true }).slice(0, 20);
             } else {
                 cacheDebug.exists = false;
+                // Check if the old hidden path exists by any chance
+                const oldPath = path.join(__dirname, '..', '..', '.cache', 'puppeteer');
+                cacheDebug.oldPathExists = fs.existsSync(oldPath);
             }
         } catch (e) {
             cacheDebug.error = e.message;

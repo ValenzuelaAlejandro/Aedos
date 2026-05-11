@@ -7,7 +7,7 @@
     "start": "node src/backend/server.js",
     "dev": "node --watch src/backend/server.js",
     "build": "npx puppeteer install",
-    "postinstall": "rm -rf .cache/puppeteer && npx puppeteer install"
+    "postinstall": "npx puppeteer install"
   },
   "dependencies": {
     "@upstash/redis": "^1.37.0",
