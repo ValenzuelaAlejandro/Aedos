@@ -4,6 +4,11 @@ const crypto = require('crypto');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+
+// Force Puppeteer to use a visible cache directory BEFORE requiring it.
+// This matches the PUPPETEER_CACHE_DIR set in package.json.
+process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '..', '..', 'puppeteer-cache');
+
 const puppeteer = require('puppeteer');
 const { runPipeline, buildLegacyPrompt } = require('./prompts/pipeline');
 const buildPrompt = require('./prompts/base'); // kept for fallback
@@ -649,15 +654,15 @@ async function initBrowser() {
         // Deep debug of the cache directory if initialization fails
         let cacheDebug = {};
         try {
-            const cachePath = path.join(__dirname, '..', '..', 'puppeteer-cache');
+            const cachePath = process.env.PUPPETEER_CACHE_DIR;
+            cacheDebug.configuredPath = cachePath;
             if (fs.existsSync(cachePath)) {
                 cacheDebug.exists = true;
-                cacheDebug.contents = fs.readdirSync(cachePath, { recursive: true }).slice(0, 20);
+                cacheDebug.contents = fs.readdirSync(cachePath, { recursive: true }).slice(0, 30);
             } else {
                 cacheDebug.exists = false;
-                // Check if the old hidden path exists by any chance
-                const oldPath = path.join(__dirname, '..', '..', '.cache', 'puppeteer');
-                cacheDebug.oldPathExists = fs.existsSync(oldPath);
+                // Check common Render hidden paths
+                cacheDebug.oldPathExists = fs.existsSync(path.join(__dirname, '..', '..', '.cache', 'puppeteer'));
             }
         } catch (e) {
             cacheDebug.error = e.message;
