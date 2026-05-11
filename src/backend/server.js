@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
@@ -683,9 +684,74 @@ function findChromeExecutable(cacheDir) {
     return null;
 }
 
+/**
+ * When Render restores `puppeteer-cache` from its disk cache it preserves the
+ * directory structure and small files, but silently omits large binaries
+ * (~140 MB). The ZIP archive, however, IS kept in the cache. This function
+ * detects the missing-binary scenario and extracts directly from the cached
+ * ZIP — no network download required.
+ *
+ * Safe no-op on Windows (dev machines) and when the binary already exists.
+ */
+function extractChromeFromZip(cacheDir) {
+    if (process.platform === 'win32') return;
+    if (!fs.existsSync(cacheDir)) return;
+
+    // Only act if the binary is already absent
+    if (findChromeExecutable(cacheDir)) return;
+
+    // Look for a chrome-headless-shell ZIP in the cache
+    const shellCacheDir = path.join(cacheDir, 'chrome-headless-shell');
+    if (!fs.existsSync(shellCacheDir)) return;
+
+    let zipFile;
+    try {
+        zipFile = fs.readdirSync(shellCacheDir).find(
+            f => f.endsWith('.zip') && f.includes('chrome-headless-shell')
+        );
+    } catch (_) { return; }
+    if (!zipFile) return;
+
+    // Derive the expected extract target from the ZIP name:
+    // "146.0.7680.76-chrome-headless-shell-linux64.zip" → linux-146.0.7680.76
+    const versionMatch = zipFile.match(/^([\d.]+)-chrome-headless-shell-linux64\.zip$/);
+    if (!versionMatch) return;
+
+    const version = versionMatch[1];
+    const zipPath = path.join(shellCacheDir, zipFile);
+    const extractTo = path.join(shellCacheDir, `linux-${version}`);
+
+    puppeteerLog.warn(ErrorCategory.PUPPETEER,
+        'Chrome binary missing from cache — extracting from cached ZIP', {
+            zip: zipPath,
+            extractTo
+        }
+    );
+
+    try {
+        execSync(`unzip -o "${zipPath}" -d "${extractTo}"`, { stdio: 'pipe', timeout: 60000 });
+        execSync(
+            `find "${extractTo}" -type f \( -name 'chrome-headless-shell' -o -name 'chrome' \) -exec chmod +x {} +`,
+            { stdio: 'pipe', timeout: 10000 }
+        );
+        puppeteerLog.info(ErrorCategory.PUPPETEER, 'Chrome binary extracted and made executable', {
+            version,
+            path: extractTo
+        });
+    } catch (err) {
+        puppeteerLog.error(ErrorCategory.PUPPETEER, 'Failed to extract Chrome binary from ZIP', {
+            error: err.message
+        });
+    }
+}
+
 async function initBrowser() {
     try {
         const cacheDir = process.env.PUPPETEER_CACHE_DIR || path.join(__dirname, '..', '..', 'puppeteer-cache');
+
+        // Self-heal: extract from cached ZIP if the binary was dropped by Render's cache
+        extractChromeFromZip(cacheDir);
+
         const autoExecutablePath = findChromeExecutable(cacheDir);
 
         const launchOptions = {
