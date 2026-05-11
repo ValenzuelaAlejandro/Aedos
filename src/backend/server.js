@@ -730,8 +730,14 @@ function extractChromeFromZip(cacheDir) {
 
     try {
         execSync(`unzip -o "${zipPath}" -d "${extractTo}"`, { stdio: 'pipe', timeout: 60000 });
+        // Use separate find calls — Render uses /bin/sh (dash), which rejects
+        // the bash-only \( ... -o ... \) compound expression.
         execSync(
-            `find "${extractTo}" -type f \( -name 'chrome-headless-shell' -o -name 'chrome' \) -exec chmod +x {} +`,
+            `find "${extractTo}" -type f -name 'chrome-headless-shell' -exec chmod +x {} +`,
+            { stdio: 'pipe', timeout: 10000 }
+        );
+        execSync(
+            `find "${extractTo}" -type f -name 'chrome' -exec chmod +x {} +`,
             { stdio: 'pipe', timeout: 10000 }
         );
         puppeteerLog.info(ErrorCategory.PUPPETEER, 'Chrome binary extracted and made executable', {
