@@ -640,23 +640,43 @@ let browser;
 function findChromeExecutable(cacheDir) {
     if (!fs.existsSync(cacheDir)) return null;
 
+    /**
+     * Guard: ensure the resolved path is an actual file, not a directory.
+     * `readdirSync({ recursive: true })` on Linux returns the top-level
+     * `chrome-headless-shell` *directory* before the binary inside it, which
+     * causes an EACCES error when Puppeteer tries to spawn it as a process.
+     */
+    function isFile(fullPath) {
+        try {
+            return fs.statSync(fullPath).isFile();
+        } catch (_) {
+            return false;
+        }
+    }
+
     // Deep search if known paths fail
     try {
+        // readdirSync with recursive returns relative paths (POSIX separators on Linux)
         const files = fs.readdirSync(cacheDir, { recursive: true });
-        // Priority 1: Find chrome-headless-shell (modern Puppeteer preference)
-        const shell = files.find(f => 
-            (path.basename(f) === 'chrome-headless-shell' || f.endsWith('/chrome-headless-shell')) && 
-            !f.includes('.zip')
-        );
-        if (shell) return path.join(cacheDir, shell);
+
+        // Priority 1: Find chrome-headless-shell binary (modern Puppeteer preference)
+        const shell = files.find(f => {
+            const base = path.basename(String(f));
+            if (base !== 'chrome-headless-shell') return false;
+            if (String(f).includes('.zip')) return false;
+            return isFile(path.join(cacheDir, String(f)));
+        });
+        if (shell) return path.join(cacheDir, String(shell));
 
         // Priority 2: Find standard chrome binary
-        const chrome = files.find(f => 
-            (path.basename(f) === 'chrome' || f.endsWith('/chrome')) && 
-            !f.includes('.zip') &&
-            !f.includes('chrome-headless-shell') // avoid partial matches
-        );
-        if (chrome) return path.join(cacheDir, chrome);
+        const chrome = files.find(f => {
+            const base = path.basename(String(f));
+            if (base !== 'chrome') return false;
+            if (String(f).includes('.zip')) return false;
+            if (String(f).includes('chrome-headless-shell')) return false;
+            return isFile(path.join(cacheDir, String(f)));
+        });
+        if (chrome) return path.join(cacheDir, String(chrome));
     } catch (e) {
         return null;
     }
@@ -685,6 +705,16 @@ async function initBrowser() {
             puppeteerLog.info(ErrorCategory.PUPPETEER, 'Launching Puppeteer with explicit path', {
                 path: launchOptions.executablePath
             });
+            // Ensure the binary is executable at runtime — Render can strip the execute
+            // bit from downloaded binaries when restoring from cache between deploys.
+            try {
+                fs.chmodSync(launchOptions.executablePath, 0o755);
+                puppeteerLog.info(ErrorCategory.PUPPETEER, 'Chrome binary chmod 755 applied');
+            } catch (chmodErr) {
+                puppeteerLog.warn(ErrorCategory.PUPPETEER, 'chmod on Chrome binary failed (non-fatal)', {
+                    error: chmodErr.message
+                });
+            }
         }
 
         browser = await puppeteer.launch(launchOptions);
