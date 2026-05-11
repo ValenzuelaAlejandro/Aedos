@@ -399,6 +399,20 @@ app.use((req, res, next) => {
     next();
 });
 
+// Redirect the raw Render URL to the canonical domain BEFORE static files are
+// served. express.static intercepts GET / and sends index.html directly,
+// bypassing any app.get('/') route handler registered afterwards.
+if ((process.env.NODE_ENV || 'development') === 'production') {
+    app.use((req, res, next) => {
+        const host = req.headers.host || '';
+        if (host.includes('onrender.com')) {
+            const target = 'https://aedoslab.xyz' + req.originalUrl;
+            return res.redirect(301, target);
+        }
+        next();
+    });
+}
+
 app.use(express.static(path.join(__dirname, '..', 'frontend'), {
     setHeaders: (res, filePath) => {
         const lowerPath = String(filePath || '').toLowerCase();
@@ -411,6 +425,7 @@ app.use(express.static(path.join(__dirname, '..', 'frontend'), {
         res.setHeader('Surrogate-Control', 'no-store');
     }
 }));
+
 
 
 function ensureDirectory(dirPath, description) {
