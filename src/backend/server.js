@@ -834,10 +834,12 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    // Security: If someone hits the Render URL directly in production, redirect to the main domain.
-    // We allow 'localhost' so Puppeteer can still render the slides internally.
+    // Redirect requests hitting the raw onrender.com URL to the canonical domain.
+    // We check for 'onrender.com' specifically so that requests arriving via the
+    // custom domain (aedoslab.xyz) are served normally and not caught in a
+    // redirect loop.
     const host = req.headers.host || '';
-    if (process.env.NODE_ENV === 'production' && !host.includes('localhost')) {
+    if (process.env.NODE_ENV === 'production' && host.includes('onrender.com')) {
         return res.redirect(301, 'https://aedoslab.xyz');
     }
 
@@ -1756,15 +1758,9 @@ app.get('/download/:filename', (req, res) => {
                 filename,
                 downloadName
             });
-            fs.unlink(filePath, (unlinkErr) => {
-                if (unlinkErr) {
-                    log.error(classifyError(unlinkErr, ErrorCategory.FILESYSTEM), 'Failed to delete temporary file after download', {
-                        requestId,
-                        filename,
-                        error: unlinkErr
-                    });
-                }
-            });
+            // Do NOT delete the file here — the auto-delete timer (10 min) handles cleanup.
+            // Deleting immediately causes a 404 on any second request (retry, double-click,
+            // browser pre-fetch) even though the file was delivered successfully.
         }
     });
 });
