@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/backend/server.js",
     "dev": "node --watch src/backend/server.js",
-    "build": "rm -rf .cache/puppeteer && npx puppeteer browsers install chrome",
-    "postinstall": "npx puppeteer browsers install chrome"
+    "build": "npx puppeteer install",
+    "postinstall": "rm -rf .cache/puppeteer && npx puppeteer install"
   },
   "dependencies": {
     "@upstash/redis": "^1.37.0",
