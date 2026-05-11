@@ -640,25 +640,23 @@ let browser;
 function findChromeExecutable(cacheDir) {
     if (!fs.existsSync(cacheDir)) return null;
 
-    const searchPaths = [
-        // Standard Puppeteer paths for Linux
-        path.join(cacheDir, 'chrome', 'linux-146.0.7680.76', 'chrome-linux64', 'chrome'),
-        path.join(cacheDir, 'chrome-headless-shell', 'linux-146.0.7680.76', 'chrome-headless-shell-linux64', 'chrome-headless-shell'),
-    ];
-
-    // Recursive search fallback
-    for (const p of searchPaths) {
-        if (fs.existsSync(p)) return p;
-    }
-
     // Deep search if known paths fail
     try {
         const files = fs.readdirSync(cacheDir, { recursive: true });
-        const executable = files.find(f => 
-            (f.endsWith('/chrome') || f.endsWith('/chrome-headless-shell')) && 
+        // Priority 1: Find chrome-headless-shell (modern Puppeteer preference)
+        const shell = files.find(f => 
+            (path.basename(f) === 'chrome-headless-shell' || f.endsWith('/chrome-headless-shell')) && 
             !f.includes('.zip')
         );
-        if (executable) return path.join(cacheDir, executable);
+        if (shell) return path.join(cacheDir, shell);
+
+        // Priority 2: Find standard chrome binary
+        const chrome = files.find(f => 
+            (path.basename(f) === 'chrome' || f.endsWith('/chrome')) && 
+            !f.includes('.zip') &&
+            !f.includes('chrome-headless-shell') // avoid partial matches
+        );
+        if (chrome) return path.join(cacheDir, chrome);
     } catch (e) {
         return null;
     }
