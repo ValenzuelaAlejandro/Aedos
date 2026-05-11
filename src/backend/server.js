@@ -405,7 +405,13 @@ app.use((req, res, next) => {
 if ((process.env.NODE_ENV || 'development') === 'production') {
     app.use((req, res, next) => {
         const host = req.headers.host || '';
-        if (host.includes('onrender.com')) {
+        const path = req.path || '';
+        
+        // IMPORTANT: Do NOT redirect API routes or health checks.
+        // Vercel proxies these routes to Render, and they must be served directly.
+        const isApiRoute = /^\/(generate|finalize|download|health|__dev__)/.test(path);
+        
+        if (host.includes('onrender.com') && !isApiRoute) {
             const target = 'https://aedoslab.xyz' + req.originalUrl;
             return res.redirect(301, target);
         }
