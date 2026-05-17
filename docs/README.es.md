@@ -45,7 +45,7 @@ Usuario (navegador)
        v
   Render (Backend Node.js + Express)
        |
-       +---> OpenRouter API (LLMs: Qwen, Minimax, etc.)
+       +---> OpenRouter API (LLMs: Gemini, Kimi, etc.)
        +---> Upstash Redis (rate limiting persistente)
        +---> Puppeteer / Chrome Headless (conversion HTML -> PDF)
 ```
@@ -60,7 +60,7 @@ Aedos utiliza una arquitectura de frontend-backend desacoplada. El frontend se s
 |----------------|------------------------------------------------------------------|
 | Frontend       | HTML5, CSS3 (vanilla), JavaScript (vanilla)                      |
 | Backend        | Node.js, Express.js                                              |
-| IA / LLM       | OpenRouter API (Qwen 3.5 Flash, Minimax M2.7, y otros)          |
+| IA / LLM       | OpenRouter API (Gemini 2.5 Flash Lite, Kimi K2.6, y otros)      |
 | PDF            | Puppeteer (Chrome headless)                                      |
 | Rate Limiting  | Upstash Redis (con fallback en memoria)                          |
 | Hosting FE     | Vercel                                                           |
@@ -200,8 +200,8 @@ Implementado en `utils/rate-limiter.js`. Utiliza Upstash Redis como almacen pers
 
 | Parametro                    | Flash     | Pro       |
 |------------------------------|-----------|-----------|
-| Generaciones diarias por IP  | 5         | 3         |
-| Cooldown entre generaciones  | 60s       | 60s       |
+| Generaciones diarias por IP  | 4         | 2         |
+| Cooldown entre generaciones  | 20s       | 60s       |
 | Limite diario global         | 100       | 100       |
 
 **Limites de finalizacion (PDF):**
@@ -303,9 +303,9 @@ La deteccion es automatica basada en `navigator.language`. Las traducciones se a
 | Tiempo aproximado       | ~20 segundos                 | ~2 minutos                       |
 | Proceso                 | Un solo prompt monolitico    | Pipeline de 3 etapas             |
 | Diapositivas maximas    | 15                           | 8                                |
-| Modelos por defecto     | Qwen 3.5 Flash               | Etapa 1 y 2: Qwen, Etapa 3: Minimax |
+| Modelos por defecto     | Gemini 2.5 Flash Lite        | Etapas 1 y 2: Gemini 2.5 Flash Lite, Etapa 3: Kimi K2.6 |
 | Calidad de diseno       | Buena                        | Alta (diseno derivado de artefacto fisico) |
-| Generaciones diarias    | 5 por IP                     | 3 por IP                        |
+| Generaciones diarias    | 4 por IP                     | 2 por IP                        |
 
 ---
 
@@ -471,10 +471,12 @@ Consideraciones especificas:
 | `MAX_QUEUE_DEPTH`               | No        | Profundidad maxima de cola (defecto: 40)            |
 | `PUPPETEER_MAX_CONCURRENT`      | No        | Renderizados PDF simultaneos maximos (defecto: 3)   |
 | `PUPPETEER_MAX_QUEUE`           | No        | Cola maxima de Puppeteer (defecto: 10)              |
-| `LIMITS_FLASH_DAILY`            | No        | Limite diario Flash por IP (defecto: 5)             |
-| `LIMITS_PRO_DAILY`              | No        | Limite diario Pro por IP (defecto: 3)               |
-| `LIMITS_FLASH_COOLDOWN_SEC`     | No        | Cooldown Flash en segundos (defecto: 60)            |
+| `LIMITS_FLASH_DAILY`            | No        | Limite diario Flash por IP (defecto: 4)             |
+| `LIMITS_PRO_DAILY`              | No        | Limite diario Pro por IP (defecto: 2)               |
+| `LIMITS_FLASH_COOLDOWN_SEC`     | No        | Cooldown Flash en segundos (defecto: 20)            |
 | `LIMITS_PRO_COOLDOWN_SEC`       | No        | Cooldown Pro en segundos (defecto: 60)              |
+| `PRO_PAUSE_ACTIVE_GENERATIONS`  | No        | Umbral de generaciones activas para pausar Pro (defecto: 8) |
+| `PRO_PAUSE_QUEUE_DEPTH`         | No        | Umbral de profundidad de cola para pausar Pro (defecto: 24) |
 | `GLOBAL_DAILY_GENERATION_LIMIT` | No        | Limite diario global de generaciones (defecto: 100) |
 | `LIMITS_FINALIZE_MAX`           | No        | Maximo de finalizaciones en ventana (defecto: 10)   |
 | `PUPPETEER_EXECUTABLE_PATH`     | No        | Ruta personalizada al binario de Chrome             |

@@ -45,7 +45,7 @@ User (browser)
        v
   Render (Node.js + Express backend)
        |
-       +---> OpenRouter API (LLMs: Qwen, Minimax, etc.)
+       +---> OpenRouter API (LLMs: Gemini, Kimi, etc.)
        +---> Upstash Redis (persistent rate limiting)
        +---> Puppeteer / Chrome Headless (HTML -> PDF conversion)
 ```
@@ -60,7 +60,7 @@ Aedos uses a decoupled frontend-backend architecture. The frontend is served as 
 |----------------|------------------------------------------------------------------|
 | Frontend       | HTML5, CSS3 (vanilla), JavaScript (vanilla)                      |
 | Backend        | Node.js, Express.js                                              |
-| AI / LLM       | OpenRouter API (Qwen 3.5 Flash, Minimax M2.7, and others)       |
+| AI / LLM       | OpenRouter API (Gemini 2.5 Flash Lite, Kimi K2.6, and others)   |
 | PDF            | Puppeteer (headless Chrome)                                      |
 | Rate Limiting  | Upstash Redis (with in-memory fallback)                          |
 | FE Hosting     | Vercel                                                           |
@@ -200,8 +200,8 @@ Implemented in `utils/rate-limiter.js`. Uses Upstash Redis as a persistent store
 
 | Parameter                     | Flash     | Pro       |
 |-------------------------------|-----------|-----------|
-| Daily generations per IP      | 5         | 3         |
-| Cooldown between generations  | 60s       | 60s       |
+| Daily generations per IP      | 4         | 2         |
+| Cooldown between generations  | 20s       | 60s       |
 | Global daily limit            | 100       | 100       |
 
 **Finalization (PDF) limits:**
@@ -303,9 +303,9 @@ Detection is automatic based on `navigator.language`. Translations are applied t
 | Approximate time        | ~20 seconds                  | ~2 minutes                       |
 | Process                 | Single monolithic prompt     | 3-stage pipeline                 |
 | Maximum slides          | 15                           | 8                                |
-| Default models          | Qwen 3.5 Flash               | Stages 1 & 2: Qwen, Stage 3: Minimax |
+| Default models          | Gemini 2.5 Flash Lite        | Stages 1 & 2: Gemini 2.5 Flash Lite, Stage 3: Kimi K2.6 |
 | Design quality          | Good                         | High (design derived from physical artifact) |
-| Daily generations       | 5 per IP                     | 3 per IP                        |
+| Daily generations       | 4 per IP                     | 2 per IP                        |
 
 ---
 
@@ -471,10 +471,12 @@ Specific considerations:
 | `MAX_QUEUE_DEPTH`               | No       | Maximum queue depth (default: 40)                    |
 | `PUPPETEER_MAX_CONCURRENT`      | No       | Maximum simultaneous PDF renders (default: 3)        |
 | `PUPPETEER_MAX_QUEUE`           | No       | Maximum Puppeteer queue (default: 10)                |
-| `LIMITS_FLASH_DAILY`            | No       | Daily Flash limit per IP (default: 5)                |
-| `LIMITS_PRO_DAILY`              | No       | Daily Pro limit per IP (default: 3)                  |
-| `LIMITS_FLASH_COOLDOWN_SEC`     | No       | Flash cooldown in seconds (default: 60)              |
+| `LIMITS_FLASH_DAILY`            | No       | Daily Flash limit per IP (default: 4)                |
+| `LIMITS_PRO_DAILY`              | No       | Daily Pro limit per IP (default: 2)                  |
+| `LIMITS_FLASH_COOLDOWN_SEC`     | No       | Flash cooldown in seconds (default: 20)              |
 | `LIMITS_PRO_COOLDOWN_SEC`       | No       | Pro cooldown in seconds (default: 60)                |
+| `PRO_PAUSE_ACTIVE_GENERATIONS`  | No       | Active generations threshold to pause Pro (default: 8) |
+| `PRO_PAUSE_QUEUE_DEPTH`         | No       | Queue depth threshold to pause Pro (default: 24)      |
 | `GLOBAL_DAILY_GENERATION_LIMIT` | No       | Global daily generation limit (default: 100)         |
 | `LIMITS_FINALIZE_MAX`           | No       | Maximum finalizations per window (default: 10)       |
 | `PUPPETEER_EXECUTABLE_PATH`     | No       | Custom path to Chrome binary                         |
