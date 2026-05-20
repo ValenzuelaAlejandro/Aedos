@@ -2871,18 +2871,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (previewContainer.classList.contains('hidden')) return;
         if (wheelCooldown) return;
 
-        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        // Ignore small/accidental/slow inertial wheel events
+        const dx = Math.abs(e.deltaX);
+        const dy = Math.abs(e.deltaY);
+        if (dx < 30 && dy < 30) return;
+
+        let navigated = false;
+        if (dy > dx) {
             if (e.deltaY > 0) {
-                tryNavigate(currentSlide + 1);
+                navigated = tryNavigate(currentSlide + 1);
             } else if (e.deltaY < 0) {
-                tryNavigate(currentSlide - 1);
+                navigated = tryNavigate(currentSlide - 1);
             }
         } else {
             if (e.deltaX > 0) {
-                tryNavigate(currentSlide + 1);
+                navigated = tryNavigate(currentSlide + 1);
             } else if (e.deltaX < 0) {
-                tryNavigate(currentSlide - 1);
+                navigated = tryNavigate(currentSlide - 1);
             }
+        }
+
+        if (navigated) {
+            wheelCooldown = true;
+            setTimeout(() => {
+                wheelCooldown = false;
+            }, 600); // 600ms cooldown is perfect to absorb trackpad/mouse swipe inertia
         }
     }
     document.addEventListener('wheel', handleSlideWheelNav, { passive: true });
@@ -2894,7 +2907,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 threshold: 50,
                 getCurrentSlide: () => currentSlide,
                 getTotalSlides: () => totalSlides,
-                onNavigate: (nextSlide) => scrollToSlide(nextSlide)
+                onNavigate: (nextSlide) => tryNavigate(nextSlide)
             })
             : null;
 
@@ -2922,10 +2935,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const threshold = 50;
         if (touchEndX < touchStartX - threshold) {
             // Swipe Left -> Next
-            if (currentSlide < totalSlides - 1) scrollToSlide(currentSlide + 1);
+            tryNavigate(currentSlide + 1);
         } else if (touchEndX > touchStartX + threshold) {
             // Swipe Right -> Prev
-            if (currentSlide > 0) scrollToSlide(currentSlide - 1);
+            tryNavigate(currentSlide - 1);
         }
     }
 
