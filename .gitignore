@@ -8,3 +8,5 @@ tmp/
 .cache
 .vercel
 examples/*
+puppeteer-cache/
+
