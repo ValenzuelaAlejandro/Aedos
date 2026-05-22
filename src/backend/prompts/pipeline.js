@@ -87,7 +87,7 @@ async function runStage(tryModelsFn, prompt, stageName) {
  * @param {number} [options.maxSlides=12] - Hard limit on slides to prevent token waste
  * @returns {object} { stage3Stream, contentJson, designJson } - stage3Stream is the async iterable
  */
-async function runPipeline({ rawInput, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, maxSlides = 12 }) {
+async function runPipeline({ rawInput, targetLanguage, fileContext, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, maxSlides = 12 }) {
   // Allow legacy callers that pass a single tryModels function
   const callStage1 = tryModelsStage1 || tryModels;
   const callStage2 = tryModelsStage2 || tryModels;
@@ -95,8 +95,8 @@ async function runPipeline({ rawInput, tryModelsStage1, tryModelsStage2, tryMode
   // ── Stage 1: Content Extraction ──
   onStageUpdate('stage1', { status: 'running' });
   
-  const stage1Prompt = buildStage1Prompt(rawInput);
-  const stage1Raw = await runStage(callStage1, stage1Prompt, 'Stage 1 (Content)');
+  const stage1Prompt = buildStage1Prompt(rawInput, targetLanguage);
+  const stage1Raw = await runStage((p) => callStage1(p, fileContext), stage1Prompt, 'Stage 1 (Content)');
   
   let contentJson;
   try {

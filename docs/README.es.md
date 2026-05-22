@@ -285,14 +285,19 @@ El sistema movil (`mobile/`) adapta la interfaz para dispositivos tactiles:
 - Puente (`bridge.js`, ~21KB) que traduce eventos tactiles a interacciones del editor
 - Polyfill de HTML5 Drag and Drop para pantallas tactiles
 
-### Internacionalizacion (i18n)
+### Internacionalización (i18n) y Pipeline Multilingüe
 
-El sistema de i18n (`features/shared/i18n.js`) soporta dos idiomas:
+El sistema está completamente adaptado para admitir la generación de presentaciones en cualquier idioma seleccionado por el usuario:
 
-- **Ingles (en)**: Idioma por defecto para navegadores no hispanos
-- **Espanol (es)**: Detectado automaticamente si el navegador usa `es-*`
+- **Localización de la Interfaz (`features/shared/i18n.js`)**: Soporta inglés (`en`) como predeterminado y español (`es`) auto-detectado a través de `navigator.language`. Las traducciones se vinculan al DOM de forma dinámica mediante atributos `data-i18n`, `data-i18n-title`, `data-i18n-placeholder`, y `data-i18n-val`.
+- **Generación de Presentaciones Multilingüe**: La pantalla de chat incluye un selector explícito de idioma. El idioma elegido se envía como `idioma` al endpoint `/generate`, mapeándose internamente a la propiedad `targetLanguage`. Este valor se inyecta directamente en las plantillas de prompts tanto de Flash mode (`base.js`) como de Pro mode (`stage1-content.js`). Se instruye estrictamente a los modelos de lenguaje a generar los contenidos de las diapositivas (títulos, texto, viñetas) en dicho idioma, manteniendo las llaves de configuración JSON, variables de CSS y etiquetas HTML en inglés para evitar incompatibilidades en la interfaz.
 
-La deteccion es automatica basada en `navigator.language`. Las traducciones se aplican al DOM usando atributos `data-i18n`, `data-i18n-title`, `data-i18n-placeholder`, y `data-i18n-val`.
+### Micro-interacciones y Pulido de UI/UX
+
+Aedosprioriza una experiencia de usuario premium, orgánica y sumamente fluida:
+- **Pills de Sugerencia Elevables**: Los chips de sugerencias rápidas en la pantalla de chat cuentan con una animación de elevación vertical suave al pasar el mouse por encima (`transform: translateY(-2px)`), adaptándose al comportamiento táctil de los controles del editor principal.
+- **Transición de Acordeón para Adjuntos**: Al subir o eliminar archivos, la sección de vista previa de adjuntos (`.attachment-preview-container`) se abre y cierra como seda mediante una transición de CSS inteligente sobre su altura máxima (`max-height` de `0` a `150px` con un suavizado `cubic-bezier(0.4, 0, 0.2, 1)`) combinada con cambios graduales de opacidad y márgenes, eliminando saltos bruscos.
+- **Iconos de Marca de Alta Fidelidad**: Reemplazamos los iconos alámbricos genéricos por vectores SVG sólidos de alta definición que representan fielmente los logotipos de `.pdf` (Adobe Red) y `.docx`/`.doc` (Word Blue), adaptándose perfectamente al tema visual activo.
 
 ---
 

@@ -285,14 +285,19 @@ The mobile system (`mobile/`) adapts the interface for touch devices:
 - Bridge (`bridge.js`, ~21KB) that translates touch events to editor interactions
 - HTML5 Drag and Drop polyfill for touch screens
 
-### Internationalization (i18n)
+### Internationalization (i18n) & Multilingual Pipeline
 
-The i18n system (`features/shared/i18n.js`) supports two languages:
+The system is fully localized and supports generating presentations in any selected target language:
 
-- **English (en)**: Default language for non-Spanish browsers
-- **Spanish (es)**: Automatically detected if the browser uses `es-*`
+- **Interface Localization (`features/shared/i18n.js`)**: Supports English (`en`) as default and Spanish (`es`) automatically detected via `navigator.language`. Translations are dynamically bound using `data-i18n`, `data-i18n-title`, `data-i18n-placeholder`, and `data-i18n-val` attributes.
+- **Multilingual Presentation Generation**: The home screen includes an explicit language selector. The selected language is sent as `idioma` to the `/generate` endpoint, which maps it to `targetLanguage`. This value is dynamically injected directly into the system prompts for both Flash mode (`base.js`) and Pro mode (`stage1-content.js`). The models are strictly instructed to generate slide content (titles, text, bullet points) in the target language while maintaining JSON keys, CSS variables, and HTML tags in English to prevent rendering issues.
 
-Detection is automatic based on `navigator.language`. Translations are applied to the DOM using `data-i18n`, `data-i18n-title`, `data-i18n-placeholder`, and `data-i18n-val` attributes.
+### UI/UX Micro-interactions & Polish
+
+Aedos prioritizes a highly premium, fluid user experience through custom micro-interactions:
+- **Lifting Suggestion Pills**: The quick-start suggestion pills on the chat screen feature a smooth vertical lift animation on hover (`transform: translateY(-2px)`), matching the tactile feel of the editor controls.
+- **Attachment Accordion Transition**: When attaching or removing files, the `.attachment-preview-container` glides open and closed like silk via a smart CSS height transition (`max-height` from `0` to `150px` with a premium `cubic-bezier(0.4, 0, 0.2, 1)` easing) combined with opacity and margin transitions, eliminating layout jumps.
+- **High-Fidelity Branded File Icons**: Replaced generic outline wireframe icons with custom-built, ultra-high-definition, solid-colored SVG icons for `.pdf` (Adobe Red) and `.docx`/`.doc` (Word Blue) uploads that mimic the official document brand representations.
 
 ---
 

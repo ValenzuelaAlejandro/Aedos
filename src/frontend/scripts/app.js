@@ -190,36 +190,103 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mode toggle: false = Flash (default), true = Pro (3-stage pipeline)
     let proModeEnabled = false;
 
-    // ── Mode Toggle Button ─────────────────────────────────────────────
-    const modeToggleBtn = document.getElementById('btn-mode-toggle');
+    // ── Dropdown Menus Logic (Mode & Language) ──────────────────────────────────
+    let targetLanguage = 'auto';
+    const modeBtn = document.getElementById('btn-mode-dropdown');
+    const modeMenu = document.getElementById('mode-dropdown-menu');
+    const langBtn = document.getElementById('btn-lang-dropdown');
+    const langMenu = document.getElementById('lang-dropdown-menu');
+    const currentModeLabel = document.getElementById('current-mode-label');
+    const currentLangLabel = document.getElementById('current-lang-label');
     const chatInputWrapper = document.querySelector('.chat-input-wrapper');
-    const generateBtnLabel = document.querySelector('#btn-generate .btn-generate-label');
 
-    if (modeToggleBtn) {
-        function updateModeUI() {
-            modeToggleBtn.setAttribute('aria-pressed', String(proModeEnabled));
-            
-            if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', proModeEnabled);
+    function closeAllDropdowns() {
+        if (modeMenu) modeMenu.classList.add('hidden');
+        if (langMenu) langMenu.classList.add('hidden');
+        if (modeBtn) modeBtn.setAttribute('aria-expanded', 'false');
+        if (langBtn) langBtn.setAttribute('aria-expanded', 'false');
+    }
 
-            // Always show Pro mode tooltip
-            modeToggleBtn.setAttribute('data-tooltip', window.__t('mode_tooltip_pro'));
-
-            // Sync generate button label
-            if (generateBtnLabel) {
-                const key = proModeEnabled ? 'generate_pro_presentation' : 'generate_presentation';
-                generateBtnLabel.setAttribute('data-i18n', key);
-                generateBtnLabel.textContent = window.__t(key);
+    if (modeBtn && modeMenu) {
+        modeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (modeBtn.disabled) return;
+            const isHidden = modeMenu.classList.contains('hidden');
+            closeAllDropdowns();
+            if (isHidden) {
+                modeMenu.classList.remove('hidden');
+                modeBtn.setAttribute('aria-expanded', 'true');
             }
-        }
+        });
 
-        // Set initial state
-        updateModeUI();
+        modeMenu.addEventListener('click', (e) => {
+            const item = e.target.closest('.dropdown-item[data-mode]');
+            if (!item) return;
+            const mode = item.dataset.mode;
+            proModeEnabled = (mode === 'pro');
 
-        modeToggleBtn.addEventListener('click', () => {
-            proModeEnabled = !proModeEnabled;
-            updateModeUI();
+            modeMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+
+            const labelKey = mode === 'pro' ? 'mode_pro_title' : 'mode_flash_title';
+            if (currentModeLabel) {
+                currentModeLabel.textContent = window.__t(labelKey);
+                currentModeLabel.setAttribute('data-i18n', labelKey);
+            }
+            if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', proModeEnabled);
+            closeAllDropdowns();
         });
     }
+
+    if (langBtn && langMenu) {
+        langBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isHidden = langMenu.classList.contains('hidden');
+            closeAllDropdowns();
+            if (isHidden) {
+                langMenu.classList.remove('hidden');
+                langBtn.setAttribute('aria-expanded', 'true');
+            }
+        });
+
+        langMenu.addEventListener('click', (e) => {
+            const item = e.target.closest('.dropdown-item[data-lang]');
+            if (!item) return;
+            targetLanguage = item.dataset.lang;
+
+            langMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+
+            if (currentLangLabel) currentLangLabel.textContent = item.textContent.split(' ')[0]; // Show shortened name if space exists
+            closeAllDropdowns();
+        });
+    }
+
+    document.addEventListener('click', closeAllDropdowns);
+
+    // Auto-lock pro mode when files are attached
+    window._syncModeWithFiles = function () {
+        if (!modeBtn) return;
+        if (window._attachedFiles && window._attachedFiles.length > 0) {
+            proModeEnabled = true;
+            modeBtn.disabled = true;
+            modeBtn.style.opacity = '0.6';
+            modeBtn.style.cursor = 'not-allowed';
+            modeBtn.parentElement.setAttribute('data-tooltip', window.__t('mode_tooltip_file_locked', 'High Quality is required to analyze files.'));
+            if (currentModeLabel) currentModeLabel.textContent = window.__t('mode_pro_title', 'High Quality');
+            if (chatInputWrapper) chatInputWrapper.classList.add('is-pro');
+            if (modeMenu) modeMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.toggle('active', el.dataset.mode === 'pro'));
+        } else {
+            proModeEnabled = false;
+            modeBtn.disabled = false;
+            modeBtn.style.opacity = '';
+            modeBtn.style.cursor = '';
+            modeBtn.parentElement.removeAttribute('data-tooltip');
+            if (currentModeLabel) currentModeLabel.textContent = window.__t('mode_flash_title', 'Fast Mode');
+            if (chatInputWrapper) chatInputWrapper.classList.remove('is-pro');
+            if (modeMenu) modeMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.toggle('active', el.dataset.mode === 'flash'));
+        }
+    };
     // ─────────────────────────────────────────────────────────────────────
 
     // Listen for messages from iframe during skeleton generation
@@ -238,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (_pendingTransitionFn) {
                 const fn = _pendingTransitionFn;
                 _pendingTransitionFn = null;
-                fn();
+                setTimeout(() => fn(), 800);
             }
 
             // Rebuild dots and minimap skeletons during generation.
@@ -280,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function applyTheme(theme, animate = false, event = null) {
             const nextTheme = theme === 'light' ? 'light' : 'dark';
-            
+
             const doChange = () => {
                 root.setAttribute('data-theme', nextTheme);
                 localStorage.setItem('app_theme', nextTheme);
@@ -371,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tip) return;
 
         const MARGIN = 8; // px from viewport edge
-        const GAP    = 10; // px between trigger and tooltip
+        const GAP = 10; // px between trigger and tooltip
 
         function showTip(trigger) {
             const text = trigger.dataset.tooltip;
@@ -380,14 +447,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Set text and reset position so it can size freely while still hidden
             tip.textContent = text;
             tip.style.left = '0';
-            tip.style.top  = '0';
+            tip.style.top = '0';
 
             // Measure while still invisible (visibility:hidden has correct layout)
-            const tr  = trigger.getBoundingClientRect();
-            const tw  = tip.offsetWidth;
-            const th  = tip.offsetHeight;
-            const vw  = window.innerWidth;
-            const vh  = window.innerHeight;
+            const tr = trigger.getBoundingClientRect();
+            const tw = tip.offsetWidth;
+            const th = tip.offsetHeight;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
 
             // Prefer above for btn-mode-toggle, below for header icons
             const preferAbove = trigger.classList.contains('btn-mode-toggle');
@@ -410,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let left = tr.left + tr.width / 2 - tw / 2;
             left = Math.max(MARGIN, Math.min(left, vw - tw - MARGIN));
 
-            tip.style.top  = top + 'px';
+            tip.style.top = top + 'px';
             tip.style.left = left + 'px';
 
             // Show only after positioned — prevents first-hover flash at wrong size
@@ -422,12 +489,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Event delegation — works for all 3 tooltip triggers
-        document.addEventListener('mouseover', function(e) {
+        document.addEventListener('mouseover', function (e) {
             const trigger = e.target.closest('[data-tooltip]');
             if (trigger && trigger.dataset.tooltip) showTip(trigger);
         });
 
-        document.addEventListener('mouseout', function(e) {
+        document.addEventListener('mouseout', function (e) {
             const trigger = e.target.closest('[data-tooltip]');
             if (trigger) hideTip();
         });
@@ -458,6 +525,139 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear error on typing and validate length
     const temaInput = document.getElementById('w-tema');
     const btnGenerate = document.getElementById('btn-generate');
+
+    // ── File Upload Logic ───────────────────────────────────────────────
+    const btnAttachFile = document.getElementById('btn-attach-file');
+    const fileUploadInput = document.getElementById('file-upload-input');
+    const attachmentPreviewContainer = document.getElementById('attachment-preview-container');
+
+    // Store files locally for submission
+    window._attachedFiles = [];
+
+    if (btnAttachFile && fileUploadInput) {
+        btnAttachFile.addEventListener('click', () => {
+            fileUploadInput.click();
+        });
+
+        fileUploadInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            const validFiles = [];
+            for (let f of files) {
+                if (f.size > 10 * 1024 * 1024) {
+                    const msg = window.__t('file_too_large', 'The file "{name}" is too large. Maximum size is 10MB.').replace('{name}', f.name);
+                    alert(msg);
+                    continue;
+                }
+                validFiles.push(f);
+            }
+
+            if (window._attachedFiles.length + validFiles.length > 3) {
+                alert(window.__t('max_files_reached', 'You can upload a maximum of 3 files per presentation.'));
+                validFiles.splice(3 - window._attachedFiles.length);
+            }
+
+            if (validFiles.length > 0) {
+                window._attachedFiles = window._attachedFiles.concat(validFiles);
+                fileUploadInput.value = '';
+                renderAttachmentChips();
+                validateGenerateButton();
+            } else {
+                fileUploadInput.value = '';
+            }
+        });
+    }
+
+    function renderAttachmentChips() {
+        if (!attachmentPreviewContainer) return;
+
+        if (typeof window._syncModeWithFiles === 'function') {
+            window._syncModeWithFiles();
+        }
+
+        // Revoke any existing object URLs to prevent memory leaks
+        const existingChips = attachmentPreviewContainer.querySelectorAll('.file-chip');
+        existingChips.forEach(c => {
+            if (c.dataset.objectUrl) URL.revokeObjectURL(c.dataset.objectUrl);
+        });
+
+        attachmentPreviewContainer.innerHTML = '';
+        if (window._attachedFiles.length === 0) {
+            attachmentPreviewContainer.classList.add('hidden');
+            return;
+        }
+
+        attachmentPreviewContainer.classList.remove('hidden');
+
+        window._attachedFiles.forEach((file, index) => {
+            const chip = document.createElement('div');
+            chip.className = 'file-chip';
+
+            let iconMarkup = '';
+            let isLucide = false;
+
+            if (file.type.startsWith('image/')) {
+                const objectUrl = URL.createObjectURL(file);
+                iconMarkup = `<img src="${objectUrl}" alt="preview" style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px; margin-right: 6px;">`;
+                chip.dataset.objectUrl = objectUrl;
+            } else if (file.type.includes('pdf') || file.name.endsWith('.pdf')) {
+                // PDF Acrobat red flat icon
+                iconMarkup = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" style="margin-right: 6px; flex-shrink: 0;"><path d="M4 2h10l6 6v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#E2231A"/><path d="M14 2v6h6z" fill="#B0150F"/><text x="11" y="16.5" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="6.2" font-weight="900" text-anchor="middle" letter-spacing="-0.3px">PDF</text></svg>`;
+            } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+                // DOCX Word blue flat icon
+                iconMarkup = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" style="margin-right: 6px; flex-shrink: 0;"><path d="M4 2h10l6 6v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#185ABD"/><path d="M14 2v6h6z" fill="#103F8A"/><text x="11" y="16.5" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="7.5" font-weight="900" text-anchor="middle">W</text></svg>`;
+            } else {
+                isLucide = true;
+                iconMarkup = `<i data-lucide="file-text" style="width: 18px; height: 18px; margin-right: 6px; color: var(--text-color);"></i>`;
+            }
+
+            // Limit name length
+            let displayName = file.name;
+            if (displayName.length > 20) {
+                displayName = displayName.substring(0, 17) + '...';
+            }
+
+            const nameSpan = document.createElement('span');
+            nameSpan.style.display = 'flex';
+            nameSpan.style.alignItems = 'center';
+            nameSpan.innerHTML = `${iconMarkup} <span>${displayName}</span>`;
+
+            if (isLucide) {
+                setTimeout(() => {
+                    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                        window.lucide.createIcons({ root: nameSpan });
+                    }
+                }, 0);
+            }
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'file-chip-remove';
+            removeBtn.setAttribute('aria-label', 'Remove file');
+            removeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
+            removeBtn.addEventListener('click', () => {
+                window._attachedFiles.splice(index, 1);
+                renderAttachmentChips();
+                validateGenerateButton();
+            });
+
+            chip.appendChild(nameSpan);
+            chip.appendChild(removeBtn);
+            attachmentPreviewContainer.appendChild(chip);
+        });
+    }
+
+    function validateGenerateButton() {
+        const val = temaInput ? temaInput.value.trim() : '';
+        // Allow generating if there's text OR if there are files attached
+        if (btnGenerate) {
+            btnGenerate.disabled = val.length < 4 && window._attachedFiles.length === 0;
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
 
     let warmedUp = false;
     temaInput.addEventListener('input', () => {
@@ -503,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
             temaError.classList.remove('visible');
         }
 
-        btnGenerate.disabled = val.trim().length < 4;
+        validateGenerateButton();
     });
 
     // Enter key to advance
@@ -516,14 +716,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Hide hero cursor on focus to avoid double-cursor visual overload (without layout shift)
+    if (temaInput) {
+        const heroCursor = document.querySelector('.hero-cursor');
+        if (heroCursor) {
+            // Check immediately on startup in case of browser autofocus
+            if (document.activeElement === temaInput) {
+                heroCursor.style.visibility = 'hidden';
+            }
+
+            temaInput.addEventListener('focus', () => {
+                heroCursor.style.visibility = 'hidden';
+            });
+            temaInput.addEventListener('blur', () => {
+                heroCursor.style.visibility = 'visible';
+            });
+        }
+    }
+
 
 
     // =========================================================
     // 5. GENERATE BUTTON
     // =========================================================
     const generateBtn = document.getElementById('btn-generate');
-    const sendIcon = document.getElementById('btn-icon-send');
-    const loaderIcon = document.getElementById('btn-icon-loader');
+
+
 
     // ── Button cycling message state ──────────────────────────────────────
     const BTN_LOADING_KEYS_DESKTOP = [
@@ -539,6 +757,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.MobileRuntime && typeof window.MobileRuntime.resolveLoadingKeys === 'function') {
             return window.MobileRuntime.resolveLoadingKeys(BTN_LOADING_KEYS_DESKTOP);
         }
+        if (window.innerWidth <= 768) {
+            return BTN_LOADING_KEYS_DESKTOP.map(key => key + '_mobile');
+        }
         return BTN_LOADING_KEYS_DESKTOP;
     }
 
@@ -546,25 +767,59 @@ document.addEventListener('DOMContentLoaded', () => {
         if (_btnMsgIndex >= _activeBtnLoadingKeys.length - 1) return;
         _btnMsgTimer = setTimeout(() => {
             _btnMsgIndex++;
-            const label = generateBtn.querySelector('.btn-generate-label');
-            if (label) {
-                const key = _activeBtnLoadingKeys[_btnMsgIndex];
-                const fallbackKey = BTN_LOADING_KEYS_DESKTOP[_btnMsgIndex] || 'gen_loading_final';
-                label.textContent = window.__t(key, window.__t(fallbackKey));
-            }
+            const key = _activeBtnLoadingKeys[_btnMsgIndex];
+            const fallbackKey = BTN_LOADING_KEYS_DESKTOP[_btnMsgIndex] || 'gen_loading_final';
+            const newText = window.__t(key, window.__t(fallbackKey));
+            animateHeroTitle(newText);
             _scheduleNextBtnMsg();
-        }, 1900);
+        }, 3000); // Increased interval slightly to account for animations
     }
 
+    function animateHeroTitle(newText) {
+        const heroTextSpan = document.querySelector('.hero-title-text');
+        const heroTitle = document.querySelector('.hero-title');
+        if (!heroTextSpan || !heroTitle) return;
+        const clean = newText.replace(/\.+$/, '').trimEnd();
+
+        if (window._heroTypewriterTimer) {
+            clearTimeout(window._heroTypewriterTimer);
+            window._heroTypewriterTimer = null;
+        }
+        if (window.gsap) window.gsap.killTweensOf(heroTitle);
+
+        // Fast fade out from right to left (moving left while fading)
+        gsap.to(heroTitle, {
+            x: -20,
+            opacity: 0,
+            duration: 0.45,
+            ease: "power2.in",
+            onComplete: () => {
+                heroTextSpan.textContent = '';
+                gsap.set(heroTitle, { x: 0, opacity: 1 });
+
+                // Manual typewriter effect
+                let i = 0;
+                function typeChar() {
+                    if (i < clean.length) {
+                        heroTextSpan.textContent += clean.charAt(i);
+                        i++;
+                        window._heroTypewriterTimer = setTimeout(typeChar, 28);
+                    }
+                }
+                typeChar();
+            }
+        });
+    }
+
+    let _heroResetTimer = null;
     function startBtnMessages() {
+        if (_heroResetTimer) { clearTimeout(_heroResetTimer); _heroResetTimer = null; }
         _activeBtnLoadingKeys = _resolveBtnLoadingKeys();
         _btnMsgIndex = 0;
         _btnMsgTimer = null;
-        const label = generateBtn.querySelector('.btn-generate-label');
-        if (label) {
-            const key = _activeBtnLoadingKeys[0];
-            label.textContent = window.__t(key, window.__t(BTN_LOADING_KEYS_DESKTOP[0]));
-        }
+        const key = _activeBtnLoadingKeys[0];
+        const newText = window.__t(key, window.__t(BTN_LOADING_KEYS_DESKTOP[0]));
+        animateHeroTitle(newText);
         _scheduleNextBtnMsg();
     }
 
@@ -579,8 +834,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function stopBtnMessages() {
         pauseBtnMessages();
         _btnMsgIndex = 0;
-        const label = generateBtn.querySelector('.btn-generate-label');
-        if (label) label.textContent = window.__t('generate_presentation', 'Generate presentation');
+        if (_heroResetTimer) clearTimeout(_heroResetTimer);
+        _heroResetTimer = setTimeout(() => {
+            animateHeroTitle(window.__t('hero_line_1', 'Got a spicy idea?'));
+            _heroResetTimer = null;
+        }, 3000);
     }
     // ─────────────────────────────────────────────────────────────────────
 
@@ -593,9 +851,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isLoading) {
             temaInput.disabled = true;
             generateBtn.disabled = true;
-            modeToggleBtn.disabled = true;  // Disable mode toggle during generation
-            if (sendIcon) sendIcon.classList.add('hidden');
-            if (loaderIcon) loaderIcon.classList.remove('hidden');
+            if (typeof modeBtn !== 'undefined' && modeBtn) modeBtn.disabled = true;
+            if (typeof langBtn !== 'undefined' && langBtn) langBtn.disabled = true;
+
+
             stopTypewriter();
             startBtnMessages();
 
@@ -603,10 +862,10 @@ document.addEventListener('DOMContentLoaded', () => {
             editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = true; });
         } else {
             temaInput.disabled = false;
-            generateBtn.disabled = temaInput.value.trim().length < 4;
-            modeToggleBtn.disabled = false;  // Enable mode toggle after generation
-            if (sendIcon) sendIcon.classList.remove('hidden');
-            if (loaderIcon) loaderIcon.classList.add('hidden');
+            if (typeof validateGenerateButton === 'function') validateGenerateButton();
+            if (typeof modeBtn !== 'undefined' && modeBtn) { if (!window._attachedFiles || window._attachedFiles.length === 0) modeBtn.disabled = false; }
+            if (typeof langBtn !== 'undefined' && langBtn) langBtn.disabled = false;
+
             if (typewriterCursor) typewriterCursor.style.display = '';
             stopBtnMessages();
 
@@ -714,9 +973,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 _editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
                 const dbgStage = document.getElementById('preview-stage');
                 if (dbgStage) {
-                    dbgStage.style.paddingLeft   = '165px';
-                    dbgStage.style.paddingRight  = '30px';
-                    dbgStage.style.paddingTop    = '64px';
+                    dbgStage.style.paddingLeft = '165px';
+                    dbgStage.style.paddingRight = '30px';
+                    dbgStage.style.paddingTop = '64px';
                     dbgStage.style.paddingBottom = '64px';
                 }
             }
@@ -795,7 +1054,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // The prompt handles extraction of: slide count, metadata, style, colors, language, etc.
         const requestData = {
             tema: tema,
-            ...(proModeEnabled ? { mode: 'pro' } : {})
+            ...(proModeEnabled ? { mode: 'pro' } : {}),
+            ...(targetLanguage !== 'auto' ? { language: targetLanguage } : {})
         };
 
         toggleGenerateLoading(true);
@@ -893,10 +1153,26 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const controller = new AbortController();
             _activeGenController = controller;
+            let bodyData;
+            let headers = {};
+            if (window._attachedFiles && window._attachedFiles.length > 0) {
+                const formData = new FormData();
+                formData.append('tema', requestData.tema);
+                if (requestData.mode) formData.append('mode', requestData.mode);
+                if (requestData.idioma) formData.append('idioma', requestData.idioma);
+                if (requestData.slides) formData.append('slides', requestData.slides);
+
+                window._attachedFiles.forEach(f => formData.append('files', f));
+                bodyData = formData;
+            } else {
+                headers['Content-Type'] = 'application/json';
+                bodyData = JSON.stringify(requestData);
+            }
+
             const response = await fetch('/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestData),
+                headers: headers,
+                body: bodyData,
                 signal: controller.signal
             });
 
@@ -1114,15 +1390,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Wait a tiny bit for the fade to start
             await new Promise(r => setTimeout(r, 100));
 
-                // Reset init flags so setupPreviewInteractions reinits minimap+tools with new content.
-                // We still clone here even on soft-regen: by this point streaming is finished, so
-                // replacing the iframe does not disturb the surrounding editor chrome, and it gives
-                // editor.js a fresh window so its one-time guards don't block re-initialization.
+            // Reset init flags so setupPreviewInteractions reinits minimap+tools with new content.
+            // We still clone here even on soft-regen: by this point streaming is finished, so
+            // replacing the iframe does not disturb the surrounding editor chrome, and it gives
+            // editor.js a fresh window so its one-time guards don't block re-initialization.
             minimapAlreadyInit = false;
             toolsAlreadyInit = false;
-                const rawIframe = previewIframe.cloneNode();
-                previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
-                previewIframe = rawIframe;
+            const rawIframe = previewIframe.cloneNode();
+            previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
+            previewIframe = rawIframe;
 
             initPreview(generatedHtml, () => {
                 // Restore visibility only after setup is truly complete
@@ -1142,10 +1418,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     // No inline styles are set on the stage element — no CSS fights.
                     if (window.gsap && window.innerWidth > 768) {
                         _settlingAnimation = window.gsap.to(_editorInsets, {
-                            left:   165,
-                            right:   30,
-                            top:     64,
-                            bottom:  64,
+                            left: 165,
+                            right: 30,
+                            top: 64,
+                            bottom: 64,
                             duration: 1.2,
                             ease: "expo.out",
                             onUpdate: () => {
@@ -1154,9 +1430,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // on the scrollable means no overflow-clipping bug.
                                 const stageEl = document.getElementById('preview-stage');
                                 if (stageEl) {
-                                    stageEl.style.paddingLeft   = `${_editorInsets.left}px`;
-                                    stageEl.style.paddingRight  = `${_editorInsets.right}px`;
-                                    stageEl.style.paddingTop    = `${_editorInsets.top}px`;
+                                    stageEl.style.paddingLeft = `${_editorInsets.left}px`;
+                                    stageEl.style.paddingRight = `${_editorInsets.right}px`;
+                                    stageEl.style.paddingTop = `${_editorInsets.top}px`;
                                     stageEl.style.paddingBottom = `${_editorInsets.bottom}px`;
                                 }
                                 scaleIframe();
@@ -1175,14 +1451,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             _editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
                             const fallbackStage = document.getElementById('preview-stage');
                             if (fallbackStage) {
-                                fallbackStage.style.paddingLeft   = '165px';
-                                fallbackStage.style.paddingRight  = '30px';
-                                fallbackStage.style.paddingTop    = '64px';
+                                fallbackStage.style.paddingLeft = '165px';
+                                fallbackStage.style.paddingRight = '30px';
+                                fallbackStage.style.paddingTop = '64px';
                                 fallbackStage.style.paddingBottom = '64px';
                             }
                         }
                         if (previewHeader) previewHeader.classList.add('slide-down');
-                        
+
                         // Force immediate scale calculation for mobile/Safari to avoid black-out state
                         scaleIframe();
                         setTimeout(() => { showFloatingPills(); scaleIframe(); }, 800);
@@ -1385,7 +1661,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         previewIframe.style.willChange = '';
                     });
                 });
-            } catch (e) {}
+            } catch (e) { }
 
             setupPreviewInteractions();
             if (typeof callback === 'function') callback();
@@ -1453,7 +1729,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // could fire our handler 300ms later on an empty document, setting
             // setupDone=true and permanently locking out the real setup.
             doc.open();
-            
+
             // On some versions of Safari iOS, setting onload after doc.open can be flaky.
             // We use a combination of onload and an immediate next-tick check.
             const onIframeLoad = () => {
@@ -1463,7 +1739,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             previewIframe.onload = onIframeLoad;
-            
+
             doc.write('<!DOCTYPE html>' + html);
             doc.close();
 
@@ -1997,8 +2273,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // _editorInsets is {0,0,0,0} during streaming and is tweened by GSAP
             // during the settling animation so scaleIframe always gets the right values.
-            const L = _editorInsets.left,  R = _editorInsets.right;
-            const T = _editorInsets.top,   B = _editorInsets.bottom;
+            const L = _editorInsets.left, R = _editorInsets.right;
+            const T = _editorInsets.top, B = _editorInsets.bottom;
             const isStreamingState = previewContainer.classList.contains('is-generating') || previewContainer.classList.contains('is-settling');
             // Keep strict fit while streaming and in mobile layout, but allow
             // desktop zoom controls after returning from a mobile-width session.
@@ -2024,9 +2300,9 @@ document.addEventListener('DOMContentLoaded', () => {
             availableWidth = Math.max(1, availableWidth - FIT_GUARD_PX);
             availableHeight = Math.max(1, availableHeight - FIT_GUARD_PX);
 
-            const fitScaleX = availableWidth  / iframeNativeWidth;
+            const fitScaleX = availableWidth / iframeNativeWidth;
             const fitScaleY = availableHeight / iframeNativeHeight;
-            const fitScale  = Math.min(fitScaleX, fitScaleY);
+            const fitScale = Math.min(fitScaleX, fitScaleY);
 
             // During streaming the manual zoom must NOT apply — the slide should
             // fill the full viewport with no panels in the way.
@@ -3226,3 +3502,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Scroll is now native; no custom scroll-loop system
 });
+
+// -- Suggestion Pills Logic ---------------------------------------------------
+document.querySelectorAll('.suggestion-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+        const temaInput = document.getElementById('w-tema');
+        if (temaInput) {
+            const key = pill.dataset.topicKey;
+            temaInput.value = key ? window.__t(key, pill.dataset.topic || '') : (pill.dataset.topic || '');
+            temaInput.focus();
+            const event = new Event('input', { bubbles: true });
+            temaInput.dispatchEvent(event);
+        }
+    });
+});
+
+
+
+
+

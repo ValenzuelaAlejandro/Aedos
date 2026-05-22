@@ -86,36 +86,97 @@
         <div class="chat-container">
             <!-- App Header -->
             <div class="app-header">
-                <h1 class="hero-title hero-title-single" data-i18n="hero_line_1">Got a spicy idea?</h1>
+                <h1 class="hero-title hero-title-single"><span class="hero-title-text" data-i18n="hero_line_1">Got a spicy idea?</span><span class="hero-cursor" aria-hidden="true">|</span></h1>
             </div>
 
             <!-- Chat Input Area -->
-            <div class="chat-input-wrapper">
+            <div class="chat-input-wrapper synapse-style">
                 <div class="chat-input-container">
                     <textarea id="w-tema" class="chat-input" autocomplete="off" autofocus rows="1" maxlength="600"
-                        aria-label="Presentation topic" placeholder="Describe your presentation topic..."></textarea>
+                        aria-label="Presentation topic" data-i18n-placeholder="chat_placeholder" placeholder="Describe tu presentación soñada..."></textarea>
                 </div>
+                <div id="attachment-preview-container" class="attachment-preview-container hidden"></div>
                 <div class="chat-actions">
-                    <button type="button" id="btn-debug-last-generated" class="btn-secondary btn-debug-last-generated" hidden>
-                        Debug canvas
-                    </button>
-                    <button type="button" id="btn-mode-toggle" class="btn-mode-toggle mode-pill-toggle" aria-pressed="false"
-                        data-tooltip="">
-                        <div class="toggle-track">
-                            <div class="toggle-thumb"></div>
+                    <div class="chat-actions-left">
+                        <!-- Mode Selector Dropdown -->
+                        <div class="dropdown-container">
+                            <button type="button" id="btn-mode-dropdown" class="action-pill-btn btn-mode-toggle" aria-expanded="false">
+                                <span class="btn-mode-label" id="current-mode-label" data-i18n="mode_flash_title">Fast Mode</span>
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                            <div class="dropdown-menu hidden" id="mode-dropdown-menu">
+                                <button type="button" class="dropdown-item active" data-mode="flash">
+                                    <div class="dropdown-item-title" data-i18n="mode_flash_title">Fast Mode</div>
+                                    <div class="dropdown-item-desc" data-i18n="mode_flash_desc">~20s • Instant draft</div>
+                                </button>
+                                <button type="button" class="dropdown-item" data-mode="pro">
+                                    <div class="dropdown-item-title" data-i18n="mode_pro_title">High Quality</div>
+                                    <div class="dropdown-item-desc" data-i18n="mode_pro_desc">~2m • Best design</div>
+                                </button>
+                            </div>
                         </div>
-                        <span class="btn-mode-label" data-i18n="mode_label_pro">High Quality</span>
-                    </button>
-                    <button class="btn-generate-chat" id="btn-generate" disabled>
-                        <span class="btn-generate-label" data-i18n="generate_presentation">Generate presentation</span>
-                        <svg id="btn-icon-loader" class="loader-icon hidden" viewBox="0 0 24 24" width="20" height="20"
-                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                            stroke-linejoin="round">
-                            <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
-                        </svg>
-                    </button>
+
+                        <!-- Language Selector Dropdown -->
+                        <div class="dropdown-container">
+                            <button type="button" id="btn-lang-dropdown" class="action-pill-btn" aria-expanded="false" data-i18n-title="output_language">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                                <span id="current-lang-label">Auto</span>
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                            <div class="dropdown-menu hidden" id="lang-dropdown-menu">
+                                <button type="button" class="dropdown-item active" data-lang="auto" data-i18n="lang_auto">Auto-detect</button>
+                                <button type="button" class="dropdown-item" data-lang="en">English</button>
+                                <button type="button" class="dropdown-item" data-lang="es">Español</button>
+                                <button type="button" class="dropdown-item" data-lang="fr">Français</button>
+                                <button type="button" class="dropdown-item" data-lang="de">Deutsch</button>
+                                <button type="button" class="dropdown-item" data-lang="it">Italiano</button>
+                                <button type="button" class="dropdown-item" data-lang="pt">Português</button>
+                                <button type="button" class="dropdown-item" data-lang="zh">中文</button>
+                                <button type="button" class="dropdown-item" data-lang="ja">日本語</button>
+                                <button type="button" class="dropdown-item" data-lang="ru">Русский</button>
+                                <button type="button" class="dropdown-item" data-lang="ar">العربية</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-actions-right">
+                        <input type="file" id="file-upload-input" accept=".pdf,.doc,.docx,image/png,image/jpeg,image/webp" style="display: none;" multiple />
+                        <button type="button" id="btn-attach-file" class="action-icon-btn" data-i18n-title="attach_files">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                            </svg>
+                        </button>
+                        
+                        <button class="btn-generate-submit" id="btn-generate" disabled aria-label="Generate presentation">
+                            <svg class="send-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            <!-- Suggestion Pills -->
+            <div class="suggestion-pills-row">
+                <button type="button" class="suggestion-pill" data-topic-key="pill_topic_technology">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <span data-i18n="pill_technology">Technology</span>
+                </button>
+                <button type="button" class="suggestion-pill" data-topic-key="pill_topic_business">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    <span data-i18n="pill_business">Business</span>
+                </button>
+                <button type="button" class="suggestion-pill" data-topic-key="pill_topic_art">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                    <span data-i18n="pill_art">Art &amp; History</span>
+                </button>
+                <button type="button" class="suggestion-pill" data-topic-key="pill_topic_science">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.54 15H17a2 2 0 0 0-2 2v4.54"/><path d="M7 3.34V5a3 3 0 0 0 3 3v0a2 2 0 0 1 2 2v0c0 1.1.9 2 2 2v0a2 2 0 0 0 2-2v0c0-1.1.9-2 2-2h1.66"/><path d="M11 21.95V18a2 2 0 0 0-2-2v0a2 2 0 0 1-2-2v-1c0-1.1.9-2 2-2h.05"/><circle cx="12" cy="12" r="10"/></svg>
+                    <span data-i18n="pill_science">Science</span>
+                </button>
+                <button type="button" class="suggestion-pill" data-topic-key="pill_topic_startup">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    <span data-i18n="pill_startup">Startup Pitch</span>
+                </button>
+            </div>
+
             <div class="chat-counter-row">
                 <span id="char-counter">0/600</span>
             </div>

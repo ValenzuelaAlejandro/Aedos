@@ -10,11 +10,14 @@
     "postinstall": "PUPPETEER_CACHE_DIR=./puppeteer-cache npx puppeteer install && find ./puppeteer-cache -type f -name 'chrome*' ! -name '*.zip' -exec chmod +x {} + 2>/dev/null || true"
   },
   "dependencies": {
+    "@google/genai": "^2.6.0",
     "@upstash/redis": "^1.37.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
+    "mammoth": "^1.12.0",
     "motion": "^12.35.1",
+    "multer": "^2.1.1",
     "puppeteer": "^24.39.1"
   },
   "engines": {

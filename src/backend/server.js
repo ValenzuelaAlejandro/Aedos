@@ -11,6 +11,16 @@ const { execSync } = require('child_process');
 process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '..', '..', 'puppeteer-cache');
 
 const puppeteer = require('puppeteer');
+const multer = require('multer');
+const upload = multer({ 
+    dest: path.join(__dirname, '..', '..', 'tmp'),
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max per file
+        files: 3 // Max 3 files per request
+    }
+});
+const mammoth = require('mammoth');
+
 const { runPipeline, buildLegacyPrompt } = require('./prompts/pipeline');
 const buildPrompt = require('./prompts/base'); // kept for fallback
 
@@ -185,7 +195,7 @@ const OPENROUTER_MODELS_STAGE2 = parseModelList(
 );
 const OPENROUTER_MODELS_STAGE3 = parseModelList(
     process.env.OPENROUTER_MODELS_STAGE3,
-    'minimax/minimax-m2.7'
+    'google/gemini-3-flash-preview'
 );
 
 const OPENROUTER_MODEL_LIST = OPENROUTER_MODELS_FLASH;
@@ -551,11 +561,18 @@ async function* openRouterSSEToChunks(response) {
     }
 }
 
-async function callOpenRouter(prompt, stageName, openrouterModels) {
+async function callOpenRouter(prompt, stageName, openrouterModels, fileContext = null) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) throw new Error('QUOTA_EXHAUSTED'); // no key → surface original error
 
     const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
+
+    let messagesContent;
+    if (fileContext && Array.isArray(fileContext)) {
+        messagesContent = [...fileContext, { type: 'text', text: promptText }];
+    } else {
+        messagesContent = promptText;
+    }
 
     // Allow callers to override the global OPENROUTER_MODEL_LIST by providing
     // an explicit `openrouterModels` array. Fall back to the global list.
@@ -598,7 +615,7 @@ async function callOpenRouter(prompt, stageName, openrouterModels) {
                 },
                 body: JSON.stringify({
                     model,
-                    messages: [{ role: 'user', content: promptText }],
+                    messages: [{ role: 'user', content: messagesContent }],
                     stream: true
                 })
             });
@@ -637,8 +654,8 @@ async function callOpenRouter(prompt, stageName, openrouterModels) {
  * Builds a caller that tries OpenRouter models in order.
  */
 function makeCallerFn(stageName, modelList) {
-    return async function (prompt) {
-        return await callOpenRouter(prompt, stageName, modelList);
+    return async function (prompt, fileContext = null) {
+        return await callOpenRouter(prompt, stageName, modelList, fileContext);
     };
 }
 
@@ -919,7 +936,7 @@ function sanitizeTema(input) {
     return { valid: true, tema: cleanedString };
 }
 
-app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
+app.post('/generate', upload.array('files', 5), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     let cancelled = false;
     let completed = false;
     let sseKeepAlive = null;
@@ -940,7 +957,7 @@ app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, c
         log.info(ErrorCategory.PIPELINE, 'Generation request accepted', {
             requestId,
             mode: req.body.mode === 'pro' ? 'pro' : 'flash',
-            idioma: req.body.idioma || 'es',
+            idioma: req.body.idioma || 'en',
             requestedSlides: req.body.slides
         });
 
@@ -954,6 +971,8 @@ app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, c
             return res.status(400).json({ error: `Invalid topic: ${sanitizeResult.reason}` });
         }
 
+        const targetLang = req.body.idioma || 'en';
+        opciones.targetLanguage = targetLang;
         opciones.tema = sanitizeResult.tema;
 
         // Flash mode (single-prompt, default) vs Pro mode (3-stage pipeline)
@@ -996,11 +1015,11 @@ app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, c
             });
         }
 
-        if (!process.env.OPENROUTER_API_KEY) {
-            log.error(ErrorCategory.CONFIG, 'Generation blocked: OpenRouter key missing', {
+        if (!process.env.OPENROUTER_API_KEY && !process.env.GEMINI_API_KEY) {
+            log.error(ErrorCategory.CONFIG, 'Generation blocked: OpenRouter/Gemini key missing', {
                 requestId
             });
-            return res.status(500).json({ error: 'OpenRouter API Key is not configured in .env' });
+            return res.status(500).json({ error: 'API Key is not configured in .env' });
         }
 
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -1097,11 +1116,52 @@ app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, c
 
         // Choose generation path: Flash (single-prompt) or Pro (3-stage pipeline)
         let result;
+        let fileContext = null;
+
+        if (req.files && req.files.length > 0) {
+            fileContext = [];
+            for (const file of req.files) {
+                try {
+                    // Extract text from DOCX directly
+                    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.originalname.endsWith('.docx')) {
+                        const result = await mammoth.extractRawText({ path: file.path });
+                        fileContext.push({
+                            type: 'text',
+                            text: `Content from ${file.originalname}:\n\n${result.value}`
+                        });
+                        continue;
+                    }
+
+                    const fileData = fs.readFileSync(file.path);
+                    const base64Data = fileData.toString('base64');
+                    const dataUrl = `data:${file.mimetype};base64,${base64Data}`;
+                    
+                    if (file.mimetype.startsWith('image/')) {
+                        fileContext.push({
+                            type: 'image_url',
+                            image_url: { url: dataUrl }
+                        });
+                    } else {
+                        // OpenRouter uses 'file' type for documents
+                        fileContext.push({
+                            type: 'file',
+                            file_url: { url: dataUrl }
+                        });
+                    }
+                } catch (e) {
+                    log.warn(ErrorCategory.FILESYSTEM, 'Failed to read uploaded file', { error: e.message });
+                } finally {
+                    fs.unlink(file.path, () => {});
+                }
+            }
+            log.info(ErrorCategory.PIPELINE, 'Parsed files for OpenRouter base64 transmission', { requestId, count: fileContext.length });
+        }
+
         if (!usePipeline) {
             // Flash mode — single-prompt path (default)
             const prompt = buildPrompt(opciones);
             log.info(ErrorCategory.PIPELINE, 'Running flash generation path', { requestId });
-            result = await tryModels(prompt);
+            result = await tryModels(prompt, fileContext);
         } else {
             // Pro mode — 3-Stage Pipeline: Content → Design → HTML
             log.info(ErrorCategory.PIPELINE, 'Running pro pipeline path', { requestId });
@@ -1109,6 +1169,8 @@ app.post('/generate', express.json({ limit: '8kb' }), checkGenerationPressure, c
 
             const pipelineResult = await runPipeline({
                 rawInput: opciones.tema,
+                targetLanguage: targetLang,
+                fileContext: fileContext,
                 maxSlides: slideHardLimit,
                 tryModelsStage1,
                 tryModelsStage2,
