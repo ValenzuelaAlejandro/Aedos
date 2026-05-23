@@ -735,8 +735,6 @@
     color: #ff5b5b;
 }
 
-:root[data-theme="light"] .attachment-preview-container {
-}
 :root[data-theme="light"] .file-chip {
     background: rgba(0,0,0,0.04);
     border-color: rgba(0,0,0,0.1);
