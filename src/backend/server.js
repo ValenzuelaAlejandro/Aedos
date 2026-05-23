@@ -570,9 +570,15 @@ function resolveUniqueHtmlPath(dirPath, stem) {
  *                  { type: 'text', text: '...' }
  * Gemini native uses: { text: '...' }
  *                     { inlineData: { mimeType, data: base64 } }
+ *
+ * Supported inlineData mimeTypes by Gemini: image/*, application/pdf
+ * DOCX/DOC are pre-converted to plain text by mammoth before reaching here.
  */
 function toGeminiParts(promptText, fileContext) {
     const parts = [];
+
+    // Gemini inlineData supports these document MIME types natively
+    const GEMINI_SUPPORTED_DOC_MIMES = new Set(['application/pdf']);
 
     if (Array.isArray(fileContext)) {
         for (const item of fileContext) {
@@ -588,7 +594,14 @@ function toGeminiParts(promptText, fileContext) {
                 const dataUrl = item.file_url.url;
                 const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
                 if (match) {
-                    parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+                    const mimeType = match[1];
+                    // Only pass document types that Gemini natively supports as inlineData.
+                    // Other document types (e.g. .doc) should have been converted to text by mammoth.
+                    if (mimeType.startsWith('image/') || GEMINI_SUPPORTED_DOC_MIMES.has(mimeType)) {
+                        parts.push({ inlineData: { mimeType, data: match[2] } });
+                    } else {
+                        providerLog.warn(ErrorCategory.PROVIDER, 'Skipping unsupported inlineData mime for Gemini', { mimeType });
+                    }
                 }
             }
         }
@@ -626,9 +639,16 @@ async function callGeminiDirect(prompt, stageName, geminiModel, fileContext = nu
     const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
     const parts = toGeminiParts(promptText, fileContext);
 
+    const inlineDataCount = parts.filter(p => p.inlineData).length;
+    const textCount = parts.filter(p => p.text).length;
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
-    providerLog.info(ErrorCategory.PROVIDER, 'Trying Gemini direct model', { stage: stageName, model: geminiModel });
+    providerLog.info(ErrorCategory.PROVIDER, 'Trying Gemini direct model', {
+        stage: stageName,
+        model: geminiModel,
+        parts: { text: textCount, inlineData: inlineDataCount }
+    });
 
     const response = await fetch(url, {
         method: 'POST',
@@ -638,11 +658,17 @@ async function callGeminiDirect(prompt, stageName, geminiModel, fileContext = nu
 
     if (!response.ok) {
         const errText = await response.text();
-        providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct request failed', {
+        // Parse error details from Gemini response body for clearer logs
+        let errReason = errText;
+        try {
+            const errJson = JSON.parse(errText);
+            errReason = errJson?.error?.message || errText;
+        } catch (_) {}
+        providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct request failed — will fall back to OpenRouter', {
             stage: stageName,
             model: geminiModel,
             status: response.status,
-            details: errText
+            reason: errReason.substring(0, 300)
         });
         throw new Error(`GEMINI_HTTP_${response.status}`);
     }
@@ -1086,10 +1112,12 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '8kb' }), 
 
     try {
         const opciones = req.body;
+        const requestedLanguage = req.body.language || req.body.idioma || 'auto';
+        
         log.info(ErrorCategory.PIPELINE, 'Generation request accepted', {
             requestId,
             mode: req.body.mode === 'pro' ? 'pro' : 'flash',
-            idioma: req.body.idioma || 'en',
+            idioma: requestedLanguage,
             requestedSlides: req.body.slides
         });
 
@@ -1103,7 +1131,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '8kb' }), 
             return res.status(400).json({ error: `Invalid topic: ${sanitizeResult.reason}` });
         }
 
-        const targetLang = req.body.idioma || 'en';
+        const targetLang = requestedLanguage;
         opciones.targetLanguage = targetLang;
         opciones.tema = sanitizeResult.tema;
 
@@ -1252,41 +1280,73 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '8kb' }), 
 
         if (req.files && req.files.length > 0) {
             fileContext = [];
+
+            // MIME type map — multer may report 'application/octet-stream' for some
+            // file types, which Gemini's API would reject. Resolve from extension instead.
+            const MIME_BY_EXT = {
+                '.pdf':  'application/pdf',
+                '.doc':  'application/msword',
+                '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                '.png':  'image/png',
+                '.jpg':  'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.webp': 'image/webp'
+            };
+
             for (const file of req.files) {
                 try {
-                    // Extract text from DOCX directly
-                    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.originalname.endsWith('.docx')) {
-                        const result = await mammoth.extractRawText({ path: file.path });
+                    const ext = path.extname(file.originalname).toLowerCase();
+                    const mimeType = MIME_BY_EXT[ext] || file.mimetype;
+
+                    // Extract text from DOCX/DOC via mammoth (text works across all providers)
+                    if (ext === '.docx' || ext === '.doc') {
+                        const extracted = await mammoth.extractRawText({ path: file.path });
                         fileContext.push({
                             type: 'text',
-                            text: `Content from ${file.originalname}:\n\n${result.value}`
+                            text: `Content from ${file.originalname}:\n\n${extracted.value}`
+                        });
+                        log.info(ErrorCategory.PIPELINE, 'Extracted DOCX as text via mammoth', {
+                            requestId,
+                            file: file.originalname,
+                            chars: extracted.value.length
                         });
                         continue;
                     }
 
                     const fileData = fs.readFileSync(file.path);
                     const base64Data = fileData.toString('base64');
-                    const dataUrl = `data:${file.mimetype};base64,${base64Data}`;
+                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-                    if (file.mimetype.startsWith('image/')) {
+                    if (mimeType.startsWith('image/')) {
                         fileContext.push({
                             type: 'image_url',
                             image_url: { url: dataUrl }
                         });
                     } else {
-                        // OpenRouter uses 'file' type for documents
+                        // For PDFs: Gemini supports inlineData with application/pdf
+                        // OpenRouter uses 'file' type — the dataUrl format works for both
                         fileContext.push({
                             type: 'file',
                             file_url: { url: dataUrl }
                         });
                     }
+                    log.info(ErrorCategory.PIPELINE, 'File encoded as base64', {
+                        requestId,
+                        file: file.originalname,
+                        mimeType,
+                        sizeKB: Math.round(fileData.length / 1024)
+                    });
                 } catch (e) {
-                    log.warn(ErrorCategory.FILESYSTEM, 'Failed to read uploaded file', { error: e.message });
+                    log.warn(ErrorCategory.FILESYSTEM, 'Failed to read uploaded file', {
+                        requestId,
+                        file: file.originalname,
+                        error: e.message
+                    });
                 } finally {
                     fs.unlink(file.path, () => { });
                 }
             }
-            log.info(ErrorCategory.PIPELINE, 'Parsed files for OpenRouter base64 transmission', { requestId, count: fileContext.length });
+            log.info(ErrorCategory.PIPELINE, 'File context ready for generation', { requestId, count: fileContext.length });
         }
 
         if (!usePipeline) {

@@ -491,7 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Event delegation — works for all 3 tooltip triggers
         document.addEventListener('mouseover', function (e) {
             const trigger = e.target.closest('[data-tooltip]');
-            if (trigger && trigger.dataset.tooltip) showTip(trigger);
+            if (trigger && trigger.dataset.tooltip && !trigger.disabled) showTip(trigger);
         });
 
         document.addEventListener('mouseout', function (e) {
@@ -586,6 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('dragenter', (e) => {
             e.preventDefault();
+            if (btnAttachFile && btnAttachFile.disabled) return;
             if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
 
             dragCounter++;
@@ -611,6 +612,8 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             dragCounter = 0;
             if (dragDropOverlay) dragDropOverlay.classList.add('hidden');
+
+            if (btnAttachFile && btnAttachFile.disabled) return;
 
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 const files = Array.from(e.dataTransfer.files);
@@ -903,10 +906,12 @@ document.addEventListener('DOMContentLoaded', () => {
             generateBtn.disabled = true;
             if (typeof modeBtn !== 'undefined' && modeBtn) modeBtn.disabled = true;
             if (typeof langBtn !== 'undefined' && langBtn) langBtn.disabled = true;
-
+            if (typeof btnAttachFile !== 'undefined' && btnAttachFile) btnAttachFile.disabled = true;
 
             stopTypewriter();
             startBtnMessages();
+
+            document.querySelectorAll('.suggestion-pill, .file-chip-remove').forEach(el => el.disabled = true);
 
             // Disable editor buttons/controls during generation
             editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = true; });
@@ -915,9 +920,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof validateGenerateButton === 'function') validateGenerateButton();
             if (typeof modeBtn !== 'undefined' && modeBtn) { if (!window._attachedFiles || window._attachedFiles.length === 0) modeBtn.disabled = false; }
             if (typeof langBtn !== 'undefined' && langBtn) langBtn.disabled = false;
+            if (typeof btnAttachFile !== 'undefined' && btnAttachFile) btnAttachFile.disabled = false;
 
             if (typewriterCursor) typewriterCursor.style.display = '';
             stopBtnMessages();
+
+            document.querySelectorAll('.suggestion-pill, .file-chip-remove').forEach(el => el.disabled = false);
 
             // Enable editor buttons/controls after generation (or error)
             editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = false; });
@@ -1093,17 +1101,20 @@ document.addEventListener('DOMContentLoaded', () => {
         currentSlide = 0;
         totalSlides = 0;
         const tema = temaInput.value.trim();
-        if (!tema) {
+        const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
+        if (!tema && !hasFiles) {
             temaError.classList.add('visible');
             temaInput.focus();
             return;
         }
         temaError.classList.remove('visible');
+        
+        const finalTema = tema || (hasFiles ? (window.__t ? window.__t('default_document_prompt', 'Analyze this document and create a presentation') : 'Analyze this document and create a presentation') : '');
 
         // Everything the AI needs comes from the raw chat text.
         // The prompt handles extraction of: slide count, metadata, style, colors, language, etc.
         const requestData = {
-            tema: tema,
+            tema: finalTema,
             ...(proModeEnabled ? { mode: 'pro' } : {}),
             ...(targetLanguage !== 'auto' ? { language: targetLanguage } : {})
         };
@@ -1291,15 +1302,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Pipeline stage progress events
                         if (parsed.pipeline) {
                             pauseBtnMessages();
+                            const stageI18nKeys = {
+                                content: 'stage_content',
+                                design: 'stage_design',
+                                compositing: 'stage_compositing'
+                            };
+                            const stageFallbacks = {
+                                content: 'Analyzing content...',
+                                design: 'Resolving design...',
+                                compositing: 'Composing slides...'
+                            };
+                            const i18nKey = stageI18nKeys[parsed.stage];
+                            const stageText = i18nKey
+                                ? (window.__t ? window.__t(i18nKey, stageFallbacks[parsed.stage]) : stageFallbacks[parsed.stage])
+                                : parsed.stage;
+                            // Update hero title animation
+                            if (typeof animateHeroTitle === 'function') animateHeroTitle(stageText);
+                            // Also update button label
                             const label = generateBtn.querySelector('.btn-generate-label');
-                            if (label) {
-                                const stageLabels = {
-                                    content: window.__t ? window.__t("stage_content", "Analyzing content...") : "Analyzing content...",
-                                    design: window.__t ? window.__t("stage_design", "Resolving design...") : "Resolving design...",
-                                    compositing: window.__t ? window.__t("stage_compositing", "Composing slides...") : "Composing slides..."
-                                };
-                                label.textContent = stageLabels[parsed.stage] || parsed.stage;
-                            }
+                            if (label) label.textContent = stageText;
                             continue;
                         }
 
