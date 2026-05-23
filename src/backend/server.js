@@ -180,18 +180,18 @@ function parseModelList(rawValue, fallbackCsv) {
         .filter(Boolean);
 }
 
-// Model lists ordered from .env
+// OpenRouter fallback model lists (read from .env)
 const OPENROUTER_MODELS_FLASH = parseModelList(
     process.env.OPENROUTER_MODELS_FLASH,
-    'qwen/qwen3.5-flash-02-23'
+    'google/gemini-2.5-flash-lite'
 );
 const OPENROUTER_MODELS_STAGE1 = parseModelList(
     process.env.OPENROUTER_MODELS_STAGE1,
-    'qwen/qwen3.5-flash-02-23'
+    'google/gemini-2.5-flash-lite'
 );
 const OPENROUTER_MODELS_STAGE2 = parseModelList(
     process.env.OPENROUTER_MODELS_STAGE2,
-    'qwen/qwen3.5-flash-02-23'
+    'google/gemini-2.5-flash-lite'
 );
 const OPENROUTER_MODELS_STAGE3 = parseModelList(
     process.env.OPENROUTER_MODELS_STAGE3,
@@ -205,6 +205,12 @@ const OPENROUTER_MODELS_STAGE3_ONLY = parseModelList(
     process.env.OPENROUTER_MODELS_STAGE3_ONLY,
     ''
 ).map(model => String(model).trim().toLowerCase());
+
+// Gemini direct API primary models (read from .env)
+const GEMINI_MODEL_FLASH  = (process.env.GEMINI_MODELS_FLASH  || 'gemini-3-flash-preview').trim();
+const GEMINI_MODEL_STAGE1 = (process.env.GEMINI_MODELS_STAGE1 || 'gemini-2.5-flash-lite').trim();
+const GEMINI_MODEL_STAGE2 = (process.env.GEMINI_MODELS_STAGE2 || 'gemini-2.5-flash-lite').trim();
+const GEMINI_MODEL_STAGE3 = (process.env.GEMINI_MODELS_STAGE3 || 'gemini-3.5-flash').trim();
 
 function processQueue() {
     if (activeGenerations < MAX_CONCURRENT_GENERATIONS && queue.length > 0) {
@@ -305,15 +311,30 @@ function validateEnvironment() {
         });
     });
 
-    if (process.env.OPENROUTER_API_KEY) {
-        log.success(ErrorCategory.CONFIG, 'OpenRouter API key present', {
-            flash: 'OPENROUTER_MODELS_FLASH',
-            stage1: 'OPENROUTER_MODELS_STAGE1',
-            stage2: 'OPENROUTER_MODELS_STAGE2',
-            stage3: 'OPENROUTER_MODELS_STAGE3'
+    if (process.env.GEMINI_API_KEY) {
+        log.success(ErrorCategory.CONFIG, 'Gemini direct API key present (primary provider)', {
+            flash:  GEMINI_MODEL_FLASH,
+            stage1: GEMINI_MODEL_STAGE1,
+            stage2: GEMINI_MODEL_STAGE2,
+            stage3: GEMINI_MODEL_STAGE3
         });
     } else {
-        throw new Error('OPENROUTER_API_KEY is required.');
+        log.warn(ErrorCategory.CONFIG, 'GEMINI_API_KEY not set — direct Gemini calls will be skipped');
+    }
+
+    if (process.env.OPENROUTER_API_KEY) {
+        log.success(ErrorCategory.CONFIG, 'OpenRouter API key present (fallback provider)', {
+            flash:  OPENROUTER_MODELS_FLASH,
+            stage1: OPENROUTER_MODELS_STAGE1,
+            stage2: OPENROUTER_MODELS_STAGE2,
+            stage3: OPENROUTER_MODELS_STAGE3
+        });
+    } else {
+        log.warn(ErrorCategory.CONFIG, 'OPENROUTER_API_KEY not set — OpenRouter fallback disabled');
+    }
+
+    if (!process.env.GEMINI_API_KEY && !process.env.OPENROUTER_API_KEY) {
+        throw new Error('At least one of GEMINI_API_KEY or OPENROUTER_API_KEY is required.');
     }
 }
 
@@ -533,9 +554,95 @@ function resolveUniqueHtmlPath(dirPath, stem) {
     return candidate;
 }
 
-// Safety settings removed as they were Gemini-specific.
+// ── Gemini direct API (primary) ───────────────────────────────────────────────
 
-// Provider logic simplified to OpenRouter only
+/**
+ * Converts an OpenRouter-style fileContext array to Gemini native parts.
+ * OpenRouter uses: { type: 'image_url', image_url: { url: 'data:...' } }
+ *                  { type: 'file', file_url: { url: 'data:...' } }
+ *                  { type: 'text', text: '...' }
+ * Gemini native uses: { text: '...' }
+ *                     { inlineData: { mimeType, data: base64 } }
+ */
+function toGeminiParts(promptText, fileContext) {
+    const parts = [];
+
+    if (Array.isArray(fileContext)) {
+        for (const item of fileContext) {
+            if (item.type === 'text') {
+                parts.push({ text: item.text });
+            } else if (item.type === 'image_url' && item.image_url?.url) {
+                const dataUrl = item.image_url.url;
+                const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+                if (match) {
+                    parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+                }
+            } else if (item.type === 'file' && item.file_url?.url) {
+                const dataUrl = item.file_url.url;
+                const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+                if (match) {
+                    parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+                }
+            }
+        }
+    }
+
+    parts.push({ text: promptText });
+    return parts;
+}
+
+async function* geminiSSEToChunks(response) {
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for await (const bytes of response.body) {
+        buffer += decoder.decode(bytes, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') return;
+            try {
+                const parsed = JSON.parse(data);
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) yield text;
+            } catch (_) { /* skip malformed SSE frames */ }
+        }
+    }
+}
+
+async function callGeminiDirect(prompt, stageName, geminiModel, fileContext = null) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_KEY_MISSING');
+
+    const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
+    const parts = toGeminiParts(promptText, fileContext);
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+    providerLog.info(ErrorCategory.PROVIDER, 'Trying Gemini direct model', { stage: stageName, model: geminiModel });
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ role: 'user', parts }] })
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct request failed', {
+            stage: stageName,
+            model: geminiModel,
+            status: response.status,
+            details: errText
+        });
+        throw new Error(`GEMINI_HTTP_${response.status}`);
+    }
+
+    providerLog.success(ErrorCategory.PROVIDER, 'Gemini direct accepted request', { stage: stageName, model: geminiModel });
+    return { stream: geminiSSEToChunks(response) };
+}
 
 // ── OpenRouter fallback (try a list of models sequentially) ───────────────────
 async function* openRouterSSEToChunks(response) {
@@ -649,21 +756,39 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
     throw new Error('QUOTA_EXHAUSTED');
 }
 
+/**
+ * Tries Gemini direct API first; on any error falls back to OpenRouter.
+ */
+async function callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext = null) {
+    if (process.env.GEMINI_API_KEY) {
+        try {
+            return await callGeminiDirect(prompt, stageName, geminiModel, fileContext);
+        } catch (err) {
+            providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct failed, falling back to OpenRouter', {
+                stage: stageName,
+                model: geminiModel,
+                error: err.message
+            });
+        }
+    }
+    // Fallback: OpenRouter
+    return await callOpenRouter(prompt, stageName, openrouterModels, fileContext);
+}
 
 /**
- * Builds a caller that tries OpenRouter models in order.
+ * Builds a caller that uses Gemini direct as primary and OpenRouter as fallback.
  */
-function makeCallerFn(stageName, modelList) {
+function makeCallerFn(stageName, geminiModel, openrouterModels) {
     return async function (prompt, fileContext = null) {
-        return await callOpenRouter(prompt, stageName, modelList, fileContext);
+        return await callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext);
     };
 }
 
 // Stage routing
-const tryModelsFlash = makeCallerFn('Flash', OPENROUTER_MODELS_FLASH);
-const tryModelsStage1 = makeCallerFn('Stage1', OPENROUTER_MODELS_STAGE1);
-const tryModelsStage2 = makeCallerFn('Stage2', OPENROUTER_MODELS_STAGE2);
-const tryModelsStage3 = makeCallerFn('Stage3', OPENROUTER_MODELS_STAGE3);
+const tryModelsFlash  = makeCallerFn('Flash',  GEMINI_MODEL_FLASH,  OPENROUTER_MODELS_FLASH);
+const tryModelsStage1 = makeCallerFn('Stage1', GEMINI_MODEL_STAGE1, OPENROUTER_MODELS_STAGE1);
+const tryModelsStage2 = makeCallerFn('Stage2', GEMINI_MODEL_STAGE2, OPENROUTER_MODELS_STAGE2);
+const tryModelsStage3 = makeCallerFn('Stage3', GEMINI_MODEL_STAGE3, OPENROUTER_MODELS_STAGE3);
 
 // Legacy alias kept for any remaining references
 const tryModels = tryModelsFlash;
