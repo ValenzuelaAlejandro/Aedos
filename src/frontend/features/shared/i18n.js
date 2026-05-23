@@ -129,6 +129,7 @@ const translations = {
         "next_slide": "Next slide",
         "mode_tooltip_file_locked": "High Quality is required to analyze files.",
         "file_too_large": "The file \"{name}\" is too large. Maximum size is 10MB.",
+        "invalid_file_format": "Invalid file format. Only PDF, Office Word (.doc, .docx), and images (PNG, JPG, WEBP) are allowed.",
         "max_files_reached": "You can upload a maximum of 3 files per presentation.",
         "attach_files": "Attach Files",
         "mode_flash_title": "Fast Mode",
@@ -146,7 +147,8 @@ const translations = {
         "pill_topic_business": "A comprehensive business plan for a sustainable coffee shop",
         "pill_topic_art": "The evolution of Renaissance Art and its key figures",
         "pill_topic_science": "Cellular biology and mitosis explained for high schoolers",
-        "pill_topic_startup": "Pitch deck for a new mobile fitness app"
+        "pill_topic_startup": "Pitch deck for a new mobile fitness app",
+        "drag_drop_prompt": "Drop your files here to upload"
     },
     es: {
         "brand_name": "Aedos",
@@ -278,6 +280,7 @@ const translations = {
         "next_slide": "Siguiente diapositiva",
         "mode_tooltip_file_locked": "Alta Calidad es requerida para analizar archivos.",
         "file_too_large": "El archivo \"{name}\" es demasiado pesado. El máximo es 10MB.",
+        "invalid_file_format": "Formato de archivo no válido. Solo se permiten PDF, Word (.doc, .docx) e imágenes (PNG, JPG, WEBP).",
         "max_files_reached": "Solo puedes subir un máximo de 3 archivos por presentación.",
         "attach_files": "Adjuntar Archivos",
         "mode_flash_title": "Modo Rápido",
@@ -295,7 +298,8 @@ const translations = {
         "pill_topic_business": "Plan de negocios completo para una cafetería sostenible",
         "pill_topic_art": "La evolución del Arte Renacentista y sus figuras clave",
         "pill_topic_science": "Biología celular y mitosis explicada para preparatoria",
-        "pill_topic_startup": "Pitch deck para una nueva app móvil de fitness"
+        "pill_topic_startup": "Pitch deck para una nueva app móvil de fitness",
+        "drag_drop_prompt": "Suelta tus archivos aquí para subirlos"
     }
 };
 

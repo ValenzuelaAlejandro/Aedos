@@ -534,6 +534,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // Store files locally for submission
     window._attachedFiles = [];
 
+    function handleFilesAdded(files) {
+        if (files.length === 0) return;
+
+        const allowedExtensions = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp'];
+        const validFiles = [];
+        for (let f of files) {
+            const ext = f.name.includes('.') ? f.name.substring(f.name.lastIndexOf('.')).toLowerCase() : '';
+            if (!allowedExtensions.includes(ext)) {
+                const msg = window.__t('invalid_file_format', 'Invalid file format. Only PDF, Office Word, and images are allowed.');
+                alert(msg);
+                continue;
+            }
+
+            if (f.size > 10 * 1024 * 1024) {
+                const msg = window.__t('file_too_large', 'The file "{name}" is too large. Maximum size is 10MB.').replace('{name}', f.name);
+                alert(msg);
+                continue;
+            }
+            validFiles.push(f);
+        }
+
+        if (window._attachedFiles.length + validFiles.length > 3) {
+            alert(window.__t('max_files_reached', 'You can upload a maximum of 3 files per presentation.'));
+            validFiles.splice(3 - window._attachedFiles.length);
+        }
+
+        if (validFiles.length > 0) {
+            window._attachedFiles = window._attachedFiles.concat(validFiles);
+            renderAttachmentChips();
+            validateGenerateButton();
+        }
+    }
+
     if (btnAttachFile && fileUploadInput) {
         btnAttachFile.addEventListener('click', () => {
             fileUploadInput.click();
@@ -541,33 +574,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fileUploadInput.addEventListener('change', (e) => {
             const files = Array.from(e.target.files);
-            if (files.length === 0) return;
-
-            const validFiles = [];
-            for (let f of files) {
-                if (f.size > 10 * 1024 * 1024) {
-                    const msg = window.__t('file_too_large', 'The file "{name}" is too large. Maximum size is 10MB.').replace('{name}', f.name);
-                    alert(msg);
-                    continue;
-                }
-                validFiles.push(f);
-            }
-
-            if (window._attachedFiles.length + validFiles.length > 3) {
-                alert(window.__t('max_files_reached', 'You can upload a maximum of 3 files per presentation.'));
-                validFiles.splice(3 - window._attachedFiles.length);
-            }
-
-            if (validFiles.length > 0) {
-                window._attachedFiles = window._attachedFiles.concat(validFiles);
-                fileUploadInput.value = '';
-                renderAttachmentChips();
-                validateGenerateButton();
-            } else {
-                fileUploadInput.value = '';
-            }
+            handleFilesAdded(files);
+            fileUploadInput.value = '';
         });
     }
+
+    // ── Drag and Drop Event Listeners ───────────────────────────────────
+    (function setupDragAndDrop() {
+        let dragCounter = 0;
+        const dragDropOverlay = document.getElementById('drag-drop-overlay');
+
+        window.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+
+            dragCounter++;
+            if (dragCounter === 1 && dragDropOverlay) {
+                dragDropOverlay.classList.remove('hidden');
+            }
+        });
+
+        window.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        window.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter <= 0) {
+                dragCounter = 0;
+                if (dragDropOverlay) dragDropOverlay.classList.add('hidden');
+            }
+        });
+
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            if (dragDropOverlay) dragDropOverlay.classList.add('hidden');
+
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const files = Array.from(e.dataTransfer.files);
+                handleFilesAdded(files);
+            }
+        });
+    })();
 
     function renderAttachmentChips() {
         if (!attachmentPreviewContainer) return;

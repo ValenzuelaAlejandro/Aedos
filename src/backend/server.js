@@ -9,14 +9,21 @@ const { execSync } = require('child_process');
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
 process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '..', '..', 'puppeteer-cache');
-
 const puppeteer = require('puppeteer');
 const multer = require('multer');
+const allowedExtensions = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp'];
 const upload = multer({
     dest: path.join(__dirname, '..', '..', 'tmp'),
     limits: {
         fileSize: 10 * 1024 * 1024, // 10MB max per file
         files: 3 // Max 3 files per request
+    },
+    fileFilter: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (!allowedExtensions.includes(ext)) {
+            return cb(new Error('Invalid file type. Only PDF, Office Word, and images are allowed.'), false);
+        }
+        cb(null, true);
     }
 });
 const mammoth = require('mammoth');
