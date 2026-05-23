@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (_pendingTransitionFn) {
                 const fn = _pendingTransitionFn;
                 _pendingTransitionFn = null;
-                setTimeout(() => fn(), 800);
+                setTimeout(() => fn(), 670);
             }
 
             // Rebuild dots and minimap skeletons during generation.

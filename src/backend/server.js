@@ -12,7 +12,7 @@ process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '..', '..', 'puppeteer-ca
 
 const puppeteer = require('puppeteer');
 const multer = require('multer');
-const upload = multer({ 
+const upload = multer({
     dest: path.join(__dirname, '..', '..', 'tmp'),
     limits: {
         fileSize: 10 * 1024 * 1024, // 10MB max per file
@@ -416,11 +416,11 @@ if ((process.env.NODE_ENV || 'development') === 'production') {
     app.use((req, res, next) => {
         const host = req.headers.host || '';
         const path = req.path || '';
-        
+
         // IMPORTANT: Do NOT redirect API routes or health checks.
         // Vercel proxies these routes to Render, and they must be served directly.
         const isApiRoute = /^\/(generate|finalize|download|health|__dev__)/.test(path);
-        
+
         if (host.includes('onrender.com') && !isApiRoute) {
             const target = 'https://aedoslab.xyz' + req.originalUrl;
             return res.redirect(301, target);
@@ -761,9 +761,9 @@ function extractChromeFromZip(cacheDir) {
 
     puppeteerLog.warn(ErrorCategory.PUPPETEER,
         'Chrome binary missing from cache — extracting from cached ZIP', {
-            zip: zipPath,
-            extractTo
-        }
+        zip: zipPath,
+        extractTo
+    }
     );
 
     try {
@@ -1135,7 +1135,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '8kb' }), 
                     const fileData = fs.readFileSync(file.path);
                     const base64Data = fileData.toString('base64');
                     const dataUrl = `data:${file.mimetype};base64,${base64Data}`;
-                    
+
                     if (file.mimetype.startsWith('image/')) {
                         fileContext.push({
                             type: 'image_url',
@@ -1151,7 +1151,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '8kb' }), 
                 } catch (e) {
                     log.warn(ErrorCategory.FILESYSTEM, 'Failed to read uploaded file', { error: e.message });
                 } finally {
-                    fs.unlink(file.path, () => {});
+                    fs.unlink(file.path, () => { });
                 }
             }
             log.info(ErrorCategory.PIPELINE, 'Parsed files for OpenRouter base64 transmission', { requestId, count: fileContext.length });

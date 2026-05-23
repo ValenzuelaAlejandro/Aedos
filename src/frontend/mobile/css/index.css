@@ -486,7 +486,7 @@
         overflow: visible !important;
     }
 
-    .btn-debug-last-generated {
+    #btn-debug-last-generated {
         display: none !important;
     }
 

@@ -172,9 +172,9 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, tryModelsSta
   
   const stage3Prompt = buildStage3Prompt(rawInput, contentJson, designJson);
   pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 3 waiting for rate-limit cool-down', {
-    waitMs: 2500
+    waitMs: 1000
   });
-  await new Promise(r => setTimeout(r, 2500));
+  await new Promise(r => setTimeout(r, 1000));
   pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 3 streaming started');
   
   const stage3Stream = await callStage3(stage3Prompt);
