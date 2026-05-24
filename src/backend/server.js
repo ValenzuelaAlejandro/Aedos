@@ -1839,9 +1839,9 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
         // Option B: Inject invisible PDF metadata tags (Author, Generator, Creator)
         // Chromium's print-to-pdf engine automatically reads these and populates the PDF metadata.
         const metadataTags = `
-            <meta name="author" content="Aedos Lab (aedoslab.xyz)">
-            <meta name="generator" content="Aedos Lab (aedoslab.xyz)">
-            <meta name="creator" content="Aedos Lab (aedoslab.xyz)">
+            <meta name="author" content="Aedos (aedoslab.xyz)">
+            <meta name="generator" content="Aedos (aedoslab.xyz)">
+            <meta name="creator" content="Aedos (aedoslab.xyz)">
         `;
         let processedHtml = html.replace(/(<head[^>]*>)/i, `$1\n${metadataTags}`);
 
