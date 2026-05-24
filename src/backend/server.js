@@ -1835,10 +1835,22 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
         // Replace animated GIFs with a 1×1 transparent placeholder so Puppeteer
         // doesn't time-out or crash while trying to load/decode animation frames.
         const TRANSPARENT_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+        
+        // Option B: Inject invisible PDF metadata tags (Author, Generator, Creator)
+        // Chromium's print-to-pdf engine automatically reads these and populates the PDF metadata.
+        const metadataTags = `
+            <meta name="author" content="Aedos Lab (aedoslab.xyz)">
+            <meta name="generator" content="Aedos Lab (aedoslab.xyz)">
+            <meta name="creator" content="Aedos Lab (aedoslab.xyz)">
+        `;
+        let processedHtml = html.replace(/(<head[^>]*>)/i, `$1\n${metadataTags}`);
+
         // Add a <base> tag so root-relative paths like /features/shared/lucide-init.js resolve to this server.
         // Puppeteer uses page.setContent() which has no inherent base URL.
         const baseTag = `<base href="http://localhost:${PORT}/">`;
-        let processedHtml = html.includes('<base') ? html : html.replace(/(<head[^>]*>)/i, `$1\n${baseTag}`);
+        if (!processedHtml.includes('<base')) {
+            processedHtml = processedHtml.replace(/(<head[^>]*>)/i, `$1\n${baseTag}`);
+        }
         // Replace animated GIFs with a 1×1 transparent placeholder
         processedHtml = processedHtml
             // img src pointing to a .gif URL (not already a data-URI)
@@ -1957,6 +1969,24 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
                 margin: { top: 0, right: 0, bottom: 0, left: 0 },
                 timeout: 45000 // 45 seconds hard limit per PDF render
             });
+
+            // Option B: Inject invisible metadata to PDF securely using pdf-lib
+            try {
+                const { PDFDocument } = require('pdf-lib');
+                const pdfBuffer = fs.readFileSync(pdfPath);
+                const pdfDoc = await PDFDocument.load(pdfBuffer);
+                pdfDoc.setTitle(title || 'Presentation');
+                pdfDoc.setAuthor('Aedos (aedoslab.xyz)');
+                pdfDoc.setCreator('Aedos (aedoslab.xyz)');
+                pdfDoc.setProducer('Aedos (aedoslab.xyz)');
+                const pdfBytes = await pdfDoc.save();
+                fs.writeFileSync(pdfPath, pdfBytes);
+                log.info(ErrorCategory.PUPPETEER, 'Injected PDF metadata successfully');
+            } catch (metaErr) {
+                log.warn(ErrorCategory.PUPPETEER, 'PDF metadata injection failed (non-fatal)', {
+                    error: metaErr.message
+                });
+            }
         } finally {
             await page.close();
         }
