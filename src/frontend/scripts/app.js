@@ -67,8 +67,16 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
     // Prevent accidental browser navigation when dragging files over the page
-    window.addEventListener('dragover', (e) => e.preventDefault(), false);
-    window.addEventListener('drop', (e) => e.preventDefault(), false);
+    window.addEventListener('dragover', (e) => {
+        const previewContainer = document.getElementById('preview-container');
+        if (previewContainer && !previewContainer.classList.contains('hidden')) return; // Let editor handle its own dragover
+        e.preventDefault();
+    }, false);
+    window.addEventListener('drop', (e) => {
+        const previewContainer = document.getElementById('preview-container');
+        if (previewContainer && !previewContainer.classList.contains('hidden')) return; // Let editor handle its own drop
+        e.preventDefault();
+    }, false);
 
     // =========================================================
     // DOM ELEMENTS
@@ -586,7 +594,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('dragenter', (e) => {
             e.preventDefault();
-            if (chatScreen && chatScreen.classList.contains('hidden')) return;
+            
+            // Do not show full-screen drag overlay or allow global file attachment if editor is active
+            const previewContainer = document.getElementById('preview-container');
+            if (previewContainer && !previewContainer.classList.contains('hidden')) return;
+            
             if (btnAttachFile && btnAttachFile.disabled) return;
             if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
 
@@ -597,12 +609,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         window.addEventListener('dragover', (e) => {
+            const previewContainer = document.getElementById('preview-container');
+            if (previewContainer && !previewContainer.classList.contains('hidden')) return;
             e.preventDefault();
         });
 
         window.addEventListener('dragleave', (e) => {
             e.preventDefault();
-            if (chatScreen && chatScreen.classList.contains('hidden')) return;
+            
+            const previewContainer = document.getElementById('preview-container');
+            if (previewContainer && !previewContainer.classList.contains('hidden')) {
+                dragCounter = 0;
+                if (dragDropOverlay) dragDropOverlay.classList.add('hidden');
+                return;
+            }
+
             dragCounter--;
             if (dragCounter <= 0) {
                 dragCounter = 0;
@@ -612,7 +633,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('drop', (e) => {
             e.preventDefault();
-            if (chatScreen && chatScreen.classList.contains('hidden')) return;
+            
+            const previewContainer = document.getElementById('preview-container');
+            if (previewContainer && !previewContainer.classList.contains('hidden')) {
+                dragCounter = 0;
+                if (dragDropOverlay) dragDropOverlay.classList.add('hidden');
+                return;
+            }
+
             dragCounter = 0;
             if (dragDropOverlay) dragDropOverlay.classList.add('hidden');
 
