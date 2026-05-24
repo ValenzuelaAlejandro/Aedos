@@ -586,6 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('dragenter', (e) => {
             e.preventDefault();
+            if (chatScreen && chatScreen.classList.contains('hidden')) return;
             if (btnAttachFile && btnAttachFile.disabled) return;
             if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
 
@@ -601,6 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('dragleave', (e) => {
             e.preventDefault();
+            if (chatScreen && chatScreen.classList.contains('hidden')) return;
             dragCounter--;
             if (dragCounter <= 0) {
                 dragCounter = 0;
@@ -610,6 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('drop', (e) => {
             e.preventDefault();
+            if (chatScreen && chatScreen.classList.contains('hidden')) return;
             dragCounter = 0;
             if (dragDropOverlay) dragDropOverlay.classList.add('hidden');
 
