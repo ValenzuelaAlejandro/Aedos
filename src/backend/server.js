@@ -28,8 +28,10 @@ const upload = multer({
 });
 const mammoth = require('mammoth');
 
-const { runPipeline, buildLegacyPrompt } = require('./prompts/pipeline');
+const { runPipeline, buildLegacyPrompt, extractJson } = require('./prompts/pipeline');
 const buildPrompt = require('./prompts/base'); // kept for fallback
+const buildStage1Prompt = require('./prompts/stage1-content');
+const { buildAddSlidePrompt, buildAddPointPrompt } = require('./prompts/skeleton_prompts');
 
 const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
 const { verifyConnection: verifyRedis, checkRateLimits, checkFinalizeLimits } = require('./utils/rate-limiter');
@@ -1094,7 +1096,134 @@ function sanitizeTema(input) {
     return { valid: true, tema: cleanedString };
 }
 
-app.post('/generate', upload.array('files', 5), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
+app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
+    const requestId = req.requestId || 'n/a';
+
+    try {
+        const opciones = req.body;
+        const requestedLanguage = req.body.language || req.body.idioma || 'auto';
+        
+        const rawTema = opciones.tema || '';
+        const sanitizeResult = sanitizeTema(String(rawTema));
+        if (!sanitizeResult.valid) {
+            return res.status(400).json({ error: `Invalid topic: ${sanitizeResult.reason}` });
+        }
+
+        const targetLang = requestedLanguage;
+        
+        let fileContext = null;
+        if (req.files && req.files.length > 0) {
+            fileContext = [];
+            const MIME_BY_EXT = {
+                '.pdf':  'application/pdf',
+                '.doc':  'application/msword',
+                '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                '.png':  'image/png',
+                '.jpg':  'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.webp': 'image/webp'
+            };
+
+            for (const file of req.files) {
+                try {
+                    const ext = path.extname(file.originalname).toLowerCase();
+                    const mimeType = MIME_BY_EXT[ext] || file.mimetype;
+
+                    if (ext === '.docx' || ext === '.doc') {
+                        const extracted = await mammoth.extractRawText({ path: file.path });
+                        fileContext.push({ type: 'text', text: `Content from ${file.originalname}:\n\n${extracted.value}` });
+                        continue;
+                    }
+
+                    const fileData = fs.readFileSync(file.path);
+                    const base64Data = fileData.toString('base64');
+                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+                    if (mimeType.startsWith('image/')) {
+                        fileContext.push({ type: 'image_url', image_url: { url: dataUrl } });
+                    } else {
+                        fileContext.push({ type: 'file', file_url: { url: dataUrl } });
+                    }
+                } catch (e) {
+                    // ignore individual file errors
+                } finally {
+                    fs.unlink(file.path, () => {});
+                }
+            }
+        }
+        
+        const stage1Prompt = buildStage1Prompt(sanitizeResult.tema, targetLang);
+        // Skeleton generation uses the same model as Stage 1
+        const stage1Response = await tryModelsStage1(stage1Prompt, fileContext);
+        let stage1Raw = '';
+        for await (const chunk of stage1Response.stream) {
+            stage1Raw += chunk;
+        }
+
+        let contentJson;
+        try {
+            contentJson = extractJson(stage1Raw);
+        } catch (e) {
+            throw new Error(`Failed to parse AI output as JSON: ${e.message}`);
+        }
+
+        if (contentJson.rejected) {
+            return res.status(400).json({ error: 'CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic') });
+        }
+
+        if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
+            return res.status(500).json({ error: 'STAGE1_INVALID: AI output has no slides array' });
+        }
+
+        const maxSlides = req.body.mode === 'pro' ? 8 : 15;
+        if (contentJson.slides.length > maxSlides) {
+            contentJson.slides = contentJson.slides.slice(0, maxSlides);
+            contentJson.slide_count = maxSlides;
+        }
+
+        res.json({ skeleton: contentJson });
+    } catch (err) {
+        log.error(ErrorCategory.PIPELINE, 'Failed to generate skeleton', { requestId, error: err.message });
+        res.status(500).json({ error: 'Failed to generate outline. Please try again.' });
+    }
+});
+
+app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkRateLimits, async (req, res) => {
+    const requestId = req.requestId || 'n/a';
+    try {
+        const { type, topic, ...context } = req.body;
+        let prompt = '';
+        
+        if (type === 'slide') {
+            prompt = buildAddSlidePrompt(topic, context.existingSlides);
+        } else if (type === 'point') {
+            prompt = buildAddPointPrompt(topic, context.slideTitle, context.slideSubtitle, context.existingPoints);
+        } else {
+            return res.status(400).json({ error: 'Invalid item type' });
+        }
+
+        // For outline items, we use flash lite to make it fast
+        const rawOutputResponse = await tryModelsFlash(prompt, null);
+        let rawOutput = '';
+        for await (const chunk of rawOutputResponse.stream) {
+            rawOutput += chunk;
+        }
+
+        let itemJson;
+        try {
+            itemJson = extractJson(rawOutput);
+        } catch (e) {
+            throw new Error(`Failed to parse AI output as JSON: ${e.message}`);
+        }
+
+        res.json({ item: itemJson });
+    } catch (err) {
+        log.error(ErrorCategory.PIPELINE, 'Failed to generate outline item', { requestId, error: err.message });
+        res.status(500).json({ error: 'Failed to generate item. Please try again.' });
+    }
+});
+
+app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     let cancelled = false;
     let completed = false;
     let sseKeepAlive = null;
@@ -1113,6 +1242,14 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '8kb' }), 
     try {
         const opciones = req.body;
         const requestedLanguage = req.body.language || req.body.idioma || 'auto';
+        
+        if (opciones.skeleton && typeof opciones.skeleton === 'string') {
+            try {
+                opciones.skeleton = JSON.parse(opciones.skeleton);
+            } catch (e) {
+                log.warn(ErrorCategory.VALIDATION, 'Failed to parse skeleton from FormData', { requestId });
+            }
+        }
         
         log.info(ErrorCategory.PIPELINE, 'Generation request accepted', {
             requestId,
@@ -1363,6 +1500,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '8kb' }), 
                 rawInput: opciones.tema,
                 targetLanguage: targetLang,
                 fileContext: fileContext,
+                skeleton: opciones.skeleton,
                 maxSlides: slideHardLimit,
                 tryModelsStage1,
                 tryModelsStage2,

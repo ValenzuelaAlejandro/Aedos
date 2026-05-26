@@ -1128,9 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
             _activeGenController.abort();
             _activeGenController = null;
         }
-        generatedHtml = ''; // Reset state for a fresh start
-        currentSlide = 0;
-        totalSlides = 0;
+        
         const tema = temaInput.value.trim();
         const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
         if (!tema && !hasFiles) {
@@ -1142,8 +1140,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const finalTema = tema || (hasFiles ? (window.__t ? window.__t('default_document_prompt', 'Analyze this document and create a presentation') : 'Analyze this document and create a presentation') : '');
 
-        // Everything the AI needs comes from the raw chat text.
-        // The prompt handles extraction of: slide count, metadata, style, colors, language, etc.
         const requestData = {
             tema: finalTema,
             ...(proModeEnabled ? { mode: 'pro' } : {}),
@@ -1151,7 +1147,77 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         toggleGenerateLoading(true);
+        
+        let bodyData;
+        let headers = {};
+        if (window._attachedFiles && window._attachedFiles.length > 0) {
+            const formData = new FormData();
+            formData.append('tema', requestData.tema);
+            if (requestData.mode) formData.append('mode', requestData.mode);
+            if (requestData.language) formData.append('language', requestData.language);
+            formData.append('slides', requestData.slides);
+            window._attachedFiles.forEach(f => formData.append('files', f));
+            bodyData = formData;
+        } else {
+            headers['Content-Type'] = 'application/json';
+            bodyData = JSON.stringify(requestData);
+        }
 
+        const controller = new AbortController();
+        _activeGenController = controller;
+        
+        if (window.showOutlineEditorLoading) {
+            window.showOutlineEditorLoading(requestData.slides || 8);
+        }
+
+        try {
+            const skeletonResponse = await fetch('/generate-skeleton', {
+                method: 'POST',
+                headers: headers,
+                body: bodyData,
+                signal: controller.signal
+            });
+
+            if (!skeletonResponse.ok) {
+                const errData = await skeletonResponse.json().catch(()=>({}));
+                const serverErr = errData.error || `Server error: ${skeletonResponse.status}`;
+                throw new Error(serverErr);
+            }
+
+            const skeletonData = await skeletonResponse.json();
+            
+            window._pendingGenerateBodyData = bodyData;
+            window._pendingGenerateHeaders = headers;
+            
+            toggleGenerateLoading(false);
+            
+            if (window.initOutlineEditor) {
+                window.initOutlineEditor(skeletonData.skeleton, proModeEnabled ? 'pro' : 'flash');
+            } else {
+                throw new Error("Outline editor not initialized");
+            }
+        } catch (error) {
+            toggleGenerateLoading(false);
+            if (window.outlineEditorState) {
+                window.outlineEditorState.isLoading = false;
+            }
+            if (errorMessage) errorMessage.textContent = error.message;
+            showErrorModal(() => {
+                const outlineContainer = document.getElementById('outline-container');
+                if (outlineContainer) outlineContainer.classList.add('hidden');
+                const backdrop = document.getElementById('outline-backdrop');
+                if (backdrop) backdrop.classList.remove('active');
+                const edgeTab = document.getElementById('outline-edge-tab');
+                if (edgeTab) edgeTab.classList.add('hidden');
+            });
+        }
+    }
+
+    window.startFinalGeneration = async function(skeleton) {
+        generatedHtml = ''; // Reset state for a fresh start
+        currentSlide = 0;
+        totalSlides = 0;
+        
         window.removeEventListener('resize', scaleIframe); // evita acumulación
 
         // Transition: called once on first AI chunk, slides from chat → live skeleton
@@ -1160,6 +1226,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (_hasTransitioned) return;
             _hasTransitioned = true;
             stopBtnMessages();
+
+            // Clean up split outline layout and reset hero
+            document.body.classList.remove('split-outline-active');
+            const btnOutlineGenerate = document.getElementById('btn-outline-generate');
+            if (btnOutlineGenerate) {
+                btnOutlineGenerate.classList.remove('is-generating');
+            }
+            const heroTextSpan = document.querySelector('.hero-title-text');
+            if (heroTextSpan && heroTextSpan.getAttribute('data-original-text')) {
+                heroTextSpan.textContent = heroTextSpan.getAttribute('data-original-text');
+                heroTextSpan.parentElement.classList.remove('waiting-state');
+            }
+
             // Fade chat screen out (it's covered by fixed preview-container, but still clean)
             chatScreen.style.cssText = 'opacity:0;transition:opacity 0.35s ease;pointer-events:none;';
             setTimeout(() => {
@@ -1231,13 +1310,12 @@ document.addEventListener('DOMContentLoaded', () => {
         <script src="/editor/editor.js?v=3"></script>
         `;
 
-        // Immediately update preview label
+        const tema = document.getElementById('w-tema').value.trim();
         const previewLabel = document.getElementById('preview-topic-label');
         if (previewLabel) {
             if (previewLabel.tagName === 'INPUT') previewLabel.value = tema;
             else previewLabel.textContent = tema;
         }
-
 
         slideLabel.textContent = "1 / 1";
         updateMinimapSkeleton(1);
@@ -1245,20 +1323,16 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const controller = new AbortController();
             _activeGenController = controller;
-            let bodyData;
-            let headers = {};
-            if (window._attachedFiles && window._attachedFiles.length > 0) {
-                const formData = new FormData();
-                formData.append('tema', requestData.tema);
-                if (requestData.mode) formData.append('mode', requestData.mode);
-                if (requestData.idioma) formData.append('idioma', requestData.idioma);
-                if (requestData.slides) formData.append('slides', requestData.slides);
-
-                window._attachedFiles.forEach(f => formData.append('files', f));
-                bodyData = formData;
+            
+            let bodyData = window._pendingGenerateBodyData;
+            let headers = window._pendingGenerateHeaders || {};
+            
+            if (bodyData instanceof FormData) {
+                bodyData.append('skeleton', JSON.stringify(skeleton));
             } else {
-                headers['Content-Type'] = 'application/json';
-                bodyData = JSON.stringify(requestData);
+                const parsed = JSON.parse(bodyData);
+                parsed.skeleton = skeleton;
+                bodyData = JSON.stringify(parsed);
             }
 
             const response = await fetch('/generate', {
@@ -1676,8 +1750,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+
             errorMessage.textContent = msg;
             previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+            
+            // Clean up split outline layout and reset hero
+            document.body.classList.remove('split-outline-active');
+            const btnOutlineGenerate = document.getElementById('btn-outline-generate');
+            if (btnOutlineGenerate) {
+                btnOutlineGenerate.classList.remove('is-generating');
+            }
+            const heroTextSpan = document.querySelector('.hero-title-text');
+            if (heroTextSpan && heroTextSpan.getAttribute('data-original-text')) {
+                heroTextSpan.textContent = heroTextSpan.getAttribute('data-original-text');
+                heroTextSpan.parentElement.classList.remove('waiting-state');
+            }
+            const outlineContainer = document.getElementById('outline-container');
+            if (outlineContainer) outlineContainer.classList.add('hidden');
+            const backdrop = document.getElementById('outline-backdrop');
+            if (backdrop) backdrop.classList.remove('active');
+            const edgeTab = document.getElementById('outline-edge-tab');
+            if (edgeTab) edgeTab.classList.add('hidden');
+
             // Clean up any in-progress chat→preview transition
             if (!_hasTransitioned) {
                 chatScreen.style.cssText = '';

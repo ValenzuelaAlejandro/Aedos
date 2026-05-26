@@ -87,50 +87,57 @@ async function runStage(tryModelsFn, prompt, stageName) {
  * @param {number} [options.maxSlides=12] - Hard limit on slides to prevent token waste
  * @returns {object} { stage3Stream, contentJson, designJson } - stage3Stream is the async iterable
  */
-async function runPipeline({ rawInput, targetLanguage, fileContext, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, maxSlides = 12 }) {
+async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, maxSlides = 12 }) {
   // Allow legacy callers that pass a single tryModels function
   const callStage1 = tryModelsStage1 || tryModels;
   const callStage2 = tryModelsStage2 || tryModels;
   const callStage3 = tryModelsStage3 || tryModels;
-  // ── Stage 1: Content Extraction ──
-  onStageUpdate('stage1', { status: 'running' });
-  
-  const stage1Prompt = buildStage1Prompt(rawInput, targetLanguage);
-  const stage1Raw = await runStage((p) => callStage1(p, fileContext), stage1Prompt, 'Stage 1 (Content)');
-  
   let contentJson;
-  try {
-    contentJson = extractJson(stage1Raw);
-  } catch (e) {
-    throw new Error(`STAGE1_PARSE_ERROR: Could not parse Stage 1 output as JSON. Raw: ${stage1Raw.substring(0, 500)}`);
-  }
-  
-  // Check for rejection
-  if (contentJson.rejected) {
-    throw new Error('CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic'));
-  }
-  
-  // Validate minimum fields
-  if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
-    throw new Error('STAGE1_INVALID: Stage 1 output has no slides array');
-  }
-  
-  // Safety net: Forcibly trim slides array if model hallucinated past the limit to prevent token waste
-  if (contentJson.slides.length > maxSlides) {
-    pipelineLog.warn(ErrorCategory.VALIDATION, 'Stage 1 exceeded max slides and was trimmed', {
-      maxSlides,
-      receivedSlides: contentJson.slides.length
+
+  if (skeleton) {
+    pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 1 skipped (Skeleton provided)');
+    contentJson = skeleton;
+    onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count || contentJson.slides?.length || 0 });
+  } else {
+    // ── Stage 1: Content Extraction ──
+    onStageUpdate('stage1', { status: 'running' });
+    
+    const stage1Prompt = buildStage1Prompt(rawInput, targetLanguage);
+    const stage1Raw = await runStage((p) => callStage1(p, fileContext), stage1Prompt, 'Stage 1 (Content)');
+    
+    try {
+      contentJson = extractJson(stage1Raw);
+    } catch (e) {
+      throw new Error(`STAGE1_PARSE_ERROR: Could not parse Stage 1 output as JSON. Raw: ${stage1Raw.substring(0, 500)}`);
+    }
+    
+    // Check for rejection
+    if (contentJson.rejected) {
+      throw new Error('CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic'));
+    }
+    
+    // Validate minimum fields
+    if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
+      throw new Error('STAGE1_INVALID: Stage 1 output has no slides array');
+    }
+    
+    // Safety net: Forcibly trim slides array if model hallucinated past the limit to prevent token waste
+    if (contentJson.slides.length > maxSlides) {
+      pipelineLog.warn(ErrorCategory.VALIDATION, 'Stage 1 exceeded max slides and was trimmed', {
+        maxSlides,
+        receivedSlides: contentJson.slides.length
+      });
+      contentJson.slides = contentJson.slides.slice(0, maxSlides);
+      contentJson.slide_count = maxSlides;
+    }
+    
+    onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count });
+    pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 1 extracted content', {
+      slideCount: contentJson.slide_count,
+      topic: contentJson.topic,
+      tone: contentJson.tone
     });
-    contentJson.slides = contentJson.slides.slice(0, maxSlides);
-    contentJson.slide_count = maxSlides;
   }
-  
-  onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count });
-  pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 1 extracted content', {
-    slideCount: contentJson.slide_count,
-    topic: contentJson.topic,
-    tone: contentJson.tone
-  });
   
   // ── Stage 2: Creative Direction ──
   onStageUpdate('stage2', { status: 'running' });

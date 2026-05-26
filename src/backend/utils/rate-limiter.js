@@ -26,6 +26,10 @@ const LIMITS = {
         daily: parseInt(process.env.LIMITS_PRO_DAILY || '3', 10),
         cooldownSec: parseInt(process.env.LIMITS_PRO_COOLDOWN_SEC || '60', 10),
     },
+    outline: {
+        daily: parseInt(process.env.LIMITS_OUTLINE_DAILY || '10', 10),
+        cooldownSec: parseInt(process.env.LIMITS_OUTLINE_COOLDOWN_SEC || '30', 10),
+    },
 };
 
 const DAILY_TTL_SEC = 24 * 60 * 60; // 24 hours
@@ -121,6 +125,7 @@ function resolveClientIp(req) {
 }
 
 function normalizeMode(body) {
+    if (body?.mode === 'outline') return 'outline';
     return body?.mode === 'pro' ? 'pro' : 'flash';
 }
 
@@ -258,7 +263,7 @@ function evaluateGenerateRateLimitMemory(ip, mode, cfg) {
             source: 'memory',
             reason: 'daily_limit',
             statusCode: 429,
-            errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' : 'DAILY_LIMIT_EXCEEDED_FLASH',
+            errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' : (mode === 'outline' ? 'DAILY_LIMIT_EXCEEDED_OUTLINE' : 'DAILY_LIMIT_EXCEEDED_FLASH'),
             retryAfterSec: retryAfterSec(dailyCounter.expiresAt, now),
             message: 'Daily limit reached for this mode.',
             limit: cfg.daily,
@@ -319,7 +324,7 @@ async function evaluateGenerateRateLimitRedis(client, ip, mode, cfg) {
             source: 'redis',
             reason: 'daily_limit',
             statusCode: 429,
-            errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' : 'DAILY_LIMIT_EXCEEDED_FLASH',
+            errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' : (mode === 'outline' ? 'DAILY_LIMIT_EXCEEDED_OUTLINE' : 'DAILY_LIMIT_EXCEEDED_FLASH'),
             retryAfterSec: Math.max(ttl, 1),
             message: 'Daily limit reached for this mode.',
             limit: cfg.daily,

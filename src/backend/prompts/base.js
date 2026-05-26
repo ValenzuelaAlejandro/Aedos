@@ -1,5 +1,6 @@
 module.exports = function buildPrompt(opciones) {
   const rawInput = opciones.rawInput || opciones.tema;
+  const skeletonStr = opciones.skeleton ? JSON.stringify(opciones.skeleton, null, 2) : null;
 
   const seed = (Date.now() % 7) + 1; // 1-7, drift each call
 
@@ -25,7 +26,15 @@ OUTPUT ORDER
 USER INPUT
 "${rawInput}"
 
-PHASE 1 - DESIGN CONFIG
+${skeletonStr ? `PHASE 1 - DESIGN CONFIG (PROVIDED)
+The user has already defined the exact presentation structure and content.
+YOU MUST USE THE FOLLOWING JSON EXACTLY AS THE <!-- CONFIG BLOCK.
+DO NOT CHANGE TITLES, TEXT, OR SLIDE COUNT. Just use this block.
+
+<!-- CONFIG
+${skeletonStr}
+-->
+` : `PHASE 1 - DESIGN CONFIG
 Build this JSON inside an HTML comment:
 
 <!-- CONFIG
@@ -80,12 +89,15 @@ Build this JSON inside an HTML comment:
 }
 -->
 
+-->
+`}
+
 PLANNING RULES
-- Derive visual world from a concrete artifact, then derive color and typography from that artifact.
+${skeletonStr ? `- STRICTLY use the provided CONFIG JSON above.` : `- Derive visual world from a concrete artifact, then derive color and typography from that artifact.
 - Apply user-requested colors directly when present in input.
 - Keep slide_count exact.
 - Extract metadata fields author, team, teacher, subject, institution, date, and cta only from explicit literals in USER INPUT.
-- Keep metadata fields as null when USER INPUT does not provide that value.
+- Keep metadata fields as null when USER INPUT does not provide that value.`}
 - Use this role to layout mapping:
   cover -> cover
   data -> stats
