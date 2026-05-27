@@ -39,18 +39,25 @@ function showOutlineEditorLoading(slideCount = 8) {
     // Generate placeholder cards
     for (let i = 0; i < slideCount; i++) {
         const card = document.createElement('div');
-        card.className = 'outline-slide-card is-loading skeleton-loading-pulse';
+        card.className = 'outline-slide-card is-loading';
         card.innerHTML = `
-            <div class="outline-slide-number">${i + 1}</div>
+            <div class="outline-slide-bg-indicator" style="background-color: #121212"></div>
+            <div class="outline-slide-number skeleton-loading-pulse" style="color:transparent">-</div>
             <div class="outline-slide-content">
                 <div class="outline-slide-header">
                     <div class="outline-slide-title skeleton-loading-pulse"></div>
-                    <div class="outline-slide-type-select skeleton-loading-pulse">Role</div>
+                    <div class="outline-slide-type-select skeleton-loading-pulse" style="width: 80px; height: 1.5rem; border-radius: 6px;"></div>
                 </div>
                 <div class="outline-slide-desc skeleton-loading-pulse"></div>
                 <div class="outline-points-list">
-                    <div class="outline-point-item"><span class="outline-point-bullet">●</span><div class="outline-point-input skeleton-loading-pulse"></div></div>
-                    <div class="outline-point-item"><span class="outline-point-bullet">●</span><div class="outline-point-input skeleton-loading-pulse"></div></div>
+                    <div class="outline-point-item">
+                        <span class="outline-point-bullet skeleton-loading-pulse"></span>
+                        <div class="outline-point-input skeleton-loading-pulse"></div>
+                    </div>
+                    <div class="outline-point-item">
+                        <span class="outline-point-bullet skeleton-loading-pulse"></span>
+                        <div class="outline-point-input skeleton-loading-pulse" style="width: 60%"></div>
+                    </div>
                 </div>
             </div>
             <div class="outline-slide-controls">
@@ -82,25 +89,57 @@ function initOutlineEditor(skeletonData, mode) {
     // Update Hero Title in chat screen to say "Waiting for your review..."
     const heroTextSpan = document.querySelector('.hero-title-text');
     if (heroTextSpan) {
+        // Kill any in-progress typewriter/GSAP animation from app.js BEFORE changing text,
+        // otherwise characters keep appending to the new text ("Got a spicy idea?yzing the topic" bug)
+        if (window._heroTypewriterTimer) {
+            clearTimeout(window._heroTypewriterTimer);
+            window._heroTypewriterTimer = null;
+        }
+        // Also cancel the 3-second reset timer from stopBtnMessages()
+        if (window._heroResetTimer) {
+            clearTimeout(window._heroResetTimer);
+            window._heroResetTimer = null;
+        }
+        if (window._btnMsgTimer) {
+            clearTimeout(window._btnMsgTimer);
+            window._btnMsgTimer = null;
+        }
+        const heroTitle = document.querySelector('.hero-title');
+        if (window.gsap && heroTitle) {
+            window.gsap.killTweensOf(heroTitle);
+            window.gsap.set(heroTitle, { x: 0, opacity: 1 }); // reset to visible
+        }
+
         if (!heroTextSpan.getAttribute('data-original-text')) {
             heroTextSpan.setAttribute('data-original-text', heroTextSpan.textContent);
         }
-        heroTextSpan.textContent = window.__t('waiting_for_user', 'Waiting for your review...');
+        heroTextSpan.textContent = window.__t ? window.__t('waiting_for_user', 'Waiting for your review...') : 'Waiting for your review...';
         heroTextSpan.parentElement.classList.add('waiting-state');
     }
     
     // Re-enable generate button and inputs
     document.getElementById('btn-outline-generate').disabled = false;
+    document.getElementById('btn-outline-add-slide').disabled = false;
     
     // Populate settings
     const titleInput = document.getElementById('outline-title-input');
     titleInput.value = skeletonData.topic || '';
     titleInput.disabled = false;
     
-    document.getElementById('outline-tone-select').value = skeletonData.tone || 'formal';
+    // Fix #22: 'formal' is not a valid option in the select — use 'academic' as fallback
+    const toneVal = skeletonData.tone || 'academic';
+    document.getElementById('outline-tone-select').value = toneVal;
+    // If the value wasn't set (no matching option), default to academic
+    const toneSelect = document.getElementById('outline-tone-select');
+    if (!toneSelect.value) toneSelect.value = 'academic';
+    
     document.getElementById('outline-audience-select').value = skeletonData.audience || 'general';
-    document.getElementById('outline-density-select').value = skeletonData.density || 'medium';
+    document.getElementById('outline-density-select').value = skeletonData.density || skeletonData.text_density || 'medium';
     document.querySelectorAll('.outline-select').forEach(el => el.disabled = false);
+    
+    // Fix #13: Populate subtitle/context input if present
+    const subtitleInput = document.getElementById('outline-subtitle-input');
+    if (subtitleInput) subtitleInput.value = skeletonData.subtitle_context || '';
     
     renderOutlineSlides();
 }
@@ -184,6 +223,12 @@ function renderOutlineSlides() {
         container.appendChild(card);
     });
     
+    // Bug #21: Use debounce for textarea inputs to avoid reflow on every keystroke
+    function debounce(fn, ms) {
+        let timer;
+        return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+    }
+
     // Helper for auto-resizing textareas
     const autoResizeTextarea = (el) => {
         if (!el) return;
@@ -191,50 +236,61 @@ function renderOutlineSlides() {
         el.style.height = (el.scrollHeight) + 'px';
     };
 
-    // Add event listeners for inputs
+    // Add event listeners for inputs — use dataset.index to always read from live state
     document.querySelectorAll('.outline-slide-title').forEach(input => {
         autoResizeTextarea(input);
-        input.addEventListener('input', (e) => {
+        input.addEventListener('input', debounce((e) => {
             autoResizeTextarea(e.target);
-            slides[e.target.dataset.index].title = e.target.value;
-        });
+            const idx = parseInt(e.target.dataset.index, 10);
+            const slides = window.outlineEditorState.skeleton.slides;
+            if (slides[idx] !== undefined) slides[idx].title = e.target.value;
+        }, 80));
     });
     document.querySelectorAll('.outline-slide-desc').forEach(input => {
         autoResizeTextarea(input);
-        input.addEventListener('input', (e) => {
+        input.addEventListener('input', debounce((e) => {
             autoResizeTextarea(e.target);
-            slides[e.target.dataset.index].subtitle = e.target.value;
-        });
+            const idx = parseInt(e.target.dataset.index, 10);
+            const slides = window.outlineEditorState.skeleton.slides;
+            if (slides[idx] !== undefined) slides[idx].subtitle = e.target.value;
+        }, 80));
     });
     document.querySelectorAll('.outline-slide-type-select').forEach(select => {
         select.addEventListener('change', (e) => {
-            slides[e.target.dataset.index].role = e.target.value;
+            const idx = parseInt(e.target.dataset.index, 10);
+            const slides = window.outlineEditorState.skeleton.slides;
+            if (slides[idx] !== undefined) slides[idx].role = e.target.value;
         });
     });
     document.querySelectorAll('.outline-point-input').forEach(input => {
         autoResizeTextarea(input);
-        input.addEventListener('input', (e) => {
+        input.addEventListener('input', debounce((e) => {
             autoResizeTextarea(e.target);
-            const sIdx = e.target.dataset.sindex;
-            const pIdx = e.target.dataset.pindex;
-            slides[sIdx].key_points[pIdx] = e.target.value;
-        });
+            const sIdx = parseInt(e.target.dataset.sindex, 10);
+            const pIdx = parseInt(e.target.dataset.pindex, 10);
+            const slides = window.outlineEditorState.skeleton.slides;
+            if (slides[sIdx] && slides[sIdx].key_points) {
+                slides[sIdx].key_points[pIdx] = e.target.value;
+            }
+        }, 80));
     });
     document.querySelectorAll('.outline-point-delete').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const btnEl = e.target.closest('.outline-point-delete');
-            const sIdx = btnEl.dataset.sindex;
-            const pIdx = btnEl.dataset.pindex;
-            slides[sIdx].key_points.splice(pIdx, 1);
+            const sIdx = parseInt(btnEl.dataset.sindex, 10);
+            const pIdx = parseInt(btnEl.dataset.pindex, 10);
+            const slides = window.outlineEditorState.skeleton.slides;
+            if (slides[sIdx]) slides[sIdx].key_points.splice(pIdx, 1);
             renderOutlineSlides();
         });
     });
     document.querySelectorAll('.outline-slide-color-picker').forEach(picker => {
         picker.addEventListener('input', (e) => {
-            const idx = e.target.dataset.index;
-            slides[idx].bg_color = e.target.value;
+            const idx = parseInt(e.target.dataset.index, 10);
+            const slides = window.outlineEditorState.skeleton.slides;
+            if (slides[idx] !== undefined) slides[idx].bg_color = e.target.value;
             const card = e.target.closest('.outline-slide-card');
-            const indicator = card.querySelector('.outline-slide-bg-indicator');
+            const indicator = card && card.querySelector('.outline-slide-bg-indicator');
             if (indicator) indicator.style.backgroundColor = e.target.value;
         });
     });
@@ -268,9 +324,19 @@ function addBlankSlide() {
     });
     renderOutlineSlides();
     
-    // scroll to bottom
+    // Bug #7/#20: scroll to bottom AFTER render, then animate the new card in
     const main = document.querySelector('.outline-main');
-    main.scrollTop = main.scrollHeight;
+    requestAnimationFrame(() => {
+        if (main) main.scrollTop = main.scrollHeight;
+        // Animate the last card as newly added
+        const cards = document.querySelectorAll('.outline-slide-card');
+        const newCard = cards[cards.length - 1];
+        if (newCard) {
+            newCard.classList.add('is-new');
+            requestAnimationFrame(() => newCard.classList.add('is-new-visible'));
+            setTimeout(() => { newCard.classList.remove('is-new', 'is-new-visible'); }, 500);
+        }
+    });
 }
 
 async function addSlideWithAI() {
@@ -283,6 +349,40 @@ async function addSlideWithAI() {
     const originalText = btn.innerHTML;
     btn.innerHTML = 'Generating...';
     btn.disabled = true;
+
+    // Inject a loading skeleton card at the bottom
+    const container = document.getElementById('outline-slides-container');
+    const loadingCard = document.createElement('div');
+    loadingCard.className = 'outline-slide-card is-loading is-ai-loading is-new';
+    loadingCard.innerHTML = `
+        <div class="outline-slide-bg-indicator" style="background-color: #121212"></div>
+        <div class="outline-slide-number skeleton-loading-pulse" style="color:transparent">-</div>
+        <div class="outline-slide-content">
+            <div class="outline-slide-header">
+                <div class="outline-slide-title skeleton-loading-pulse"></div>
+                <div class="outline-slide-type-select skeleton-loading-pulse" style="width: 80px; height: 1.5rem; border-radius: 6px;"></div>
+            </div>
+            <div class="outline-slide-desc skeleton-loading-pulse"></div>
+            <div class="outline-points-list">
+                <div class="outline-point-item">
+                    <span class="outline-point-bullet skeleton-loading-pulse"></span>
+                    <div class="outline-point-input skeleton-loading-pulse"></div>
+                </div>
+                <div class="outline-point-item">
+                    <span class="outline-point-bullet skeleton-loading-pulse"></span>
+                    <div class="outline-point-input skeleton-loading-pulse" style="width: 60%"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    container.appendChild(loadingCard);
+
+    // Animate the skeleton in and scroll to bottom immediately
+    requestAnimationFrame(() => {
+        const main = document.querySelector('.outline-main');
+        if (main) main.scrollTop = main.scrollHeight;
+        loadingCard.classList.add('is-new-visible');
+    });
     
     try {
         const response = await fetch('/generate-outline-item', {
@@ -301,13 +401,27 @@ async function addSlideWithAI() {
         if (data.item) {
             slides.push(data.item);
             renderOutlineSlides();
+            // Same enter animation as addBlankSlide
             const main = document.querySelector('.outline-main');
-            main.scrollTop = main.scrollHeight;
+            requestAnimationFrame(() => {
+                if (main) main.scrollTop = main.scrollHeight;
+                const cards = document.querySelectorAll('.outline-slide-card');
+                const newCard = cards[cards.length - 1];
+                if (newCard) {
+                    newCard.classList.add('is-new');
+                    requestAnimationFrame(() => newCard.classList.add('is-new-visible'));
+                    setTimeout(() => { newCard.classList.remove('is-new', 'is-new-visible'); }, 500);
+                }
+            });
         }
     } catch (e) {
         console.error(e);
         alert('Failed to generate slide. Please try again.');
     } finally {
+        // Remove the loading skeleton card (renderOutlineSlides would overwrite it anyway, but this is safer for failures)
+        if (loadingCard && loadingCard.parentNode) {
+            loadingCard.parentNode.removeChild(loadingCard);
+        }
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
@@ -317,7 +431,54 @@ function addBlankPoint(slideIndex) {
     const slides = window.outlineEditorState.skeleton.slides;
     if (!slides[slideIndex].key_points) slides[slideIndex].key_points = [];
     slides[slideIndex].key_points.push("");
-    renderOutlineSlides();
+
+    // Bug #10: Instead of full re-render, only re-render the affected slide card's point list
+    // so the user doesn't lose focus on other fields.
+    const pointList = document.getElementById(`outline-points-${slideIndex}`);
+    if (pointList) {
+        const pIdx = slides[slideIndex].key_points.length - 1;
+        const newItem = document.createElement('div');
+        newItem.className = 'outline-point-item';
+        newItem.innerHTML = `
+            <span class="outline-point-bullet">●</span>
+            <textarea class="outline-point-input" data-sindex="${slideIndex}" data-pindex="${pIdx}" rows="1" style="height: auto; resize: none; overflow-y: hidden;"></textarea>
+            <button type="button" class="outline-point-delete" data-sindex="${slideIndex}" data-pindex="${pIdx}">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        `;
+        pointList.appendChild(newItem);
+
+        // Wire up the new textarea
+        const textarea = newItem.querySelector('.outline-point-input');
+        const autoResize = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
+        textarea.addEventListener('input', (e) => {
+            autoResize(e.target);
+            const sIdx = parseInt(e.target.dataset.sindex, 10);
+            const pIx = parseInt(e.target.dataset.pindex, 10);
+            const sl = window.outlineEditorState.skeleton.slides;
+            if (sl[sIdx] && sl[sIdx].key_points) sl[sIdx].key_points[pIx] = e.target.value;
+        });
+
+        // Wire up the delete button
+        const deleteBtn = newItem.querySelector('.outline-point-delete');
+        deleteBtn.addEventListener('click', () => {
+            const sIdx = parseInt(deleteBtn.dataset.sindex, 10);
+            const pIx = parseInt(deleteBtn.dataset.pindex, 10);
+            const sl = window.outlineEditorState.skeleton.slides;
+            if (sl[sIdx]) sl[sIdx].key_points.splice(pIx, 1);
+            renderOutlineSlides();
+        });
+
+        // Bug #10: Focus the new textarea so user can immediately type
+        textarea.focus();
+        // Animate in
+        newItem.classList.add('is-new');
+        requestAnimationFrame(() => newItem.classList.add('is-new-visible'));
+        setTimeout(() => newItem.classList.remove('is-new', 'is-new-visible'), 400);
+    } else {
+        // Fallback: full re-render if DOM element not found
+        renderOutlineSlides();
+    }
 }
 
 function deleteSlide(index) {
@@ -333,7 +494,11 @@ function moveSlideUp(index) {
     const temp = slides[index - 1];
     slides[index - 1] = slides[index];
     slides[index] = temp;
+    // Bug #20: preserve scroll position after re-render
+    const main = document.querySelector('.outline-main');
+    const scrollTop = main ? main.scrollTop : 0;
     renderOutlineSlides();
+    requestAnimationFrame(() => { if (main) main.scrollTop = scrollTop; });
 }
 
 function moveSlideDown(index) {
@@ -342,7 +507,10 @@ function moveSlideDown(index) {
     const temp = slides[index + 1];
     slides[index + 1] = slides[index];
     slides[index] = temp;
+    const main = document.querySelector('.outline-main');
+    const scrollTop = main ? main.scrollTop : 0;
     renderOutlineSlides();
+    requestAnimationFrame(() => { if (main) main.scrollTop = scrollTop; });
 }
 
 function resumeOutlineEditor() {
@@ -360,13 +528,31 @@ function resumeOutlineEditor() {
     
     const heroTextSpan = document.querySelector('.hero-title-text');
     if (heroTextSpan) {
+        // Kill typewriter before overwriting hero text
+        if (window._heroTypewriterTimer) {
+            clearTimeout(window._heroTypewriterTimer);
+            window._heroTypewriterTimer = null;
+        }
+        if (window._heroResetTimer) {
+            clearTimeout(window._heroResetTimer);
+            window._heroResetTimer = null;
+        }
+        if (window._btnMsgTimer) {
+            clearTimeout(window._btnMsgTimer);
+            window._btnMsgTimer = null;
+        }
+        const heroTitle = document.querySelector('.hero-title');
+        if (window.gsap && heroTitle) {
+            window.gsap.killTweensOf(heroTitle);
+            window.gsap.set(heroTitle, { x: 0, opacity: 1 });
+        }
         if (!heroTextSpan.getAttribute('data-original-text')) {
             heroTextSpan.setAttribute('data-original-text', heroTextSpan.textContent);
         }
         if (window.outlineEditorState.isLoading) {
-            heroTextSpan.textContent = window.__t('generating_outline', 'Generating structure...');
+            heroTextSpan.textContent = window.__t ? window.__t('generating_outline', 'Generating structure...') : 'Generating structure...';
         } else {
-            heroTextSpan.textContent = window.__t('waiting_for_user', 'Waiting for your review...');
+            heroTextSpan.textContent = window.__t ? window.__t('waiting_for_user', 'Waiting for your review...') : 'Waiting for your review...';
         }
         heroTextSpan.parentElement.classList.add('waiting-state');
     }
@@ -425,6 +611,16 @@ document.addEventListener('DOMContentLoaded', () => {
             skel.tone = document.getElementById('outline-tone-select').value;
             skel.audience = document.getElementById('outline-audience-select').value;
             skel.density = document.getElementById('outline-density-select').value;
+
+            // Fix #13: Persist the additional context from outline-subtitle-input
+            const subtitleInput = document.getElementById('outline-subtitle-input');
+            if (subtitleInput) skel.subtitle_context = subtitleInput.value.trim();
+            
+            // Fix #15: Validate at least one slide exists
+            if (!skel.slides || skel.slides.length === 0) {
+                alert(window.__t ? window.__t('outline_empty_slides', 'Please add at least one slide before generating.') : 'Please add at least one slide before generating.');
+                return;
+            }
             
             // Clean up empty points
             skel.slides.forEach(slide => {
@@ -447,16 +643,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBack = document.getElementById('btn-outline-back');
     if (btnBack) {
         btnBack.addEventListener('click', () => {
+            // Fix #6: Abort any in-flight skeleton or generation fetch
+            if (window._activeGenController) {
+                window._activeGenController.abort();
+                window._activeGenController = null;
+            }
+
             const backdrop = document.getElementById('outline-backdrop');
             if (backdrop) backdrop.classList.remove('active');
             
             const heroTextSpan = document.querySelector('.hero-title-text');
             if (heroTextSpan && heroTextSpan.getAttribute('data-original-text')) {
+                // Kill typewriter so it doesn't append chars to restored text
+                if (window._heroTypewriterTimer) {
+                    clearTimeout(window._heroTypewriterTimer);
+                    window._heroTypewriterTimer = null;
+                }
+                if (window._heroResetTimer) {
+                    clearTimeout(window._heroResetTimer);
+                    window._heroResetTimer = null;
+                }
+                if (window._btnMsgTimer) {
+                    clearTimeout(window._btnMsgTimer);
+                    window._btnMsgTimer = null;
+                }
+                const heroTitle = document.querySelector('.hero-title');
+                if (window.gsap && heroTitle) {
+                    window.gsap.killTweensOf(heroTitle);
+                    window.gsap.set(heroTitle, { x: 0, opacity: 1 });
+                }
                 heroTextSpan.textContent = heroTextSpan.getAttribute('data-original-text');
                 heroTextSpan.parentElement.classList.remove('waiting-state');
             }
             
             document.getElementById('outline-container').classList.add('hidden');
+
+            // Fix #17: clean up is-generating state on the generate button
+            const btnGen = document.getElementById('btn-outline-generate');
+            if (btnGen) btnGen.classList.remove('is-generating');
             
             // Show the floating edge tab
             const edgeTab = document.getElementById('outline-edge-tab');
@@ -464,9 +688,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 edgeTab.classList.remove('hidden');
             }
             
-            // optionally reset loading states in app.js
-            if (window.hideLoadingState) window.hideLoadingState();
-            if (window.disableGenerationUI) window.disableGenerationUI(false);
+            // Fix #12: guard optional app.js functions
+            if (typeof window.hideLoadingState === 'function') window.hideLoadingState();
+            if (typeof window.disableGenerationUI === 'function') window.disableGenerationUI(false);
         });
     }
     

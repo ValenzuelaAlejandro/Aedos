@@ -843,3 +843,46 @@
 #outline-edge-tab:hover svg {
     transform: translateX(-3px);
 }
+
+/* ================================================================
+   NEW SLIDE / NEW POINT ENTER ANIMATIONS (Bug #7)
+   Applied via JS: .is-new → .is-new-visible after one frame
+   ================================================================ */
+
+.outline-slide-card.is-new {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+    transition: none;
+}
+
+.outline-slide-card.is-new-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.outline-point-item.is-new {
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: none;
+}
+
+.outline-point-item.is-new-visible {
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* AI-generating slide card state (shown when addSlideWithAI is loading) */
+.outline-slide-card.is-ai-loading {
+    border-color: rgba(99, 102, 241, 0.35);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15),
+                0 4px 16px rgba(99, 102, 241, 0.1);
+    animation: aiLoadingPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes aiLoadingPulse {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15), 0 4px 16px rgba(99, 102, 241, 0.1); }
+    50%       { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3),  0 4px 24px rgba(99, 102, 241, 0.2); }
+}

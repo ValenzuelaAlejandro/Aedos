@@ -19,29 +19,128 @@ const pipelineLog = createLogger({ scope: 'PIPELINE' });
 const buildLegacyPrompt = require('./base');
 
 /**
- * Extracts JSON from a model response that may contain markdown fences or extra text.
- * @param {string} text - Raw model output
- * @returns {object} Parsed JSON
+ * Repairs invalid escape sequences inside JSON string values.
+ *
+ * Gemini models occasionally emit backslashes that are not valid JSON escape
+ * characters (e.g. Windows paths like "C:\Users\name", or stray \w, \s in
+ * text), as well as literal newline/tab characters inside string values.
+ * JSON.parse() rejects all of these.
+ *
+ * This function walks the raw text character-by-character, tracking whether
+ * the current position is inside a JSON string, and only within strings it:
+ *   1. Doubles any backslash not followed by a recognised JSON escape character
+ *      (", \, /, b, f, n, r, t, u).
+ *   2. Replaces literal CR/LF with \r / \n.
+ *   3. Replaces literal tab characters with \t.
+ *
+ * Characters outside strings (structural JSON) are passed through unchanged.
+ *
+ * @param {string} text - A JSON string that may contain bad escape sequences
+ * @returns {string} Repaired JSON string
  */
-function extractJson(text) {
-  // Try direct parse first
-  try {
-    return JSON.parse(text.trim());
-  } catch (_) {
-    // Strip markdown code fences
-    let cleaned = text.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
-    
-    // Find the first { and last }
-    const firstBrace = cleaned.indexOf('{');
-    const lastBrace = cleaned.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+function repairJsonEscapes(text) {
+  const VALID_ESCAPES = new Set(['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u']);
+  let out = '';
+  let inString = false;
+  let i = 0;
+
+  while (i < text.length) {
+    const ch = text[i];
+
+    if (!inString) {
+      // Entering a string
+      if (ch === '"') {
+        inString = true;
+        out += ch;
+        i++;
+        continue;
+      }
+      out += ch;
+      i++;
+      continue;
     }
 
-    // Strip JS-style // line comments (model sometimes copies comment syntax from prompt examples)
-    cleaned = cleaned.replace(/\/\/[^\n"]*/g, '');
+    // Inside a JSON string value
+    if (ch === '\\') {
+      const next = text[i + 1];
+      if (next !== undefined && VALID_ESCAPES.has(next)) {
+        // Valid escape sequence — keep as-is
+        out += ch + next;
+        i += 2;
+      } else {
+        // Invalid escape — double the backslash to make it a literal backslash
+        out += '\\\\';
+        i++;
+      }
+      continue;
+    }
 
+    if (ch === '"') {
+      // End of string
+      inString = false;
+      out += ch;
+      i++;
+      continue;
+    }
+
+    // Literal control characters inside a string — these are never valid in JSON
+    if (ch === '\n') { out += '\\n'; i++; continue; }
+    if (ch === '\r') { out += '\\r'; i++; continue; }
+    if (ch === '\t') { out += '\\t'; i++; continue; }
+
+    out += ch;
+    i++;
+  }
+
+  return out;
+}
+
+/**
+ * Extracts and parses JSON from a model response that may contain markdown
+ * fences, extra prose, JS comments, or invalid escape sequences.
+ *
+ * Parsing strategy (cascading — stops at the first success):
+ *   Level 1 — Direct JSON.parse() on the trimmed text.
+ *   Level 2 — Strip markdown fences, extract the outermost {...} block,
+ *              strip JS-style // comments, then JSON.parse().
+ *   Level 3 — Apply repairJsonEscapes() to the cleaned text, then JSON.parse().
+ *              A warning is logged when this level is reached so we can track
+ *              how often the model emits malformed escapes.
+ *
+ * @param {string} text - Raw model output
+ * @returns {object} Parsed JSON object
+ */
+function extractJson(text) {
+  // ── Level 1: direct parse ──────────────────────────────────────────────────
+  try {
+    return JSON.parse(text.trim());
+  } catch (_) { /* fall through */ }
+
+  // ── Level 2: strip fences + brace extraction + strip JS comments ───────────
+  let cleaned = text.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace  = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+
+  // Strip JS-style // line comments (model sometimes copies comment syntax from prompt examples)
+  cleaned = cleaned.replace(/\/\/[^\n"]*/g, '');
+
+  try {
     return JSON.parse(cleaned);
+  } catch (_) { /* fall through to repair */ }
+
+  // ── Level 3: repair bad escape sequences ──────────────────────────────────
+  try {
+    const repaired = repairJsonEscapes(cleaned);
+    const result = JSON.parse(repaired);
+    // Log so we can monitor how often the model produces bad escapes
+    pipelineLog.warn(ErrorCategory.PIPELINE, 'extractJson: used escape-repair fallback — model emitted invalid JSON escapes');
+    return result;
+  } catch (finalErr) {
+    throw finalErr;
   }
 }
 
@@ -87,6 +186,69 @@ async function runStage(tryModelsFn, prompt, stageName) {
  * @param {number} [options.maxSlides=12] - Hard limit on slides to prevent token waste
  * @returns {object} { stage3Stream, contentJson, designJson } - stage3Stream is the async iterable
  */
+/**
+ * Enriches a user-edited skeleton with the fields that Stage 2 expects from Stage 1.
+ * The outline editor only stores: role, title, subtitle, key_points, bg_color.
+ * Stage 2 also needs: visual_world, narrative_structure, tone, audience, text_density,
+ * slide_count, plus per-slide core_message, weight, tension, connects_to.
+ * We derive sensible defaults here so Stage 2 always gets a complete contentJson.
+ *
+ * @param {object} skeleton - The skeleton as edited by the user
+ * @param {string} rawInput - The original user prompt (used to derive visual_world)
+ * @returns {object} Enriched contentJson ready for Stage 2
+ */
+function enrichSkeletonForStage2(skeleton, rawInput) {
+  if (!skeleton || typeof skeleton !== 'object') return skeleton;
+
+  const slides = Array.isArray(skeleton.slides) ? skeleton.slides : [];
+
+  // Map editor density to Stage 1 text_density enum
+  const densityMap = { low: 'low', medium: 'medium', high: 'high' };
+
+  const enriched = {
+    language:            skeleton.language            || 'auto',
+    topic:               skeleton.topic               || rawInput,
+    audience:            skeleton.audience            || 'general',
+    tone:                skeleton.tone                || 'corporate',
+    text_density:        densityMap[skeleton.density] || densityMap[skeleton.text_density] || 'medium',
+    narrative_structure: skeleton.narrative_structure || 'explanatory',
+    slide_count:         slides.length,
+    author:              skeleton.author              || null,
+    team:                skeleton.team                || null,
+    teacher:             skeleton.teacher             || null,
+    subject:             skeleton.subject             || null,
+    institution:         skeleton.institution         || null,
+    date:                skeleton.date                || null,
+    cta:                 skeleton.cta                 || null,
+    // Provide a visual_world block so Stage 2 has a creative anchor.
+    // If the user-skeleton already has one (carried over from a previous Stage 1 run)
+    // we keep it; otherwise we derive a lightweight placeholder.
+    visual_world: skeleton.visual_world || {
+      real_world_analog: `(Derive from topic: ${rawInput})`,
+      color_temperature: 'neutral',
+      texture_feel:      'digital',
+      typography_energy: 'neutral',
+      reference_era:     'contemporary'
+    },
+    // Carry over any existing slides, enriching missing per-slide fields
+    slides: slides.map((slide, idx) => ({
+      index:         idx + 1,
+      role:          slide.role          || 'concept',
+      title:         slide.title         || '',
+      subtitle:      slide.subtitle      || null,
+      // core_message defaults to the title when absent (Stage 2 uses it for focal point guidance)
+      core_message:  slide.core_message  || slide.title || '',
+      key_points:    Array.isArray(slide.key_points) ? slide.key_points.filter(Boolean) : [],
+      data_points:   Array.isArray(slide.data_points) ? slide.data_points : null,
+      tension:       slide.tension       || null,
+      weight:        slide.weight        || (idx === 0 ? 'anchor' : idx === slides.length - 1 ? 'anchor' : 'supporting'),
+      connects_to:   slide.connects_to   || null,
+    }))
+  };
+
+  return enriched;
+}
+
 async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, maxSlides = 12 }) {
   // Allow legacy callers that pass a single tryModels function
   const callStage1 = tryModelsStage1 || tryModels;
@@ -96,7 +258,8 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
 
   if (skeleton) {
     pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 1 skipped (Skeleton provided)');
-    contentJson = skeleton;
+    // Enrich the editor skeleton with all fields Stage 2 needs before skipping Stage 1
+    contentJson = enrichSkeletonForStage2(skeleton, rawInput);
     onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count || contentJson.slides?.length || 0 });
   } else {
     // ── Stage 1: Content Extraction ──

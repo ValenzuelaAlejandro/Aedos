@@ -1327,8 +1327,15 @@ document.addEventListener('DOMContentLoaded', () => {
             let bodyData = window._pendingGenerateBodyData;
             let headers = window._pendingGenerateHeaders || {};
             
+            // Bug #3: Clone body data so we don't mutate the original FormData/JSON
+            // (multiple retries would otherwise accumulate extra 'skeleton' fields)
             if (bodyData instanceof FormData) {
-                bodyData.append('skeleton', JSON.stringify(skeleton));
+                const cloned = new FormData();
+                for (const [key, val] of bodyData.entries()) {
+                    cloned.append(key, val);
+                }
+                cloned.append('skeleton', JSON.stringify(skeleton));
+                bodyData = cloned;
             } else {
                 const parsed = JSON.parse(bodyData);
                 parsed.skeleton = skeleton;
@@ -1664,6 +1671,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Ignore intentional user cancellations (Back button)
             if (error.name === 'AbortError') {
+                // Bug #17: clean up generating state even on abort
+                const btnOutlineGenerate = document.getElementById('btn-outline-generate');
+                if (btnOutlineGenerate) btnOutlineGenerate.classList.remove('is-generating');
                 iframeDoc.close();
                 return;
             }
@@ -1729,6 +1739,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('rate_limit_msg', "Too many requests in a short time. Wait a few minutes and try again.") : "Too many requests in a short time. Wait a few minutes and try again.";
             } else if (msg.includes('TOPIC_TOO_LONG')) {
                 if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('topic_too_long', "The topic is too long. Keep it under 600 characters.") : "The topic is too long. Keep it under 600 characters.";
+            } else if (msg.includes('SKELETON_EMPTY')) {
+                if (errTitle) errTitle.textContent = window.__t ? window.__t('outline_empty_title', "Outline is empty") : "Outline is empty";
+                if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('outline_empty_msg', "Please add at least one slide to your outline before generating.") : "Please add at least one slide to your outline before generating.";
             } else {
                 // Try to extract "Please retry in X seconds" from Gemini standard errors
                 let retryMsg = "";
@@ -1766,11 +1779,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 heroTextSpan.parentElement.classList.remove('waiting-state');
             }
             const outlineContainer = document.getElementById('outline-container');
-            if (outlineContainer) outlineContainer.classList.add('hidden');
-            const backdrop = document.getElementById('outline-backdrop');
-            if (backdrop) backdrop.classList.remove('active');
-            const edgeTab = document.getElementById('outline-edge-tab');
-            if (edgeTab) edgeTab.classList.add('hidden');
+            // FIX: Do NOT hide outlineContainer, backdrop, and edgeTab here.
+            // If the user gets rate-limited, they should be able to keep their draft and try again.
+            // if (outlineContainer) outlineContainer.classList.add('hidden');
+            // const backdrop = document.getElementById('outline-backdrop');
+            // if (backdrop) backdrop.classList.remove('active');
+            // const edgeTab = document.getElementById('outline-edge-tab');
+            // if (edgeTab) edgeTab.classList.add('hidden');
 
             // Clean up any in-progress chat→preview transition
             if (!_hasTransitioned) {

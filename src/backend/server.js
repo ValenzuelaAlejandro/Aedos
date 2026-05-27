@@ -1188,7 +1188,7 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
     }
 });
 
-app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkRateLimits, async (req, res) => {
+app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     const requestId = req.requestId || 'n/a';
     try {
         const { type, topic, ...context } = req.body;
@@ -1203,7 +1203,7 @@ app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkRateLimi
         }
 
         // For outline items, we use flash lite to make it fast
-        const rawOutputResponse = await tryModelsFlash(prompt, null);
+        const rawOutputResponse = await tryModelsStage1(prompt, null);
         let rawOutput = '';
         for await (const chunk of rawOutputResponse.stream) {
             rawOutput += chunk;
@@ -1215,6 +1215,14 @@ app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkRateLimi
         } catch (e) {
             throw new Error(`Failed to parse AI output as JSON: ${e.message}`);
         }
+
+        // Validate required fields before returning
+        if (!itemJson || typeof itemJson !== 'object') {
+            throw new Error('Invalid AI response format for outline item');
+        }
+        if (!itemJson.title) itemJson.title = '';
+        if (!itemJson.role) itemJson.role = 'concept';
+        if (!Array.isArray(itemJson.key_points)) itemJson.key_points = [];
 
         res.json({ item: itemJson });
     } catch (err) {
@@ -1248,6 +1256,14 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                 opciones.skeleton = JSON.parse(opciones.skeleton);
             } catch (e) {
                 log.warn(ErrorCategory.VALIDATION, 'Failed to parse skeleton from FormData', { requestId });
+            }
+        }
+
+        // Bug #15: Validate that the skeleton is not empty before skipping Stage 1
+        if (opciones.skeleton && typeof opciones.skeleton === 'object') {
+            const skeletonSlides = opciones.skeleton.slides;
+            if (!Array.isArray(skeletonSlides) || skeletonSlides.length === 0) {
+                return res.status(400).json({ error: 'SKELETON_EMPTY: The outline has no slides. Please add at least one slide before generating.' });
             }
         }
         
