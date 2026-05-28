@@ -4,21 +4,32 @@
 
 #outline-container {
     position: fixed;
-    top: 24px;
-    right: 24px;
-    bottom: 24px;
-    width: 90vw;
-    max-width: 1150px;
+    bottom: 0;
+    left: 50%;
+    width: 95vw;
+    max-width: 1200px;
+    height: 88vh;
     z-index: 1000;
-    background: var(--bg);
+    background: var(--surface);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    transform: translateX(0);
+
+    /* The magic outline: traces the entire composite shape continuously without breaking on vertical edges */
+    filter: 
+        drop-shadow(0 -1px 0 var(--border)) 
+        drop-shadow(-1px 0 0 var(--border)) 
+        drop-shadow(1px 0 0 var(--border)) 
+        drop-shadow(0 -10px 40px rgba(0, 0, 0, 0.6));
+
+    border: none;
+    /* Physical border removed; drop-shadow perfectly replaces it on all sides */
+    border-radius: 16px 16px 0 0;
+    /* Top corners of container rounded */
+
+    transform: translate(-50%, 0);
     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-    overflow: hidden;
+    overflow: visible;
+    /* Required to show the fused tab sitting on top */
 }
 
 /* Custom premium scrollbar for dark mode */
@@ -42,7 +53,8 @@
 
 #outline-container.hidden {
     display: flex !important;
-    transform: translateX(calc(100% + 40px));
+    /* Translate down by 100% minus 16px so the top 16px (the shelf) stays visible at the bottom of the screen */
+    transform: translate(-50%, calc(100% - 16px));
     pointer-events: none;
     box-shadow: none;
 }
@@ -66,12 +78,16 @@
 
 @media (max-width: 768px) {
     #outline-container {
-        top: 12px;
-        right: 12px;
-        bottom: 12px;
-        width: calc(100vw - 24px);
-        max-width: none;
-        border-radius: 16px;
+        bottom: 0;
+        left: 0;
+        width: 100vw;
+        height: 90vh;
+        border-radius: 0;
+        transform: translate(0, 0);
+    }
+
+    #outline-container.hidden {
+        transform: translate(0, 100%);
     }
 }
 
@@ -82,14 +98,14 @@
     justify-content: space-between;
     padding: 1rem 2rem;
     border-bottom: 1px solid var(--border);
-    background: var(--bg);
+    background: transparent;
     z-index: 10;
 }
 
-.outline-header-center {
+.outline-header-left {
     flex: 1;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .outline-title-input {
@@ -98,10 +114,10 @@
     color: var(--text);
     font-size: 1.2rem;
     font-weight: 700;
-    text-align: center;
+    text-align: left;
     font-family: var(--font-body);
     width: 100%;
-    max-width: 400px;
+    max-width: 500px;
     outline: none;
 }
 
@@ -137,7 +153,7 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-    overflow-y: auto;
+    overflow-y: hidden;
 }
 
 .outline-sidebar-title {
@@ -176,19 +192,66 @@
 .outline-select {
     width: 100%;
     appearance: none;
-    background: var(--bg);
+    background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 0.8rem 1rem;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    padding: 0.55rem 1rem;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 500;
     cursor: pointer;
     outline: none;
     font-family: var(--font-body);
+    transition: all 0.2s ease;
+}
+
+.outline-select:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .outline-select:focus {
     border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.custom-select-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.custom-select-trigger svg {
+    margin-left: 0.5rem;
+    flex-shrink: 0;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.custom-select-trigger[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+.custom-select-menu {
+    top: calc(100% + 6px);
+    bottom: auto;
+    width: 100%;
+    transform-origin: top left;
+}
+
+.custom-select-menu.hidden {
+    transform: translateY(-10px) scale(0.96);
+}
+
+.custom-select-menu .dropdown-item {
+    text-align: left;
+    width: 100%;
+    font-size: 0.85rem;
+}
+
+#outline-audience-dropdown-menu {
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 /* Main Area */
@@ -198,7 +261,7 @@
     flex-direction: column;
     overflow-y: auto;
     padding: 2rem 4rem 8rem 4rem;
-    background: var(--bg);
+    background: transparent;
     position: relative;
 }
 
@@ -478,7 +541,7 @@
     gap: 0.8rem;
     margin-top: 0.5rem;
     padding-top: 1rem;
-    border-top: 1px solid rgba(255,255,255,0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .outline-slide-bg-color label {
@@ -519,7 +582,7 @@
     width: 20px;
     height: 20px;
     border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     cursor: pointer;
     transition: transform 0.1s;
 }
@@ -551,13 +614,13 @@
     padding: 0.4rem 0.4rem 0.4rem 1.2rem;
     gap: 1rem;
     cursor: pointer;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .outline-generate-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
 }
 
 #outline-slide-count {
@@ -567,7 +630,7 @@
 }
 
 .outline-generate-btn-content {
-    background: linear-gradient(135deg, #4F46E5, #7C3AED);
+    background: linear-gradient(135deg, #0066FF, #0052CC);
     color: white;
     display: flex;
     align-items: center;
@@ -623,41 +686,59 @@
 
 /* Light Theme Adjustments */
 :root[data-theme="light"] #outline-container {
-    background: #f8fafc;
+    background: #ffffff;
 }
+
 :root[data-theme="light"] .outline-header,
 :root[data-theme="light"] .outline-main {
-    background: #f8fafc;
+    background: transparent;
 }
+
 :root[data-theme="light"] .outline-sidebar {
     background: #ffffff;
     border-color: #e2e8f0;
 }
+
 :root[data-theme="light"] .outline-slide-card {
     background: #ffffff;
     border-color: #e2e8f0;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
+
 :root[data-theme="light"] .outline-select {
-    background: #ffffff;
+    background: rgba(0, 0, 0, 0.02);
     border-color: #cbd5e1;
     color: #0f172a;
 }
+
+:root[data-theme="light"] .outline-select:hover {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: #b8c2cc;
+}
+
+:root[data-theme="light"] .outline-select:focus {
+    border-color: var(--accent);
+    background: rgba(0, 0, 0, 0.04);
+}
+
 :root[data-theme="light"] .outline-title-input,
 :root[data-theme="light"] .outline-slide-title,
 :root[data-theme="light"] .outline-point-input {
     color: #0f172a;
 }
+
 :root[data-theme="light"] .outline-generate-btn {
     background: #ffffff;
     border-color: #e2e8f0;
 }
+
 :root[data-theme="light"] .outline-btn-secondary,
 :root[data-theme="light"] .outline-slide-action-btn {
     background: #f1f5f9;
     border-color: #e2e8f0;
     color: #475569;
 }
+
 :root[data-theme="light"] .outline-back-btn {
     color: #475569;
     background: #f1f5f9;
@@ -714,23 +795,47 @@
     background-size: 200% auto;
     z-index: 1;
     border-radius: 24px;
-    animation: 
+    animation:
         fillProgress 18s cubic-bezier(0.1, 0.8, 0.2, 1) forwards,
         gradientShimmer 2s linear infinite;
 }
 
 @keyframes fillProgress {
-    0% { width: 0%; }
-    5% { width: 10%; }
-    30% { width: 55%; }
-    60% { width: 75%; }
-    85% { width: 92%; }
-    100% { width: 96%; } /* pauses near completion, finalized in JS */
+    0% {
+        width: 0%;
+    }
+
+    5% {
+        width: 10%;
+    }
+
+    30% {
+        width: 55%;
+    }
+
+    60% {
+        width: 75%;
+    }
+
+    85% {
+        width: 92%;
+    }
+
+    100% {
+        width: 96%;
+    }
+
+    /* pauses near completion, finalized in JS */
 }
 
 @keyframes gradientShimmer {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 200% 50%; }
+    0% {
+        background-position: 0% 50%;
+    }
+
+    100% {
+        background-position: 200% 50%;
+    }
 }
 
 /* ================================================================
@@ -747,9 +852,17 @@
 }
 
 @keyframes skeletonPulse {
-    0% { opacity: 0.4; }
-    50% { opacity: 0.8; }
-    100% { opacity: 0.4; }
+    0% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+
+    100% {
+        opacity: 0.4;
+    }
 }
 
 .outline-slide-card.is-loading {
@@ -786,62 +899,139 @@
     background: rgba(0, 0, 0, 0.05);
 }
 
-/* Floating Edge Tab */
+/* ================================================================
+   FUSED FOLDER TAB (Top edge of the outline container)
+   ================================================================ */
+
+/* Fused Tab directly on the container */
 #outline-edge-tab {
-    position: fixed;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%) translateX(100%);
+    position: absolute;
+    bottom: calc(100% - 1px);
+    /* Overlap container by 1px to close any subpixel gaps and hide internal drop-shadow lines */
+    /* Sits precisely on top of the container */
+    left: 50%;
+    transform: translateX(-50%);
+    height: 28px;
+    /* 28px total height gives perfect room for the 12px top curve, 12px bottom curve, and a small straight vertical edge */
     background: var(--surface);
-    color: var(--text);
-    border-left: 1px solid var(--border);
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    padding: 1.2rem 0.6rem;
-    border-radius: 12px 0 0 12px;
-    cursor: pointer;
-    z-index: 950;
+    border-radius: 12px 12px 0 0;
+    /* Slightly tighter radius for a smaller tab */
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 0.6rem;
-    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.35);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s, padding-right 0.2s;
+    justify-content: center;
+    padding: 0 32px;
+    gap: 12px;
+    cursor: pointer;
+    pointer-events: auto;
+    /* Required to click when container is .hidden */
+    transition: background-color 0.2s;
     user-select: none;
+    z-index: 10;
 }
 
-#outline-edge-tab:not(.hidden) {
-    transform: translateY(-50%) translateX(0);
+#outline-edge-tab:hover span,
+#outline-edge-tab:hover .tab-icon {
+    color: var(--primary);
+    /* Highlight the text and icon instead of the physical background */
 }
 
-#outline-edge-tab.hidden {
-    transform: translateY(-50%) translateX(100%);
+/* Smooth fillet curves using precise SVG paths */
+.folder-curve {
+    position: absolute;
+    bottom: 0;
+    /* Tab already overlaps by 1px, so curve sits flush with tab bottom */
+    /* Overlaps container top edge by 1px to prevent seams */
+    width: 13px;
+    /* 12px curve + 1px overlap */
+    height: 13px;
     pointer-events: none;
+    fill: var(--surface);
+    /* Perfectly match the tab/shelf color */
+    transition: fill 0.2s;
 }
 
-#outline-edge-tab:hover {
-    background: var(--surface2);
-    padding-right: 0.8rem;
+.folder-curve-left {
+    right: calc(100% - 1px);
+}
+
+.folder-curve-right {
+    left: calc(100% - 1px);
 }
 
 #outline-edge-tab span {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
     font-weight: 700;
-    font-size: 0.8rem;
-    letter-spacing: 0.1em;
+    font-size: 0.88rem;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     font-family: var(--font-body);
     color: var(--text);
 }
 
-#outline-edge-tab svg {
+#outline-edge-tab .tab-icon {
     color: var(--text);
-    transition: transform 0.3s;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: rotate(0deg);
 }
 
-#outline-edge-tab:hover svg {
-    transform: translateX(-3px);
+#outline-edge-tab.is-open .tab-icon {
+    transform: rotate(180deg);
+}
+
+.outline-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1; /* Fill available height when sidebar/footer are hidden */
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-family: var(--font-body);
+}
+
+.outline-empty-state svg {
+    margin-bottom: 1.25rem;
+    color: var(--muted);
+    opacity: 0.45;
+    transition: opacity 0.3s ease;
+}
+
+.outline-empty-state:hover svg {
+    opacity: 0.75;
+}
+
+.outline-empty-state.hidden {
+    display: none;
+}
+
+.outline-empty-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 0.5rem 0;
+    font-family: var(--font-body);
+    letter-spacing: -0.01em;
+}
+
+.outline-empty-subtitle {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.65;
+    font-family: var(--font-body);
+    max-width: 420px;
+}
+
+.outline-empty-divider {
+    font-size: 1rem;
+    color: var(--muted);
+    opacity: 0.3;
+    margin: 1.5rem 0;
+    letter-spacing: 0.4em;
+}
+
+:root[data-theme="light"] .outline-empty-state {
+    border-color: rgba(0, 0, 0, 0.1);
 }
 
 /* ================================================================
@@ -859,7 +1049,7 @@
     opacity: 1;
     transform: translateY(0) scale(1);
     transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-                transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .outline-point-item.is-new {
@@ -878,11 +1068,18 @@
 .outline-slide-card.is-ai-loading {
     border-color: rgba(99, 102, 241, 0.35);
     box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15),
-                0 4px 16px rgba(99, 102, 241, 0.1);
+        0 4px 16px rgba(99, 102, 241, 0.1);
     animation: aiLoadingPulse 1.6s ease-in-out infinite;
 }
 
 @keyframes aiLoadingPulse {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15), 0 4px 16px rgba(99, 102, 241, 0.1); }
-    50%       { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3),  0 4px 24px rgba(99, 102, 241, 0.2); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15), 0 4px 16px rgba(99, 102, 241, 0.1);
+    }
+
+    50% {
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3), 0 4px 24px rgba(99, 102, 241, 0.2);
+    }
 }

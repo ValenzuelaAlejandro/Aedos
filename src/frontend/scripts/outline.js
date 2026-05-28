@@ -15,7 +15,11 @@ function showOutlineEditorLoading(slideCount = 8) {
     if (backdrop) backdrop.classList.add('active');
     
     const edgeTab = document.getElementById('outline-edge-tab');
-    if (edgeTab) edgeTab.classList.add('hidden');
+    if (edgeTab) {
+        edgeTab.classList.add('is-open');
+        const tabText = edgeTab.querySelector('span');
+        if (tabText) tabText.textContent = window.__t ? window.__t('close_draft', 'Close draft') : 'Close draft';
+    }
     // Update Hero Title in chat screen to say "Generating outline..."
     const heroTextSpan = document.querySelector('.hero-title-text');
     if (heroTextSpan) {
@@ -76,6 +80,14 @@ function initOutlineEditor(skeletonData, mode) {
     window.outlineEditorState.mode = mode;
     window.outlineEditorState.maxSlides = mode === 'pro' ? 8 : 15;
     
+    // Ensure all editing UI elements are visible when initializing a real draft
+    document.querySelector('.outline-sidebar')?.style.removeProperty('display');
+    document.querySelector('.outline-main-header')?.style.removeProperty('display');
+    document.getElementById('outline-title-input')?.style.removeProperty('display');
+    document.querySelector('.outline-floating-footer')?.style.removeProperty('display');
+    const emptyState = document.getElementById('outline-empty-state');
+    if (emptyState) emptyState.classList.add('hidden');
+
     if (window.__applyTranslations) window.__applyTranslations();
     
     document.getElementById('outline-container').classList.remove('hidden');
@@ -84,7 +96,11 @@ function initOutlineEditor(skeletonData, mode) {
     if (backdrop) backdrop.classList.add('active');
     
     const edgeTab = document.getElementById('outline-edge-tab');
-    if (edgeTab) edgeTab.classList.add('hidden');
+    if (edgeTab) {
+        edgeTab.classList.add('is-open');
+        const tabText = edgeTab.querySelector('span');
+        if (tabText) tabText.textContent = window.__t ? window.__t('close_draft', 'Close draft') : 'Close draft';
+    }
     
     // Update Hero Title in chat screen to say "Waiting for your review..."
     const heroTextSpan = document.querySelector('.hero-title-text');
@@ -137,6 +153,9 @@ function initOutlineEditor(skeletonData, mode) {
     document.getElementById('outline-density-select').value = skeletonData.density || skeletonData.text_density || 'medium';
     document.querySelectorAll('.outline-select').forEach(el => el.disabled = false);
     
+    // Sync the custom styled selects to match the hidden native select values
+    if (typeof syncCustomDropdowns === 'function') syncCustomDropdowns();
+    
     // Fix #13: Populate subtitle/context input if present
     const subtitleInput = document.getElementById('outline-subtitle-input');
     if (subtitleInput) subtitleInput.value = skeletonData.subtitle_context || '';
@@ -149,6 +168,13 @@ function renderOutlineSlides() {
     container.innerHTML = '';
     
     const slides = window.outlineEditorState.skeleton.slides || [];
+    
+    const emptyState = document.getElementById('outline-empty-state');
+    if (slides.length === 0) {
+        if (emptyState) emptyState.classList.remove('hidden');
+    } else {
+        if (emptyState) emptyState.classList.add('hidden');
+    }
     
     slides.forEach((slide, index) => {
         const card = document.createElement('div');
@@ -514,9 +540,22 @@ function moveSlideDown(index) {
 }
 
 function resumeOutlineEditor() {
-    if (!window.outlineEditorState.skeleton && !window.outlineEditorState.isLoading) return;
+    if (!window.outlineEditorState.skeleton) {
+        window.outlineEditorState.skeleton = { slides: [] };
+    }
     
+    // Ensure all editing UI elements are visible when resuming a real draft
+    document.querySelector('.outline-sidebar')?.style.removeProperty('display');
+    document.querySelector('.outline-main-header')?.style.removeProperty('display');
+    document.getElementById('outline-title-input')?.style.removeProperty('display');
+    document.querySelector('.outline-floating-footer')?.style.removeProperty('display');
+    const emptyState = document.getElementById('outline-empty-state');
+    if (emptyState) emptyState.classList.add('hidden');
+
     if (window.__applyTranslations) window.__applyTranslations();
+    
+    // Sync custom dropdown UI values when resuming
+    if (typeof syncCustomDropdowns === 'function') syncCustomDropdowns();
     
     document.getElementById('outline-container').classList.remove('hidden');
     
@@ -524,7 +563,11 @@ function resumeOutlineEditor() {
     if (backdrop) backdrop.classList.add('active');
     
     const edgeTab = document.getElementById('outline-edge-tab');
-    if (edgeTab) edgeTab.classList.add('hidden');
+    if (edgeTab) {
+        edgeTab.classList.add('is-open');
+        const tabText = edgeTab.querySelector('span');
+        if (tabText) tabText.textContent = window.__t ? window.__t('close_draft', 'Close draft') : 'Close draft';
+    }
     
     const heroTextSpan = document.querySelector('.hero-title-text');
     if (heroTextSpan) {
@@ -577,7 +620,82 @@ function escapeHtml(unsafe) {
          .replace(/'/g, "&#039;");
 }
 
+function syncCustomDropdowns() {
+    ['tone', 'audience', 'density'].forEach(type => {
+        const select = document.getElementById(`outline-${type}-select`);
+        const trigger = document.getElementById(`btn-outline-${type}-dropdown`);
+        if (select && trigger) {
+            const val = select.value;
+            const activeItem = document.querySelector(`#outline-${type}-dropdown-menu .dropdown-item[data-value="${val}"]`);
+            const labelSpan = trigger.querySelector('.trigger-label');
+            if (activeItem && labelSpan) {
+                // Keep the exact data-i18n translation key to support dynamic translations
+                if (activeItem.getAttribute('data-i18n')) {
+                    labelSpan.setAttribute('data-i18n', activeItem.getAttribute('data-i18n'));
+                } else {
+                    labelSpan.removeAttribute('data-i18n');
+                }
+                labelSpan.textContent = activeItem.textContent;
+                
+                // Toggle active styling
+                document.querySelectorAll(`#outline-${type}-dropdown-menu .dropdown-item`).forEach(btn => {
+                    btn.classList.toggle('active', btn === activeItem);
+                });
+            }
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Custom Sidebar Select Dropdowns
+    ['tone', 'audience', 'density'].forEach(type => {
+        const container = document.getElementById(`outline-${type}-dropdown-container`);
+        if (!container) return;
+        
+        const trigger = document.getElementById(`btn-outline-${type}-dropdown`);
+        const menu = document.getElementById(`outline-${type}-dropdown-menu`);
+        const select = document.getElementById(`outline-${type}-select`);
+        
+        if (trigger && menu && select) {
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Close other custom menus
+                document.querySelectorAll('.outline-custom-dropdown .dropdown-menu').forEach(otherMenu => {
+                    if (otherMenu !== menu) {
+                        otherMenu.classList.add('hidden');
+                        otherMenu.parentElement.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+                    }
+                });
+                
+                const isHidden = menu.classList.toggle('hidden');
+                trigger.setAttribute('aria-expanded', !isHidden);
+            });
+            
+            menu.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const val = item.getAttribute('data-value');
+                    select.value = val;
+                    
+                    // Dispatch change event to notify skeleton builder
+                    select.dispatchEvent(new Event('change'));
+                    
+                    syncCustomDropdowns();
+                    menu.classList.add('hidden');
+                    trigger.setAttribute('aria-expanded', 'false');
+                });
+            });
+        }
+    });
+    
+    // Close custom dropdowns on document click
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.outline-custom-dropdown .dropdown-menu').forEach(menu => {
+            menu.classList.add('hidden');
+            menu.parentElement.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+        });
+    });
+
     // Add Slide Dropdown
     const addSlideBtn = document.getElementById('btn-outline-add-slide');
     const addSlideMenu = document.getElementById('outline-add-slide-menu');
@@ -678,14 +796,20 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('outline-container').classList.add('hidden');
 
+            // Hide the empty state on close (we do NOT restore editing UI here to prevent flickering)
+            const emptyOnClose = document.getElementById('outline-empty-state');
+            if (emptyOnClose) emptyOnClose.classList.add('hidden');
+
             // Fix #17: clean up is-generating state on the generate button
             const btnGen = document.getElementById('btn-outline-generate');
             if (btnGen) btnGen.classList.remove('is-generating');
             
-            // Show the floating edge tab
+            // Reset the floating edge tab
             const edgeTab = document.getElementById('outline-edge-tab');
             if (edgeTab) {
-                edgeTab.classList.remove('hidden');
+                edgeTab.classList.remove('is-open');
+                const tabText = edgeTab.querySelector('span');
+                if (tabText) tabText.textContent = window.__t ? window.__t('open_draft', 'Open draft') : 'Open draft';
             }
             
             // Fix #12: guard optional app.js functions
@@ -702,11 +826,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Edge tab opens the drawer
+    // Edge tab opens/closes the drawer
     const edgeTab = document.getElementById('outline-edge-tab');
     if (edgeTab) {
         edgeTab.addEventListener('click', () => {
-            resumeOutlineEditor();
+            if (edgeTab.classList.contains('is-open')) {
+                const btnBack = document.getElementById('btn-outline-back');
+                if (btnBack) btnBack.click();
+            } else if (window.outlineEditorState.skeleton) {
+                // There is a draft — resume it normally
+                resumeOutlineEditor();
+            } else {
+                // No draft generated yet — open the panel showing ONLY the empty state
+                const container = document.getElementById('outline-container');
+                if (container) container.classList.remove('hidden');
+
+                // Show empty state, hide all editing UI
+                const emptyState = document.getElementById('outline-empty-state');
+                if (emptyState) emptyState.classList.remove('hidden');
+                document.querySelector('.outline-sidebar')?.style.setProperty('display', 'none');
+                document.querySelector('.outline-main-header')?.style.setProperty('display', 'none');
+                document.getElementById('outline-title-input')?.style.setProperty('display', 'none');
+                document.querySelector('.outline-floating-footer')?.style.setProperty('display', 'none');
+
+                edgeTab.classList.add('is-open');
+                const tabText = edgeTab.querySelector('span');
+                if (tabText) tabText.textContent = window.__t ? window.__t('close_draft', 'Close draft') : 'Close draft';
+
+                // Apply translations so the empty state shows the correct language
+                if (window.__applyTranslations) window.__applyTranslations();
+            }
         });
     }
 });

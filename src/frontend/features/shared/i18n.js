@@ -178,7 +178,11 @@ const translations = {
         "density_low": "Low",
         "density_medium": "Balanced",
         "density_high": "High",
-        "ai_warning": "Aedos uses AI. Always review the generated content."
+        "ai_warning": "Aedos uses AI. Always review the generated content.",
+        "open_draft": "Open draft",
+        "close_draft": "Close draft",
+        "no_draft_title": "No draft generated yet",
+        "no_draft_subtitle": "Describe your presentation in the chat and press the generate button to create a draft outline."
     },
     es: {
         "brand_name": "Aedos",
@@ -359,7 +363,11 @@ const translations = {
         "density_low": "Baja",
         "density_medium": "Equilibrada",
         "density_high": "Alta",
-        "ai_warning": "Aedos usa IA. Revisa siempre el contenido generado."
+        "ai_warning": "Aedos usa IA. Revisa siempre el contenido generado.",
+        "open_draft": "Ver borrador",
+        "close_draft": "Ocultar borrador",
+        "no_draft_title": "No hay borrador generado",
+        "no_draft_subtitle": "Describe tu presentación en el chat y presiona el botón de generar para crear un borrador de esquema."
     }
 };
 
