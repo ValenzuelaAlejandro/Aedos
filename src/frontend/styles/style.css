@@ -168,7 +168,7 @@
 .app-microcopy {
     font-family: var(--font-body);
     font-size: 0.78rem;
-    color: rgba(255, 255, 255, 0.52);
+    color: var(--muted);
     text-align: center;
     margin-top: 0.55rem;
     cursor: default;

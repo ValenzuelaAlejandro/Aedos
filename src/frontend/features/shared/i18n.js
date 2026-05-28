@@ -177,7 +177,8 @@ const translations = {
         "audience_investors": "Investors",
         "density_low": "Low",
         "density_medium": "Balanced",
-        "density_high": "High"
+        "density_high": "High",
+        "ai_warning": "Aedos uses AI. Always review the generated content."
     },
     es: {
         "brand_name": "Aedos",
@@ -357,7 +358,8 @@ const translations = {
         "audience_investors": "Inversores",
         "density_low": "Baja",
         "density_medium": "Equilibrada",
-        "density_high": "Alta"
+        "density_high": "Alta",
+        "ai_warning": "Aedos usa IA. Revisa siempre el contenido generado."
     }
 };
 
