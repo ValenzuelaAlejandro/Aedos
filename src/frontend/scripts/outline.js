@@ -190,20 +190,22 @@ function renderOutlineSlides() {
             <div class="outline-slide-content">
                 <div class="outline-slide-header">
                     <textarea class="outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1" style="height: auto; resize: none; overflow-y: hidden;">${escapeHtml(slide.title || '')}</textarea>
-                    <select class="outline-slide-type-select" data-index="${index}">
-                        <option value="cover" ${slide.role === 'cover' ? 'selected' : ''}>Cover</option>
-                        <option value="problem" ${slide.role === 'problem' ? 'selected' : ''}>Problem</option>
-                        <option value="concept" ${slide.role === 'concept' ? 'selected' : ''}>Concept</option>
-                        <option value="data" ${slide.role === 'data' ? 'selected' : ''}>Data</option>
-                        <option value="comparison" ${slide.role === 'comparison' ? 'selected' : ''}>Comparison</option>
-                        <option value="process" ${slide.role === 'process' ? 'selected' : ''}>Process</option>
-                        <option value="example" ${slide.role === 'example' ? 'selected' : ''}>Example</option>
-                        <option value="error_list" ${slide.role === 'error_list' ? 'selected' : ''}>Error List</option>
-                        <option value="quote" ${slide.role === 'quote' ? 'selected' : ''}>Quote</option>
-                        <option value="timeline" ${slide.role === 'timeline' ? 'selected' : ''}>Timeline</option>
-                        <option value="internals" ${slide.role === 'internals' ? 'selected' : ''}>Internals</option>
-                        <option value="conclusion" ${slide.role === 'conclusion' ? 'selected' : ''}>Conclusion</option>
-                    </select>
+                    <div class="dropdown-container outline-custom-dropdown slide-type-dropdown">
+                        <button type="button" class="outline-slide-type-btn custom-select-trigger" aria-expanded="false">
+                            <span class="trigger-label">${(slide.role === 'error_list' ? 'Error List' : (slide.role ? slide.role.charAt(0).toUpperCase() + slide.role.slice(1) : 'Concept'))}</span>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
+                        <div class="dropdown-menu hidden custom-select-menu">
+                            ${['cover', 'problem', 'concept', 'data', 'comparison', 'process', 'example', 'error_list', 'quote', 'timeline', 'internals', 'conclusion'].map(r => 
+                                `<button type="button" class="dropdown-item ${slide.role === r || (!slide.role && r === 'concept') ? 'active' : ''}" data-value="${r}">${r === 'error_list' ? 'Error List' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
+                            ).join('')}
+                        </div>
+                        <select class="outline-slide-type-select hidden-select" data-index="${index}" style="display: none;">
+                            ${['cover', 'problem', 'concept', 'data', 'comparison', 'process', 'example', 'error_list', 'quote', 'timeline', 'internals', 'conclusion'].map(r => 
+                                `<option value="${r}" ${slide.role === r || (!slide.role && r === 'concept') ? 'selected' : ''}>${r === 'error_list' ? 'Error List' : r.charAt(0).toUpperCase() + r.slice(1)}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
                 </div>
                 <textarea class="outline-slide-desc" placeholder="Optional subtitle or description" data-index="${index}" rows="2" style="height: auto; resize: none; overflow-y: hidden;">${escapeHtml(slide.subtitle || '')}</textarea>
                 
@@ -287,6 +289,45 @@ function renderOutlineSlides() {
             const slides = window.outlineEditorState.skeleton.slides;
             if (slides[idx] !== undefined) slides[idx].role = e.target.value;
         });
+    });
+
+    // Initialize custom Slide Type dropdowns
+    document.querySelectorAll('.slide-type-dropdown').forEach(container => {
+        const trigger = container.querySelector('.custom-select-trigger');
+        const menu = container.querySelector('.custom-select-menu');
+        const hiddenSelect = container.querySelector('.outline-slide-type-select');
+        const labelSpan = trigger.querySelector('.trigger-label');
+
+        if (trigger && menu && hiddenSelect) {
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.slide-type-dropdown .custom-select-menu').forEach(otherMenu => {
+                    if (otherMenu !== menu) {
+                        otherMenu.classList.add('hidden');
+                        otherMenu.parentElement.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+                    }
+                });
+                const isHidden = menu.classList.toggle('hidden');
+                trigger.setAttribute('aria-expanded', !isHidden);
+            });
+
+            menu.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const val = item.getAttribute('data-value');
+                    hiddenSelect.value = val;
+                    labelSpan.textContent = item.textContent;
+                    
+                    menu.querySelectorAll('.dropdown-item').forEach(btn => btn.classList.remove('active'));
+                    item.classList.add('active');
+                    
+                    hiddenSelect.dispatchEvent(new Event('change'));
+                    
+                    menu.classList.add('hidden');
+                    trigger.setAttribute('aria-expanded', 'false');
+                });
+            });
+        }
     });
     document.querySelectorAll('.outline-point-input').forEach(input => {
         autoResizeTextarea(input);
