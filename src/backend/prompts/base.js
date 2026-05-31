@@ -93,7 +93,9 @@ Build this JSON inside an HTML comment:
 `}
 
 PLANNING RULES
-${skeletonStr ? `- STRICTLY use the provided CONFIG JSON above.` : `- Derive visual world from a concrete artifact, then derive color and typography from that artifact.
+${skeletonStr ? `- STRICTLY use the provided CONFIG JSON for content (slides, titles, text).
+- DO NOT change titles, text, or slide count.
+- CRITICAL: You MUST update the "palette", "font_pair", or "visual_world" inside the CONFIG JSON if the USER INPUT explicitly requests a design, color, or style change (e.g., "use color blue").` : `- Derive visual world from a concrete artifact, then derive color and typography from that artifact.
 - Apply user-requested colors directly when present in input.
 - Keep slide_count exact.
 - Extract metadata fields author, team, teacher, subject, institution, date, and cta only from explicit literals in USER INPUT.

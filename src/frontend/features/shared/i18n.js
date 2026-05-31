@@ -182,7 +182,17 @@ const translations = {
         "open_draft": "Open draft",
         "close_draft": "Close draft",
         "no_draft_title": "No draft generated yet",
-        "no_draft_subtitle": "Describe your presentation in the chat and press the generate button to create a draft outline."
+        "no_draft_subtitle": "Describe your presentation in the chat and press the generate button to create a draft outline.",
+        "chip_fallback_tone_prof_text": "Make it professional",
+        "chip_fallback_tone_prof_prompt": "Change presentation tone to more corporate, formal and professional",
+        "chip_fallback_tone_play_text": "Make it playful",
+        "chip_fallback_tone_play_prompt": "Change presentation tone to more playful, dynamic and creative",
+        "chip_fallback_add_slide_text": "Add relevant slide",
+        "chip_fallback_add_slide_prompt": "Suggest and add a new relevant slide to the outline",
+        "chip_fallback_explain_text": "Explain in more detail",
+        "chip_fallback_explain_prompt": "Make slide bullet points more descriptive and highly detailed",
+        "chip_fallback_generate_text": "Looks good! Create presentation",
+        "confirm_exit_draft": "Are you sure you want to go back? Your progress will be lost."
     },
     es: {
         "brand_name": "Aedos",
@@ -367,7 +377,17 @@ const translations = {
         "open_draft": "Ver borrador",
         "close_draft": "Ocultar borrador",
         "no_draft_title": "No hay borrador generado",
-        "no_draft_subtitle": "Describe tu presentación en el chat y presiona el botón de generar para crear un borrador de esquema."
+        "no_draft_subtitle": "Describe tu presentación en el chat y presiona el botón de generar para crear un borrador de esquema.",
+        "chip_fallback_tone_prof_text": "Cambiar a tono profesional",
+        "chip_fallback_tone_prof_prompt": "Cambia el tono de la presentación a uno más corporativo, formal y profesional",
+        "chip_fallback_tone_play_text": "Hacerlo más divertido",
+        "chip_fallback_tone_play_prompt": "Modifica el tono para que sea más divertido, dinámico y creativo",
+        "chip_fallback_add_slide_text": "Añadir diapositiva relevante",
+        "chip_fallback_add_slide_prompt": "Sugiéreme y añade una nueva diapositiva relevante y lógica al esquema actual",
+        "chip_fallback_explain_text": "Explicar con más detalle",
+        "chip_fallback_explain_prompt": "Haz que los puntos clave de las diapositivas sean más detallados, informativos y descriptivos",
+        "chip_fallback_generate_text": "Todo listo! Crear presentación",
+        "confirm_exit_draft": "¿Estás seguro de que quieres salir? Se perderá tu progreso no guardado."
     }
 };
 

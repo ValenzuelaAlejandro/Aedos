@@ -6,7 +6,7 @@
  * This stage only cares about WHAT to say, never about HOW it looks.
  */
 
-module.exports = function buildStage1Prompt(rawInput, targetLanguage = 'auto') {
+function buildStage1Prompt(rawInput, targetLanguage = 'auto') {
   const langInstruction = targetLanguage && targetLanguage !== 'auto'
     ? `exclusively in the ISO-639-1 language code '${targetLanguage}'`
     : `in the exact same language as the USER INPUT`;
@@ -32,6 +32,7 @@ CORE RULES:
 9. The conclusion MUST reference something specific from the presentation. Never generic phrases like "in conclusion, X is important".
 10. For data-heavy slides, always include REAL statistics with sources when possible.
 11. key_points must contain the ACTUAL text content — not placeholders like "point about X".
+12. CRITICAL: "suggested_chips" MUST be exactly 4 highly specific, creative, and thematic follow-up suggestions (3-7 words each) tailored to the specific topic and presentation content. The suggestions must be written strictly in the same language as the presentation content (e.g. Spanish for Spanish prompts, English for English prompts), and must NEVER contain any emojis, special icons, or punctuation. Examples for 'Cybersecurity': ['Añadir sección sobre firewalls', 'Hacer el tono más corporativo', 'Explicar vulnerabilidad zero day', 'Simular un ataque ransomware'].
 
 AUDIENCE CALIBRATION:
 - beginner → define terms, analogies, no jargon
@@ -57,7 +58,7 @@ JSON STRUCTURE:
   "institution": "string or null",
   "date": "string or null",
   "cta": "string or null",
-  "visual_world": {
+  "suggested_chips": ["array of exactly 4 short, actionable prompts (MAX 5 words) to improve or modify this presentation outline (e.g. 'Make tone more academic', 'Add examples slide', 'Simplify for beginners'). Written in the presentation language, no emojis, no punctuation"],
   "visual_world": {
     "real_world_analog": "The specific physical/cultural artifact that this topic naturally evokes. NOT a category, NOT a generic artifact. Answer: 'If someone created a printed object, museum exhibit, record sleeve, or physical document that *captured* this exact topic, what would it be?' Be MAXIMALLY concrete and specific. Include materials, printing methods, era, and cultural context. Examples: 'classic hip-hop tour poster on glossy black with gold chain lettering and ballpoint pen graffiti, 1990s gang culture aesthetic'; 'museum fine-art catalog on thick cream archival paper with gold foil spine, Renaissance paintings interior, gallery exhibition program'; 'hacker terminal printout on dot-matrix paper green phosphor glow monochrome, 1980s mainframe culture'; 'race weekend program booklet glossy with sponsor badging, bold yellow and red speed graphics, 1970s Grand Prix identity'; 'scientific journal reprint with precise teal headers, IBM typewriter-era serif text, margin hand-written annotations, academic precision'. The specificity and cultural accuracy of real_world_analog DIRECTLY DRIVES all downstream visual design — color, typography, atmosphere, and layout personality come FROM this artifact description.",
     "color_temperature": "warm | cool | neutral",
@@ -99,5 +100,37 @@ For real_world_analog, think: if this topic had a physical printed artifact that
   - "Music Theory" → printed score sheet + notes, classical and warm
   - "Quantum Mechanics" → academic physics textbook with handwritten margin equations
 Be concrete. The real_world_analog becomes the visual identity brief for all downstream stages.`;
+}
+
+function buildStage1RevisionPrompt(rawInput, currentSkeleton, targetLanguage = 'auto') {
+  const langInstruction = targetLanguage && targetLanguage !== 'auto'
+    ? `exclusively in the ISO-639-1 language code '${targetLanguage}'`
+    : `in the exact same language as the USER INPUT`;
+
+  return `You are a presentation content architect. You are helping the user REVISE and UPDATE their presentation outline.
+
+Here is the CURRENT presentation outline in JSON format:
+${JSON.stringify(currentSkeleton, null, 2)}
+
+The user has given the following instruction to update this outline:
+"${rawInput}"
+
+CORE REVISION RULES:
+1. INTENT DETECTION: If the user's instruction indicates agreement or a request to proceed/generate (e.g., "looks good", "perfect", "create the presentation"), you MUST return exactly {"action": "proceed"}. 
+CRITICAL: If the user asks to proceed BUT adds a DESIGN or STYLE clarification (e.g., "ok, but use color blue", "looks good, make it minimalist"), STILL return exactly {"action": "proceed"}. Do NOT update the outline for design changes, because the design stage will receive their prompt directly.
+HOWEVER, if the user asks for STRUCTURAL CONTENT changes (e.g., "add a slide about X", "change the title to Y", "remove the second point"), THEN you must NOT return {"action": "proceed"}. Instead, update the outline and return the full updated JSON.
+2. Otherwise, update the outline JSON according to the user's instructions.
+3. Keep the overall JSON structure exactly the same (including keys: topic, audience, tone, narrative_structure, slides, visual_world, etc.).
+4. ONLY modify the parts of the outline that are affected by the user's instructions.
+5. Ensure all slides have sequential "index" values starting at 1.
+6. Update "suggested_chips" with exactly 4 short, actionable instructions (MAX 5 words) for the user to further modify or improve the presentation outline (e.g. "Add a conclusion slide", "Make tone more playful"). The suggestions MUST be strictly in the same language as the presentation content (${langInstruction}), and must NEVER contain emojis or punctuation.
+7. All generated/updated content MUST be ${langInstruction}. Keep all JSON keys strictly in English.
+8. OUTPUT: ONLY a valid JSON object matching the original structure or the proceed action. No markdown, no fences, no text outside the JSON.
+`;
+}
+
+module.exports = {
+  buildStage1Prompt,
+  buildStage1RevisionPrompt
 };
 

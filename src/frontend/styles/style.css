@@ -538,16 +538,23 @@
 #chat-screen {
     position: relative;
     width: 100%;
-    min-height: 100vh; /* Exactly full screen */
+    min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 100; /* Over everything at start */
+    z-index: 100;
     background: var(--bg);
     padding: 2rem;
     padding-top: 5.3rem;
-    padding-bottom: 0px; 
+    padding-bottom: 0px;
     margin: 0;
+    transition: align-items 0.5s ease;
+}
+
+/* When in chat mode, push everything to the top */
+#chat-screen.chat-mode {
+    align-items: flex-start;
+    padding-top: 5.3rem;
 }
 
 .chat-container {
@@ -559,6 +566,100 @@
     flex-direction: column;
     gap: 1.4rem;
     animation: stepSlideIn 0.45s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Hero zone fade out */
+#hero-zone {
+    transition: opacity 0.35s ease, transform 0.4s ease;
+}
+#hero-zone.fade-out {
+    opacity: 0;
+    transform: translateY(-12px);
+    pointer-events: none;
+}
+
+/* Conversation zone */
+.conversation-zone {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.conversation-zone.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* User message bubble */
+.chat-msg {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+.chat-msg-user {
+    justify-content: flex-end;
+}
+.chat-msg-user span {
+    background: var(--surface2, rgba(255,255,255,0.07));
+    border: 1px solid var(--border, rgba(255,255,255,0.1));
+    border-radius: 20px 20px 4px 20px;
+    padding: 0.75rem 1.1rem;
+    font-size: 0.95rem;
+    color: var(--text);
+    max-width: 80%;
+    line-height: 1.5;
+    word-break: break-word;
+}
+:root[data-theme="light"] .chat-msg-user span {
+    background: #F0F4FF;
+    border-color: #C7D7FA;
+}
+
+/* AI message */
+.chat-msg-ai {
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+.chat-ai-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--surface2, rgba(255,255,255,0.06));
+    border: 1px solid var(--border, rgba(255,255,255,0.1));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent, #0066FF);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.chat-ai-body {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Thinking dots */
+.chat-thinking {
+    display: flex;
+    gap: 5px;
+    padding: 0.6rem 0.2rem;
+}
+.chat-thinking span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted, #888);
+    animation: thinkPulse 1.4s ease-in-out infinite;
+}
+.chat-thinking span:nth-child(2) { animation-delay: 0.2s; }
+.chat-thinking span:nth-child(3) { animation-delay: 0.4s; }
+.chat-thinking.hidden { display: none; }
+
+@keyframes thinkPulse {
+    0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+    40%            { opacity: 1;    transform: scale(1); }
 }
 
 .chat-input-container {
@@ -3324,4 +3425,132 @@ html.theme-transitioning::view-transition-new(root) {
 
 #btn-attach-file:disabled svg {
     stroke: var(--muted) !important;
+}
+
+/* ========================================== */
+/* MODERN CHAT MODE FLOW & POSITIONING        */
+/* ========================================== */
+
+/* Chat Mode Layout (Claude/Perplexity Style) */
+#chat-screen.chat-mode {
+    align-items: flex-start !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow-y: auto !important;
+    padding: 0 !important;
+}
+
+#chat-screen.chat-mode .chat-container {
+    animation: none !important;
+    transform: none !important;
+    height: auto !important;
+    min-height: 100% !important;
+    max-width: 760px !important; /* Cozy, narrow layout for optimal reading */
+    margin: 0 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 5.3rem 1rem 220px !important; /* Generous bottom spacing for floating input */
+    gap: 1.5rem !important;
+    box-sizing: border-box !important;
+}
+
+#chat-screen.chat-mode #hero-zone {
+    display: none !important;
+}
+
+#chat-screen.chat-mode #suggestion-pills-row,
+#chat-screen.chat-mode .chat-counter-row,
+#chat-screen.chat-mode .app-microcopy {
+    display: none !important;
+}
+
+/* Float a cozy, narrow, blurred bubble at the bottom center of the screen */
+#chat-screen.chat-mode .chat-input-wrapper {
+    position: fixed !important;
+    bottom: 1.5rem !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: calc(100% - 2rem) !important;
+    max-width: 728px !important; /* Extremely elegant and perfectly aligned */
+    background: rgba(12, 12, 12, 0.85) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 18px !important;
+    padding: 0.62rem 0.82rem 0.74rem !important; /* Restore cozy, default padding */
+    box-shadow: none !important;
+    z-index: 1000 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+:root[data-theme="light"] #chat-screen.chat-mode .chat-input-wrapper {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+}
+
+#chat-screen.chat-mode .conversation-zone {
+    flex: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Webkit Scrollbar for Main Viewport */
+#chat-screen.chat-mode::-webkit-scrollbar {
+    width: 6px !important;
+}
+#chat-screen.chat-mode::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+#chat-screen.chat-mode::-webkit-scrollbar-thumb {
+    background: var(--border, rgba(255, 255, 255, 0.1)) !important;
+    border-radius: 10px !important;
+}
+
+/* ========================================== */
+/* SUGGESTED FOLLOW-UP CHIPS                  */
+/* ========================================== */
+.outline-suggested-chips {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    padding: 0.75rem 0.25rem 1rem !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    margin-bottom: 0.75rem !important;
+}
+
+.suggested-chip {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #b3b3b3 !important;
+    padding: 0.38rem 0.75rem !important;
+    border-radius: 99px !important;
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+}
+
+.suggested-chip:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+}
+
+.suggested-chip.chip-primary {
+    background: rgba(0, 102, 255, 0.12) !important;
+    border-color: rgba(0, 102, 255, 0.35) !important;
+    color: #38bdf8 !important;
+}
+
+.suggested-chip.chip-primary:hover {
+    background: rgba(0, 102, 255, 0.2) !important;
+    border-color: rgba(0, 102, 255, 0.5) !important;
+    color: #ffffff !important;
 }

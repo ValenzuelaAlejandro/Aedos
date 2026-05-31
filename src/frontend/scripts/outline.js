@@ -7,71 +7,166 @@ window.outlineEditorState = {
     isLoading: false
 };
 
+function scrollToBottom(force = false) {
+    const chatScreen = document.getElementById('chat-screen');
+    if (!chatScreen) return;
+    
+    const threshold = 180;
+    const isAtBottom = (chatScreen.scrollHeight - chatScreen.scrollTop - chatScreen.clientHeight) <= threshold;
+    
+    if (force || isAtBottom) {
+        chatScreen.scrollTo({
+            top: chatScreen.scrollHeight,
+            behavior: 'auto'
+        });
+    }
+}
+
 function showOutlineEditorLoading(slideCount = 8) {
     window.outlineEditorState.isLoading = true;
-    document.getElementById('outline-container').classList.remove('hidden');
-    
-    const backdrop = document.getElementById('outline-backdrop');
-    if (backdrop) backdrop.classList.add('active');
-    
-    const edgeTab = document.getElementById('outline-edge-tab');
-    if (edgeTab) {
-        edgeTab.classList.add('is-open');
-        const tabText = edgeTab.querySelector('span');
-        if (tabText) tabText.textContent = window.__t ? window.__t('close_draft', 'Close draft') : 'Close draft';
-    }
-    // Update Hero Title in chat screen to say "Generating outline..."
-    const heroTextSpan = document.querySelector('.hero-title-text');
-    if (heroTextSpan) {
-        if (!heroTextSpan.getAttribute('data-original-text')) {
-            heroTextSpan.setAttribute('data-original-text', heroTextSpan.textContent);
+
+    // 1. Capture the prompt text before clearing
+    const inputEl = document.getElementById('w-tema');
+    const promptText = inputEl?.value?.trim() || '';
+    if (inputEl) inputEl.value = '';
+
+    // 2. Activate chat-mode on #chat-screen (aligns to top)
+    const chatScreen = document.getElementById('chat-screen');
+    if (chatScreen) chatScreen.classList.add('chat-mode');
+
+    // 3. Fade out hero title
+    const heroZone = document.getElementById('hero-zone');
+    if (heroZone) heroZone.classList.add('fade-out');
+
+    // 4. Fade out suggestion pills and microcopy
+    const pills = document.getElementById('suggestion-pills-row');
+    if (pills) { pills.style.transition = 'opacity 0.3s'; pills.style.opacity = '0'; pills.style.pointerEvents = 'none'; }
+    const microcopy = document.querySelector('.app-microcopy');
+    if (microcopy) { microcopy.style.transition = 'opacity 0.3s'; microcopy.style.opacity = '0'; }
+    const counter = document.querySelector('.chat-counter-row');
+    if (counter) { counter.style.transition = 'opacity 0.3s'; counter.style.opacity = '0'; }
+
+    // 5. Show conversation zone with user bubble
+    const convZone = document.getElementById('conversation-zone');
+    if (convZone) {
+        convZone.classList.remove('hidden');
+        convZone.classList.add('visible');
+
+        // Check if this is a follow-up (i.e. we already have an active skeleton)
+        const isFollowUp = !!window.outlineEditorState.skeleton;
+
+        if (isFollowUp) {
+            // Append new user message bubble
+            const userBubble = document.createElement('div');
+            userBubble.className = 'chat-msg chat-msg-user';
+            userBubble.innerHTML = `<span>${escapeHtml(promptText)}</span>`;
+            convZone.appendChild(userBubble);
+            
+            // GSAP premium entrance animation
+            if (window.gsap) {
+                window.gsap.fromTo(userBubble, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+            }
+
+            // Append new AI message bubble with active loader
+            const aiBubble = document.createElement('div');
+            aiBubble.className = 'chat-msg chat-msg-ai';
+            aiBubble.innerHTML = `
+                <div class="chat-ai-avatar">
+                    <svg viewBox="0 0 100 100" width="14" height="14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M50,15 L80,75 L50,60 L20,75 Z" fill="currentColor"/></svg>
+                </div>
+                <div class="chat-ai-body">
+                    <div class="chat-thinking"><span></span><span></span><span></span></div>
+                </div>
+            `;
+            convZone.appendChild(aiBubble);
+
+            if (window.gsap) {
+                window.gsap.fromTo(aiBubble, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', delay: 0.1 });
+            }
+
+            // Archive and freeze the previous outline state into a gorgeous static summary
+            const outlineContainer = document.getElementById('outline-container');
+            if (outlineContainer) {
+                const slidesContainer = document.getElementById('outline-slides-container');
+                if (slidesContainer && !outlineContainer.classList.contains('hidden')) {
+                    // Create a static read-only snapshot
+                    const staticSummary = document.createElement('div');
+                    staticSummary.className = 'historical-outline-summary';
+                    
+                    const slideItems = slidesContainer.querySelectorAll('.seamless-slide-item');
+                    slideItems.forEach(item => {
+                        const num = item.querySelector('.seamless-slide-number')?.textContent || '';
+                        const title = item.querySelector('.outline-slide-title')?.value || '';
+                        const points = Array.from(item.querySelectorAll('.outline-point-input')).map(input => input.value);
+                        
+                        const slideEl = document.createElement('div');
+                        slideEl.className = 'historical-slide-item';
+                        slideEl.innerHTML = `
+                            <div class="historical-slide-number">${escapeHtml(num)}</div>
+                            <div class="historical-slide-title">${escapeHtml(title)}</div>
+                            <div class="historical-points-list">
+                                ${points.map(pt => `
+                                    <div class="historical-point-item">
+                                        <span class="historical-point-bullet">-</span>
+                                        <span class="historical-point-text">${escapeHtml(pt)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                        staticSummary.appendChild(slideEl);
+                    });
+                    
+                    // Replace the active editor container in the old AI bubble with the static read-only snapshot
+                    const oldParent = outlineContainer.parentNode;
+                    if (oldParent) {
+                        oldParent.insertBefore(staticSummary, outlineContainer);
+                        
+                        if (window.gsap) {
+                            window.gsap.fromTo(staticSummary, { opacity: 0 }, { opacity: 0.5, duration: 0.3 });
+                        }
+                        
+                        // No need to remove chips or footers here since outlineContainer is moved entirely.
+                        // The old bubble will just retain the staticSummary.
+                    }
+                }
+                
+                // Now safely detach the active outline editor and move it to the new AI loading bubble
+                outlineContainer.classList.add('hidden');
+                aiBubble.querySelector('.chat-ai-body').appendChild(outlineContainer);
+            }
+        } else {
+            // First loading state: populate the static placeholders
+            const userTextEl = document.getElementById('chat-user-text');
+            if (userTextEl) {
+                userTextEl.textContent = promptText;
+                if (window.gsap) {
+                    const firstUserBubble = document.getElementById('chat-user-bubble');
+                    if (firstUserBubble) {
+                        window.gsap.fromTo(firstUserBubble, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+                    }
+                }
+            }
+            const thinking = document.getElementById('chat-thinking');
+            if (thinking) {
+                thinking.classList.remove('hidden');
+                if (window.gsap) {
+                    const firstAiBubble = document.getElementById('chat-ai-response');
+                    if (firstAiBubble) {
+                        window.gsap.fromTo(firstAiBubble, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', delay: 0.1 });
+                    }
+                }
+            }
         }
-        heroTextSpan.textContent = window.__t('generating_outline', 'Generating structure...');
-        heroTextSpan.parentElement.classList.add('waiting-state');
+
+        // Auto-scroll to bottom of conversation (force since new content is added)
+        scrollToBottom(true);
     }
 
-    // Disable generate button and inputs
-    document.getElementById('btn-outline-generate').disabled = true;
-    document.getElementById('btn-outline-add-slide').disabled = true;
-    document.getElementById('outline-title-input').value = window.__t('generating', 'Generating...');
-    document.getElementById('outline-title-input').disabled = true;
-    document.querySelectorAll('.outline-select').forEach(el => el.disabled = true);
-
-    const container = document.getElementById('outline-slides-container');
-    container.innerHTML = '';
-    
-    // Generate placeholder cards
-    for (let i = 0; i < slideCount; i++) {
-        const card = document.createElement('div');
-        card.className = 'outline-slide-card is-loading';
-        card.innerHTML = `
-            <div class="outline-slide-bg-indicator" style="background-color: #121212"></div>
-            <div class="outline-slide-number skeleton-loading-pulse" style="color:transparent">-</div>
-            <div class="outline-slide-content">
-                <div class="outline-slide-header">
-                    <div class="outline-slide-title skeleton-loading-pulse"></div>
-                    <div class="outline-slide-type-select skeleton-loading-pulse" style="width: 80px; height: 1.5rem; border-radius: 6px;"></div>
-                </div>
-                <div class="outline-slide-desc skeleton-loading-pulse"></div>
-                <div class="outline-points-list">
-                    <div class="outline-point-item">
-                        <span class="outline-point-bullet skeleton-loading-pulse"></span>
-                        <div class="outline-point-input skeleton-loading-pulse"></div>
-                    </div>
-                    <div class="outline-point-item">
-                        <span class="outline-point-bullet skeleton-loading-pulse"></span>
-                        <div class="outline-point-input skeleton-loading-pulse" style="width: 60%"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="outline-slide-controls">
-                <div class="outline-slide-action-btn skeleton-loading-pulse"></div>
-                <div class="outline-slide-action-btn skeleton-loading-pulse"></div>
-                <div class="outline-slide-action-btn skeleton-loading-pulse"></div>
-            </div>
-        `;
-        container.appendChild(card);
-    }
+    // 6. Disable generate/add-slide while loading
+    const btnGen = document.getElementById('btn-outline-generate');
+    const btnAdd = document.getElementById('btn-outline-add-slide');
+    if (btnGen) btnGen.disabled = true;
+    if (btnAdd) btnAdd.disabled = true;
 }
 
 function initOutlineEditor(skeletonData, mode) {
@@ -79,88 +174,231 @@ function initOutlineEditor(skeletonData, mode) {
     window.outlineEditorState.skeleton = skeletonData;
     window.outlineEditorState.mode = mode;
     window.outlineEditorState.maxSlides = mode === 'pro' ? 8 : 15;
-    
-    // Ensure all editing UI elements are visible when initializing a real draft
-    document.querySelector('.outline-sidebar')?.style.removeProperty('display');
-    document.querySelector('.outline-main-header')?.style.removeProperty('display');
-    document.getElementById('outline-title-input')?.style.removeProperty('display');
-    document.querySelector('.outline-floating-footer')?.style.removeProperty('display');
-    const emptyState = document.getElementById('outline-empty-state');
-    if (emptyState) emptyState.classList.add('hidden');
 
+    // The router already placed us in #chat state when the prompt was submitted
     if (window.__applyTranslations) window.__applyTranslations();
+
+    // Populate hidden settings
+    const titleInput = document.getElementById('outline-title-input');
+    if (titleInput) { titleInput.value = skeletonData.topic || ''; titleInput.disabled = false; }
+    const toneVal = skeletonData.tone || 'academic';
+    const toneEl = document.getElementById('outline-tone-select');
+    if (toneEl) { toneEl.value = toneVal; if (!toneEl.value) toneEl.value = 'academic'; }
+    const audEl = document.getElementById('outline-audience-select');
+    if (audEl) audEl.value = skeletonData.audience || 'general';
+    const densEl = document.getElementById('outline-density-select');
+    if (densEl) densEl.value = skeletonData.density || skeletonData.text_density || 'medium';
+    const subEl = document.getElementById('outline-subtitle-input');
+    if (subEl) subEl.value = skeletonData.subtitle_context || '';
+
+    // Target the latest AI bubble in conversation
+    const aiMessages = document.querySelectorAll('.chat-msg-ai');
+    const latestAiMessage = aiMessages[aiMessages.length - 1];
     
-    document.getElementById('outline-container').classList.remove('hidden');
-    
-    const backdrop = document.getElementById('outline-backdrop');
-    if (backdrop) backdrop.classList.add('active');
-    
-    const edgeTab = document.getElementById('outline-edge-tab');
-    if (edgeTab) {
-        edgeTab.classList.add('is-open');
-        const tabText = edgeTab.querySelector('span');
-        if (tabText) tabText.textContent = window.__t ? window.__t('close_draft', 'Close draft') : 'Close draft';
+    if (latestAiMessage) {
+        // Hide thinking dots inside the latest bubble
+        const thinking = latestAiMessage.querySelector('.chat-thinking');
+        if (thinking) thinking.classList.add('hidden');
+
+        // Move outline-container into the latest AI body and reveal it
+        const latestAiBody = latestAiMessage.querySelector('.chat-ai-body');
+        const outlineContainer = document.getElementById('outline-container');
+        if (latestAiBody && outlineContainer && !latestAiBody.contains(outlineContainer)) {
+            latestAiBody.appendChild(outlineContainer);
+        }
     }
-    
-    // Update Hero Title in chat screen to say "Waiting for your review..."
-    const heroTextSpan = document.querySelector('.hero-title-text');
-    if (heroTextSpan) {
-        // Kill any in-progress typewriter/GSAP animation from app.js BEFORE changing text,
-        // otherwise characters keep appending to the new text ("Got a spicy idea?yzing the topic" bug)
-        if (window._heroTypewriterTimer) {
-            clearTimeout(window._heroTypewriterTimer);
-            window._heroTypewriterTimer = null;
-        }
-        // Also cancel the 3-second reset timer from stopBtnMessages()
-        if (window._heroResetTimer) {
-            clearTimeout(window._heroResetTimer);
-            window._heroResetTimer = null;
-        }
-        if (window._btnMsgTimer) {
-            clearTimeout(window._btnMsgTimer);
-            window._btnMsgTimer = null;
-        }
-        const heroTitle = document.querySelector('.hero-title');
-        if (window.gsap && heroTitle) {
-            window.gsap.killTweensOf(heroTitle);
-            window.gsap.set(heroTitle, { x: 0, opacity: 1 }); // reset to visible
+
+    const outlineContainer = document.getElementById('outline-container');
+    if (outlineContainer) outlineContainer.classList.remove('hidden');
+
+    // Render Suggested Action Chips Row
+    const chipsContainer = document.getElementById('outline-suggested-chips');
+    if (chipsContainer) {
+        chipsContainer.innerHTML = '';
+        
+        let suggestedChips = [];
+        const isEnglish = (skeletonData.language || 'es').toLowerCase().startsWith('en');
+
+        // Helper translation wrapper
+        const t = (key, fallback) => {
+            if (typeof window !== 'undefined' && window.__t) {
+                return window.__t(key);
+            }
+            return fallback;
+        };
+
+        if (skeletonData.suggested_chips && Array.isArray(skeletonData.suggested_chips) && skeletonData.suggested_chips.length > 0) {
+            suggestedChips = skeletonData.suggested_chips.map(chipText => ({
+                text: chipText,
+                prompt: chipText
+            }));
+            
+            // Add primary proceed chip at the end
+            suggestedChips.push({
+                text: t('chip_fallback_generate_text', isEnglish ? 'Looks good! Create presentation' : 'Todo listo! Crear presentación'),
+                primary: true,
+                action: 'generate'
+            });
+        } else {
+            // Localized fallback generic suggestions using i18n translations
+            suggestedChips = [
+                {
+                    text: t('chip_fallback_tone_prof_text', 'Cambiar a tono profesional'),
+                    prompt: t('chip_fallback_tone_prof_prompt', 'Cambia el tono de la presentación a uno más corporativo, formal y profesional')
+                },
+                {
+                    text: t('chip_fallback_tone_play_text', 'Hacerlo más divertido'),
+                    prompt: t('chip_fallback_tone_play_prompt', 'Modifica el tono para que sea más divertido, dinámico y creativo')
+                },
+                {
+                    text: t('chip_fallback_add_slide_text', 'Añadir diapositiva relevante'),
+                    prompt: t('chip_fallback_add_slide_prompt', 'Sugiéreme y añade una nueva diapositiva relevante y lógica al esquema actual')
+                },
+                {
+                    text: t('chip_fallback_explain_text', 'Explicar con más detalle'),
+                    prompt: t('chip_fallback_explain_prompt', 'Haz que los puntos clave de las diapositivas sean más detallados, informativos y descriptivos')
+                },
+                {
+                    text: t('chip_fallback_generate_text', 'Todo listo! Crear presentación'),
+                    primary: true,
+                    action: 'generate'
+                }
+            ];
         }
 
-        if (!heroTextSpan.getAttribute('data-original-text')) {
-            heroTextSpan.setAttribute('data-original-text', heroTextSpan.textContent);
-        }
-        heroTextSpan.textContent = window.__t ? window.__t('waiting_for_user', 'Waiting for your review...') : 'Waiting for your review...';
-        heroTextSpan.parentElement.classList.add('waiting-state');
+        suggestedChips.forEach((chip, cIdx) => {
+            const btn = document.createElement('button');
+            btn.className = `suggested-chip ${chip.primary ? 'chip-primary' : ''}`;
+            btn.type = 'button';
+            btn.innerHTML = chip.text;
+            
+            btn.addEventListener('click', () => {
+                const inputEl = document.getElementById('w-tema');
+                const btnGenerateMain = document.getElementById('btn-generate');
+                if (inputEl && btnGenerateMain) {
+                    inputEl.value = chip.prompt || chip.text;
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    btnGenerateMain.disabled = false;
+                    btnGenerateMain.click();
+                }
+            });
+            chipsContainer.appendChild(btn);
+
+            if (window.gsap) {
+                window.gsap.fromTo(btn, { opacity: 0, scale: 0.8, y: 10 }, { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: 'back.out(1.2)', delay: cIdx * 0.05 });
+            }
+        });
     }
-    
-    // Re-enable generate button and inputs
-    document.getElementById('btn-outline-generate').disabled = false;
-    document.getElementById('btn-outline-add-slide').disabled = false;
-    
-    // Populate settings
-    const titleInput = document.getElementById('outline-title-input');
-    titleInput.value = skeletonData.topic || '';
-    titleInput.disabled = false;
-    
-    // Fix #22: 'formal' is not a valid option in the select — use 'academic' as fallback
-    const toneVal = skeletonData.tone || 'academic';
-    document.getElementById('outline-tone-select').value = toneVal;
-    // If the value wasn't set (no matching option), default to academic
-    const toneSelect = document.getElementById('outline-tone-select');
-    if (!toneSelect.value) toneSelect.value = 'academic';
-    
-    document.getElementById('outline-audience-select').value = skeletonData.audience || 'general';
-    document.getElementById('outline-density-select').value = skeletonData.density || skeletonData.text_density || 'medium';
-    document.querySelectorAll('.outline-select').forEach(el => el.disabled = false);
-    
-    // Sync the custom styled selects to match the hidden native select values
-    if (typeof syncCustomDropdowns === 'function') syncCustomDropdowns();
-    
-    // Fix #13: Populate subtitle/context input if present
-    const subtitleInput = document.getElementById('outline-subtitle-input');
-    if (subtitleInput) subtitleInput.value = skeletonData.subtitle_context || '';
-    
-    renderOutlineSlides();
+
+    // Auto scroll the conversation to reveal full outline
+    setTimeout(() => {
+        scrollToBottom(true);
+    }, 100);
+
+    // Typewriter reveal: render each slide with real-time character-by-character animation
+    const slides = skeletonData.slides || [];
+    const slidesContainer = document.getElementById('outline-slides-container');
+    if (slidesContainer) slidesContainer.innerHTML = '';
+
+    let currentSlideIndex = 0;
+
+    function typeTextarea(textarea, fullText, speed = 8, onComplete = null) {
+        textarea.value = '';
+        let i = 0;
+        
+        const resize = () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        };
+
+        const timer = setInterval(() => {
+            if (i < fullText.length) {
+                textarea.value += fullText[i];
+                resize();
+                i++;
+            } else {
+                clearInterval(timer);
+                if (onComplete) onComplete();
+            }
+        }, speed);
+    }
+
+    function typeNextSlide() {
+        if (currentSlideIndex >= slides.length) {
+            // Completed typing all slides!
+            bindOutlineEvents();
+            const btnGen = document.getElementById('btn-outline-generate');
+            const btnAdd = document.getElementById('btn-outline-add-slide');
+            if (btnGen) btnGen.disabled = false;
+            if (btnAdd) btnAdd.disabled = false;
+            return;
+        }
+
+        const slide = slides[currentSlideIndex];
+        const item = document.createElement('div');
+        item.className = 'seamless-slide-item';
+        item.dataset.index = currentSlideIndex;
+        item.innerHTML = `
+            <div class="seamless-slide-number">${currentSlideIndex + 1}.</div>
+            <textarea class="seamless-title-input outline-slide-title" placeholder="Slide Title" data-index="${currentSlideIndex}" rows="1"></textarea>
+            <div class="seamless-points-list" id="outline-points-${currentSlideIndex}"></div>
+        `;
+        
+        if (slidesContainer) slidesContainer.appendChild(item);
+
+        if (window.gsap) {
+            window.gsap.fromTo(item, { opacity: 0, x: -12 }, { opacity: 1, x: 0, duration: 0.4, ease: 'power2.out' });
+        }
+        
+        scrollToBottom();
+
+        const titleTextarea = item.querySelector('.outline-slide-title');
+        
+        // Type title at premium velocity
+        typeTextarea(titleTextarea, slide.title || '', 6, () => {
+            let currentPointIndex = 0;
+            const pointsList = item.querySelector(`.seamless-points-list`);
+            const keyPoints = slide.key_points || [];
+
+            function typeNextPoint() {
+                if (currentPointIndex >= keyPoints.length) {
+                    currentSlideIndex++;
+                    typeNextSlide();
+                    return;
+                }
+
+                const pointText = keyPoints[currentPointIndex];
+                const pointItem = document.createElement('div');
+                pointItem.className = 'seamless-point-item';
+                pointItem.innerHTML = `
+                    <span class="seamless-point-bullet">-</span>
+                    <textarea class="seamless-point-input outline-point-input" data-sindex="${currentSlideIndex}" data-pindex="${currentPointIndex}" rows="1"></textarea>
+                `;
+                
+                if (pointsList) pointsList.appendChild(pointItem);
+
+                if (window.gsap) {
+                    window.gsap.fromTo(pointItem, { opacity: 0, x: -8 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power2.out' });
+                }
+                
+                const pointTextarea = pointItem.querySelector('.outline-point-input');
+                
+                typeTextarea(pointTextarea, pointText, 4, () => {
+                    currentPointIndex++;
+                    scrollToBottom();
+                    typeNextPoint();
+                });
+            }
+
+            typeNextPoint();
+        });
+    }
+
+    if (slides.length > 0) {
+        typeNextSlide();
+    } else {
+        bindOutlineEvents();
+    }
 }
 
 function renderOutlineSlides() {
@@ -169,87 +407,32 @@ function renderOutlineSlides() {
     
     const slides = window.outlineEditorState.skeleton.slides || [];
     
-    const emptyState = document.getElementById('outline-empty-state');
-    if (slides.length === 0) {
-        if (emptyState) emptyState.classList.remove('hidden');
-    } else {
-        if (emptyState) emptyState.classList.add('hidden');
-    }
-    
     slides.forEach((slide, index) => {
-        const card = document.createElement('div');
-        card.className = 'outline-slide-card';
-        card.dataset.index = index;
+        const item = document.createElement('div');
+        item.className = 'seamless-slide-item';
+        item.dataset.index = index;
         
-        // Use a default color for background indicator if none specified
-        const bgColor = slide.bg_color || '#121212';
-        
-        card.innerHTML = `
-            <div class="outline-slide-bg-indicator" style="background-color: ${bgColor}"></div>
-            <div class="outline-slide-number">${index + 1}</div>
-            <div class="outline-slide-content">
-                <div class="outline-slide-header">
-                    <textarea class="outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1" style="height: auto; resize: none; overflow-y: hidden;">${escapeHtml(slide.title || '')}</textarea>
-                    <div class="dropdown-container outline-custom-dropdown slide-type-dropdown">
-                        <button type="button" class="outline-slide-type-btn custom-select-trigger" aria-expanded="false">
-                            <span class="trigger-label">${(slide.role === 'error_list' ? 'Error List' : (slide.role ? slide.role.charAt(0).toUpperCase() + slide.role.slice(1) : 'Concept'))}</span>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </button>
-                        <div class="dropdown-menu hidden custom-select-menu">
-                            ${['cover', 'problem', 'concept', 'data', 'comparison', 'process', 'example', 'error_list', 'quote', 'timeline', 'internals', 'conclusion'].map(r => 
-                                `<button type="button" class="dropdown-item ${slide.role === r || (!slide.role && r === 'concept') ? 'active' : ''}" data-value="${r}">${r === 'error_list' ? 'Error List' : r.charAt(0).toUpperCase() + r.slice(1)}</button>`
-                            ).join('')}
-                        </div>
-                        <select class="outline-slide-type-select hidden-select" data-index="${index}" style="display: none;">
-                            ${['cover', 'problem', 'concept', 'data', 'comparison', 'process', 'example', 'error_list', 'quote', 'timeline', 'internals', 'conclusion'].map(r => 
-                                `<option value="${r}" ${slide.role === r || (!slide.role && r === 'concept') ? 'selected' : ''}>${r === 'error_list' ? 'Error List' : r.charAt(0).toUpperCase() + r.slice(1)}</option>`
-                            ).join('')}
-                        </select>
+        item.innerHTML = `
+            <div class="seamless-slide-number">${index + 1}.</div>
+            <textarea class="seamless-title-input outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1">${escapeHtml(slide.title || '')}</textarea>
+            
+            <div class="seamless-points-list" id="outline-points-${index}">
+                ${(slide.key_points || []).map((point, pIndex) => `
+                    <div class="seamless-point-item">
+                        <span class="seamless-point-bullet">-</span>
+                        <textarea class="seamless-point-input outline-point-input" data-sindex="${index}" data-pindex="${pIndex}" rows="1">${escapeHtml(point)}</textarea>
                     </div>
-                </div>
-                <textarea class="outline-slide-desc" placeholder="Optional subtitle or description" data-index="${index}" rows="2" style="height: auto; resize: none; overflow-y: hidden;">${escapeHtml(slide.subtitle || '')}</textarea>
-                
-                <div class="outline-points-list" id="outline-points-${index}">
-                    ${(slide.key_points || []).map((point, pIndex) => `
-                        <div class="outline-point-item">
-                            <span class="outline-point-bullet">●</span>
-                            <textarea class="outline-point-input" data-sindex="${index}" data-pindex="${pIndex}" rows="1" style="height: auto; resize: none; overflow-y: hidden;">${escapeHtml(point)}</textarea>
-                            <button type="button" class="outline-point-delete" data-sindex="${index}" data-pindex="${pIndex}">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                            </button>
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <div class="outline-add-point-container">
-                    <button type="button" class="btn-outline-add-point" onclick="addBlankPoint(${index})">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        Add Point
-                    </button>
-                    <!-- AI Generate point option can be added here if needed -->
-                </div>
-                
-                <div class="outline-slide-bg-color">
-                    <label>Slide Color:</label>
-                    <input type="color" class="outline-slide-color-picker" data-index="${index}" value="${slide.bg_color || '#121212'}">
-                </div>
-                
-            </div>
-            <div class="outline-slide-controls">
-                <button type="button" class="outline-slide-action-btn" onclick="moveSlideUp(${index})" ${index === 0 ? 'disabled' : ''}>
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                </button>
-                <button type="button" class="outline-slide-action-btn" onclick="moveSlideDown(${index})" ${index === slides.length - 1 ? 'disabled' : ''}>
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                <button type="button" class="outline-slide-action-btn delete" onclick="deleteSlide(${index})">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                </button>
+                `).join('')}
             </div>
         `;
         
-        container.appendChild(card);
+        container.appendChild(item);
     });
+
+    bindOutlineEvents();
+}
+
+function bindOutlineEvents() {
     
     // Bug #21: Use debounce for textarea inputs to avoid reflow on every keystroke
     function debounce(fn, ms) {
@@ -331,6 +514,48 @@ function renderOutlineSlides() {
     });
     document.querySelectorAll('.outline-point-input').forEach(input => {
         autoResizeTextarea(input);
+        
+        // Handle auto-add new point on Enter
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const sIdx = parseInt(e.target.dataset.sindex, 10);
+                const pIdx = parseInt(e.target.dataset.pindex, 10);
+                const slides = window.outlineEditorState.skeleton.slides;
+                if (slides[sIdx] && slides[sIdx].key_points) {
+                    slides[sIdx].key_points.splice(pIdx + 1, 0, "");
+                    renderOutlineSlides();
+                    
+                    // Focus the new input
+                    setTimeout(() => {
+                        const newInputs = document.querySelectorAll(`.outline-point-input[data-sindex="${sIdx}"]`);
+                        if (newInputs[pIdx + 1]) {
+                            newInputs[pIdx + 1].focus();
+                        }
+                    }, 10);
+                }
+            } else if (e.key === 'Backspace' && e.target.value === '') {
+                e.preventDefault();
+                const sIdx = parseInt(e.target.dataset.sindex, 10);
+                const pIdx = parseInt(e.target.dataset.pindex, 10);
+                const slides = window.outlineEditorState.skeleton.slides;
+                if (slides[sIdx] && slides[sIdx].key_points && slides[sIdx].key_points.length > 1) {
+                    slides[sIdx].key_points.splice(pIdx, 1);
+                    renderOutlineSlides();
+                    
+                    // Focus previous
+                    setTimeout(() => {
+                        const inputs = document.querySelectorAll(`.outline-point-input[data-sindex="${sIdx}"]`);
+                        if (inputs[Math.max(0, pIdx - 1)]) {
+                            const prevInput = inputs[Math.max(0, pIdx - 1)];
+                            prevInput.focus();
+                            prevInput.setSelectionRange(prevInput.value.length, prevInput.value.length);
+                        }
+                    }, 10);
+                }
+            }
+        });
+        
         input.addEventListener('input', debounce((e) => {
             autoResizeTextarea(e.target);
             const sIdx = parseInt(e.target.dataset.sindex, 10);
@@ -367,15 +592,18 @@ function renderOutlineSlides() {
 
 function updateOutlineSlideCount() {
     const slides = window.outlineEditorState.skeleton.slides || [];
-    document.getElementById('outline-slide-count').textContent = `${slides.length} slides`;
+    const countEl = document.getElementById('outline-slide-count');
+    if (countEl) countEl.textContent = `${slides.length} slides`;
     
     const addSlideBtn = document.getElementById('btn-outline-add-slide');
-    if (slides.length >= window.outlineEditorState.maxSlides) {
-        addSlideBtn.disabled = true;
-        addSlideBtn.title = `Maximum limit of ${window.outlineEditorState.maxSlides} slides reached.`;
-    } else {
-        addSlideBtn.disabled = false;
-        addSlideBtn.title = '';
+    if (addSlideBtn) {
+        if (slides.length >= window.outlineEditorState.maxSlides) {
+            addSlideBtn.disabled = true;
+            addSlideBtn.title = `Maximum limit of ${window.outlineEditorState.maxSlides} slides reached.`;
+        } else {
+            addSlideBtn.disabled = false;
+            addSlideBtn.title = '';
+        }
     }
 }
 
@@ -737,26 +965,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Add Slide Dropdown
+    // Add Slide Button
     const addSlideBtn = document.getElementById('btn-outline-add-slide');
-    const addSlideMenu = document.getElementById('outline-add-slide-menu');
-    
-    if (addSlideBtn && addSlideMenu) {
+    if (addSlideBtn) {
         addSlideBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            addSlideMenu.classList.toggle('hidden');
-        });
-        
-        document.addEventListener('click', () => {
-            addSlideMenu.classList.add('hidden');
-        });
-        
-        document.getElementById('btn-add-slide-blank').addEventListener('click', () => {
+            e.preventDefault();
             addBlankSlide();
-        });
-        
-        document.getElementById('btn-add-slide-ai').addEventListener('click', () => {
-            addSlideWithAI();
         });
     }
     
@@ -764,6 +978,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnGenerate = document.getElementById('btn-outline-generate');
     if (btnGenerate) {
         btnGenerate.addEventListener('click', () => {
+            if (btnGenerate.disabled) return;
+            
             // Re-sync global settings
             const skel = window.outlineEditorState.skeleton;
             skel.topic = document.getElementById('outline-title-input').value;
@@ -788,6 +1004,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
+            btnGenerate.disabled = true;
             // Add loading state to button (morphs into textless filling progress bar)
             btnGenerate.classList.add('is-generating');
             
@@ -802,60 +1019,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBack = document.getElementById('btn-outline-back');
     if (btnBack) {
         btnBack.addEventListener('click', () => {
+            const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
+            if (!confirm(msg)) return;
+
             // Fix #6: Abort any in-flight skeleton or generation fetch
             if (window._activeGenController) {
                 window._activeGenController.abort();
                 window._activeGenController = null;
             }
 
-            const backdrop = document.getElementById('outline-backdrop');
-            if (backdrop) backdrop.classList.remove('active');
-            
-            const heroTextSpan = document.querySelector('.hero-title-text');
-            if (heroTextSpan && heroTextSpan.getAttribute('data-original-text')) {
-                // Kill typewriter so it doesn't append chars to restored text
-                if (window._heroTypewriterTimer) {
-                    clearTimeout(window._heroTypewriterTimer);
-                    window._heroTypewriterTimer = null;
-                }
-                if (window._heroResetTimer) {
-                    clearTimeout(window._heroResetTimer);
-                    window._heroResetTimer = null;
-                }
-                if (window._btnMsgTimer) {
-                    clearTimeout(window._btnMsgTimer);
-                    window._btnMsgTimer = null;
-                }
-                const heroTitle = document.querySelector('.hero-title');
-                if (window.gsap && heroTitle) {
-                    window.gsap.killTweensOf(heroTitle);
-                    window.gsap.set(heroTitle, { x: 0, opacity: 1 });
-                }
-                heroTextSpan.textContent = heroTextSpan.getAttribute('data-original-text');
-                heroTextSpan.parentElement.classList.remove('waiting-state');
-            }
-            
-            document.getElementById('outline-container').classList.add('hidden');
+            // Hide container so beforeunload doesn't fire a duplicate warning
+            const container = document.getElementById('outline-container');
+            if (container) container.classList.add('hidden');
 
-            // Hide the empty state on close (we do NOT restore editing UI here to prevent flickering)
-            const emptyOnClose = document.getElementById('outline-empty-state');
-            if (emptyOnClose) emptyOnClose.classList.add('hidden');
-
-            // Fix #17: clean up is-generating state on the generate button
-            const btnGen = document.getElementById('btn-outline-generate');
-            if (btnGen) btnGen.classList.remove('is-generating');
-            
-            // Reset the floating edge tab
-            const edgeTab = document.getElementById('outline-edge-tab');
-            if (edgeTab) {
-                edgeTab.classList.remove('is-open');
-                const tabText = edgeTab.querySelector('span');
-                if (tabText) tabText.textContent = window.__t ? window.__t('open_draft', 'Open draft') : 'Open draft';
-            }
-            
-            // Fix #12: guard optional app.js functions
-            if (typeof window.hideLoadingState === 'function') window.hideLoadingState();
-            if (typeof window.disableGenerationUI === 'function') window.disableGenerationUI(false);
+            // Cleanly return to the main menu
+            window.location.reload();
         });
     }
     

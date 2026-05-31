@@ -30,7 +30,7 @@ const mammoth = require('mammoth');
 
 const { runPipeline, buildLegacyPrompt, extractJson } = require('./prompts/pipeline');
 const buildPrompt = require('./prompts/base'); // kept for fallback
-const buildStage1Prompt = require('./prompts/stage1-content');
+const { buildStage1Prompt, buildStage1RevisionPrompt } = require('./prompts/stage1-content');
 const { buildAddSlidePrompt, buildAddPointPrompt } = require('./prompts/skeleton_prompts');
 
 const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
@@ -676,7 +676,7 @@ async function callGeminiDirect(prompt, stageName, geminiModel, fileContext = nu
     }
 
     providerLog.success(ErrorCategory.PROVIDER, 'Gemini direct accepted request', { stage: stageName, model: geminiModel });
-    return { stream: geminiSSEToChunks(response) };
+    return { stream: geminiSSEToChunks(response), provider: 'gemini', model: geminiModel };
 }
 
 // ── OpenRouter fallback (try a list of models sequentially) ───────────────────
@@ -777,7 +777,7 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
                 stage: stageName,
                 model
             });
-            return { stream: openRouterSSEToChunks(response) };
+            return { stream: openRouterSSEToChunks(response), provider: 'openrouter', model };
         } catch (err) {
             providerLog.warn(classifyError(err, ErrorCategory.NETWORK), 'OpenRouter request error', {
                 stage: stageName,
@@ -1098,6 +1098,11 @@ function sanitizeTema(input) {
 
 app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     const requestId = req.requestId || 'n/a';
+    let cancelled = false;
+
+    res.on('close', () => {
+        cancelled = true;
+    });
 
     try {
         const opciones = req.body;
@@ -1152,13 +1157,30 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
             }
         }
         
-        const stage1Prompt = buildStage1Prompt(sanitizeResult.tema, targetLang);
+        let currentSkeleton = opciones.currentSkeleton;
+        if (currentSkeleton && typeof currentSkeleton === 'string') {
+            try {
+                currentSkeleton = JSON.parse(currentSkeleton);
+            } catch (e) {
+                // ignore parse errors
+            }
+        }
+
+        const stage1Prompt = currentSkeleton && typeof currentSkeleton === 'object'
+            ? buildStage1RevisionPrompt(sanitizeResult.tema, currentSkeleton, targetLang)
+            : buildStage1Prompt(sanitizeResult.tema, targetLang);
         // Skeleton generation uses the same model as Stage 1
         const stage1Response = await tryModelsStage1(stage1Prompt, fileContext);
         let stage1Raw = '';
         for await (const chunk of stage1Response.stream) {
+            if (cancelled) {
+                log.warn(ErrorCategory.STREAM, 'Skeleton generation loop stopped because client disconnected', { requestId });
+                break;
+            }
             stage1Raw += chunk;
         }
+        
+        if (cancelled) return;
 
         let contentJson;
         try {
@@ -1169,6 +1191,10 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
 
         if (contentJson.rejected) {
             return res.status(400).json({ error: 'CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic') });
+        }
+
+        if (contentJson.action === 'proceed') {
+            return res.json({ skeleton: { action: 'proceed' } });
         }
 
         if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
@@ -1261,6 +1287,9 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
 
         // Bug #15: Validate that the skeleton is not empty before skipping Stage 1
         if (opciones.skeleton && typeof opciones.skeleton === 'object') {
+            if (opciones.skeleton.action === 'proceed') {
+                return res.status(400).json({ error: 'SKELETON_EMPTY: The outline has no slides. Please add at least one slide before generating.' });
+            }
             const skeletonSlides = opciones.skeleton.slides;
             if (!Array.isArray(skeletonSlides) || skeletonSlides.length === 0) {
                 return res.status(400).json({ error: 'SKELETON_EMPTY: The outline has no slides. Please add at least one slide before generating.' });
@@ -1573,6 +1602,10 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
         }
 
         try {
+            if (result.provider && result.model) {
+                res.write(`data: ${JSON.stringify({ metadata: { provider: result.provider, model: result.model } })}\n\n`);
+            }
+
             let streamSlideCount = 0;
             const slideTagRegex = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
 

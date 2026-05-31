@@ -20,15 +20,15 @@ const log = createLogger({ scope: 'RATE_LIMIT' });
 const LIMITS = {
     flash: {
         daily: parseInt(process.env.LIMITS_FLASH_DAILY || '5', 10),
-        cooldownSec: parseInt(process.env.LIMITS_FLASH_COOLDOWN_SEC || '60', 10),
+        cooldownSec: 0,
     },
     pro: {
         daily: parseInt(process.env.LIMITS_PRO_DAILY || '3', 10),
-        cooldownSec: parseInt(process.env.LIMITS_PRO_COOLDOWN_SEC || '60', 10),
+        cooldownSec: 0,
     },
     outline: {
         daily: parseInt(process.env.LIMITS_OUTLINE_DAILY || '10', 10),
-        cooldownSec: parseInt(process.env.LIMITS_OUTLINE_COOLDOWN_SEC || '30', 10),
+        cooldownSec: 0,
     },
 };
 
@@ -229,17 +229,19 @@ function evaluateGenerateRateLimitMemory(ip, mode, cfg) {
     pruneExpiredMap(memoryState.cooldowns, now);
     pruneExpiredMap(memoryState.dailyCounters, now);
 
-    const cooldownExpiresAt = memoryState.cooldowns.get(cooldownKey);
-    if (cooldownExpiresAt && cooldownExpiresAt > now) {
-        return {
-            allowed: false,
-            source: 'memory',
-            reason: 'cooldown',
-            statusCode: 429,
-            errorCode: 'COOLDOWN_ACTIVE',
-            retryAfterSec: retryAfterSec(cooldownExpiresAt, now),
-            message: 'Please wait before generating again.',
-        };
+    if (cfg.cooldownSec > 0) {
+        const cooldownExpiresAt = memoryState.cooldowns.get(cooldownKey);
+        if (cooldownExpiresAt && cooldownExpiresAt > now) {
+            return {
+                allowed: false,
+                source: 'memory',
+                reason: 'cooldown',
+                statusCode: 429,
+                errorCode: 'COOLDOWN_ACTIVE',
+                retryAfterSec: retryAfterSec(cooldownExpiresAt, now),
+                message: 'Please wait before generating again.',
+            };
+        }
     }
 
     const globalCounter = getOrInitCounter(memoryState.dailyCounters, globalDailyKey, DAILY_TTL_SEC, now);
@@ -272,7 +274,9 @@ function evaluateGenerateRateLimitMemory(ip, mode, cfg) {
 
     dailyCounter.count += 1;
     globalCounter.count += 1;
-    memoryState.cooldowns.set(cooldownKey, now + cfg.cooldownSec * 1000);
+    if (cfg.cooldownSec > 0) {
+        memoryState.cooldowns.set(cooldownKey, now + cfg.cooldownSec * 1000);
+    }
 
     return {
         allowed: true,
@@ -287,18 +291,20 @@ async function evaluateGenerateRateLimitRedis(client, ip, mode, cfg) {
     const dailyKey = `ratelimit:daily:${mode}:${ip}`;
     const cooldownKey = `ratelimit:cooldown:${mode}:${ip}`;
 
-    const onCooldown = await client.exists(cooldownKey);
-    if (onCooldown) {
-        const ttl = await client.ttl(cooldownKey);
-        return {
-            allowed: false,
-            source: 'redis',
-            reason: 'cooldown',
-            statusCode: 429,
-            errorCode: 'COOLDOWN_ACTIVE',
-            retryAfterSec: Math.max(ttl, 1),
-            message: 'Please wait before generating again.',
-        };
+    if (cfg.cooldownSec > 0) {
+        const onCooldown = await client.exists(cooldownKey);
+        if (onCooldown) {
+            const ttl = await client.ttl(cooldownKey);
+            return {
+                allowed: false,
+                source: 'redis',
+                reason: 'cooldown',
+                statusCode: 429,
+                errorCode: 'COOLDOWN_ACTIVE',
+                retryAfterSec: Math.max(ttl, 1),
+                message: 'Please wait before generating again.',
+            };
+        }
     }
 
     const globalCount = parseCount(await client.get(globalDailyKey));
@@ -342,7 +348,9 @@ async function evaluateGenerateRateLimitRedis(client, ip, mode, cfg) {
         pipeline.expire(globalDailyKey, DAILY_TTL_SEC);
     }
 
-    pipeline.set(cooldownKey, '1', { ex: cfg.cooldownSec });
+    if (cfg.cooldownSec > 0) {
+        pipeline.set(cooldownKey, '1', { ex: cfg.cooldownSec });
+    }
     await pipeline.exec();
 
     return {

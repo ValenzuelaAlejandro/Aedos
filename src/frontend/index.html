@@ -86,7 +86,7 @@
 
         <div class="chat-container">
             <!-- App Header -->
-            <div class="app-header">
+            <div class="app-header" id="hero-zone">
                 <h1 class="hero-title hero-title-single"><span class="hero-title-text" data-i18n="hero_line_1">Got a spicy idea?</span><span class="hero-cursor" aria-hidden="true">|</span></h1>
             </div>
 
@@ -159,8 +159,7 @@
                 </div>
             </div>
 
-            <!-- Suggestion Pills -->
-            <div class="suggestion-pills-row">
+            <div class="suggestion-pills-row" id="suggestion-pills-row">
                 <button type="button" class="suggestion-pill" data-topic-key="pill_topic_technology">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                     <span data-i18n="pill_technology">Technology</span>
@@ -194,6 +193,47 @@
                 Aedos uses AI. Always review the generated content.
             </div>
 
+            <!-- CONVERSATION ZONE: built by JS on submit -->
+            <div class="conversation-zone hidden" id="conversation-zone">
+                <div class="chat-msg chat-msg-user" id="chat-user-bubble">
+                    <span id="chat-user-text"></span>
+                </div>
+                <div class="chat-msg chat-msg-ai" id="chat-ai-response">
+                    <div class="chat-ai-avatar">
+                        <svg viewBox="0 0 100 100" width="14" height="14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M50,15 L80,75 L50,60 L20,75 Z" fill="currentColor"/></svg>
+                    </div>
+                    <div class="chat-ai-body">
+                        <div class="chat-thinking" id="chat-thinking"><span></span><span></span><span></span></div>
+                        <!-- New minimal outline editor -->
+                        <div id="outline-container" class="hidden">
+                            <div style="display:none;">
+                                <input type="text" id="outline-title-input" value="Presentation" />
+                                <input type="text" id="outline-subtitle-input" value="" />
+                                <select id="outline-tone-select"><option value="academic">Academic</option></select>
+                                <select id="outline-audience-select"><option value="general">General</option></select>
+                                <select id="outline-density-select"><option value="medium">Medium</option></select>
+                                <button type="button" id="btn-outline-back">Back</button>
+                            </div>
+                            <div id="outline-slides-container" class="seamless-outline-list"></div>
+                            
+                            <!-- Suggested Follow-up Chips Row -->
+                            <div class="outline-suggested-chips" id="outline-suggested-chips"></div>
+
+                            <div class="outline-bubble-footer">
+                                <button type="button" id="btn-outline-add-slide" class="outline-btn-ghost">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                    Add Section
+                                </button>
+                                <button type="button" id="btn-outline-generate" class="outline-generate-btn">
+                                    <span class="outline-generate-text" data-i18n="generate_outline_slides">Create Presentation</span>
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </section>
 
@@ -202,7 +242,8 @@
     <!-- ======================== -->
     <!-- OUTLINE EDITOR           -->
     <!-- ======================== -->
-    <section id="outline-container" class="hidden">
+    <!-- old outline drawer kept hidden for JS compat -->
+    <section id="outline-legacy-container" class="hidden" style="display:none !important;">
         
         <!-- Fused Folder Tab (Absolutely positioned above the container) -->
         <div id="outline-edge-tab">

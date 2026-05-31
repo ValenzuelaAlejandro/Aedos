@@ -97,7 +97,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const debugLastGeneratedBtn = document.getElementById('btn-debug-last-generated');
 
     // ── Active SSE stream controller (cancel on Back / new generation) ──
+    // NOTE: also exposed on window so outline.js abort logic can reach it.
     let _activeGenController = null;
+    Object.defineProperty(window, '_activeGenController', {
+        get: () => _activeGenController,
+        set: (v) => { _activeGenController = v; }
+    });
+    let _skeletonGenController = null;
     // Callback run when the error modal is dismissed (varies by context)
     let _errorModalOnDismiss = null;
 
@@ -524,10 +530,137 @@ document.addEventListener('DOMContentLoaded', () => {
     function startTypewriter() { }
     function stopTypewriter() { }
 
-    // Handle browser back/forward button
+    // =========================================================
+    // STATE ROUTER
+    // =========================================================
+    window.navigateToHome = function() {
+        if (window.location.hash !== '') {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+        
+        const chatScreen = document.getElementById('chat-screen');
+        if (chatScreen) {
+            chatScreen.classList.remove('chat-mode');
+            chatScreen.classList.remove('hidden');
+            chatScreen.style.cssText = '';
+        }
+        
+        const heroZone = document.getElementById('hero-zone');
+        if (heroZone) heroZone.classList.remove('fade-out');
+        
+        const pills = document.getElementById('suggestion-pills-row');
+        if (pills) { pills.style.transition = ''; pills.style.opacity = '1'; pills.style.pointerEvents = 'auto'; }
+        const microcopy = document.querySelector('.app-microcopy');
+        if (microcopy) { microcopy.style.transition = ''; microcopy.style.opacity = '1'; }
+        const counter = document.querySelector('.chat-counter-row');
+        if (counter) { counter.style.transition = ''; counter.style.opacity = '1'; }
+        
+        const convZone = document.getElementById('conversation-zone');
+        if (convZone) {
+            convZone.classList.add('hidden');
+            convZone.classList.remove('visible');
+            
+            // Remove any dynamically added follow-up bubbles, but keep the first two hardcoded ones safe
+            const dynamicBubbles = convZone.querySelectorAll('.chat-msg:not(#chat-user-bubble):not(#chat-ai-response)');
+            dynamicBubbles.forEach(b => b.remove());
+            const dynamicErrors = convZone.querySelectorAll('.chat-error-message');
+            dynamicErrors.forEach(e => e.remove());
+        }
+        
+        if (window.outlineEditorState) {
+            window.outlineEditorState.skeleton = null;
+            window.outlineEditorState.isLoading = false;
+        }
+        
+        const previewCont = document.getElementById('preview-container');
+        if (previewCont) {
+            previewCont.classList.add('hidden');
+        }
+        
+        const temaInput = document.getElementById('w-tema');
+        if (temaInput) temaInput.value = '';
+    };
+
+    window.navigateToChat = function() {
+        if (window.location.hash !== '#chat') {
+            window.history.pushState(null, '', '#chat');
+        }
+        // Let existing chat initialization (outline.js) handle specific DOM changes
+    };
+
+    window.navigateToEditor = function() {
+        if (window.location.hash !== '#editor') {
+            window.history.pushState(null, '', '#editor');
+        }
+        // Specific changes handled organically by startFinalGeneration
+    };
+
+    // Handle browser back/forward button natively via Router
     window.addEventListener('popstate', (e) => {
-        const state = e.state;
-        if (!state) return;
+        const hash = window.location.hash;
+        
+        // Always intercept back navigation during an active generation process
+        const previewCont = document.getElementById('preview-container');
+        const generationActive = previewCont && !previewCont.classList.contains('hidden') && _activeGenController;
+        const skeletonActive = !!_skeletonGenController;
+
+        if (generationActive || skeletonActive) {
+            const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
+            if (confirm(msg)) {
+                const outlineContainer = document.getElementById('outline-container');
+                if (outlineContainer) outlineContainer.classList.add('hidden'); 
+                if (previewCont) previewCont.classList.add('hidden'); 
+                
+                if (_activeGenController) { _activeGenController.abort(); _activeGenController = null; }
+                if (_skeletonGenController) { _skeletonGenController.abort(); _skeletonGenController = null; }
+                
+                if (hash === '' || hash === '#chat') {
+                    window.location.reload(); // Enforce a hard reload to completely reset generation states
+                }
+            } else {
+                // User cancelled, restore URL
+                if (generationActive) window.history.replaceState(null, '', '#editor');
+                else if (skeletonActive) window.history.replaceState(null, '', '#chat');
+                return; // Stop processing popstate
+            }
+        }
+        
+        // Standard Router Fallback (if no generation is active)
+        if (hash === '') {
+            window.navigateToHome();
+        } else if (hash === '#chat') {
+            // Check if there is actually a valid chat state to restore
+            const convZone = document.getElementById('conversation-zone');
+            if (!convZone || convZone.classList.contains('hidden') || convZone.innerHTML.trim() === '') {
+                // The chat was cleared (e.g. they went back to home and then clicked forward)
+                // Force them back to the home state
+                window.navigateToHome();
+                return;
+            }
+
+            // If they go back to chat from editor without an active generation
+            const previewCont = document.getElementById('preview-container');
+            if (previewCont) previewCont.classList.add('hidden');
+            const chatScreen = document.getElementById('chat-screen');
+            if (chatScreen) {
+                chatScreen.classList.remove('hidden');
+                chatScreen.classList.add('chat-mode');
+                chatScreen.style.cssText = '';
+            }
+        }
+    });
+
+    // Warn on tab close if editor is active OR if a generation is in progress
+    window.addEventListener('beforeunload', (e) => {
+        const outlineContainer = document.getElementById('outline-container');
+        const previewCont = document.getElementById('preview-container');
+        const editorOpen = outlineContainer && !outlineContainer.classList.contains('hidden');
+        const generationActive = previewCont && !previewCont.classList.contains('hidden') && _activeGenController;
+        const skeletonActive = !!_skeletonGenController;
+        if (editorOpen || generationActive || skeletonActive) {
+            e.preventDefault();
+            e.returnValue = ''; // Standard way to trigger native browser prompt
+        }
     });
 
     // Clear error on typing and validate length
@@ -594,11 +727,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('dragenter', (e) => {
             e.preventDefault();
-            
+
             // Do not show full-screen drag overlay or allow global file attachment if editor is active
             const previewContainer = document.getElementById('preview-container');
             if (previewContainer && !previewContainer.classList.contains('hidden')) return;
-            
+
             if (btnAttachFile && btnAttachFile.disabled) return;
             if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
 
@@ -616,7 +749,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('dragleave', (e) => {
             e.preventDefault();
-            
+
             const previewContainer = document.getElementById('preview-container');
             if (previewContainer && !previewContainer.classList.contains('hidden')) {
                 dragCounter = 0;
@@ -633,7 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.addEventListener('drop', (e) => {
             e.preventDefault();
-            
+
             const previewContainer = document.getElementById('preview-container');
             if (previewContainer && !previewContainer.classList.contains('hidden')) {
                 dragCounter = 0;
@@ -1123,12 +1256,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleGenerate() {
-        // Abort any previous in-flight generation
-        if (_activeGenController) {
-            _activeGenController.abort();
-            _activeGenController = null;
+        // Abort any previous in-flight skeleton generation
+        if (_skeletonGenController) {
+            _skeletonGenController.abort();
+            _skeletonGenController = null;
         }
-        
+
+        // Push state immediately so the native back button works during the loading phase
+        if (window.location.hash !== '#chat') {
+            window.navigateToChat();
+        }
+
         const tema = temaInput.value.trim();
         const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
         if (!tema && !hasFiles) {
@@ -1137,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         temaError.classList.remove('visible');
-        
+
         const finalTema = tema || (hasFiles ? (window.__t ? window.__t('default_document_prompt', 'Analyze this document and create a presentation') : 'Analyze this document and create a presentation') : '');
 
         const requestData = {
@@ -1146,8 +1284,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ...(targetLanguage !== 'auto' ? { language: targetLanguage } : {})
         };
 
+        if (window.outlineEditorState && window.outlineEditorState.skeleton) {
+            requestData.currentSkeleton = JSON.stringify(window.outlineEditorState.skeleton);
+        }
+
         toggleGenerateLoading(true);
-        
+
         let bodyData;
         let headers = {};
         if (window._attachedFiles && window._attachedFiles.length > 0) {
@@ -1156,6 +1298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (requestData.mode) formData.append('mode', requestData.mode);
             if (requestData.language) formData.append('language', requestData.language);
             formData.append('slides', requestData.slides);
+            if (requestData.currentSkeleton) formData.append('currentSkeleton', requestData.currentSkeleton);
             window._attachedFiles.forEach(f => formData.append('files', f));
             bodyData = formData;
         } else {
@@ -1164,8 +1307,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const controller = new AbortController();
-        _activeGenController = controller;
-        
+        _skeletonGenController = controller;
+
         if (window.showOutlineEditorLoading) {
             window.showOutlineEditorLoading(requestData.slides || 8);
         }
@@ -1179,18 +1322,103 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!skeletonResponse.ok) {
-                const errData = await skeletonResponse.json().catch(()=>({}));
+                const errData = await skeletonResponse.json().catch(() => ({}));
                 const serverErr = errData.error || `Server error: ${skeletonResponse.status}`;
                 throw new Error(serverErr);
             }
 
             const skeletonData = await skeletonResponse.json();
-            
+
+            // The skeleton fetch is complete. Free the skeleton controller safely.
+            _skeletonGenController = null;
+
             window._pendingGenerateBodyData = bodyData;
             window._pendingGenerateHeaders = headers;
-            
+
             toggleGenerateLoading(false);
-            
+
+            // Intention Parser Interception
+            if (skeletonData.skeleton && skeletonData.skeleton.action === 'proceed') {
+                const aiMessages = document.querySelectorAll('.chat-msg-ai');
+                const latestAiMessage = aiMessages[aiMessages.length - 1];
+                if (latestAiMessage) {
+                    const thinking = latestAiMessage.querySelector('.chat-thinking');
+                    if (thinking) thinking.classList.add('hidden');
+
+                    const aiBody = latestAiMessage.querySelector('.chat-ai-body');
+                    if (aiBody) {
+                        const progressMsg = document.createElement('div');
+                        progressMsg.className = 'chat-proceed-message';
+                        progressMsg.style.cssText = 'padding: 0.8rem 1rem; color: var(--text); font-weight: 500; font-family: var(--font-body); display: flex; align-items: center; gap: 0.5rem;';
+                        
+                        const textSpan = document.createElement('span');
+                        textSpan.textContent = window.__t ? window.__t('chat_proceeding_1', 'Analyzing request...') : 'Analyzing request...';
+                        
+                        progressMsg.innerHTML = `<span style="color: var(--accent); font-size: 1.2rem; display: inline-block;" class="loading-spinner">⟳</span>`;
+                        progressMsg.appendChild(textSpan);
+                        aiBody.appendChild(progressMsg);
+                        
+                        // GSAP premium entrance animation for proceed loading message
+                        if (window.gsap) {
+                            window.gsap.fromTo(progressMsg, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+                        }
+
+                        const spinner = progressMsg.querySelector('.loading-spinner');
+                        if (spinner && spinner.animate) {
+                            spinner.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 1500, iterations: Infinity });
+                        }
+
+                        const msgs = [
+                            window.__t ? window.__t('chat_proceeding_2', 'Drafting slides...') : 'Drafting slides...',
+                            window.__t ? window.__t('chat_proceeding_3', 'Structuring narrative...') : 'Structuring narrative...',
+                            window.__t ? window.__t('chat_proceeding_4', 'Finding visual assets...') : 'Finding visual assets...',
+                            window.__t ? window.__t('chat_proceeding_5', 'Polishing layout...') : 'Polishing layout...'
+                        ];
+                        let msgIdx = 0;
+                        if (window._proceedMsgInterval) {
+                            clearInterval(window._proceedMsgInterval);
+                        }
+                        window._proceedMsgInterval = setInterval(() => {
+                            if (!document.body.contains(progressMsg) || document.body.classList.contains('no-scroll')) {
+                                clearInterval(window._proceedMsgInterval);
+                                window._proceedMsgInterval = null;
+                                return;
+                            }
+                            if (window.gsap) {
+                                window.gsap.to(textSpan, {
+                                    opacity: 0,
+                                    y: -4,
+                                    duration: 0.25,
+                                    onComplete: () => {
+                                        textSpan.textContent = msgs[msgIdx % msgs.length];
+                                        window.gsap.fromTo(textSpan, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
+                                        msgIdx++;
+                                    }
+                                });
+                            } else {
+                                textSpan.style.opacity = 0;
+                                setTimeout(() => {
+                                    textSpan.textContent = msgs[msgIdx % msgs.length];
+                                    textSpan.style.opacity = 1;
+                                    msgIdx++;
+                                }, 200);
+                            }
+                        }, 2500);
+                    }
+                }
+
+                // Clean up split outline layout and proceed directly
+                document.body.classList.remove('split-outline-active');
+                
+                if (window.startFinalGeneration) {
+                    const finalSkeleton = (window.outlineEditorState && window.outlineEditorState.skeleton) 
+                        ? window.outlineEditorState.skeleton 
+                        : skeletonData.skeleton;
+                    window.startFinalGeneration(finalSkeleton);
+                }
+                return;
+            }
+
             if (window.initOutlineEditor) {
                 window.initOutlineEditor(skeletonData.skeleton, proModeEnabled ? 'pro' : 'flash');
             } else {
@@ -1201,6 +1429,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.outlineEditorState) {
                 window.outlineEditorState.isLoading = false;
             }
+
+            // Clean up thinking bubble loading state in the chat to prevent hanging infinite loader
+            const thinking = document.getElementById('chat-thinking');
+            if (thinking) thinking.classList.add('hidden');
+
+            const firstAiBubble = document.getElementById('chat-ai-response');
+            if (firstAiBubble) {
+                const aiBody = firstAiBubble.querySelector('.chat-ai-body');
+                if (aiBody) {
+                    const errEl = document.createElement('div');
+                    errEl.className = 'chat-error-message';
+                    errEl.style.cssText = "color: var(--danger); font-weight: 500; display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem;";
+                    errEl.innerHTML = `<span>⚠</span> <span>${escapeHtml(error.message)}</span>`;
+                    aiBody.appendChild(errEl);
+                    
+                    if (window.gsap) {
+                        window.gsap.fromTo(errEl, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3 });
+                    }
+                }
+            }
+
             if (errorMessage) errorMessage.textContent = error.message;
             showErrorModal(() => {
                 const outlineContainer = document.getElementById('outline-container');
@@ -1213,11 +1462,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    window.startFinalGeneration = async function(skeleton) {
+    window.startFinalGeneration = async function (skeleton) {
+        if (window.location.hash !== '#editor') {
+            window.navigateToEditor();
+        }
+        
         generatedHtml = ''; // Reset state for a fresh start
         currentSlide = 0;
         totalSlides = 0;
-        
+
         window.removeEventListener('resize', scaleIframe); // evita acumulación
 
         // Transition: called once on first AI chunk, slides from chat → live skeleton
@@ -1321,12 +1574,17 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMinimapSkeleton(1);
 
         try {
+            if (_activeGenController) {
+                console.warn("A generation is already in progress. Ignoring duplicate request.");
+                return;
+            }
+            
             const controller = new AbortController();
             _activeGenController = controller;
-            
+
             let bodyData = window._pendingGenerateBodyData;
             let headers = window._pendingGenerateHeaders || {};
-            
+
             // Bug #3: Clone body data so we don't mutate the original FormData/JSON
             // (multiple retries would otherwise accumulate extra 'skeleton' fields)
             if (bodyData instanceof FormData) {
@@ -1430,9 +1688,23 @@ document.addEventListener('DOMContentLoaded', () => {
                                 : parsed.stage;
                             // Update hero title animation
                             if (typeof animateHeroTitle === 'function') animateHeroTitle(stageText);
-                            // Also update button label
+                            // Also update button label with premium GSAP fade-and-slide animation
                             const label = generateBtn.querySelector('.btn-generate-label');
-                            if (label) label.textContent = stageText;
+                            if (label) {
+                                if (window.gsap) {
+                                    window.gsap.to(label, {
+                                        opacity: 0,
+                                        y: -5,
+                                        duration: 0.2,
+                                        onComplete: () => {
+                                            label.textContent = stageText;
+                                            window.gsap.fromTo(label, { opacity: 0, y: 5 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' });
+                                        }
+                                    });
+                                } else {
+                                    label.textContent = stageText;
+                                }
+                            }
                             continue;
                         }
 
@@ -1495,6 +1767,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (parsed.error) {
                             throw new Error(parsed.error);
+                        }
+                        if (parsed.metadata) {
+                            uiLog.info('GENERATION', 'Model Selected', { provider: parsed.metadata.provider, model: parsed.metadata.model });
+                            continue;
                         }
                         if (parsed.done) {
                             generatedHtml = parsed.html;
@@ -1766,7 +2042,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             errorMessage.textContent = msg;
             previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
-            
+
             // Clean up split outline layout and reset hero
             document.body.classList.remove('split-outline-active');
             const btnOutlineGenerate = document.getElementById('btn-outline-generate');
@@ -1778,6 +2054,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 heroTextSpan.textContent = heroTextSpan.getAttribute('data-original-text');
                 heroTextSpan.parentElement.classList.remove('waiting-state');
             }
+            // Clean up infinite loader/spinner in the chat bubbles to prevent hanging states on rate-limits
+            if (window._proceedMsgInterval) {
+                clearInterval(window._proceedMsgInterval);
+                window._proceedMsgInterval = null;
+            }
+            const activeProceedMsg = document.querySelector('.chat-proceed-message');
+            if (activeProceedMsg) {
+                activeProceedMsg.innerHTML = `<span style="color: var(--danger); font-size: 1.2rem; display: inline-block;">⚠</span> <span style="color: var(--danger); font-weight: 500;">${window.__t ? window.__t('generation_failed_chat', 'Generation failed') : 'Generation failed'}: ${msg}</span>`;
+                if (window.gsap) {
+                    window.gsap.fromTo(activeProceedMsg, { opacity: 0 }, { opacity: 1, duration: 0.3 });
+                }
+            }
+            const thinking = document.getElementById('chat-thinking');
+            if (thinking) thinking.classList.add('hidden');
+
             const outlineContainer = document.getElementById('outline-container');
             // FIX: Do NOT hide outlineContainer, backdrop, and edgeTab here.
             // If the user gets rate-limited, they should be able to keep their draft and try again.
@@ -1795,9 +2086,8 @@ document.addEventListener('DOMContentLoaded', () => {
             iframeDoc.close();
             // Show error overlay on top of whatever is visible; dismiss → go to chat
             showErrorModal(() => {
-                previewContainer.classList.add('hidden');
-                chatScreen.style.cssText = '';
-                chatScreen.classList.remove('hidden');
+                if (window.location.hash === '#editor') window.history.back();
+                else window.navigateToChat();
             });
         } finally {
             _activeGenController = null;
@@ -1819,30 +2109,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBackToChat = document.getElementById('btn-back-to-chat');
     if (btnBackToChat) {
         btnBackToChat.addEventListener('click', () => {
-            // Cancel any running generation stream
             if (_activeGenController) {
                 _activeGenController.abort();
                 _activeGenController = null;
             }
-            previewContainer.classList.add('hidden');
-            window.removeEventListener('resize', scaleIframe);
-            chatScreen.classList.remove('hidden');
-            window.dispatchEvent(new Event('resize'));
-            temaInput.focus();
+            
+            if (window.location.hash === '#editor') window.history.back();
+            else window.navigateToChat();
+            
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+                const temaInput = document.getElementById('w-tema');
+                if (temaInput) temaInput.focus();
+            }, 50);
         });
     }
 
     const btnEditTopic = document.getElementById('btn-edit-topic');
-
     if (btnEditTopic) {
         btnEditTopic.addEventListener('click', () => {
             if (_activeGenController) {
                 _activeGenController.abort();
                 _activeGenController = null;
             }
-            previewContainer.classList.add('hidden');
-            chatScreen.classList.remove('hidden');
-            temaInput.focus();
+            
+            if (window.location.hash === '#editor') window.history.back();
+            else window.navigateToChat();
+            
+            setTimeout(() => {
+                const temaInput = document.getElementById('w-tema');
+                if (temaInput) temaInput.focus();
+            }, 50);
         });
     }
 
