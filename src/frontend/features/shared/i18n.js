@@ -193,7 +193,8 @@ const translations = {
         "chip_fallback_explain_text": "Explain in more detail",
         "chip_fallback_explain_prompt": "Make slide bullet points more descriptive and highly detailed",
         "chip_fallback_generate_text": "Looks good! Create presentation",
-        "confirm_exit_draft": "Are you sure you want to go back? Your progress will be lost."
+        "confirm_exit_draft": "Are you sure you want to go back? Your progress will be lost.",
+        "generation_cancelled": "Generation cancelled by user"
     },
     es: {
         "brand_name": "Aedos",
@@ -389,7 +390,8 @@ const translations = {
         "chip_fallback_explain_text": "Explicar con más detalle",
         "chip_fallback_explain_prompt": "Haz que los puntos clave de las diapositivas sean más detallados, informativos y descriptivos",
         "chip_fallback_generate_text": "Todo listo! Crear presentación",
-        "confirm_exit_draft": "¿Estás seguro de que quieres salir? Se perderá tu progreso no guardado."
+        "confirm_exit_draft": "¿Estás seguro de que quieres salir? Se perderá tu progreso no guardado.",
+        "generation_cancelled": "Generación cancelada por el usuario"
     }
 };
 

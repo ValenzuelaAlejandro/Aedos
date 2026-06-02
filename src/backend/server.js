@@ -1171,6 +1171,12 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
             : buildStage1Prompt(sanitizeResult.tema, targetLang);
         // Skeleton generation uses the same model as Stage 1
         const stage1Response = await tryModelsStage1(stage1Prompt, fileContext);
+        
+        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
         let stage1Raw = '';
         for await (const chunk of stage1Response.stream) {
             if (cancelled) {
@@ -1178,6 +1184,7 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
                 break;
             }
             stage1Raw += chunk;
+            res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
         }
         
         if (cancelled) return;
@@ -1186,19 +1193,27 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
         try {
             contentJson = extractJson(stage1Raw);
         } catch (e) {
-            throw new Error(`Failed to parse AI output as JSON: ${e.message}`);
+            res.write(`data: ${JSON.stringify({ error: `Failed to parse AI output as JSON: ${e.message}` })}\n\n`);
+            res.end();
+            return;
         }
 
         if (contentJson.rejected) {
-            return res.status(400).json({ error: 'CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic') });
+            res.write(`data: ${JSON.stringify({ error: 'CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic') })}\n\n`);
+            res.end();
+            return;
         }
 
         if (contentJson.action === 'proceed') {
-            return res.json({ skeleton: { action: 'proceed' } });
+            res.write(`data: ${JSON.stringify({ done: true, skeleton: { action: 'proceed' } })}\n\n`);
+            res.end();
+            return;
         }
 
         if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
-            return res.status(500).json({ error: 'STAGE1_INVALID: AI output has no slides array' });
+            res.write(`data: ${JSON.stringify({ error: 'STAGE1_INVALID: AI output has no slides array' })}\n\n`);
+            res.end();
+            return;
         }
 
         const maxSlides = req.body.mode === 'pro' ? 8 : 15;
@@ -1207,10 +1222,18 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
             contentJson.slide_count = maxSlides;
         }
 
-        res.json({ skeleton: contentJson });
+        res.write(`data: ${JSON.stringify({ done: true, skeleton: contentJson })}\n\n`);
+        res.end();
     } catch (err) {
         log.error(ErrorCategory.PIPELINE, 'Failed to generate skeleton', { requestId, error: err.message });
-        res.status(500).json({ error: 'Failed to generate outline. Please try again.' });
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to generate outline. Please try again.' });
+        } else {
+            try {
+                res.write(`data: ${JSON.stringify({ error: 'Failed to generate outline. Please try again.' })}\n\n`);
+                res.end();
+            } catch (e) {}
+        }
     }
 });
 

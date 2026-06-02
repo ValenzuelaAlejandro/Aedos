@@ -206,6 +206,12 @@
     display: flex;
     align-items: center;
     gap: 0.55rem;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.2s ease;
+}
+.top-brand:hover {
+    opacity: 0.85;
 }
 
 .top-brand-logo {
@@ -3290,6 +3296,26 @@ html.theme-transitioning::view-transition-new(root) {
 }
 .btn-generate-submit:hover:not(:disabled) { transform: scale(1.05); }
 .btn-generate-submit:disabled { color: var(--muted); opacity: 0.3; cursor: not-allowed; }
+.btn-generate-submit.is-generating .send-icon {
+    display: none !important;
+}
+.btn-generate-submit.is-generating .stop-icon {
+    display: inline-block !important;
+    color: var(--accent) !important;
+}
+.btn-generate-submit.is-generating {
+    cursor: pointer !important;
+    opacity: 1 !important;
+    background: transparent !important;
+}
+.btn-generate-submit.is-generating .stop-circle {
+    transform-origin: center;
+    animation: stop-circle-spin 1.2s linear infinite;
+    stroke-dasharray: 45 15;
+}
+@keyframes stop-circle-spin {
+    to { transform: rotate(360deg); }
+}
 .action-icon-btn {
     background: transparent;
     border: none;
@@ -3461,6 +3487,11 @@ html.theme-transitioning::view-transition-new(root) {
 #chat-screen.chat-mode #suggestion-pills-row,
 #chat-screen.chat-mode .chat-counter-row,
 #chat-screen.chat-mode .app-microcopy {
+    display: none !important;
+}
+
+#chat-screen.chat-mode #btn-mode-dropdown,
+#chat-screen.chat-mode #btn-attach-file {
     display: none !important;
 }
 
