@@ -25,6 +25,16 @@ function scrollToBottom(force = false) {
 function showOutlineEditorLoading(slideCount = 8) {
     window.outlineEditorState.isLoading = true;
 
+    // Purge any historical outline summaries, empty the slides list and clear chips instantly ONLY if starting a fresh generation (not a follow-up)
+    const isFollowUp = !!window.outlineEditorState.skeleton;
+    if (!isFollowUp) {
+        document.querySelectorAll('.historical-outline-summary').forEach(el => el.remove());
+        const slidesContainer = document.getElementById('outline-slides-container');
+        if (slidesContainer) slidesContainer.innerHTML = '';
+        const chipsContainer = document.getElementById('outline-suggested-chips');
+        if (chipsContainer) chipsContainer.innerHTML = '';
+    }
+
     // Block language dropdown and enable stop action on send button
     const btnGenerate = document.getElementById('btn-generate');
     const btnLang = document.getElementById('btn-lang-dropdown');

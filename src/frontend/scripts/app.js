@@ -561,11 +561,67 @@ document.addEventListener('DOMContentLoaded', () => {
             convZone.classList.add('hidden');
             convZone.classList.remove('visible');
             
-            // Remove any dynamically added follow-up bubbles, but keep the first two hardcoded ones safe
+            // 1. Move outline-container back to its original home inside #chat-ai-response .chat-ai-body and hide it
+            const outlineContainer = document.getElementById('outline-container');
+            const originalAiBody = document.querySelector('#chat-ai-response .chat-ai-body');
+            if (outlineContainer && originalAiBody) {
+                outlineContainer.classList.add('hidden');
+                originalAiBody.appendChild(outlineContainer);
+            }
+
+            // 2. Remove any dynamically added follow-up bubbles, but keep the first two hardcoded ones safe
             const dynamicBubbles = convZone.querySelectorAll('.chat-msg:not(#chat-user-bubble):not(#chat-ai-response)');
             dynamicBubbles.forEach(b => b.remove());
             const dynamicErrors = convZone.querySelectorAll('.chat-error-message');
             dynamicErrors.forEach(e => e.remove());
+
+            // 3. Clean up any historical outline summaries anywhere in the chat
+            convZone.querySelectorAll('.historical-outline-summary').forEach(el => el.remove());
+
+            // 4. Reset outline slides container and chips to pristine empty state
+            const slidesContainer = document.getElementById('outline-slides-container');
+            if (slidesContainer) slidesContainer.innerHTML = '';
+            const chipsContainer = document.getElementById('outline-suggested-chips');
+            if (chipsContainer) chipsContainer.innerHTML = '';
+
+            // 5. Clean up the first two hardcoded bubbles to their pristine starting state
+            const firstUserText = document.getElementById('chat-user-text');
+            if (firstUserText) firstUserText.textContent = '';
+
+            const firstAiResponse = document.getElementById('chat-ai-response');
+            if (firstAiResponse) {
+                // Restore default classes
+                firstAiResponse.className = 'chat-msg chat-msg-ai';
+                
+                // Clean up any proceed, cancelled or error elements
+                firstAiResponse.querySelectorAll('.chat-proceed-message, .chat-cancelled-message, .chat-error-message').forEach(el => el.remove());
+                
+                // Reset thinking dots
+                const thinking = firstAiResponse.querySelector('.chat-thinking');
+                if (thinking) {
+                    thinking.className = 'chat-thinking hidden';
+                }
+                
+                // Restore avatar opacity
+                const avatar = firstAiResponse.querySelector('.chat-ai-avatar');
+                if (avatar) {
+                    avatar.style.opacity = '';
+                    avatar.style.pointerEvents = '';
+                    avatar.style.userSelect = '';
+                }
+            }
+        }
+        
+        // 6. Reset local attached files state and UI
+        if (window._attachedFiles) {
+            window._attachedFiles = [];
+            const attachmentPreview = document.getElementById('attachment-preview-container');
+            if (attachmentPreview) {
+                attachmentPreview.innerHTML = '';
+                attachmentPreview.classList.add('hidden');
+            }
+            const modeBtn = document.getElementById('btn-mode-dropdown');
+            if (modeBtn) modeBtn.disabled = false;
         }
         
         if (window.outlineEditorState) {
@@ -1158,6 +1214,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Disable editor buttons/controls during generation
             editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = true; });
         } else {
+            // Force hide all thinking loaders in the DOM when loading stops
+            document.querySelectorAll('.chat-thinking').forEach(el => el.classList.add('hidden'));
+
             if (temaInput) temaInput.disabled = false;
 
             if (generateBtn) {
@@ -1357,8 +1416,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Clean up any old error or cancelled messages in the AI bubble to prevent them from stacking or dragging down
-        document.querySelectorAll('.chat-cancelled-message, .chat-error-message').forEach(el => el.remove());
+        // Clean up any old error or cancelled messages inside the hardcoded first AI bubble to prevent them from stacking
+        const firstAiResponse = document.getElementById('chat-ai-response');
+        if (firstAiResponse) {
+            firstAiResponse.querySelectorAll('.chat-proceed-message, .chat-cancelled-message, .chat-error-message').forEach(el => el.remove());
+        }
 
         // Abort any previous in-flight skeleton generation
         if (_skeletonGenController) {
@@ -1390,6 +1452,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (window.outlineEditorState && window.outlineEditorState.skeleton) {
             requestData.currentSkeleton = JSON.stringify(window.outlineEditorState.skeleton);
+            // Backup the current skeleton in case the next instruction is a "proceed/create" action
+            window._backupSkeleton = JSON.parse(JSON.stringify(window.outlineEditorState.skeleton));
+        } else {
+            window._backupSkeleton = null;
         }
 
         toggleGenerateLoading(true);
@@ -1461,14 +1527,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 throw new Error(data.error);
                             }
                             if (data.chunk) {
-                                // Hide the thinking dots inside the latest AI bubble as soon as the first streaming chunk arrives
-                                const aiMessages = document.querySelectorAll('.chat-msg-ai');
-                                const latestAiMessage = aiMessages[aiMessages.length - 1];
-                                if (latestAiMessage) {
-                                    const thinking = latestAiMessage.querySelector('.chat-thinking');
-                                    if (thinking) thinking.classList.add('hidden');
-                                }
-
                                 rawText += data.chunk;
                                 const partialSkeleton = window.parsePartialSkeleton(rawText);
                                 if (window.outlineEditorState) {
@@ -1476,6 +1534,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                                 if (window.renderStreamingOutline) {
                                     window.renderStreamingOutline(partialSkeleton);
+                                }
+
+                                // Hide the thinking dots inside the latest AI bubble only when the first streaming slide starts rendering
+                                if (partialSkeleton && partialSkeleton.slides && partialSkeleton.slides.length > 0) {
+                                    const aiMessages = document.querySelectorAll('.chat-msg-ai');
+                                    const latestAiMessage = aiMessages[aiMessages.length - 1];
+                                    if (latestAiMessage) {
+                                        const thinking = latestAiMessage.querySelector('.chat-thinking');
+                                        if (thinking) thinking.classList.add('hidden');
+                                    }
                                 }
                             }
                             if (data.done) {
@@ -1577,9 +1645,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.remove('split-outline-active');
                 
                 if (window.startFinalGeneration) {
-                    const finalSkeletonObj = (window.outlineEditorState && window.outlineEditorState.skeleton) 
+                    let finalSkeletonObj = (window.outlineEditorState && window.outlineEditorState.skeleton) 
                         ? window.outlineEditorState.skeleton 
                         : finalSkeleton;
+
+                    // If proceeding and the streaming skeleton was empty or parsed as empty, restore from the backup
+                    if (window._backupSkeleton && (!finalSkeletonObj || !finalSkeletonObj.slides || finalSkeletonObj.slides.length === 0)) {
+                        if (window.outlineEditorState) {
+                            window.outlineEditorState.skeleton = window._backupSkeleton;
+                        }
+                        finalSkeletonObj = window._backupSkeleton;
+                    }
                     window.startFinalGeneration(finalSkeletonObj);
                 }
                 return;
@@ -1591,6 +1667,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error("Outline editor not initialized");
             }
         } catch (error) {
+            if (_skeletonGenController && controller !== _skeletonGenController) {
+                console.log("Ignoring obsolete skeleton generation error/abort");
+                return;
+            }
             toggleGenerateLoading(false);
             if (window.outlineEditorState) {
                 window.outlineEditorState.isLoading = false;
@@ -1612,9 +1692,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const errEl = document.createElement('div');
                     if (isAbort) {
                         errEl.className = 'chat-cancelled-message';
-                        errEl.style.cssText = "color: var(--text-secondary); font-weight: 500; display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem;";
                         const cancelText = window.__t ? window.__t('generation_cancelled', 'Generation cancelled by user') : 'Generation cancelled by user';
-                        errEl.innerHTML = `<span>ℹ</span> <span>${escapeHtml(cancelText)}</span>`;
+                        errEl.textContent = cancelText;
                     } else {
                         errEl.className = 'chat-error-message';
                         errEl.style.cssText = "color: var(--danger); font-weight: 500; display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem;";
@@ -2130,6 +2209,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } catch (error) {
+            if (_activeGenController && controller !== _activeGenController) {
+                return;
+            }
             _stabilizeMinimapOnNextPreviewInit = false;
 
             // Ignore intentional user cancellations (Back button)

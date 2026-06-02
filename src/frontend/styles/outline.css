@@ -62,19 +62,19 @@
    SEAMLESS OUTLINE LIST (The fluid outline)
    ================================================================ */
 .seamless-outline-list {
-    background: rgba(12, 12, 12, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 1.5rem;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
 }
 
 :root[data-theme="light"] .seamless-outline-list {
-    background: #ffffff;
-    border-color: #E2E8F0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 .outline-bubble-footer {
@@ -257,10 +257,9 @@
 /* HISTORICAL OUTLINE SUMMARIES (READ-ONLY)   */
 /* ========================================== */
 .historical-outline-summary {
-    background: rgba(12, 12, 12, 0.3) !important;
-    border: 1px solid rgba(255, 255, 255, 0.05) !important;
-    border-radius: 12px !important;
-    padding: 1.25rem !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 1.25rem !important;
@@ -268,6 +267,7 @@
     transition: opacity 0.3s ease !important;
     pointer-events: none !important; /* Disable all edits and interactions */
     margin: 1rem 0 !important;
+    box-shadow: none !important;
 }
 
 .historical-outline-summary:hover {
@@ -275,8 +275,9 @@
 }
 
 :root[data-theme="light"] .historical-outline-summary {
-    background: rgba(0, 0, 0, 0.02) !important;
-    border-color: rgba(0, 0, 0, 0.05) !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 .historical-slide-item {
@@ -328,4 +329,55 @@
     color: var(--text) !important;
     opacity: 0.8 !important;
     line-height: 1.4 !important;
+}
+
+/* ================================================================
+   AI RESPONSES & AVATAR CLEANUPS (Visual refinements)
+   ================================================================ */
+
+/* Keep the AI chat message container starting at the top (so the avatar doesn't slide down when slides load) */
+.chat-msg-ai {
+    align-items: flex-start !important;
+}
+
+/* Ensure the AI avatar always starts exactly at the same vertical offset (2px top margin) */
+.chat-ai-avatar {
+    margin-top: 2px !important;
+}
+
+/* Guarantee 100% pixel-perfect vertical centering of the thinking dots with the 30px high avatar */
+.chat-thinking {
+    height: 30px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    margin-top: 2px !important;
+}
+
+.chat-thinking.hidden {
+    display: none !important;
+}
+
+/* Make the circular AI avatar invisible (but keep its width/space to prevent layout shifts/jumps) */
+.chat-msg-ai:has(.chat-thinking.hidden) .chat-ai-avatar,
+.chat-msg-ai:not(:has(.chat-thinking)) .chat-ai-avatar,
+.chat-msg-ai:has(.chat-cancelled-message) .chat-ai-avatar,
+.chat-msg-ai:has(.chat-cancellation-message) .chat-ai-avatar {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    user-select: none !important;
+}
+
+/* Subtle, muted, grey cancellation message, perfectly centered vertically with the 30px high avatar */
+.chat-cancelled-message, .chat-cancellation-message {
+    color: var(--muted, #888) !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    text-align: left !important;
+    margin: 2px 0 0 0 !important;
+    min-height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    opacity: 0.75 !important;
+    line-height: 1.2 !important;
 }
