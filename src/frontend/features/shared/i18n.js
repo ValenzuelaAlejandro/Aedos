@@ -2,6 +2,7 @@ const translations = {
     en: {
         "brand_name": "Aedos",
         "hero_line_1": "Got a spicy idea?",
+        "hero_active": "Ooh, that's clean. Let's cook",
         "chat_placeholder": "Describe your dream presentation...",
         "tema_error": "Please enter a topic to generate your presentation.",
         "untitled_draft": "Untitled draft",
@@ -197,6 +198,7 @@ const translations = {
     es: {
         "brand_name": "Aedos",
         "hero_line_1": "¿Qué traes entre manos?",
+        "hero_active": "Suena bien. En corto lo hago.",
         "chat_placeholder": "Describe tu presentación soñada...",
         "tema_error": "Escribe un tema para poder generar tu presentación.",
         "untitled_draft": "Borrador sin título",

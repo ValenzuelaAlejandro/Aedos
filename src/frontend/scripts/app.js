@@ -579,6 +579,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const temaInput = document.getElementById('w-tema');
         if (temaInput) temaInput.value = '';
+
+        // Reset hero custom state and title text upon returning home
+        _heroCustomTextActive = false;
+        const heroTextSpan = document.querySelector('.hero-title-text');
+        if (heroTextSpan && heroTextSpan.getAttribute('data-original-text')) {
+            heroTextSpan.textContent = heroTextSpan.getAttribute('data-original-text');
+            heroTextSpan.parentElement.classList.remove('waiting-state');
+        }
     };
 
     window.navigateToChat = function() {
@@ -858,11 +866,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    let _heroCustomTextActive = false;
     function validateGenerateButton() {
         const val = temaInput ? temaInput.value.trim() : '';
-        // Allow generating if there's text OR if there are files attached
+        const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
+        const isActive = val.length >= 4 || hasFiles;
+
         if (btnGenerate) {
-            btnGenerate.disabled = val.length < 4 && window._attachedFiles.length === 0;
+            btnGenerate.disabled = !isActive;
+        }
+
+        // Animate hero title dynamically based on active state and language
+        if (isActive) {
+            if (!_heroCustomTextActive) {
+                _heroCustomTextActive = true;
+                animateHeroTitle(window.__t('hero_active'));
+            }
+        } else {
+            if (_heroCustomTextActive) {
+                _heroCustomTextActive = false;
+                animateHeroTitle(window.__t('hero_line_1'));
+            }
         }
     }
     // ─────────────────────────────────────────────────────────────────────
