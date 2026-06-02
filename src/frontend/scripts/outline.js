@@ -1032,8 +1032,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('outline-container');
             if (container) container.classList.add('hidden');
 
-            // Cleanly return to the main menu
-            window.location.reload();
+            // Cleanly return to the main menu with a pristine Home URL (no hashes)
+            window.location.href = window.location.origin + window.location.pathname;
         });
     }
     

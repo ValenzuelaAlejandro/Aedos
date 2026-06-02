@@ -599,65 +599,57 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('popstate', (e) => {
         const hash = window.location.hash;
         
-        // Always intercept back navigation during an active generation process
         const previewCont = document.getElementById('preview-container');
-        const generationActive = previewCont && !previewCont.classList.contains('hidden') && _activeGenController;
-        const skeletonActive = !!_skeletonGenController;
+        const outlineContainer = document.getElementById('outline-container');
 
-        if (generationActive || skeletonActive) {
+        // Check if there is active progress that can be lost (generation OR manual editing)
+        const outlineActive = !!_skeletonGenController || (outlineContainer && !outlineContainer.classList.contains('hidden'));
+        const editorActive = !!_activeGenController || (previewCont && !previewCont.classList.contains('hidden'));
+
+        if (outlineActive || editorActive) {
             const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
             if (confirm(msg)) {
-                const outlineContainer = document.getElementById('outline-container');
                 if (outlineContainer) outlineContainer.classList.add('hidden'); 
                 if (previewCont) previewCont.classList.add('hidden'); 
                 
                 if (_activeGenController) { _activeGenController.abort(); _activeGenController = null; }
                 if (_skeletonGenController) { _skeletonGenController.abort(); _skeletonGenController = null; }
                 
-                if (hash === '' || hash === '#chat') {
-                    window.location.reload(); // Enforce a hard reload to completely reset generation states
-                }
+                // Reset hash to clean path and reload to guarantee a clean Home URL without hashes
+                window.location.href = window.location.origin + window.location.pathname;
             } else {
-                // User cancelled, restore URL
-                if (generationActive) window.history.replaceState(null, '', '#editor');
-                else if (skeletonActive) window.history.replaceState(null, '', '#chat');
+                // User cancelled, restore URL hash corresponding to their active state
+                // If the preview container is visible, they are in the editor (#editor)
+                // Otherwise they are in the outline editor or slide loading screen (#chat)
+                const editorVisible = previewCont && !previewCont.classList.contains('hidden');
+                if (editorVisible) {
+                    window.history.replaceState(null, '', '#editor');
+                } else {
+                    window.history.replaceState(null, '', '#chat');
+                }
                 return; // Stop processing popstate
             }
         }
         
-        // Standard Router Fallback (if no generation is active)
+        // Standard Router Fallback (if no active progress is at risk)
         if (hash === '') {
             window.navigateToHome();
         } else if (hash === '#chat') {
-            // Check if there is actually a valid chat state to restore
-            const convZone = document.getElementById('conversation-zone');
-            if (!convZone || convZone.classList.contains('hidden') || convZone.innerHTML.trim() === '') {
-                // The chat was cleared (e.g. they went back to home and then clicked forward)
-                // Force them back to the home state
-                window.navigateToHome();
-                return;
-            }
-
-            // If they go back to chat from editor without an active generation
-            const previewCont = document.getElementById('preview-container');
-            if (previewCont) previewCont.classList.add('hidden');
-            const chatScreen = document.getElementById('chat-screen');
-            if (chatScreen) {
-                chatScreen.classList.remove('hidden');
-                chatScreen.classList.add('chat-mode');
-                chatScreen.style.cssText = '';
-            }
+            // As per user requirement: if the user navigates back to the chat from the editor,
+            // they should be returned to the menu to avoid getting stuck in the "creating slides" state.
+            window.navigateToHome();
         }
     });
 
-    // Warn on tab close if editor is active OR if a generation is in progress
+    // Warn on tab close if the user has active draft progress (generation OR manual editing)
     window.addEventListener('beforeunload', (e) => {
         const outlineContainer = document.getElementById('outline-container');
         const previewCont = document.getElementById('preview-container');
-        const editorOpen = outlineContainer && !outlineContainer.classList.contains('hidden');
-        const generationActive = previewCont && !previewCont.classList.contains('hidden') && _activeGenController;
-        const skeletonActive = !!_skeletonGenController;
-        if (editorOpen || generationActive || skeletonActive) {
+        
+        const outlineActive = !!_skeletonGenController || (outlineContainer && !outlineContainer.classList.contains('hidden'));
+        const editorActive = !!_activeGenController || (previewCont && !previewCont.classList.contains('hidden'));
+
+        if (outlineActive || editorActive) {
             e.preventDefault();
             e.returnValue = ''; // Standard way to trigger native browser prompt
         }
@@ -1162,6 +1154,11 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('Debug HTML is empty or invalid.');
         }
 
+        // Set the hash to #editor so back button and warnings work flawlessly in debug mode
+        if (window.location.hash !== '#editor') {
+            window.navigateToEditor();
+        }
+
         generatedHtml = html;
         currentSlide = 0;
         totalSlides = 0;
@@ -1463,9 +1460,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.startFinalGeneration = async function (skeleton) {
-        if (window.location.hash !== '#editor') {
-            window.navigateToEditor();
-        }
+        // Keep hash as #chat during loading, we will only transition to #editor when the first chunk arrives!
         
         generatedHtml = ''; // Reset state for a fresh start
         currentSlide = 0;
@@ -1479,6 +1474,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (_hasTransitioned) return;
             _hasTransitioned = true;
             stopBtnMessages();
+
+            // Only transition the URL to #editor now that the editor has actually loaded!
+            if (window.location.hash !== '#editor') {
+                window.navigateToEditor();
+            }
 
             // Clean up split outline layout and reset hero
             document.body.classList.remove('split-outline-active');
@@ -2084,10 +2084,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 chatScreen.classList.remove('hidden');
             }
             iframeDoc.close();
-            // Show error overlay on top of whatever is visible; dismiss → go to chat
+            // Show error overlay on top of whatever is visible; dismiss → go to home
             showErrorModal(() => {
-                if (window.location.hash === '#editor') window.history.back();
-                else window.navigateToChat();
+                window.navigateToHome();
             });
         } finally {
             _activeGenController = null;
@@ -2109,13 +2108,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBackToChat = document.getElementById('btn-back-to-chat');
     if (btnBackToChat) {
         btnBackToChat.addEventListener('click', () => {
+            const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
+            if (!confirm(msg)) return;
+
             if (_activeGenController) {
                 _activeGenController.abort();
                 _activeGenController = null;
             }
             
-            if (window.location.hash === '#editor') window.history.back();
-            else window.navigateToChat();
+            window.navigateToHome();
             
             setTimeout(() => {
                 window.dispatchEvent(new Event('resize'));
@@ -2128,13 +2129,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnEditTopic = document.getElementById('btn-edit-topic');
     if (btnEditTopic) {
         btnEditTopic.addEventListener('click', () => {
+            const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
+            if (!confirm(msg)) return;
+
             if (_activeGenController) {
                 _activeGenController.abort();
                 _activeGenController = null;
             }
             
-            if (window.location.hash === '#editor') window.history.back();
-            else window.navigateToChat();
+            window.navigateToHome();
             
             setTimeout(() => {
                 const temaInput = document.getElementById('w-tema');
@@ -2629,11 +2632,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Warn user before leaving with unsaved work (bug #7)
-        window.onbeforeunload = (e) => {
-            e.preventDefault();
-            e.returnValue = '';
-            return '';
-        };
+        // Handled globally by the conditional beforeunload listener in app.js
 
         // Fix #8: Recalculate iframe scale when the right tools panel changes width
         const toolsPanel = document.getElementById('editor-tools-panel');
