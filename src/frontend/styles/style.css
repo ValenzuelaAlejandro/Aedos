@@ -3321,7 +3321,12 @@ html.theme-transitioning::view-transition-new(root) {
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    padding: 6px;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 8px;
 }
 .action-icon-btn:hover { background: var(--surface-hover); color: var(--text); }
@@ -3548,7 +3553,6 @@ html.theme-transitioning::view-transition-new(root) {
     flex-wrap: wrap !important;
     gap: 0.5rem !important;
     padding: 0.75rem 0.25rem 1rem !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     margin-bottom: 0.75rem !important;
 }
 
