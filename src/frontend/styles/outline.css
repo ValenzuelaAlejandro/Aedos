@@ -25,7 +25,8 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding-left: 3rem; /* Space for the avatar to sit out if we want, or keep it inline */
+    padding-left: 3rem;
+    /* Space for the avatar to sit out if we want, or keep it inline */
     position: relative;
 }
 
@@ -106,6 +107,7 @@
     border-color: #E2E8F0;
     color: #4B5563;
 }
+
 :root[data-theme="light"] .outline-btn-ghost:hover {
     background: #F3F4F6;
 }
@@ -263,9 +265,11 @@
     display: flex !important;
     flex-direction: column !important;
     gap: 1.25rem !important;
-    opacity: 0.5 !important; /* Muted aesthetic to indicate read-only history */
+    opacity: 0.5 !important;
+    /* Muted aesthetic to indicate read-only history */
     transition: opacity 0.3s ease !important;
-    pointer-events: none !important; /* Disable all edits and interactions */
+    pointer-events: none !important;
+    /* Disable all edits and interactions */
     margin: 1rem 0 !important;
     box-shadow: none !important;
 }
@@ -369,7 +373,8 @@
 }
 
 /* Subtle, muted, grey cancellation message, perfectly centered vertically with the 30px high avatar */
-.chat-cancelled-message, .chat-cancellation-message {
+.chat-cancelled-message,
+.chat-cancellation-message {
     color: var(--muted, #888) !important;
     font-size: 0.85rem !important;
     font-weight: 500 !important;
