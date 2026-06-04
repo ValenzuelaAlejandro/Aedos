@@ -621,7 +621,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 attachmentPreview.classList.add('hidden');
             }
             const modeBtn = document.getElementById('btn-mode-dropdown');
-            if (modeBtn) modeBtn.disabled = false;
+            if (modeBtn) {
+                modeBtn.disabled = false;
+                modeBtn.style.opacity = '';
+                modeBtn.style.cursor = '';
+                if (modeBtn.parentElement) {
+                    modeBtn.parentElement.removeAttribute('data-tooltip');
+                }
+            }
         }
         
         if (window.outlineEditorState) {
@@ -1467,7 +1474,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('tema', requestData.tema);
             if (requestData.mode) formData.append('mode', requestData.mode);
             if (requestData.language) formData.append('language', requestData.language);
-            formData.append('slides', requestData.slides);
+            if (requestData.slides !== undefined) formData.append('slides', requestData.slides);
             if (requestData.currentSkeleton) formData.append('currentSkeleton', requestData.currentSkeleton);
             window._attachedFiles.forEach(f => formData.append('files', f));
             bodyData = formData;
@@ -1856,7 +1863,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (bodyData instanceof FormData) {
                 const cloned = new FormData();
                 for (const [key, val] of bodyData.entries()) {
-                    cloned.append(key, val);
+                    if (key !== 'files') {
+                        cloned.append(key, val);
+                    }
                 }
                 cloned.append('skeleton', JSON.stringify(skeleton));
                 bodyData = cloned;

@@ -1343,7 +1343,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
         // Flash mode (single-prompt, default) vs Pro mode (3-stage pipeline)
         const usePipeline = req.body.mode === 'pro';
 
-        let slidesNum = req.body.slides !== undefined ? parseInt(req.body.slides, 10) : 5;
+        let slidesNum = (req.body.slides !== undefined && req.body.slides !== 'undefined') ? parseInt(req.body.slides, 10) : 5;
         if (isNaN(slidesNum) || slidesNum < 1 || slidesNum > 15) {
             log.warn(ErrorCategory.VALIDATION, 'Slides validation failed', {
                 requestId,
