@@ -605,7 +605,9 @@
     gap: 0.75rem;
 }
 .chat-msg-user {
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
 }
 .chat-msg-user span {
     background: var(--surface2, rgba(255,255,255,0.07));
@@ -622,6 +624,38 @@
     background: #F0F4FF;
     border-color: #C7D7FA;
 }
+
+/* Hide an empty text span so no ghost bubble appears when only files are sent */
+.chat-msg-user span:empty {
+    display: none;
+}
+
+.chat-bubble-files-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0 0.2rem;
+    max-width: 80%;
+}
+
+.chat-bubble-file-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+    opacity: 0.85;
+}
+
+.chat-bubble-file-item + .chat-bubble-file-item::before {
+    content: '·';
+    margin-right: 0.5rem;
+    opacity: 0.35;
+}
+
 
 /* AI message */
 .chat-msg-ai {

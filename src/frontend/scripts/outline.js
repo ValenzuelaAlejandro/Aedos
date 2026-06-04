@@ -7,6 +7,33 @@ window.outlineEditorState = {
     isLoading: false
 };
 
+/**
+ * Returns the innerHTML for a .chat-bubble-file-chip span.
+ * Uses the same colorful document icons as the chatbox attachment area.
+ */
+function _fileBubbleChipHtml(file) {
+    const displayName = file.name && file.name.length > 24
+        ? file.name.substring(0, 21) + '...'
+        : (file.name || 'file');
+
+    let iconMarkup;
+    if (file.type && file.type.startsWith('image/')) {
+        // Image icon (outline style)
+        iconMarkup = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;flex-shrink:0;opacity:0.75;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+    } else if (file.type && file.type.includes('pdf') || (file.name && file.name.endsWith('.pdf'))) {
+        // PDF — red flat icon matching renderAttachmentChips
+        iconMarkup = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="margin-right:6px;flex-shrink:0;"><path d="M4 2h10l6 6v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#E2231A"/><path d="M14 2v6h6z" fill="#B0150F"/><text x="11" y="16.5" fill="#FFFFFF" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="6.2" font-weight="900" text-anchor="middle" letter-spacing="-0.3px">PDF</text></svg>`;
+    } else if (file.name && (file.name.endsWith('.docx') || file.name.endsWith('.doc'))) {
+        // DOCX — blue flat icon matching renderAttachmentChips
+        iconMarkup = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="margin-right:6px;flex-shrink:0;"><path d="M4 2h10l6 6v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#185ABD"/><path d="M14 2v6h6z" fill="#103F8A"/><text x="11" y="16.5" fill="#FFFFFF" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="7.5" font-weight="900" text-anchor="middle">W</text></svg>`;
+    } else {
+        // Generic file icon
+        iconMarkup = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;flex-shrink:0;opacity:0.75;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+    }
+
+    return `${iconMarkup}${escapeHtml(displayName)}`;
+}
+
 function scrollToBottom(force = false) {
     const chatScreen = document.getElementById('chat-screen');
     if (!chatScreen) return;
@@ -44,10 +71,24 @@ function showOutlineEditorLoading(slideCount = 8) {
     }
     if (btnLang) btnLang.disabled = true;
 
-    // 1. Capture the prompt text before clearing
+    // 1. Capture the prompt text and attached files before clearing
     const inputEl = document.getElementById('w-tema');
     const promptText = inputEl?.value?.trim() || '';
     if (inputEl) inputEl.value = '';
+
+    // Capture and clear attached files (mirrors clearing the text input)
+    const capturedFiles = (window._attachedFiles && window._attachedFiles.length > 0)
+        ? window._attachedFiles.slice()
+        : [];
+    if (capturedFiles.length > 0) {
+        window._attachedFiles = [];
+        const attachmentPreview = document.getElementById('attachment-preview-container');
+        if (attachmentPreview) {
+            attachmentPreview.innerHTML = '';
+            attachmentPreview.classList.add('hidden');
+        }
+        // Note: mode button re-enable is handled by toggleGenerateLoading(false) at end of generation
+    }
 
     // 2. Activate chat-mode on #chat-screen (aligns to top)
     const chatScreen = document.getElementById('chat-screen');
@@ -78,7 +119,18 @@ function showOutlineEditorLoading(slideCount = 8) {
             // Append new user message bubble
             const userBubble = document.createElement('div');
             userBubble.className = 'chat-msg chat-msg-user';
-            userBubble.innerHTML = `<span>${escapeHtml(promptText)}</span>`;
+            
+            let bubbleContent = '';
+            if (capturedFiles.length > 0) {
+                const fileItemsHtml = capturedFiles
+                    .map(f => `<div class="chat-bubble-file-item">${_fileBubbleChipHtml(f)}</div>`)
+                    .join('');
+                bubbleContent += `<div class="chat-bubble-files-container">${fileItemsHtml}</div>`;
+            }
+            if (promptText) {
+                bubbleContent += `<span>${escapeHtml(promptText)}</span>`;
+            }
+            userBubble.innerHTML = bubbleContent;
             convZone.appendChild(userBubble);
 
             // GSAP premium entrance animation
@@ -143,9 +195,6 @@ function showOutlineEditorLoading(slideCount = 8) {
                         if (window.gsap) {
                             window.gsap.fromTo(staticSummary, { opacity: 0 }, { opacity: 0.5, duration: 0.3 });
                         }
-
-                        // No need to remove chips or footers here since outlineContainer is moved entirely.
-                        // The old bubble will just retain the staticSummary.
                     }
                 }
 
@@ -155,15 +204,27 @@ function showOutlineEditorLoading(slideCount = 8) {
             }
         } else {
             // First loading state: populate the static placeholders
+            const firstUserBubble = document.getElementById('chat-user-bubble');
             const userTextEl = document.getElementById('chat-user-text');
             if (userTextEl) {
                 userTextEl.textContent = promptText;
-                if (window.gsap) {
-                    const firstUserBubble = document.getElementById('chat-user-bubble');
-                    if (firstUserBubble) {
-                        window.gsap.fromTo(firstUserBubble, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
-                    }
-                }
+            }
+            if (firstUserBubble && capturedFiles.length > 0) {
+                // Remove any previously injected file chips
+                firstUserBubble.querySelectorAll('.chat-bubble-files-container').forEach(el => el.remove());
+                const filesContainer = document.createElement('div');
+                filesContainer.className = 'chat-bubble-files-container';
+                capturedFiles.forEach(f => {
+                    const item = document.createElement('div');
+                    item.className = 'chat-bubble-file-item';
+                    item.innerHTML = _fileBubbleChipHtml(f);
+                    filesContainer.appendChild(item);
+                });
+                // Insert the files BEFORE the text span so they stack above it outside the bubble
+                firstUserBubble.insertBefore(filesContainer, userTextEl);
+            }
+            if (firstUserBubble && window.gsap) {
+                window.gsap.fromTo(firstUserBubble, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
             }
             const thinking = document.getElementById('chat-thinking');
             if (thinking) {
