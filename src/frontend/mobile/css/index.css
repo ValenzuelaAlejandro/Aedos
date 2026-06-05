@@ -329,6 +329,13 @@
         justify-content: center !important;
     }
 
+    /* En chat-mode el contenido puede ser más alto que la pantalla:
+       usar flex-start para que el overflow vaya hacia abajo y sea scrolleable */
+    #chat-screen.chat-mode {
+        justify-content: flex-start !important;
+        align-items: stretch !important;
+    }
+
     .top-control-bar {
         height: auto !important;
         min-height: 52px !important;

@@ -3338,6 +3338,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.className = 'preview-file-input';
                 input.type = 'file';
                 input.id = inputId;
+                input.name = inputId;
                 input.accept = 'image/*';
                 input.setAttribute('aria-label', 'Upload image');
                 input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;width:1px;height:1px;pointer-events:none;';

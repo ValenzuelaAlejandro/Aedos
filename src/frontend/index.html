@@ -27,10 +27,10 @@
     <link rel="stylesheet" href="features/shared/base.css?v=3">
     <link rel="stylesheet" href="features/minimap/minimap.css?v=3">
     <link rel="stylesheet" href="features/tools/tools.css?v=3">
-    <link rel="stylesheet" href="styles/style.css?v=11">
+    <link rel="stylesheet" href="styles/style.css?v=14">
     <link rel="stylesheet" href="styles/outline.css?v=16">
     <link rel="stylesheet" href="mobile/css/style-mobile-overrides.css?v=1">
-    <link rel="stylesheet" href="mobile/css/index.css?v=1">
+    <link rel="stylesheet" href="mobile/css/index.css?v=2">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
     <!-- GSAP for premium animations -->
@@ -95,7 +95,7 @@
                 <div id="attachment-preview-container" class="attachment-preview-container hidden"></div>
                 <div class="chat-input-container">
                     <label for="w-tema" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;" data-i18n="chat_placeholder">Describe tu presentación soñada...</label>
-                    <textarea id="w-tema" class="chat-input" autocomplete="off" autofocus rows="1" maxlength="600"
+                    <textarea id="w-tema" name="w-tema" class="chat-input" autocomplete="off" autofocus rows="1" maxlength="600"
                         aria-label="Presentation topic" data-i18n-placeholder="chat_placeholder" placeholder="Describe tu presentación soñada..."></textarea>
                 </div>
                 <div class="chat-actions">
@@ -147,7 +147,7 @@
                             </svg>
                         </button>
                         <label for="file-upload-input" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">Upload files</label>
-                        <input type="file" id="file-upload-input" accept=".pdf,.doc,.docx,image/png,image/jpeg,image/webp" style="display: none;" multiple />
+                        <input type="file" id="file-upload-input" name="file-upload-input" accept=".pdf,.doc,.docx,image/png,image/jpeg,image/webp" style="display: none;" multiple />
                         <button type="button" id="btn-attach-file" class="action-icon-btn" data-i18n-title="attach_files">
                             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
@@ -210,14 +210,14 @@
                         <!-- New minimal outline editor -->
                         <div id="outline-container" class="hidden">
                             <div style="display:none;">
-                                <input type="hidden" id="outline-title-input" value="Presentation" />
-                                <input type="hidden" id="outline-subtitle-input" value="" />
+                                <input type="hidden" id="outline-title-input" name="outline-title-input" value="Presentation" />
+                                <input type="hidden" id="outline-subtitle-input" name="outline-subtitle-input" value="" />
                                 <label for="outline-tone-select" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">Outline Tone</label>
-                                <select id="outline-tone-select"><option value="academic">Academic</option></select>
+                                <select id="outline-tone-select" name="outline-tone-select"><option value="academic">Academic</option></select>
                                 <label for="outline-audience-select" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">Outline Audience</label>
-                                <select id="outline-audience-select"><option value="general">General</option></select>
+                                <select id="outline-audience-select" name="outline-audience-select"><option value="general">General</option></select>
                                 <label for="outline-density-select" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">Outline Density</label>
-                                <select id="outline-density-select"><option value="medium">Medium</option></select>
+                                <select id="outline-density-select" name="outline-density-select"><option value="medium">Medium</option></select>
                                 <button type="button" id="btn-outline-back">Back</button>
                             </div>
                             <div id="outline-slides-container" class="seamless-outline-list"></div>
@@ -267,7 +267,7 @@
         <div class="outline-header">
             <div class="outline-header-left">
                 <label for="legacy-outline-title-input" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">Legacy Outline Title</label>
-                <input type="text" id="legacy-outline-title-input" class="outline-title-input" placeholder="Outline Title" />
+                <input type="text" id="legacy-outline-title-input" name="legacy-outline-title-input" class="outline-title-input" placeholder="Outline Title" />
             </div>
             <div class="outline-header-right">
                 <button type="button" id="legacy-btn-outline-back" class="outline-back-btn" data-i18n="back_to_chat">Back to chat</button>
@@ -296,7 +296,7 @@
                             <button type="button" class="dropdown-item" data-value="luxury" data-i18n="tone_luxury">Luxury</button>
                             <button type="button" class="dropdown-item" data-value="satirical" data-i18n="tone_satirical">Satirical</button>
                         </div>
-                        <select id="legacy-outline-tone-select" style="display: none;">
+                        <select id="legacy-outline-tone-select" name="legacy-outline-tone-select" style="display: none;">
                             <option value="academic">Academic</option>
                             <option value="playful">Playful</option>
                             <option value="corporate">Corporate</option>
@@ -326,7 +326,7 @@
                             <button type="button" class="dropdown-item" data-value="experts" data-i18n="audience_experts">Experts</button>
                             <button type="button" class="dropdown-item" data-value="investors" data-i18n="audience_investors">Investors</button>
                         </div>
-                        <select id="legacy-outline-audience-select" style="display: none;">
+                        <select id="legacy-outline-audience-select" name="legacy-outline-audience-select" style="display: none;">
                             <option value="beginner">Beginners</option>
                             <option value="intermediate">Intermediate</option>
                             <option value="advanced">Advanced</option>
@@ -350,7 +350,7 @@
                             <button type="button" class="dropdown-item" data-value="medium" data-i18n="density_medium">Balanced</button>
                             <button type="button" class="dropdown-item" data-value="high" data-i18n="density_high">High</button>
                         </div>
-                        <select id="legacy-outline-density-select" style="display: none;">
+                        <select id="legacy-outline-density-select" name="legacy-outline-density-select" style="display: none;">
                             <option value="low">Low</option>
                             <option value="medium">Balanced</option>
                             <option value="high">High</option>
@@ -362,7 +362,7 @@
             <main class="outline-main">
                 <div class="outline-main-header">
                     <label for="legacy-outline-subtitle-input" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">Legacy Outline Subtitle</label>
-                    <input type="text" id="legacy-outline-subtitle-input" class="outline-subtitle-input" data-i18n-placeholder="outline_subtitle_placeholder" placeholder="Describe the topic or add more context..." />
+                    <input type="text" id="legacy-outline-subtitle-input" name="legacy-outline-subtitle-input" class="outline-subtitle-input" data-i18n-placeholder="outline_subtitle_placeholder" placeholder="Describe the topic or add more context..." />
                     
                     <div class="dropdown-container outline-add-slide-dropdown">
                         <button type="button" id="legacy-btn-outline-add-slide" class="outline-btn-secondary" aria-expanded="false">
@@ -419,7 +419,7 @@
                     </svg>
                 </button>
                 <label for="preview-topic-label" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">Presentation name</label>
-                <input type="text" class="preview-topic-input" id="preview-topic-label" value="Untitled draft"
+                <input type="text" class="preview-topic-input" id="preview-topic-label" name="preview-topic-label" value="Untitled draft"
                     placeholder="Presentation name" aria-label="Presentation title" data-i18n-val="untitled_draft" data-i18n-placeholder="presentation_name" />
             </div>
 

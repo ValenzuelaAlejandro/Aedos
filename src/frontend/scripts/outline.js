@@ -351,7 +351,7 @@ window.renderStreamingOutline = function(partialSkeleton) {
             item.dataset.index = index;
             item.innerHTML = `
                 <div class="seamless-slide-number">${index + 1}.</div>
-                <textarea class="seamless-title-input outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1" aria-label="Slide Title" disabled></textarea>
+                <textarea id="outline-slide-title-${index}" name="outline-slide-title-${index}" class="seamless-title-input outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1" aria-label="Slide Title" disabled></textarea>
                 <div class="seamless-points-list" id="outline-points-${index}"></div>
             `;
             container.appendChild(item);
@@ -380,7 +380,7 @@ window.renderStreamingOutline = function(partialSkeleton) {
                     pItem.className = 'seamless-point-item';
                     pItem.innerHTML = `
                         <span class="seamless-point-bullet">-</span>
-                        <textarea class="seamless-point-input outline-point-input" data-sindex="${index}" data-pindex="${pIndex}" rows="1" aria-label="Bullet point" disabled></textarea>
+                        <textarea id="outline-slide-${index}-point-${pIndex}" name="outline-slide-${index}-point-${pIndex}" class="seamless-point-input outline-point-input" data-sindex="${index}" data-pindex="${pIndex}" rows="1" aria-label="Bullet point" disabled></textarea>
                     `;
                     pointsList.appendChild(pItem);
                     
@@ -550,13 +550,13 @@ function renderOutlineSlides() {
 
         item.innerHTML = `
             <div class="seamless-slide-number">${index + 1}.</div>
-            <textarea class="seamless-title-input outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1" aria-label="Slide Title">${escapeHtml(slide.title || '')}</textarea>
+            <textarea id="outline-slide-title-${index}" name="outline-slide-title-${index}" class="seamless-title-input outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1" aria-label="Slide Title">${escapeHtml(slide.title || '')}</textarea>
             
             <div class="seamless-points-list" id="outline-points-${index}">
                 ${(slide.key_points || []).map((point, pIndex) => `
                     <div class="seamless-point-item">
                         <span class="seamless-point-bullet">-</span>
-                        <textarea class="seamless-point-input outline-point-input" data-sindex="${index}" data-pindex="${pIndex}" rows="1" aria-label="Bullet point">${escapeHtml(point)}</textarea>
+                        <textarea id="outline-slide-${index}-point-${pIndex}" name="outline-slide-${index}-point-${pIndex}" class="seamless-point-input outline-point-input" data-sindex="${index}" data-pindex="${pIndex}" rows="1" aria-label="Bullet point">${escapeHtml(point)}</textarea>
                     </div>
                 `).join('')}
             </div>
@@ -901,7 +901,7 @@ function addBlankPoint(slideIndex) {
         newItem.className = 'outline-point-item';
         newItem.innerHTML = `
             <span class="outline-point-bullet">●</span>
-            <textarea class="outline-point-input" data-sindex="${slideIndex}" data-pindex="${pIdx}" rows="1" aria-label="Bullet point" style="height: auto; resize: none; overflow-y: hidden;"></textarea>
+            <textarea id="outline-slide-${slideIndex}-point-${pIdx}" name="outline-slide-${slideIndex}-point-${pIdx}" class="outline-point-input" data-sindex="${slideIndex}" data-pindex="${pIdx}" rows="1" aria-label="Bullet point" style="height: auto; resize: none; overflow-y: hidden;"></textarea>
             <button type="button" class="outline-point-delete" data-sindex="${slideIndex}" data-pindex="${pIdx}">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>

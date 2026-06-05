@@ -154,7 +154,7 @@ function initTools(iframe) {
                     <div class="tool-row">
                         <span class="tool-label">${window.__t('background_color')}</span>
                         <div class="color-picker-wrapper">
-                            <input type="color" id="tool-bg-color" class="tool-input" style="padding:0; height:32px;">
+                            <input type="color" id="tool-bg-color" name="tool-bg-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                 </div>
@@ -383,7 +383,7 @@ function initTools(iframe) {
                         <span class="tool-label">${window.__t('size')}</span>
                         <div class="tool-btn-group" style="width: auto;">
                             <button id="tool-font-min" class="tool-btn">-</button>
-                            <input type="number" id="tool-font-size" class="tool-input" value="16" style="border:none !important; border-radius:0 !important; flex:1;">
+                            <input type="number" id="tool-font-size" name="tool-font-size" class="tool-input" value="16" style="border:none !important; border-radius:0 !important; flex:1;">
                             <button id="tool-font-add" class="tool-btn">+</button>
                         </div>
                     </div>
@@ -405,7 +405,7 @@ function initTools(iframe) {
                     <div class="tool-row">
                         <span class="tool-label">${window.__t('color')}</span>
                         <div class="color-picker-wrapper">
-                            <input type="color" id="tool-color" class="tool-input" style="padding:0; height:32px;">
+                            <input type="color" id="tool-color" name="tool-text-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                 </div>
@@ -422,13 +422,13 @@ function initTools(iframe) {
                     <div class="tool-row">
                         <span class="tool-label">${window.__t('border_radius')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
-                            <input type="range" id="tool-radius" class="tool-slider" min="0" max="100" value="0">
+                            <input type="range" id="tool-radius" name="tool-radius" class="tool-slider" min="0" max="100" value="0">
                         </div>
                     </div>
                     <div class="tool-row">
                         <span class="tool-label">${window.__t('opacity')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
-                            <input type="range" id="tool-opacity" class="tool-slider" min="0" max="100" value="100">
+                            <input type="range" id="tool-opacity" name="tool-opacity" class="tool-slider" min="0" max="100" value="100">
                         </div>
                     </div>
                 </div>
@@ -442,13 +442,13 @@ function initTools(iframe) {
                     <div class="tool-row">
                         <span class="tool-label">${window.__t('icon_color')}</span>
                         <div class="color-picker-wrapper">
-                            <input type="color" id="tool-color" class="tool-input" style="padding:0; height:32px;">
+                            <input type="color" id="tool-color" name="tool-icon-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                     <div class="tool-row">
                         <span class="tool-label">${window.__t('size')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
-                            <input type="range" id="tool-icon-size" class="tool-slider" min="12" max="256" value="${parseInt(el.style.width) || 48}">
+                            <input type="range" id="tool-icon-size" name="tool-icon-size" class="tool-slider" min="12" max="256" value="${parseInt(el.style.width) || 48}">
                         </div>
                     </div>
                 </div>
@@ -462,19 +462,19 @@ function initTools(iframe) {
                     <div class="tool-row">
                         <span class="tool-label">${window.__t('fill_color')}</span>
                         <div class="color-picker-wrapper">
-                            <input type="color" id="tool-fill" class="tool-input" style="padding:0; height:32px;">
+                            <input type="color" id="tool-fill" name="tool-fill-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                     <div class="tool-row">
                         <span class="tool-label">${window.__t('border_color')}</span>
                         <div class="color-picker-wrapper">
-                            <input type="color" id="tool-stroke" class="tool-input" style="padding:0; height:32px;">
+                            <input type="color" id="tool-stroke" name="tool-stroke-color" class="tool-input" style="padding:0; height:32px;">
                         </div>
                     </div>
                     <div class="tool-row">
                         <span class="tool-label">${window.__t('opacity')}</span>
                         <div class="tool-slider-row" style="flex:1; margin-left: 1rem;">
-                            <input type="range" id="tool-opacity" class="tool-slider" min="0" max="100" value="100">
+                            <input type="range" id="tool-opacity" name="tool-shape-opacity" class="tool-slider" min="0" max="100" value="100">
                         </div>
                     </div>
                 </div>
