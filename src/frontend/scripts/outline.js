@@ -59,7 +59,10 @@ function showOutlineEditorLoading(slideCount = 8) {
         const slidesContainer = document.getElementById('outline-slides-container');
         if (slidesContainer) slidesContainer.innerHTML = '';
         const chipsContainer = document.getElementById('outline-suggested-chips');
-        if (chipsContainer) chipsContainer.innerHTML = '';
+        if (chipsContainer) {
+            chipsContainer.innerHTML = '';
+            if (window._chipsRenderTimeout) clearTimeout(window._chipsRenderTimeout);
+        }
     }
 
     // Block language dropdown and enable stop action on send button
@@ -327,7 +330,10 @@ window.prepareOutlineStreaming = function(mode) {
     if (outlineContainer) outlineContainer.classList.remove('hidden');
     
     const chipsContainer = document.getElementById('outline-suggested-chips');
-    if (chipsContainer) chipsContainer.innerHTML = '';
+    if (chipsContainer) {
+        chipsContainer.innerHTML = '';
+        if (window._chipsRenderTimeout) clearTimeout(window._chipsRenderTimeout);
+    }
 };
 
 window.renderStreamingOutline = function(partialSkeleton) {
@@ -452,6 +458,8 @@ window.renderOutlineSuggestedChips = function(skeletonData) {
     const chipsContainer = document.getElementById('outline-suggested-chips');
     if (!chipsContainer) return;
     chipsContainer.innerHTML = '';
+    
+    if (window._chipsRenderTimeout) clearTimeout(window._chipsRenderTimeout);
 
     let suggestedChips = [];
     const isEnglish = (skeletonData.language || 'es').toLowerCase().startsWith('en');
@@ -464,7 +472,7 @@ window.renderOutlineSuggestedChips = function(skeletonData) {
     };
 
     if (skeletonData.suggested_chips && Array.isArray(skeletonData.suggested_chips) && skeletonData.suggested_chips.length > 0) {
-        suggestedChips = skeletonData.suggested_chips.map(chipText => ({
+        suggestedChips = skeletonData.suggested_chips.slice(0, 2).map(chipText => ({
             text: chipText,
             prompt: chipText
         }));
@@ -476,14 +484,6 @@ window.renderOutlineSuggestedChips = function(skeletonData) {
         });
     } else {
         suggestedChips = [
-            {
-                text: t('chip_fallback_tone_prof_text', 'Cambiar a tono profesional'),
-                prompt: t('chip_fallback_tone_prof_prompt', 'Cambia el tono de la presentación a uno más corporativo, formal y profesional')
-            },
-            {
-                text: t('chip_fallback_tone_play_text', 'Hacerlo más divertido'),
-                prompt: t('chip_fallback_tone_play_prompt', 'Modifica el tono para que sea más divertido, dinámico y creativo')
-            },
             {
                 text: t('chip_fallback_add_slide_text', 'Añadir diapositiva relevante'),
                 prompt: t('chip_fallback_add_slide_prompt', 'Sugiéreme y añade una nueva diapositiva relevante y lógica al esquema actual')
@@ -500,28 +500,36 @@ window.renderOutlineSuggestedChips = function(skeletonData) {
         ];
     }
 
-    suggestedChips.forEach((chip, cIdx) => {
-        const btn = document.createElement('button');
-        btn.className = `suggested-chip ${chip.primary ? 'chip-primary' : ''}`;
-        btn.type = 'button';
-        btn.innerHTML = chip.text;
+    window._chipsRenderTimeout = setTimeout(() => {
+        if (!document.getElementById('outline-suggested-chips')) return;
+        chipsContainer.innerHTML = '';
+        
+        suggestedChips.forEach((chip, cIdx) => {
+            const btn = document.createElement('button');
+            btn.className = `suggested-chip ${chip.primary ? 'chip-primary' : ''}`;
+            btn.type = 'button';
+            btn.innerHTML = chip.text;
 
-        btn.addEventListener('click', () => {
-            const inputEl = document.getElementById('w-tema');
-            const btnGenerateMain = document.getElementById('btn-generate');
-            if (inputEl && btnGenerateMain) {
-                inputEl.value = chip.prompt || chip.text;
-                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                btnGenerateMain.disabled = false;
-                btnGenerateMain.click();
+            btn.addEventListener('click', () => {
+                const inputEl = document.getElementById('w-tema');
+                const btnGenerateMain = document.getElementById('btn-generate');
+                if (inputEl && btnGenerateMain) {
+                    inputEl.value = chip.prompt || chip.text;
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    btnGenerateMain.disabled = false;
+                    btnGenerateMain.click();
+                }
+            });
+            chipsContainer.appendChild(btn);
+
+            if (window.gsap) {
+                window.gsap.fromTo(btn, 
+                    { opacity: 0, scale: 0.95, x: -15 }, 
+                    { opacity: 1, scale: 1, x: 0, duration: 0.4, ease: 'power2.out', delay: cIdx * 0.08 }
+                );
             }
         });
-        chipsContainer.appendChild(btn);
-
-        if (window.gsap) {
-            window.gsap.fromTo(btn, { opacity: 0, scale: 0.8, y: 10 }, { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: 'back.out(1.2)', delay: cIdx * 0.05 });
-        }
-    });
+    }, 1000);
 };
 
 function initOutlineEditor(skeletonData, mode) {

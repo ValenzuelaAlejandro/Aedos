@@ -582,7 +582,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const slidesContainer = document.getElementById('outline-slides-container');
             if (slidesContainer) slidesContainer.innerHTML = '';
             const chipsContainer = document.getElementById('outline-suggested-chips');
-            if (chipsContainer) chipsContainer.innerHTML = '';
+            if (chipsContainer) {
+                chipsContainer.innerHTML = '';
+                if (window._chipsRenderTimeout) clearTimeout(window._chipsRenderTimeout);
+            }
 
             // 5. Clean up the first two hardcoded bubbles to their pristine starting state
             const firstUserText = document.getElementById('chat-user-text');
