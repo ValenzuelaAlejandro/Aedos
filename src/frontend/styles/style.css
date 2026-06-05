@@ -3344,11 +3344,25 @@ html.theme-transitioning::view-transition-new(root) {
 }
 .btn-generate-submit.is-generating .stop-circle {
     transform-origin: center;
-    animation: stop-circle-spin 1.2s linear infinite;
-    stroke-dasharray: 45 15;
+    animation: stop-circle-spin 2s linear infinite, stop-circle-dash 1.5s ease-in-out infinite;
+    stroke-linecap: round;
 }
 @keyframes stop-circle-spin {
     to { transform: rotate(360deg); }
+}
+@keyframes stop-circle-dash {
+    0% {
+        stroke-dasharray: 1, 63;
+        stroke-dashoffset: 0;
+    }
+    50% {
+        stroke-dasharray: 45, 63;
+        stroke-dashoffset: -15;
+    }
+    100% {
+        stroke-dasharray: 1, 63;
+        stroke-dashoffset: -62;
+    }
 }
 .action-icon-btn {
     background: transparent;
