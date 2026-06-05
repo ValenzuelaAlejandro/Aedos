@@ -3613,7 +3613,7 @@ html.theme-transitioning::view-transition-new(root) {
     font-size: 0.8rem !important;
     font-weight: 500 !important;
     cursor: pointer !important;
-    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     display: flex !important;
     align-items: center !important;
     gap: 0.35rem !important;
@@ -3636,4 +3636,29 @@ html.theme-transitioning::view-transition-new(root) {
     background: rgba(0, 102, 255, 0.2) !important;
     border-color: rgba(0, 102, 255, 0.5) !important;
     color: #ffffff !important;
+}
+
+/* Light Mode Overrides for Suggested Chips */
+:root[data-theme="light"] .suggested-chip {
+    background: rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    color: #4b5563 !important;
+}
+
+:root[data-theme="light"] .suggested-chip:hover {
+    background: rgba(0, 0, 0, 0.08) !important;
+    border-color: rgba(0, 0, 0, 0.2) !important;
+    color: #111827 !important;
+}
+
+:root[data-theme="light"] .suggested-chip.chip-primary {
+    background: rgba(0, 102, 255, 0.08) !important;
+    border-color: rgba(0, 102, 255, 0.2) !important;
+    color: #0056d6 !important;
+}
+
+:root[data-theme="light"] .suggested-chip.chip-primary:hover {
+    background: rgba(0, 102, 255, 0.15) !important;
+    border-color: rgba(0, 102, 255, 0.3) !important;
+    color: #003e99 !important;
 }
