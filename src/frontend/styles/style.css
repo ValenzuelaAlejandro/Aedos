@@ -3796,6 +3796,11 @@ html.theme-transitioning::view-transition-new(root) {
 #chat-screen.chat-mode .top-control-bar {
     height: 85px !important;
     background: transparent !important;
+    align-items: flex-start !important;
+}
+
+#chat-screen.chat-mode .top-control-panel {
+    height: 54px;
 }
 
 #chat-screen.chat-mode .top-control-bar::before {
