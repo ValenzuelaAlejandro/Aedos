@@ -3795,10 +3795,18 @@ html.theme-transitioning::view-transition-new(root) {
 /* Only in chat-mode. Does not affect normal landing page. */
 #chat-screen.chat-mode .top-control-bar {
     height: 85px !important;
-    background: linear-gradient(to bottom,
-            var(--bg) 0%,
-            var(--bg) 65%,
-            transparent 100%) !important;
+    background: transparent !important;
+}
+
+#chat-screen.chat-mode .top-control-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    -webkit-mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
+    pointer-events: none;
+    z-index: -1;
 }
 
 /* ── Input wrapper: fully opaque so text behind it is not visible ── */
