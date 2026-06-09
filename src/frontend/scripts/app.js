@@ -2240,7 +2240,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } catch (error) {
-            if (_activeGenController && controller !== _activeGenController) {
+            if (_activeGenController && _activeGenController.signal.aborted) {
                 return;
             }
             _stabilizeMinimapOnNextPreviewInit = false;
@@ -2268,7 +2268,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const retryAfterSec = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) : null;
             const msg = rawMsg.replace(/\|RETRY_AFTER=\d+/, '');
 
-            if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCEEDED_PRO')) {
+            if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCEEDED_PRO') || msg.includes('DAILY_LIMIT_EXCEEDED_CHAT')) {
                 if (errTitle) errTitle.textContent = window.__t ? window.__t('daily_limit_title', "You've reached today's limit") : "You've reached today's limit";
                 if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('daily_limit_msg', "Free generations reset every 24 hours. Come back tomorrow or try again later.") : "Free generations reset every 24 hours. Come back tomorrow or try again later.";
             } else if (msg.includes('COOLDOWN_ACTIVE')) {
