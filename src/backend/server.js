@@ -956,8 +956,23 @@ async function installChrome(cacheDir) {
     puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Chrome binary not found — attempting runtime install', { cacheDir });
     try {
         const { execSync: execSyncInstall } = require('child_process');
+
+        // Remove stale directories so Puppeteer doesn't skip the download.
+        // Render restores the cache structure without large binaries, causing
+        // the installer to see the directory and assume Chrome is already installed.
+        const staleHeadless = path.join(cacheDir, 'chrome-headless-shell');
+        const staleChrome = path.join(cacheDir, 'chrome');
+        if (fs.existsSync(staleHeadless)) {
+            fs.rmSync(staleHeadless, { recursive: true, force: true });
+            puppeteerLog.info(ErrorCategory.PUPPETEER, 'Removed stale chrome-headless-shell dir before reinstall');
+        }
+        if (fs.existsSync(staleChrome)) {
+            fs.rmSync(staleChrome, { recursive: true, force: true });
+            puppeteerLog.info(ErrorCategory.PUPPETEER, 'Removed stale chrome dir before reinstall');
+        }
+
         execSyncInstall(
-            `PUPPETEER_CACHE_DIR="${cacheDir}" npx puppeteer browsers install chrome`,
+            `PUPPETEER_CACHE_DIR="${cacheDir}" npx puppeteer browsers install chrome-headless-shell`,
             { stdio: 'pipe', timeout: 5 * 60 * 1000, cwd: path.join(__dirname, '..', '..') }
         );
         puppeteerLog.info(ErrorCategory.PUPPETEER, 'Chrome runtime install completed');
