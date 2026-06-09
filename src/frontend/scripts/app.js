@@ -1467,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const requestData = {
             tema: finalTema,
-            ...(proModeEnabled ? { mode: 'pro' } : {}),
+            mode: 'chat', // skeleton always draws from the chat rate-limit bucket
             ...(targetLanguage !== 'auto' ? { language: targetLanguage } : {})
         };
 
@@ -1877,15 +1877,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (bodyData instanceof FormData) {
                 const cloned = new FormData();
                 for (const [key, val] of bodyData.entries()) {
-                    if (key !== 'files') {
+                    if (key !== 'files' && key !== 'mode') {
                         cloned.append(key, val);
                     }
                 }
+                // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
+                if (proModeEnabled) cloned.append('mode', 'pro');
                 cloned.append('skeleton', JSON.stringify(skeleton));
                 bodyData = cloned;
             } else {
                 const parsed = JSON.parse(bodyData);
                 parsed.skeleton = skeleton;
+                // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
+                if (proModeEnabled) {
+                    parsed.mode = 'pro';
+                } else {
+                    delete parsed.mode;
+                }
                 bodyData = JSON.stringify(parsed);
             }
 

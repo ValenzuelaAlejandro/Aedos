@@ -30,6 +30,10 @@ const LIMITS = {
         daily: parseInt(process.env.LIMITS_OUTLINE_DAILY || '10', 10),
         cooldownSec: 0,
     },
+    chat: {
+        daily: parseInt(process.env.LIMITS_CHAT_DAILY || '20', 10),
+        cooldownSec: 0,
+    },
 };
 
 const DAILY_TTL_SEC = 24 * 60 * 60; // 24 hours
@@ -126,6 +130,7 @@ function resolveClientIp(req) {
 
 function normalizeMode(body) {
     if (body?.mode === 'outline') return 'outline';
+    if (body?.mode === 'chat') return 'chat';
     return body?.mode === 'pro' ? 'pro' : 'flash';
 }
 
@@ -265,7 +270,10 @@ function evaluateGenerateRateLimitMemory(ip, mode, cfg) {
             source: 'memory',
             reason: 'daily_limit',
             statusCode: 429,
-            errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' : (mode === 'outline' ? 'DAILY_LIMIT_EXCEEDED_OUTLINE' : 'DAILY_LIMIT_EXCEEDED_FLASH'),
+            errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' :
+                       mode === 'outline' ? 'DAILY_LIMIT_EXCEEDED_OUTLINE' :
+                       mode === 'chat' ? 'DAILY_LIMIT_EXCEEDED_CHAT' :
+                       'DAILY_LIMIT_EXCEEDED_FLASH',
             retryAfterSec: retryAfterSec(dailyCounter.expiresAt, now),
             message: 'Daily limit reached for this mode.',
             limit: cfg.daily,
@@ -330,7 +338,10 @@ async function evaluateGenerateRateLimitRedis(client, ip, mode, cfg) {
             source: 'redis',
             reason: 'daily_limit',
             statusCode: 429,
-            errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' : (mode === 'outline' ? 'DAILY_LIMIT_EXCEEDED_OUTLINE' : 'DAILY_LIMIT_EXCEEDED_FLASH'),
+            errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' :
+                       mode === 'outline' ? 'DAILY_LIMIT_EXCEEDED_OUTLINE' :
+                       mode === 'chat' ? 'DAILY_LIMIT_EXCEEDED_CHAT' :
+                       'DAILY_LIMIT_EXCEEDED_FLASH',
             retryAfterSec: Math.max(ttl, 1),
             message: 'Daily limit reached for this mode.',
             limit: cfg.daily,
