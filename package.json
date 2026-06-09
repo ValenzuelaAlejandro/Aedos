@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/backend/server.js",
     "dev": "node --watch src/backend/server.js",
-    "build": "PUPPETEER_CACHE_DIR=./puppeteer-cache npx puppeteer install && find ./puppeteer-cache -type f -name 'chrome*' ! -name '*.zip' -exec chmod +x {} +",
-    "postinstall": "PUPPETEER_CACHE_DIR=./puppeteer-cache npx puppeteer install && find ./puppeteer-cache -type f -name 'chrome*' ! -name '*.zip' -exec chmod +x {} + 2>/dev/null || true"
+    "build": "PUPPETEER_CACHE_DIR=$PWD/puppeteer-cache npx puppeteer browsers install chrome && find $PWD/puppeteer-cache -type f -name 'chrome*' ! -name '*.zip' -exec chmod +x {} +",
+    "postinstall": "PUPPETEER_CACHE_DIR=$PWD/puppeteer-cache npx puppeteer browsers install chrome && find $PWD/puppeteer-cache -type f -name 'chrome*' ! -name '*.zip' -exec chmod +x {} + 2>/dev/null || true"
   },
   "dependencies": {
     "@google/genai": "^2.6.0",

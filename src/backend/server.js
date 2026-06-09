@@ -949,6 +949,23 @@ function extractChromeFromZip(cacheDir) {
     }
 }
 
+async function installChrome(cacheDir) {
+    // Bash-style VAR=value env assignment doesn't work on Windows.
+    // On dev machines Chrome is already found via Puppeteer's default cache, so skip.
+    if (process.platform === 'win32') return;
+    puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Chrome binary not found — attempting runtime install', { cacheDir });
+    try {
+        const { execSync: execSyncInstall } = require('child_process');
+        execSyncInstall(
+            `PUPPETEER_CACHE_DIR="${cacheDir}" npx puppeteer browsers install chrome`,
+            { stdio: 'pipe', timeout: 5 * 60 * 1000, cwd: path.join(__dirname, '..', '..') }
+        );
+        puppeteerLog.info(ErrorCategory.PUPPETEER, 'Chrome runtime install completed');
+    } catch (installErr) {
+        puppeteerLog.error(ErrorCategory.PUPPETEER, 'Chrome runtime install failed', { error: installErr.message });
+    }
+}
+
 async function initBrowser() {
     try {
         const cacheDir = process.env.PUPPETEER_CACHE_DIR || path.join(__dirname, '..', '..', 'puppeteer-cache');
@@ -956,7 +973,13 @@ async function initBrowser() {
         // Self-heal: extract from cached ZIP if the binary was dropped by Render's cache
         extractChromeFromZip(cacheDir);
 
-        const autoExecutablePath = findChromeExecutable(cacheDir);
+        let autoExecutablePath = findChromeExecutable(cacheDir);
+
+        // Self-heal: if Chrome still not found and no explicit path is set, download it now
+        if (!autoExecutablePath && !process.env.PUPPETEER_EXECUTABLE_PATH) {
+            await installChrome(cacheDir);
+            autoExecutablePath = findChromeExecutable(cacheDir);
+        }
 
         const launchOptions = {
             headless: true,
@@ -2040,6 +2063,9 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
         // Restart / check browser
         if (!browser || !browser.isConnected()) {
             await initBrowser();
+        }
+        if (!browser) {
+            throw new Error('PDF generation is unavailable: the browser could not be started. Please try again shortly.');
         }
 
         // Replace animated GIFs with a 1×1 transparent placeholder so Puppeteer
