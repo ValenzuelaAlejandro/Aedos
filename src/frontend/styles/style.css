@@ -704,6 +704,11 @@
     margin-top: 2px;
 }
 
+.chat-ai-avatar svg {
+    width: 20px;
+    height: 20px;
+}
+
 .chat-ai-body {
     flex: 1;
     min-width: 0;
