@@ -497,18 +497,31 @@ if (IS_DEVELOPMENT) {
  */
 async function fetchImages(html) {
     // Extract every unique slot (id + keyword)
-    const slotRegex = /data-image-slot="(\d+)"[^>]*data-image-keyword="([^"]+)"|data-image-keyword="([^"]+)"[^>]*data-image-slot="(\d+)"/g;
+    const slotIdRegex = /data-image-slot=["']?(\d+)["']?/g;
     const slots = [];
     const seenSlotIds = new Set();
     let m;
-    console.log('[DEBUG IMAGES] Buscando slots en el HTML...');
-    while ((m = slotRegex.exec(html)) !== null) {
-        const slotId = m[1] || m[4];
-        const keyword = m[2] || m[3];
-        console.log('[DEBUG IMAGES] Encontrado slot:', { slotId, keyword });
-        if (!seenSlotIds.has(slotId)) {
+    console.log('[DEBUG IMAGES] Buscando slots en el HTML (robusto)...');
+    while ((m = slotIdRegex.exec(html)) !== null) {
+        const slotId = m[1];
+        const matchIndex = m.index;
+        
+        if (seenSlotIds.has(slotId)) continue;
+        
+        // Search in a window around the match for keyword attributes
+        const startIdx = Math.max(0, matchIndex - 300);
+        const searchWindow = html.substring(startIdx, matchIndex + 500);
+        
+        const keywordMatch = searchWindow.match(/data-image-keyword=["']([^"']+)["']/i) ||
+                             searchWindow.match(/data-keyword=["']([^"']+)["']/i);
+                             
+        if (keywordMatch) {
+            const keyword = keywordMatch[1];
+            console.log('[DEBUG IMAGES] Encontrado slot (robusto):', { slotId, keyword });
             seenSlotIds.add(slotId);
             slots.push({ slotId, keyword });
+        } else {
+            console.log('[DEBUG IMAGES] Advertencia: Encontrado slot ID', slotId, 'pero no se halló keyword en la ventana HTML cercana.');
         }
     }
 

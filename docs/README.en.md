@@ -1,6 +1,6 @@
 # Aedos -- AI Presentation Generator
 
-Aedos is a web application that enables users to automatically generate academic and professional presentations in PDF format using large language models (LLMs) through the OpenRouter API. The user writes a topic in natural language, the AI generates complete slides in HTML/CSS, and the system converts them to PDF using a headless browser (Puppeteer).
+Aedos is a local/deployable web app that turns a topic or supporting files into an editable presentation and downloadable PDF. The current runtime uses the direct Gemini API as the primary provider, OpenRouter as fallback, and Puppeteer for final export.
 
 Production site: [https://aedoslab.xyz](https://aedoslab.xyz)
 
@@ -8,484 +8,581 @@ Production site: [https://aedoslab.xyz](https://aedoslab.xyz)
 
 ## Table of Contents
 
-- [General Architecture](#general-architecture)
-- [Technology Stack](#technology-stack)
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Stack](#stack)
 - [Project Structure](#project-structure)
 - [Backend](#backend)
-  - [Main Server](#main-server)
-  - [Generation System (Prompts)](#generation-system-prompts)
-  - [Rate Limiting](#rate-limiting)
-  - [Logger](#logger)
 - [Frontend](#frontend)
-  - [Main Interface](#main-interface)
-  - [Slide Editor](#slide-editor)
-  - [Minimap](#minimap)
-  - [Tools Panel](#tools-panel)
-  - [Mobile Support](#mobile-support)
-  - [Internationalization (i18n)](#internationalization-i18n)
 - [Generation Modes](#generation-modes)
-- [Data Flow](#data-flow)
-- [API Endpoints](#api-endpoints)
-- [Security](#security)
-- [Deployment Infrastructure](#deployment-infrastructure)
+- [Main Flows](#main-flows)
+- [API](#api)
+- [Security and Limits](#security-and-limits)
+- [Deployment](#deployment)
 - [Environment Variables](#environment-variables)
 - [Local Development](#local-development)
 
 ---
 
-## General Architecture
+## Overview
 
-```
-User (browser)
-       |
-       v
-  Vercel (Static frontend)
-       |
-       | rewrites: /generate, /finalize, /download, /health
-       v
-  Render (Node.js + Express backend)
-       |
-       +---> OpenRouter API (LLMs: Gemini, Kimi, etc.)
-       +---> Upstash Redis (persistent rate limiting)
-       +---> Puppeteer / Chrome Headless (HTML -> PDF conversion)
-```
-
-Aedos uses a decoupled frontend-backend architecture. The frontend is served as static content on Vercel, which redirects API routes to the backend deployed on Render. The backend coordinates content generation with AI models, applies security sanitization to the generated HTML, and converts the final result to PDF using Puppeteer.
+- AI-assisted generation with two paths: `flash` and `pro`.
+- Outline-first flow through `POST /generate-skeleton`.
+- Full client-side editing: text, images, shapes, icons, background, ordering, zoom, undo/redo.
+- Attachment support for `.pdf`, `.doc`, `.docx`, `.png`, `.jpg`, `.jpeg`, `.webp`.
+- PDF export in 16:9 via Puppeteer plus `pdf-lib` metadata post-processing.
+- Static frontend on Vercel and Node.js/Express backend on Render.
 
 ---
 
-## Technology Stack
+## Architecture
 
-| Layer          | Technology                                                       |
-|----------------|------------------------------------------------------------------|
-| Frontend       | HTML5, CSS3 (vanilla), JavaScript (vanilla)                      |
-| Backend        | Node.js, Express.js                                              |
-| AI / LLM       | OpenRouter API (Gemini 2.5 Flash Lite, Kimi K2.6, and others)   |
-| PDF            | Puppeteer (headless Chrome)                                      |
-| Rate Limiting  | Upstash Redis (with in-memory fallback)                          |
-| FE Hosting     | Vercel                                                           |
-| BE Hosting     | Render                                                           |
-| Icons          | Lucide Icons (via CDN)                                           |
-| Animations     | GSAP, Motion (vanilla)                                           |
-| Fonts          | Google Fonts (23 preloaded families)                             |
+```text
+User (browser)
+       |
+       v
+Static frontend (Vercel or Express static)
+       |
+       +--> POST /generate-skeleton
+       +--> POST /generate-outline-item
+       +--> POST /generate
+       +--> POST /finalize
+       +--> GET  /download/:filename
+       |
+       v
+Node.js + Express backend
+       |
+       +--> Gemini API (primary)
+       +--> OpenRouter (fallback by model/stage)
+       +--> Upstash Redis (rate limiting, with in-memory fallback)
+       +--> Puppeteer / Chrome Headless (HTML -> PDF)
+       +--> Optional Pixabay fallback (remote image enrichment)
+```
+
+Important notes:
+
+- The backend can also serve the frontend through `express.static`.
+- In production, raw Render hostnames are redirected to `aedoslab.xyz`, except API routes.
+- Final HTML generation is streamed to the browser over SSE.
+- Generated HTML is sanitized server-side before previewing or exporting.
+
+---
+
+## Stack
+
+| Layer | Technology |
+|------|------------|
+| Frontend | HTML5, CSS3, vanilla JavaScript |
+| Backend | Node.js, Express |
+| Primary AI | Google Gemini API (`@google/genai`) |
+| Fallback AI | OpenRouter |
+| PDF | Puppeteer + `pdf-lib` |
+| Word ingestion | `mammoth` |
+| Rate limiting | Upstash Redis |
+| UI/Animation | Lucide, GSAP, Motion |
+| Hosting | Vercel + Render |
 
 ---
 
 ## Project Structure
 
-```
+```text
 Aedos/
-+-- .env                         # Environment variables (not tracked by Git)
-+-- .gitignore                   # Files excluded from the repository
-+-- package.json                 # NPM dependencies and scripts
++-- docs/
+|   +-- README.es.md
+|   +-- README.en.md
++-- scripts/
+|   +-- install-chrome.sh
 +-- src/
 |   +-- backend/
-|   |   +-- server.js            # Main Express server (~1800 lines)
+|   |   +-- server.js
 |   |   +-- prompts/
-|   |   |   +-- base.js          # Monolithic prompt for Flash mode
-|   |   |   +-- pipeline.js      # 3-stage pipeline orchestrator (Pro)
-|   |   |   +-- stage1-content.js    # Stage 1: Content extraction
-|   |   |   +-- stage2-design.js     # Stage 2: Creative/visual direction
-|   |   |   +-- stage3-compositor.js # Stage 3: Final HTML generation
+|   |   |   +-- base.js
+|   |   |   +-- pipeline.js
+|   |   |   +-- skeleton_prompts.js
+|   |   |   +-- stage1-content.js
+|   |   |   +-- stage2-design.js
+|   |   |   +-- stage3-compositor.js
 |   |   +-- utils/
-|   |       +-- logger.js        # Structured logging system with colors
-|   |       +-- rate-limiter.js  # Rate limiting with Redis/in-memory
+|   |       +-- logger.js
+|   |       +-- rate-limiter.js
 |   +-- frontend/
-|       +-- index.html           # Main page (SPA)
-|       +-- vercel.json          # Vercel deployment configuration
-|       +-- scripts/
-|       |   +-- app.js           # Main frontend logic (~155KB)
-|       +-- styles/
-|       |   +-- style.css        # Global styles (~74KB)
+|       +-- index.html
+|       +-- assets/images/
 |       +-- editor/
-|       |   +-- editor.js        # Slide editor engine
-|       |   +-- editor-ui.js     # Editor interface
-|       |   +-- editor.css       # Editor styles
 |       +-- features/
 |       |   +-- minimap/
-|       |   |   +-- minimap.js   # Slide thumbnail panel
-|       |   |   +-- minimap.css  # Minimap styles
-|       |   +-- tools/
-|       |   |   +-- tools.js     # Property panel / inspector
-|       |   |   +-- tools.css    # Tools panel styles
 |       |   +-- shared/
-|       |   |   +-- i18n.js      # Internationalization system (ES/EN)
-|       |   |   +-- logger.js    # Frontend logger
-|       |   |   +-- init.js      # Shared initialization
-|       |   |   +-- base.css     # Shared base styles
-|       |   |   +-- lucide-init.js  # Lucide icons initialization
 |       |   +-- skeleton/
-|       |       +-- skeleton-injector.js  # Loading skeletons
+|       |   +-- tools/
 |       +-- mobile/
-|       |   +-- css/
-|       |   |   +-- index.css            # Main mobile styles
-|       |   |   +-- style-mobile-overrides.css  # Mobile overrides
-|       |   +-- html/
-|       |   |   +-- bottom-nav.html      # Mobile bottom navigation
-|       |   |   +-- mode-select.html     # Mobile mode selector
-|       |   |   +-- touch-capture-overlay.html
-|       |   +-- js/
-|       |       +-- app-mobile.js        # Mobile logic
-|       |       +-- bridge.js            # Desktop-mobile bridge
-|       |       +-- config.js            # Mobile configuration
-|       +-- assets/
-|           +-- images/
-|               +-- favicon.svg          # SVG favicon
-|               +-- og-image.png         # Open Graph image
-+-- examples/                   # Generated examples (development only)
-+-- tmp/                        # Temporary files (PDFs, debug)
+|       +-- scripts/
+|       +-- styles/
+|       +-- vercel.json
++-- package.json
 ```
 
 ---
 
 ## Backend
 
-### Main Server
+### Main server
 
-The `server.js` file is the backend core. It manages:
+`src/backend/server.js` owns:
 
-- **Express Server**: CORS configuration, security headers, static file serving, and HTTP request handling.
-- **Queue System**: Concurrency control for AI generations with separate queues for generation (`/generate`) and finalization (`/finalize`). Parameters are configurable:
-  - `MAX_CONCURRENT_GENERATIONS`: Maximum simultaneous generations (default 10).
-  - `MAX_QUEUE_DEPTH`: Maximum queue depth (default 40).
-  - `PUPPETEER_MAX_CONCURRENT`: Maximum simultaneous PDF renders (default 3).
-- **Redirects**: In production, requests arriving at the raw Render URL (`*.onrender.com`) are redirected to the canonical domain (`aedoslab.xyz`), except for API routes.
-- **HTML Sanitization**: All AI-generated HTML goes through a sanitization process that removes scripts, inline event handlers, JavaScript URLs, and duplicate Google Fonts tags. Verified resources (Google Fonts and Lucide Icons) are then injected.
-- **Puppeteer Management**: Headless Chrome browser initialization with self-healing binary extraction on Render (extracts from cached ZIP when the cache loses the binary).
+- `dotenv`, Express, CORS, and security-header setup.
+- Per-mode rate limiting for `/generate` and window-based limits for `/finalize`.
+- Separate queues for AI generation and PDF rendering.
+- Provider resolution: direct Gemini first, then OpenRouter.
+- File handling with `multer` plus Word text extraction through `mammoth`.
+- SSE streaming of generation output and pipeline states.
+- Sanitization and normalization of generated HTML.
+- Chrome bootstrap/self-healing for Puppeteer.
 
-### Generation System (Prompts)
+### Model routing
 
-The prompt system has two generation paths:
+Current routing works like this:
 
-#### Flash Mode (Single Prompt)
+- `Gemini` is the primary provider when `GEMINI_API_KEY` exists.
+- `OpenRouter` is an automatic fallback when Gemini fails or is unavailable.
+- Flash, Stage 1, Stage 2, and Stage 3 may each use different model lists.
+- Some OpenRouter models can be marked as Stage-3-only through `OPENROUTER_MODELS_STAGE3_ONLY`.
 
-Defined in `prompts/base.js`. A single massive prompt (~400 lines) that includes:
-- Security instructions and system role
-- JSON configuration embedded in an HTML comment (`<!-- CONFIG ... -->`)
-- Complete CSS definitions with variables, reusable classes, and layout patterns
-- 12 predefined layout patterns (Cover, Cards-2, Cards-3, Split, Stats, Steps, Quote, Timeline, Conclusion, Text, Editorial, Comparison)
-- Allowed Lucide icon catalog
-- Final validation rules
+### Generation paths
 
-The model receives a single prompt and generates both the configuration and the complete HTML in one pass.
+#### Flash mode
 
-#### Pro Mode (3-Stage Pipeline)
+- Uses `src/backend/prompts/base.js`.
+- Generates the full HTML in a single request.
+- Supports up to `15` slides.
+- Fastest and cheapest path.
 
-Orchestrated by `prompts/pipeline.js`:
+#### Pro mode
 
-1. **Stage 1 -- Content Extraction** (`stage1-content.js`):
-   - Analyzes the user input and extracts structured content.
-   - Produces a JSON with: topic, audience, tone, text density, narrative structure, and the slides array.
-   - Includes a `visual_world` field with `real_world_analog` that describes a concrete physical artifact that evokes the topic (e.g., "heavy metal tour poster on glossy black paper").
-   - Detects the input language and generates all content in that language.
-   - Maximum of 8 slides per pipeline.
+- Uses `src/backend/prompts/pipeline.js`.
+- Splits the process into 3 stages:
+  1. `stage1-content.js`: outline, narrative, language, and structure.
+  2. `stage2-design.js`: visual direction, palette, and typography.
+  3. `stage3-compositor.js`: final HTML/CSS.
+- Supports up to `8` slides.
+- Stage 3 is streamed via SSE.
 
-2. **Stage 2 -- Creative Direction** (`stage2-design.js`):
-   - Receives the Stage 1 JSON and generates visual design decisions.
-   - Produces: color palette, typographic pair, global mood, and per-slide layout directives.
-   - The `real_world_analog` from Stage 1 drives all visual decisions.
+### Outline-assisted flow
 
-3. **Stage 3 -- HTML Compositor** (`stage3-compositor.js`):
-   - Receives the content from Stage 1 and the design from Stage 2.
-   - Generates the final complete HTML/CSS document ready for rendering.
-   - This stage is streamed via SSE to the client.
+In addition to final deck generation, the backend exposes two intermediate routes:
 
-Each stage can use different AI models, configured via environment variables (`OPENROUTER_MODELS_STAGE1`, `OPENROUTER_MODELS_STAGE2`, `OPENROUTER_MODELS_STAGE3`).
+- `POST /generate-skeleton`: creates or revises the whole outline.
+- `POST /generate-outline-item`: generates a single slide or bullet item for the outline.
 
-### Rate Limiting
+This allows the frontend to show an editable outline stage before final composition.
 
-Implemented in `utils/rate-limiter.js`. Uses Upstash Redis as a persistent store with an in-memory fallback when Redis is unavailable.
+### Attachments
 
-**Per-mode limits:**
+Allowed file types:
 
-| Parameter                     | Flash     | Pro       |
-|-------------------------------|-----------|-----------|
-| Daily generations per IP      | 4         | 2         |
-| Cooldown between generations  | 20s       | 60s       |
-| Global daily limit            | 100       | 100       |
+- PDF
+- DOC/DOCX
+- PNG/JPG/JPEG/WEBP
 
-**Finalization (PDF) limits:**
+Current rules:
 
-| Parameter                     | Value     |
-|-------------------------------|-----------|
-| Maximum per 15-minute window  | 10        |
+- Up to `3` files per request.
+- Up to `10 MB` per file.
+- `DOC/DOCX` files are converted to plain text.
+- PDFs and images are passed to providers as `data:` URLs or `inlineData`, depending on provider support.
+- In the UI, attached files force the `pro` path.
 
-The system also includes an IP audit mechanism that detects if all requests in production are coming from a single IP address (indicating a proxy configuration issue).
+### Queues and backpressure
+
+Default values:
+
+| Variable | Default |
+|----------|---------|
+| `MAX_CONCURRENT_GENERATIONS` | `10` |
+| `MAX_QUEUE_DEPTH` | `40` |
+| `PRO_PAUSE_ACTIVE_GENERATIONS` | `MAX_CONCURRENT_GENERATIONS - 2` |
+| `PRO_PAUSE_QUEUE_DEPTH` | `60%` of `MAX_QUEUE_DEPTH`, minimum `8` |
+| `PUPPETEER_MAX_CONCURRENT` | `3` |
+| `PUPPETEER_MAX_QUEUE` | `10` |
+| `PRESSURE_RETRY_AFTER_SEC` | `30` |
+
+Key behaviors:
+
+- If the general queue fills up, `/generate` returns `429 QUEUE_FULL`.
+- Under pressure, `pro` can be temporarily paused with `503 PRO_TEMPORARILY_PAUSED`.
+- If the PDF queue fills up, `/finalize` returns `429 QUEUE_FULL`.
+
+### HTML sanitization and post-processing
+
+Before returning or exporting a presentation, the server:
+
+- strips `<script>` tags and inline handlers;
+- removes dangerous `javascript:` URLs;
+- removes duplicate Google Fonts `link`/`@import` entries;
+- injects the supported font bundle and Lucide assets;
+- trims slides beyond the mode cap;
+- fixes common incomplete HTML/CSS output issues;
+- removes `overflow: auto/scroll` patterns that break PDF output;
+- stores debug artifacts in development.
 
 ### Logger
 
-`utils/logger.js` implements a structured logger with:
+`src/backend/utils/logger.js` defines structured levels and semantic categories such as:
 
-- Levels: `debug`, `info`, `success`, `http`, `warn`, `error`, `fatal`
-- ANSI terminal colors
-- Semantic error categories: `BOOT`, `CONFIG`, `HTTP`, `SECURITY`, `VALIDATION`, `QUEUE`, `PROVIDER`, `QUOTA`, `MODEL`, `PIPELINE`, `STREAM`, `SANITIZER`, `PUPPETEER`, `FILESYSTEM`, `NETWORK`, `DOWNLOAD`
-- Metadata serialization with long string clipping
-- Child logger support with hierarchical scopes
+- `BOOT`, `CONFIG`, `HTTP`, `SECURITY`, `VALIDATION`
+- `QUEUE`, `PROVIDER`, `QUOTA`, `PIPELINE`, `STREAM`
+- `SANITIZER`, `PUPPETEER`, `FILESYSTEM`, `NETWORK`, `DOWNLOAD`
 
 ---
 
 ## Frontend
 
-### Main Interface
+### Main screens
 
-The frontend is a Single Page Application (SPA) built with vanilla HTML, CSS, and JavaScript. The interface has three main sections:
+The frontend (`src/frontend/`) is a SPA with four functional areas:
 
-1. **Chat Screen** (`#chat-screen`): The initial screen where the user types their presentation topic. Includes:
-   - Text input with character counter (maximum 600)
-   - Flash/Pro mode toggle
-   - Generation button
+1. Initial chat.
+2. Outline editor.
+3. Slide preview/editor.
+4. Final download screen.
 
-2. **Preview / Editor** (`#preview-container`): Full workspace for editing the generated presentation. Includes:
-   - Header with navigation controls, zoom, undo/redo, presentation mode, and PDF download
-   - Thumbnail panel (minimap) on the left
-   - Slide viewer in the center (iframe)
-   - Tools/property panel on the right
-   - Floating toolbar for adding elements
+### Chat and input capture
 
-3. **Result** (`#result-container`): Confirmation screen after PDF generation.
+The initial screen includes:
 
-### Slide Editor
+- textarea capped at `600` characters;
+- `flash` / `pro` mode selector;
+- output language selector;
+- suggestion chips;
+- file upload by button or drag-and-drop;
+- error and refusal modals.
 
-The editor (`editor/editor.js`, ~95KB) enables:
+### Outline editor
 
-- Direct text editing within slides
-- Adding, deleting, and duplicating slides
-- Adding elements: text, images, geometric shapes, icons
-- Undo/redo changes
-- Zoom and view fitting
-- Full-screen presentation mode
-- Drag and drop elements
-- Background property editing (color, gradients)
+The current flow does not jump straight into final generation. It first builds an editable outline with:
 
-### Minimap
+- AI-generated sections;
+- suggested follow-up chips;
+- manual or AI-assisted insertion of sections/points;
+- language-selector locking during generation;
+- a button to turn the approved outline into the final deck.
 
-The minimap (`features/minimap/`) displays thumbnails of all slides in a side panel. Features:
+### Slide editor
 
-- Quick navigation between slides by clicking
-- Reordering via drag and drop
-- Duplication and deletion via context menu
-- Position indicators (dots) in the header
+The editor supports:
 
-### Tools Panel
+- direct text editing;
+- adding/deleting/duplicating slides;
+- inserting text, images, shapes, and icons;
+- changing background, layering, opacity, borders, and typography;
+- `undo/redo`;
+- minimap navigation;
+- presentation mode;
+- PDF export.
 
-The tools panel (`features/tools/`, ~51KB of JS) is a contextual property inspector that changes based on the selected element:
+### Minimap and tools panel
 
-- **Text**: Font size, alignment, color, font selection (23 available families)
-- **Image**: Image replacement, border radius, opacity
-- **Icon**: Icon color, icon catalog by categories (Essentials, Communication, Business, Multimedia, Technology, Social, Navigation, Nature, Objects)
-- **Shape**: Fill color, border color (Square, Circle, Diamond, Triangle, Hexagon, Capsule)
-- **Advanced**: Bring to front, send to back, duplicate, delete
+- `features/minimap/` handles thumbnails, navigation, and reorder.
+- `features/tools/` acts as the contextual inspector.
+- `editor/` manages selection, transforms, and editing inside the iframe.
 
-### Mobile Support
+### Mobile support
 
-The mobile system (`mobile/`) adapts the interface for touch devices:
+`src/frontend/mobile/` adds:
 
-- Bottom navigation with previous/next slide buttons
-- CSS overrides for responsive layouts
-- Bridge (`bridge.js`, ~21KB) that translates touch events to editor interactions
-- HTML5 Drag and Drop polyfill for touch screens
+- bottom navigation;
+- touch-event bridging;
+- responsive overrides;
+- drag-and-drop polyfill support for touch devices.
 
-### Internationalization (i18n) & Multilingual Pipeline
+### Languages
 
-The system is fully localized and supports generating presentations in any selected target language:
+The interface itself is only localized in:
 
-- **Interface Localization (`features/shared/i18n.js`)**: Supports English (`en`) as default and Spanish (`es`) automatically detected via `navigator.language`. Translations are dynamically bound using `data-i18n`, `data-i18n-title`, `data-i18n-placeholder`, and `data-i18n-val` attributes.
-- **Multilingual Presentation Generation**: The home screen includes an explicit language selector. The selected language is sent as `idioma` to the `/generate` endpoint, which maps it to `targetLanguage`. This value is dynamically injected directly into the system prompts for both Flash mode (`base.js`) and Pro mode (`stage1-content.js`). The models are strictly instructed to generate slide content (titles, text, bullet points) in the target language while maintaining JSON keys, CSS variables, and HTML tags in English to prevent rendering issues.
+- `en` by default;
+- `es` when `navigator.language` starts with `es`.
 
-### UI/UX Micro-interactions & Polish
+Content generation supports broader ISO language codes. In the frontend there is a wider selector, but at API level there are two paths:
 
-Aedos prioritizes a highly premium, fluid user experience through custom micro-interactions:
-- **Lifting Suggestion Pills**: The quick-start suggestion pills on the chat screen feature a smooth vertical lift animation on hover (`transform: translateY(-2px)`), matching the tactile feel of the editor controls.
-- **Attachment Accordion Transition**: When attaching or removing files, the `.attachment-preview-container` glides open and closed like silk via a smart CSS height transition (`max-height` from `0` to `150px` with a premium `cubic-bezier(0.4, 0, 0.2, 1)` easing) combined with opacity and margin transitions, eliminating layout jumps.
-- **High-Fidelity Branded File Icons**: Replaced generic outline wireframe icons with custom-built, ultra-high-definition, solid-colored SVG icons for `.pdf` (Adobe Red) and `.docx`/`.doc` (Word Blue) uploads that mimic the official document brand representations.
+- `language`: current parameter used by the UI, intended for arbitrary ISO codes.
+- `idioma`: legacy parameter with strict `/generate` validation for `es`, `en`, `fr`, `pt`, `de`.
 
 ---
 
 ## Generation Modes
 
-| Feature                 | Flash                        | Pro                              |
-|-------------------------|------------------------------|----------------------------------|
-| Approximate time        | ~20 seconds                  | ~2 minutes                       |
-| Process                 | Single monolithic prompt     | 3-stage pipeline                 |
-| Maximum slides          | 15                           | 8                                |
-| Default models          | Gemini 2.5 Flash Lite        | Stages 1 & 2: Gemini 2.5 Flash Lite, Stage 3: Kimi K2.6 |
-| Design quality          | Good                         | High (design derived from physical artifact) |
-| Daily generations       | 4 per IP                     | 2 per IP                        |
+| Feature | Flash | Pro |
+|---------|-------|-----|
+| Flow | Single prompt | 3-stage pipeline |
+| Speed | Higher | Lower |
+| Slide cap | 15 | 8 |
+| Visual consistency | Good | More guided/consistent |
+| Best use case | fast drafts | polished deliverables and complex prompts |
+| Attachments | not ideal | recommended / enforced by UI |
 
 ---
 
-## Data Flow
+## Main Flows
 
-### Presentation Generation
+### Outline + generation
 
-```
-1. User writes topic in the frontend
-2. Frontend sends POST /generate with { tema, mode, slides, idioma }
-3. Backend validates and sanitizes the input
-4. Rate limiter checks per-IP and per-mode limits
-5. Request enters the concurrency queue
-6. (Flash) A single prompt is built and sent to OpenRouter
-   (Pro) The 3-stage pipeline executes sequentially
-7. The AI response is streamed via SSE (Server-Sent Events)
-8. Backend sanitizes the HTML in each chunk and at the end
-9. Frontend receives chunks and renders them in the iframe
-10. User can edit the presentation in the editor
+```text
+1. User writes a topic and can attach files
+2. Frontend sends /generate-skeleton
+3. Backend validates input and generates outline JSON
+4. User reviews/edits the outline
+5. Frontend sends /generate
+6. Backend runs Flash or the Pro pipeline
+7. HTML arrives through SSE
+8. Frontend renders it in the iframe and enables manual editing
 ```
 
-### PDF Download
+### PDF export
 
-```
+```text
 1. User clicks "Download PDF"
-2. Frontend sends POST /finalize with { html, title }
-3. Backend sanitizes the HTML and opens a page in Puppeteer
-4. Puppeteer renders the HTML with fonts, icons, and print styles
-5. PDF is generated with 29.7cm x 16.7cm dimensions (16:9)
-6. Backend responds with the download URL
-7. Frontend redirects the user to GET /download/:filename
-8. The PDF file is auto-deleted after 10 minutes
+2. Frontend sends /finalize with html and title
+3. Backend opens a Puppeteer page
+4. It waits for network/fonts/icons and normalizes layout
+5. It generates a 29.7cm x 16.7cm PDF
+6. It injects metadata with pdf-lib
+7. It responds with /download/:filename
+8. The PDF is automatically deleted after 10 minutes
 ```
 
 ---
 
-## API Endpoints
+## API
 
 ### `GET /health`
 
-Health check endpoint. Returns `200 OK`.
+Simple healthcheck. Returns `200 OK`.
+
+### `POST /generate-skeleton`
+
+Generates or revises the presentation outline.
+
+Supported formats:
+
+- `multipart/form-data` when files are attached.
+- plain JSON when no files are attached.
+
+Relevant fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tema` | string | Yes | Topic to process |
+| `language` | string | No | Target code or `auto` |
+| `idioma` | string | No | Legacy alias |
+| `mode` | string | No | `flash` or `pro` |
+| `currentSkeleton` | object/string | No | Previous outline for revision |
+| `files` | file[] | No | Up to 3 files |
+
+Response:
+
+- SSE `chunk` frames
+- final event `{ done: true, skeleton: ... }`
+- or `{ error: ... }`
+
+### `POST /generate-outline-item`
+
+Generates one focused outline item.
+
+JSON body:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | `slide` or `point` |
+| `topic` | string | Yes | Main topic |
+| `existingSlides` | array | No | Context for adding a slide |
+| `slideTitle` | string | No | Current slide title |
+| `slideSubtitle` | string | No | Current slide subtitle |
+| `existingPoints` | array | No | Existing bullet points |
+
+Response: `{ item: ... }`
 
 ### `POST /generate`
 
-Generates an HTML presentation from a topic.
+Generates the final HTML presentation.
 
-**Body (JSON):**
+Supported formats:
 
-| Field    | Type   | Required | Description                                   |
-|----------|--------|----------|-----------------------------------------------|
-| `tema`   | string | Yes      | Presentation topic (max 600 characters)       |
-| `mode`   | string | No       | `"flash"` (default) or `"pro"`                |
-| `slides` | number | No       | Number of slides (1-15, default 5)            |
-| `idioma` | string | No       | Language: `es`, `en`, `fr`, `pt`, `de`        |
+- `application/json`
+- `multipart/form-data`
 
-**Response:** SSE stream with HTML chunks and pipeline status.
+Main fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tema` | string | Yes | Maximum `600` characters |
+| `mode` | string | No | `flash` by default, or `pro` |
+| `slides` | number | No | `1-15`; backend trims to `8` in `pro` |
+| `language` | string | No | Target code used by the current UI |
+| `idioma` | string | No | Legacy path validated against `es`, `en`, `fr`, `pt`, `de` |
+| `skeleton` | object/string | No | User-approved outline |
+| `files` | file[] | No | Up to `3` files |
+
+Response:
+
+- SSE `chunk` frames
+- metadata `{ metadata: { provider, model } }`
+- pipeline status events
+- final event `{ done: true, html: ... }`
+
+Common errors:
+
+- `429 QUEUE_FULL`
+- `503 PRO_TEMPORARILY_PAUSED`
+- `400 SKELETON_EMPTY`
+- validation errors (`slides`, `idioma`, topic)
 
 ### `POST /finalize`
 
 Converts HTML to PDF.
 
-**Body (JSON):**
+JSON body:
 
-| Field   | Type   | Required | Description                        |
-|---------|--------|----------|------------------------------------|
-| `html`  | string | Yes      | Complete presentation HTML         |
-| `title` | string | No       | Title for the downloaded filename  |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `html` | string | Yes | Full HTML document |
+| `title` | string | No | Friendly PDF filename |
 
-**Response:** `{ pdfUrl: "/download/..." }`
+Response: `{ pdfUrl: "/download/..." }`
 
 ### `GET /download/:filename`
 
-Downloads a generated PDF. The `name` query parameter defines the downloaded file's name.
+Downloads a temporary PDF created by `/finalize`.
 
-### `GET /__dev__/last-generated` (Development only)
+Notes:
 
-Returns the last generated HTML for debugging.
+- validates path traversal;
+- accepts `name` query param for the downloaded filename;
+- does not delete the file on first download; a timer handles cleanup later.
+
+### `GET /__dev__/last-generated`
+
+Available only outside production. Returns `tmp/last_generated.html`.
 
 ---
 
-## Security
+## Security and Limits
 
-### Input Sanitization
+### Input validation
 
-- HTML/XSS injection detection: HTML tags, `javascript:`, inline event handlers, `eval()`, `document.cookie`, `window.location`, `fetch()`, `innerHTML`
-- Prompt injection detection: "ignore previous", "system prompt", "act as", "reveal your", etc.
-- 600-character limit per topic
+- maximum `600` topic characters;
+- obvious HTML/script/XSS blocking;
+- basic prompt-injection detection;
+- slide-count and language validation;
+- allowed-file-extension validation.
 
-### Output Sanitization
+### Headers and CSP
 
-- Removal of `<script>` blocks from generated HTML
-- Removal of inline event handlers (`onclick`, `onload`, etc.)
-- Removal of `javascript:` URLs in `href`, `src`, `action` attributes
-- Removal of duplicate Google Fonts `<link>` tags
-- Removal of CSP meta tags from generated HTML (configured at server level)
-- Controlled injection of verified resources only
+The server applies:
 
-### Security Headers
-
-The server applies the following headers on all responses:
-
-- `Strict-Transport-Security` (HSTS)
+- `Strict-Transport-Security`
 - `X-Frame-Options: SAMEORIGIN`
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
-- `Permissions-Policy` (disables camera, microphone, geolocation, payments)
-- `Content-Security-Policy` (origin restrictions for scripts, styles, fonts, images, frames)
+- `Permissions-Policy`
+- `Content-Security-Policy`
 
-### CORS
+### Default rate limits
 
-- In production: only origins listed in `ALLOWED_ORIGINS`
-- In development: `localhost:3000`, `localhost:5173`, `127.0.0.1:3000`
-- Strict validation: requires HTTPS, no trailing slash, no wildcards
+| Rule | Value |
+|------|-------|
+| Flash daily per IP | 4 |
+| Pro daily per IP | 2 |
+| Flash cooldown | 20s |
+| Pro cooldown | 60s |
+| Global daily cap | 100 |
+| Finalizations per 15 min | 10 |
 
-### Additional Protections
+### Additional protections
 
-- `X-Powered-By` header disabled
-- Unique request IDs (`X-Request-Id`) for traceability
-- Path traversal protection on downloads
-- Auto-deletion of PDFs after 10 minutes
-- IP diversity auditing in production
+- `X-Powered-By` disabled;
+- `X-Request-Id` on every request;
+- proxy/IP auditing;
+- output sanitization before rendering;
+- automatic deletion of temporary PDFs.
 
 ---
 
-## Deployment Infrastructure
+## Deployment
 
-### Vercel (Frontend)
+### Frontend
 
-The frontend is deployed on Vercel as static content. The configuration in `vercel.json` defines:
+- hosted on Vercel as a static site;
+- `vercel.json` rewrites API routes to the backend;
+- can also be served directly from Express in simpler environments.
 
-- **Rewrites**: Routes `/generate`, `/finalize`, `/download`, `/health`, and `/__dev__` are redirected to the Render backend (`https://aedos.onrender.com`).
-- **Security headers**: CSP, HSTS, X-Frame-Options, etc. are applied at CDN level.
-- **Clean URLs**: Enabled with `cleanUrls: true`.
+### Backend
 
-### Render (Backend)
-
-The backend is deployed on Render as a Node.js web service.
-
-Specific considerations:
-
-- **Puppeteer on Render**: Render can lose the Chrome binary from the disk cache between deploys. The server detects this automatically and extracts the binary from the cached ZIP without needing a download.
-- **Cold starts**: Render may sleep after periods of inactivity. The `/health` endpoint allows configuring an external keep-alive.
-- **Request timeout**: Set to 10 minutes for long AI generations.
+- deployed on Render as a Node.js service;
+- can rebuild the Chrome binary from cached ZIP contents if Render drops the executable;
+- sets a 10-minute `requestTimeout` for long generations.
 
 ---
 
 ## Environment Variables
 
-| Variable                        | Required | Description                                          |
-|---------------------------------|----------|------------------------------------------------------|
-| `OPENROUTER_API_KEY`            | Yes      | OpenRouter API key                                   |
-| `NODE_ENV`                      | No       | `development` or `production` (default: development) |
-| `PORT`                          | No       | Server port (default: 3000)                          |
-| `ALLOWED_ORIGINS`               | Prod     | Comma-separated allowed CORS origins                 |
-| `UPSTASH_REDIS_REST_URL`        | No       | Upstash Redis instance URL                           |
-| `UPSTASH_REDIS_REST_TOKEN`      | No       | Upstash Redis authentication token                   |
-| `OPENROUTER_MODELS_FLASH`       | No       | Models for Flash mode (CSV)                          |
-| `OPENROUTER_MODELS_STAGE1`      | No       | Models for pipeline Stage 1 (CSV)                    |
-| `OPENROUTER_MODELS_STAGE2`      | No       | Models for pipeline Stage 2 (CSV)                    |
-| `OPENROUTER_MODELS_STAGE3`      | No       | Models for pipeline Stage 3 (CSV)                    |
-| `OPENROUTER_MODELS_STAGE3_ONLY` | No       | Models restricted exclusively to Stage 3 (CSV)       |
-| `MAX_CONCURRENT_GENERATIONS`    | No       | Maximum simultaneous generations (default: 10)       |
-| `MAX_QUEUE_DEPTH`               | No       | Maximum queue depth (default: 40)                    |
-| `PUPPETEER_MAX_CONCURRENT`      | No       | Maximum simultaneous PDF renders (default: 3)        |
-| `PUPPETEER_MAX_QUEUE`           | No       | Maximum Puppeteer queue (default: 10)                |
-| `LIMITS_FLASH_DAILY`            | No       | Daily Flash limit per IP (default: 4)                |
-| `LIMITS_PRO_DAILY`              | No       | Daily Pro limit per IP (default: 2)                  |
-| `LIMITS_FLASH_COOLDOWN_SEC`     | No       | Flash cooldown in seconds (default: 20)              |
-| `LIMITS_PRO_COOLDOWN_SEC`       | No       | Pro cooldown in seconds (default: 60)                |
-| `PRO_PAUSE_ACTIVE_GENERATIONS`  | No       | Active generations threshold to pause Pro (default: 8) |
-| `PRO_PAUSE_QUEUE_DEPTH`         | No       | Queue depth threshold to pause Pro (default: 24)      |
-| `GLOBAL_DAILY_GENERATION_LIMIT` | No       | Global daily generation limit (default: 100)         |
-| `LIMITS_FINALIZE_MAX`           | No       | Maximum finalizations per window (default: 10)       |
-| `PUPPETEER_EXECUTABLE_PATH`     | No       | Custom path to Chrome binary                         |
-| `APP_URL`                       | No       | Application URL for HTTP-Referer header              |
+### Required
+
+At least one of these must exist:
+
+| Variable | Use |
+|----------|-----|
+| `GEMINI_API_KEY` | Primary provider |
+| `OPENROUTER_API_KEY` | Fallback provider |
+
+### General
+
+| Variable | Description |
+|----------|-------------|
+| `NODE_ENV` | `development` or `production` |
+| `PORT` | HTTP port |
+| `APP_URL` | Referer sent to OpenRouter |
+| `ALLOWED_ORIGINS` | CSV list of production CORS origins |
+
+### Models
+
+| Variable | Description |
+|----------|-------------|
+| `GEMINI_MODELS_FLASH` | Gemini model for Flash |
+| `GEMINI_MODELS_STAGE1` | Gemini model for Stage 1 |
+| `GEMINI_MODELS_STAGE2` | Gemini model for Stage 2 |
+| `GEMINI_MODELS_STAGE3` | Gemini model for Stage 3 |
+| `OPENROUTER_MODELS_FLASH` | Fallback CSV for Flash |
+| `OPENROUTER_MODELS_STAGE1` | Fallback CSV for Stage 1 |
+| `OPENROUTER_MODELS_STAGE2` | Fallback CSV for Stage 2 |
+| `OPENROUTER_MODELS_STAGE3` | Fallback CSV for Stage 3 |
+| `OPENROUTER_MODELS_STAGE3_ONLY` | Models restricted to final composition |
+
+### Queues and limits
+
+| Variable | Description |
+|----------|-------------|
+| `MAX_CONCURRENT_GENERATIONS` | Concurrent generations |
+| `MAX_QUEUE_DEPTH` | Generation queue cap |
+| `PRO_PAUSE_ACTIVE_GENERATIONS` | Pro pause threshold |
+| `PRO_PAUSE_QUEUE_DEPTH` | Pro queue threshold |
+| `PRESSURE_RETRY_AFTER_SEC` | Client retry hint |
+| `PUPPETEER_MAX_CONCURRENT` | Concurrent PDF renders |
+| `PUPPETEER_MAX_QUEUE` | PDF queue cap |
+| `LIMITS_FLASH_DAILY` | Daily Flash quota |
+| `LIMITS_PRO_DAILY` | Daily Pro quota |
+| `LIMITS_FLASH_COOLDOWN_SEC` | Flash cooldown |
+| `LIMITS_PRO_COOLDOWN_SEC` | Pro cooldown |
+| `GLOBAL_DAILY_GENERATION_LIMIT` | Global daily cap |
+| `LIMITS_FINALIZE_MAX` | Finalizations per window |
+
+### Integrations and binaries
+
+| Variable | Description |
+|----------|-------------|
+| `UPSTASH_REDIS_REST_URL` | Redis URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Redis token |
+| `PIXABAY_API_KEY` | Optional image-search fallback |
+| `PUPPETEER_EXECUTABLE_PATH` | Manual Chrome binary path |
 
 ---
 
@@ -493,8 +590,9 @@ Specific considerations:
 
 ### Requirements
 
-- Node.js >= 20.0.0
-- Chrome/Chromium (automatically installed by Puppeteer)
+- Node.js `>= 20`
+- `npm` dependencies
+- A Gemini or OpenRouter API key
 
 ### Installation
 
@@ -504,41 +602,48 @@ cd Aedos
 npm install
 ```
 
-### Configuration
-
-Create a `.env` file at the project root:
+### Minimal `.env`
 
 ```env
-OPENROUTER_API_KEY=sk-or-...
 NODE_ENV=development
 PORT=3000
+GEMINI_API_KEY=your_key
+```
+
+You can also use:
+
+```env
+OPENROUTER_API_KEY=your_key
 ```
 
 ### Running
 
 ```bash
-# Development (with hot-reload)
 npm run dev
+```
 
-# Production
+or
+
+```bash
 npm start
 ```
 
-The server will be available at `http://localhost:3000`.
+The app is available at `http://localhost:3000`.
 
-### NPM Scripts
+### NPM scripts
 
-| Command        | Description                                              |
-|----------------|----------------------------------------------------------|
-| `npm run dev`  | Starts the server with `--watch` for auto-reload         |
-| `npm start`    | Starts the server in production mode                     |
-| `npm run build`| Installs the Puppeteer binary (for deployment)           |
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Runs `node --watch src/backend/server.js` |
+| `npm start` | Runs the server without watch |
+| `npm run build` | Executes `scripts/install-chrome.sh` |
+| `postinstall` | Tries to install Chrome automatically |
 
-### Debugging
+### Development debugging
 
-In development mode (`NODE_ENV=development`):
+When `NODE_ENV=development`:
 
-- The last generated HTML is saved to `tmp/last_generated.html`
-- Pipeline artifacts are saved to `tmp/pipeline_debug_*`
-- Generated examples are saved to `examples/flash/` and `examples/pro/`
-- The `/__dev__/last-generated` endpoint serves the last generated HTML
+- `tmp/last_generated.html` is saved;
+- `tmp/pipeline_debug_*` files are saved;
+- examples are saved to `examples/flash/` and `examples/pro/`;
+- `GET /__dev__/last-generated` is available.
