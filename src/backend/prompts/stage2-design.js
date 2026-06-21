@@ -566,8 +566,10 @@ CRITICAL RULES:
 - Cover must follow cover_archetype. Conclusion must follow conclusion_archetype. They must vary across different topics and MUST NOT default to the same visual recipe.
 - bg_mode defaults to "rich-dark" unless user explicitly asked for light/white
 - Accent color used surgically, not on everything
-- IMAGE SLOTS: Set has_image_slot=true on 2-4 slides per deck. Use full-height split (420-480px) as the primary pattern.
-  ALWAYS include image slots on: split/comparison slides, concept slides that benefit from visual, and any slide where a photo adds value.
+- IMAGE SLOTS: Set has_image_slot=true on 3-6 slides (minimum 3, maximum 6) per deck. Use full-height split (420-480px) as the primary pattern.
+  ALWAYS include image slots on: split/comparison slides, concept slides that benefit from visual, slides about specific people/characters, slides about specific artworks/paintings/buildings, and any slide where a photo adds value.
+  When has_image_slot is true, ALWAYS set image_keyword to a highly specific ENGLISH phrase that exactly describes what should be on the image (e.g., "Walter White Breaking Bad", "Mona Lisa painting by Leonardo da Vinci", "Space Dandy anime character", "Sistine Chapel ceiling Michelangelo", NOT generic like "business" or "teamwork").
+  If the slide mentions a specific person, character, painting, building, or object, ALWAYS set has_image_slot=true and use that exact name in the image_keyword in English.
   For image_placement, be SPECIFIC: 'full-height left split 420px', 'right side 480px with stat overlay', 'beside cards in flex-row'
 - DENSE CONTENT RULE: If a slide has many facts, 5+ items, or long text, prefer density_strategy='compact-two-column' or 'compact-single-column'. Do NOT add a side image slot to a dense slide unless it is 'full-bleed background'.
 - SIDE IMAGE CAP: For text+image split slides, keep image width in the 320-420px range. Never let the image dominate the slide.

@@ -18,10 +18,24 @@ You are a presentation generator API.
 You return one complete HTML document and nothing else.
 CRITICAL: You MUST write the presentation content (titles, text, paragraphs) ${langInstruction}. Keep all JSON keys, CSS variables, and HTML tags in English.
 
-OUTPUT ORDER
-1) Start with <!-- CONFIG
-2) Continue with <!DOCTYPE html>...
-3) End with </body></html>
+------------------------------
+OUTPUT ORDER - MUST FOLLOW EXACTLY!
+------------------------------
+1) FIRST LINE: <!-- CONFIG
+2) THEN the complete JSON CONFIG block
+3) THEN the closing -->
+4) ONLY THEN: <!DOCTYPE html>
+5) END with </body></html>
+
+------------------------------
+CRITICAL MANDATORY IMAGE SLOT RULES - BEFORE ANYTHING ELSE!
+------------------------------
+- ALWAYS set has_image_slot=true on 3-6 slides (minimum 3, maximum 6) per deck.
+- Primary pattern: use the full-height split layout with flex:0 0 400px.
+- Include image slots on: split/comparison slides, concept slides, example slides, slides about specific people/characters, slides about specific artworks/paintings, and any slide where a photo adds visual value.
+- When has_image_slot is true, ALWAYS set image_keyword to a highly specific ENGLISH phrase that exactly describes what should be on the image (e.g., "Walter White Breaking Bad", "Mona Lisa painting by Leonardo da Vinci", "Space Dandy anime character", "Sistine Chapel ceiling Michelangelo", NOT generic like "business" or "teamwork").
+- DO NOT skip or omit image slots! They are required for the final presentation.
+- If the slide mentions a specific person, character, painting, building, or object, ALWAYS set has_image_slot=true and use that exact name in the image_keyword in English.
 
 USER INPUT
 "${rawInput}"
@@ -73,22 +87,62 @@ Build this JSON inside an HTML comment:
   "slides": [
     {
       "index": 1,
-      "role": "[cover | problem | concept | data | comparison | process | example | quote | timeline | conclusion]",
+      "role": "cover",
       "title": "[slide title]",
       "core_message": "[single key message]",
-      "key_points": ["[real content]"] ,
+      "key_points": ["[real content]"],
       "data_points": [{"value":"85%","label":"adoption rate","source":"WEF 2023"}],
-      "layout_family": "[cover | cards | stats | comparison | steps | split | quote | timeline | conclusion | editorial | text]",
+      "layout_family": "cover",
       "composition_literal": "[size, hierarchy, placement spec]",
       "color_use": "[accent application spec]",
       "icon_names": ["[icon or null per card]"],
       "has_image_slot": false,
-      "image_keyword": "[english keyword or null]"
+      "image_keyword": null
+    },
+    {
+      "index": 2,
+      "role": "concept",
+      "title": "[slide title]",
+      "core_message": "[single key message]",
+      "key_points": ["[real content]"],
+      "data_points": [{"value":"85%","label":"adoption rate","source":"WEF 2023"}],
+      "layout_family": "split",
+      "composition_literal": "[size, hierarchy, placement spec]",
+      "color_use": "[accent application spec]",
+      "icon_names": ["[icon or null per card]"],
+      "has_image_slot": true,
+      "image_keyword": "[specific english keyword]"
+    },
+    {
+      "index": 3,
+      "role": "data",
+      "title": "[slide title]",
+      "core_message": "[single key message]",
+      "key_points": ["[real content]"],
+      "data_points": [{"value":"85%","label":"adoption rate","source":"WEF 2023"}],
+      "layout_family": "stats",
+      "composition_literal": "[size, hierarchy, placement spec]",
+      "color_use": "[accent application spec]",
+      "icon_names": ["[icon or null per card]"],
+      "has_image_slot": false,
+      "image_keyword": null
+    },
+    {
+      "index": 4,
+      "role": "example",
+      "title": "[slide title]",
+      "core_message": "[single key message]",
+      "key_points": ["[real content]"],
+      "data_points": [{"value":"85%","label":"adoption rate","source":"WEF 2023"}],
+      "layout_family": "split",
+      "composition_literal": "[size, hierarchy, placement spec]",
+      "color_use": "[accent application spec]",
+      "icon_names": ["[icon or null per card]"],
+      "has_image_slot": true,
+      "image_keyword": "[specific english keyword]"
     }
   ]
 }
--->
-
 -->
 `}
 
@@ -385,22 +439,6 @@ L) COMPARISON
   </div>
   [counter]
 </section>
-
-OUTPUT STRUCTURE
-Start exactly with:
-<!-- CONFIG
-
-Then output:
-<!DOCTYPE html>
-<html lang="[CONFIG.language]">
-<head>
-<meta charset="UTF-8">
-<style>[complete CSS]</style>
-</head>
-<body>
-[exactly CONFIG.slide_count sections]
-</body>
-</html>
 
 FINAL VALIDATION BEFORE RETURN
 - CONFIG is valid JSON inside comment.
