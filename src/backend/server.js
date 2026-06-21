@@ -488,6 +488,239 @@ if (IS_DEVELOPMENT) {
     ensureDirectory(EXAMPLES_PRO_DIR, 'Examples pro');
 }
 
+// ── Image injection using Puppeteer to scrape DuckDuckGo Images (with Pixabay fallback) ───────────
+/**
+ * After Stage 3 HTML is complete, finds all img-slot elements with a
+ * data-image-keyword attribute, scrapes DuckDuckGo Images for a matching photo,
+ * if that fails, uses Pixabay, downloads, converts to data:URI and injects as background-image.
+ * If anything fails, falls back to the gradient placeholder.
+ */
+async function fetchImages(html) {
+    // Extract every unique slot (id + keyword)
+    const slotRegex = /data-image-slot="(\d+)"[^>]*data-image-keyword="([^"]+)"|data-image-keyword="([^"]+)"[^>]*data-image-slot="(\d+)"/g;
+    const slots = [];
+    const seenSlotIds = new Set();
+    let m;
+    console.log('[DEBUG IMAGES] Buscando slots en el HTML...');
+    while ((m = slotRegex.exec(html)) !== null) {
+        const slotId = m[1] || m[4];
+        const keyword = m[2] || m[3];
+        console.log('[DEBUG IMAGES] Encontrado slot:', { slotId, keyword });
+        if (!seenSlotIds.has(slotId)) {
+            seenSlotIds.add(slotId);
+            slots.push({ slotId, keyword });
+        }
+    }
+
+    console.log('[DEBUG IMAGES] Total de slots encontrados:', slots.length);
+    if (slots.length === 0) {
+        console.log('[DEBUG IMAGES] No hay slots, devolviendo HTML original');
+        const configMatch = html.match(/<!-- CONFIG([\s\S]*?)-->/);
+        if (configMatch) {
+            console.log('[DEBUG IMAGES] CONFIG encontrado:', configMatch[1].substring(0, 1000));
+        }
+        return html;
+    }
+    
+    console.log('[DEBUG IMAGES] Estado del navegador global:', !!browser);
+
+    /**
+     * Fetches an image for a slot using DuckDuckGo's internal images API (/i.js).
+     * This is a pure HTTP approach — no Puppeteer needed. Works in 2 steps:
+     *   1. GET the DDG search page to extract the session vqd token
+     *   2. GET /i.js with the token to get image results JSON
+     * This returns real web images (anime, people, artworks, etc.) not stock photos.
+     */
+    async function fetchSlotImageDuckDuckGo(slot) {
+        const DDG_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+        try {
+            console.log(`[DEBUG IMAGES] Buscando "${slot.keyword}" en DuckDuckGo Images (API)...`);
+
+            // Step 1: Get initial page to extract vqd session token
+            const initUrl = `https://duckduckgo.com/?q=${encodeURIComponent(slot.keyword)}&iax=images&ia=images`;
+            const initRes = await fetch(initUrl, {
+                headers: {
+                    'User-Agent': DDG_UA,
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive',
+                },
+                signal: AbortSignal.timeout(12000)
+            });
+
+            if (!initRes.ok) {
+                console.log(`[DEBUG IMAGES] DDG init page failed: ${initRes.status}`);
+                return null;
+            }
+
+            const initHtml = await initRes.text();
+
+            // Extract vqd token — DDG embeds it in script blocks as vqd='4-...' or "vqd":"4-..."
+            const vqdMatch =
+                initHtml.match(/vqd=["']?([\d-]+)["']?/) ||
+                initHtml.match(/"vqd"\s*:\s*"([^"]+)"/) ||
+                initHtml.match(/vqd%3D([\d-]+)/);
+
+            if (!vqdMatch) {
+                console.log(`[DEBUG IMAGES] No se encontró token vqd de DuckDuckGo`);
+                return null;
+            }
+            const vqd = vqdMatch[1];
+            console.log(`[DEBUG IMAGES] Token vqd obtenido: ${vqd.substring(0, 20)}...`);
+
+            // Step 2: Query the internal images API
+            const apiUrl = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(slot.keyword)}&vqd=${encodeURIComponent(vqd)}&f=,,,,,&p=1&s=0`;
+            const apiRes = await fetch(apiUrl, {
+                headers: {
+                    'User-Agent': DDG_UA,
+                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': 'https://duckduckgo.com/',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                signal: AbortSignal.timeout(12000)
+            });
+
+            if (!apiRes.ok) {
+                console.log(`[DEBUG IMAGES] DDG images API failed: ${apiRes.status}`);
+                return null;
+            }
+
+            const data = await apiRes.json();
+            const results = data?.results || [];
+
+            if (results.length === 0) {
+                console.log(`[DEBUG IMAGES] DDG no encontró imágenes para "${slot.keyword}"`);
+                return null;
+            }
+
+            console.log(`[DEBUG IMAGES] DDG encontró ${results.length} imágenes para "${slot.keyword}"`);
+
+            // Try to download the top results until one succeeds
+            for (let i = 0; i < Math.min(6, results.length); i++) {
+                const imageUrl = results[i]?.image;
+                if (!imageUrl || !imageUrl.startsWith('http')) continue;
+
+                try {
+                    console.log(`[DEBUG IMAGES] Descargando imagen ${i + 1} de DDG: ${imageUrl.substring(0, 80)}`);
+                    const imgRes = await fetch(imageUrl, {
+                        headers: {
+                            'User-Agent': DDG_UA,
+                            'Referer': 'https://duckduckgo.com/',
+                        },
+                        signal: AbortSignal.timeout(10000)
+                    });
+
+                    if (imgRes.ok) {
+                        const contentType = imgRes.headers.get('content-type') || '';
+                        if (contentType.startsWith('image/')) {
+                            const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+                            // Reject suspiciously small files (likely error pages)
+                            if (imgBuffer.length < 5000) {
+                                console.log(`[DEBUG IMAGES] Imagen ${i + 1} demasiado pequeña (${imgBuffer.length}B), saltando`);
+                                continue;
+                            }
+                            console.log(`[DEBUG IMAGES] ✓ Imagen descargada de DDG para "${slot.keyword}" (${Math.round(imgBuffer.length / 1024)}KB)`);
+                            return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
+                        }
+                    }
+                } catch (e) {
+                    console.log(`[DEBUG IMAGES] Error descargando imagen ${i + 1} de DDG:`, e.message);
+                }
+            }
+
+            console.log(`[DEBUG IMAGES] No se pudo descargar ninguna imagen de DDG para "${slot.keyword}"`);
+            return null;
+        } catch (err) {
+            console.log(`[DEBUG IMAGES] Error en DDG API para "${slot.keyword}":`, err.message);
+            return null;
+        }
+    }
+
+    async function fetchSlotImagePixabay(slot) {
+        const apiKey = process.env.PIXABAY_API_KEY;
+        if (!apiKey) return null;
+        try {
+            const query = encodeURIComponent(slot.keyword);
+            const apiUrl = `https://pixabay.com/api/?key=${apiKey}&q=${query}&image_type=photo&per_page=10&safesearch=true&min_width=1024&orientation=horizontal&order=popular`;
+            const searchRes = await fetch(apiUrl, { signal: AbortSignal.timeout(6000) });
+            if (!searchRes.ok) return null;
+
+            const data = await searchRes.json();
+            const hits = data?.hits || [];
+            if (hits.length === 0) return null;
+
+            hits.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+            const hit = hits[0];
+            if (!hit?.webformatURL) return null;
+
+            const imgRes = await fetch(hit.webformatURL, { signal: AbortSignal.timeout(8000) });
+            if (!imgRes.ok) return null;
+
+            const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+            const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+            return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
+        } catch (err) {
+            console.log(`[DEBUG IMAGES] Error en Pixabay para "${slot.keyword}":`, err.message);
+            return null;
+        }
+    }
+
+    const results = [];
+    for (const slot of slots) {
+        let dataUri = null;
+        // DuckDuckGo first — it searches the real web (anime, characters, artworks, etc.)
+        dataUri = await fetchSlotImageDuckDuckGo(slot);
+        if (!dataUri) {
+            // Pixabay as fallback — only good for generic stock photos
+            console.log(`[DEBUG IMAGES] DDG falló, usando Pixabay para "${slot.keyword}"`);
+            dataUri = await fetchSlotImagePixabay(slot);
+        }
+        results.push(dataUri ? { slotId: slot.slotId, dataUri } : null);
+    }
+
+    for (const result of results) {
+        if (!result) continue;
+        const { slotId, dataUri } = result;
+        console.log('[DEBUG IMAGES] Aplicando imagen al slot:', slotId);
+        const slotOpenRe = new RegExp(`(<div[^>]*data-image-slot="${slotId}"[^>]*>)`, 'i');
+        if (slotOpenRe.test(html)) {
+            html = html.replace(slotOpenRe, (_, openTag) => {
+                let newOpenTag = openTag;
+                
+                if (/class\s*=/.test(newOpenTag)) {
+                    newOpenTag = newOpenTag.replace(/(class\s*=\s*["'])([^"']*)(["'])/, (_, qOpen, classes, qClose) => 
+                        classes.includes('has-custom-image') ? `${qOpen}${classes}${qClose}` : `${qOpen}${classes} has-custom-image${qClose}`
+                    );
+                } else {
+                    newOpenTag = newOpenTag.replace(/>$/, ' class="has-custom-image">');
+                }
+                
+                if (/style\s*=/.test(newOpenTag)) {
+                    newOpenTag = newOpenTag.replace(/(style\s*=\s*["'])([^"']*)(["'])/, (_, qOpen, style, qClose) => {
+                        const bgStyle = `background-image:url('${dataUri}');background-size:cover;background-position:center`;
+                        return style.includes('background-image') 
+                            ? `${qOpen}${style.replace(/background-image\s*:[^;"]*;?/gi, bgStyle)}${qClose}`
+                            : `${qOpen}${style};${bgStyle}${qClose}`;
+                    });
+                } else {
+                    newOpenTag = newOpenTag.replace(/>$/, ` style="background-image:url('${dataUri}');background-size:cover;background-position:center">`);
+                }
+                
+                return newOpenTag;
+            });
+        }
+    }
+    
+    html = html.replace(/<div[^>]*class\s*=\s*["'][^"']*img-bg1[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '');
+    html = html.replace(/<div[^>]*class\s*=\s*["'][^"']*img-bg2[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '');
+    html = html.replace(/<div[^>]*class\s*=\s*["'][^"']*img-replace-overlay[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '');
+
+    console.log('[DEBUG IMAGES] ¡Listo!');
+    return html;
+}
+
 // Strips <script> blocks, inline event handlers, and javascript: URLs from
 // AI-generated HTML before it is sent to the client. Defense-in-depth layer
 // complementing the identical sanitization already done on the client side.
@@ -997,7 +1230,7 @@ async function initBrowser() {
         }
 
         const launchOptions = {
-            headless: true,
+            headless: 'new',
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || autoExecutablePath || undefined,
             args: [
                 '--no-sandbox',
@@ -1005,7 +1238,12 @@ async function initBrowser() {
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
                 '--no-first-run',
-                '--no-zygote'
+                '--no-zygote',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-infobars',
+                '--disable-extensions',
+                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                '--lang=es-ES,es;q=0.9,en;q=0.8'
             ]
         };
 
@@ -1761,9 +1999,15 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
 
         // 6. Clean the full response
         let finalHtml = fullHtml.replace(/^```html\n?/m, '').replace(/^```\n?/m, '').replace(/```\n?$/m, '').trim();
+        console.log('[DEBUG SERVER] fullHtml limpiado, longitud:', finalHtml.length);
 
         // 6.5 Remove any existing CSP meta tags to avoid conflicts
         finalHtml = finalHtml.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/gi, '');
+
+        // 6.6 Fetch & inject Pixabay photos into img-slot divs (graceful fallback)
+        console.log('[DEBUG SERVER] Llamando a fetchImages...');
+        finalHtml = await fetchImages(finalHtml);
+        console.log('[DEBUG SERVER] fetchImages completado');
 
         // 7. Validate the response — detect refusals
         const configRegex = /<!--\s*CONFIG[\s\S]*?-->/i;
