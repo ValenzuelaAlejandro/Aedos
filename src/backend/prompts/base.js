@@ -30,11 +30,36 @@ OUTPUT ORDER - MUST FOLLOW EXACTLY!
 ------------------------------
 CRITICAL MANDATORY IMAGE SLOT RULES - BEFORE ANYTHING ELSE!
 ------------------------------
-- ALWAYS set has_image_slot=true on 3-6 slides (minimum 3, maximum 6) per deck.
-- Primary pattern: use the full-height split layout with flex:0 0 400px.
-- Include image slots on: split/comparison slides, concept slides, example slides, slides about specific people/characters, slides about specific artworks/paintings, and any slide where a photo adds visual value.
+- Set has_image_slot=true dynamically depending on the presentation's narrative needs. DO NOT hardcode exactly 3-6 images; prioritize visual impact and versatile layouts over a fixed count.
+- Primary patterns: vary the image layout. Sometimes use full-height splits, sometimes use small side images next to text, or use full-bleed background images (possibly with low opacity) for cover slides or transitional slides. Prioritize the visual impact and proper display of images (avoid awkward cropping).
+- Include image slots on: split/comparison slides, concept slides, example slides, cover slides, slides about specific people/characters, slides about specific artworks/paintings, and any slide where a photo adds visual value.
 - When has_image_slot is true, ALWAYS set image_keyword to a highly specific ENGLISH phrase that exactly describes what should be on the image (e.g., "Walter White Breaking Bad", "Mona Lisa painting by Leonardo da Vinci", "Space Dandy anime character", "Sistine Chapel ceiling Michelangelo", NOT generic like "business" or "teamwork").
-- DO NOT skip or omit image slots! They are required for the final presentation.
+
+🚨 KEYWORD RULE: USE THE ACTUAL NAME FROM THE SLIDE CONTENT 🚨
+
+The biggest failure is generating DESCRIPTIVE keywords instead of actual names:
+- ✗ "chaos and psychological tension anime" (describes a vibe)
+- ✗ "serene blue lagoon water surface landscape" (describes what an image might look like)
+- ✗ "vibrant colors and dynamic shapes" (abstract description)
+
+The keyword MUST be the ACTUAL NAME of what the slide is about. To find it:
+1. SCAN the slide's title, subtitle, and key_points for PROPER NOUNS (capitalized names of people, places, artworks, songs, albums, products)
+2. The keyword = those names + a brief context qualifier
+
+Examples of CORRECT keyword extraction:
+- Title "Horizonte (Blue Lagoon)" by Masayoshi Takanaka → "Masayoshi Takanaka Blue Lagoon album cover"
+- Title "Light Yagami's descent" → "Light Yagami Death Note character portrait"
+- Title "Mona Lisa" → "Mona Lisa painting by Leonardo da Vinci"
+- Title "Birth of Kira" → "Light Yagami Kira Death Note anime"
+- Title "Character Archetypes: Kira, L, Ryuk" → "Death Note characters Kira L Ryuk anime"
+- Title "Sistine Chapel ceiling" → "Sistine Chapel ceiling Michelangelo"
+- If the slide mentions a song by name → "ArtistName SongName album cover"
+- If the slide mentions a person → "PersonName portrait photo" or "PersonName anime character"
+- If the slide mentions an artwork → "ArtworkName by Artist"
+- If the slide mentions a place/building → "PlaceName exterior" or "BuildingName architecture"
+
+NEVER use abstract descriptions like "beautiful", "vibrant", "dynamic", "chaotic", "mysterious" as keywords. ALWAYS use the concrete NAME of the subject.
+- DO NOT skip or omit image slots if they add value! They are required for the final presentation.
 - If the slide mentions a specific person, character, painting, building, or object, ALWAYS set has_image_slot=true and use that exact name in the image_keyword in English.
 
 USER INPUT
@@ -162,7 +187,7 @@ ${skeletonStr ? `- STRICTLY use the provided CONFIG JSON for content (slides, ti
   process -> steps
   concept -> cards when 3+ points, otherwise editorial
   problem -> cards when 3+ points, otherwise editorial
-  example -> split or cards
+  example -> split (image + content) when the example involves a specific person, artwork, song, album, building or object. Only use "cards" for abstract examples (e.g., "an example of bad UI design"). For "Mejores canciones de X" (specific songs) or "biografía de Y" or "la obra Z" — ALWAYS use "split" with an image of that specific thing.
   quote -> quote
   conclusion -> conclusion
 - Include deck variety:

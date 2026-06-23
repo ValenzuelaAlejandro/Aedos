@@ -392,7 +392,7 @@ contentJson.slides[N].role constrains your layout_family choice. This is NOT a r
   role: "concept"    → layout_family: "cards" if key_points ≥ 3 standalone items, else "editorial"
   role: "problem"    → layout_family: "cards" if 3+ distinct problems, else "editorial"
   role: "error_list" → layout_family: "cards" (each error = one card)
-  role: "example"    → layout_family: "split" (image + content) or "cards"
+  role: "example"    → layout_family: "split" (image + content) — USE "split" WHEN THE EXAMPLE INVOLVES A SPECIFIC PERSON, ARTWORK, SONG, ALBUM, BUILDING OR OBJECT. Only use "cards" if the example is abstract (e.g., "an example of bad UI design"). For "Mejores canciones de X" (specific songs) or "biografía de Y" or "la obra Z" — ALWAYS use "split" with an image of that specific thing.
   role: "internals"  → layout_family: "editorial" or "stats"
   role: "quote"      → layout_family: "editorial" with oversized typographic quote treatment
   role: "cover"      → follow cover_archetype
@@ -566,11 +566,96 @@ CRITICAL RULES:
 - Cover must follow cover_archetype. Conclusion must follow conclusion_archetype. They must vary across different topics and MUST NOT default to the same visual recipe.
 - bg_mode defaults to "rich-dark" unless user explicitly asked for light/white
 - Accent color used surgically, not on everything
-- IMAGE SLOTS: Set has_image_slot=true on 3-6 slides (minimum 3, maximum 6) per deck. Use full-height split (420-480px) as the primary pattern.
-  ALWAYS include image slots on: split/comparison slides, concept slides that benefit from visual, slides about specific people/characters, slides about specific artworks/paintings/buildings, and any slide where a photo adds value.
-  When has_image_slot is true, ALWAYS set image_keyword to a highly specific ENGLISH phrase that exactly describes what should be on the image (e.g., "Walter White Breaking Bad", "Mona Lisa painting by Leonardo da Vinci", "Space Dandy anime character", "Sistine Chapel ceiling Michelangelo", NOT generic like "business" or "teamwork").
-  If the slide mentions a specific person, character, painting, building, or object, ALWAYS set has_image_slot=true and use that exact name in the image_keyword in English.
-  For image_placement, be SPECIFIC: 'full-height left split 420px', 'right side 480px with stat overlay', 'beside cards in flex-row'
+- IMAGE SLOTS — MANDATORY USAGE RULES (CRITICAL):
+
+  **WHEN TO INCLUDE IMAGES — THESE ARE MANDATORY, NOT OPTIONAL:**
+  
+  1. **COVER SLIDE (Slide 1)**: MUST have has_image_slot=true with a full-bleed background image OR split layout with prominent image. The cover sets the visual tone.
+  
+  2. **CONCEPT/FEATURE SLIDES (role="concept")**: MUST include at least one image slot showing the core concept visually. People understand visuals faster than text.
+  
+  3. **EXAMPLE SLIDES (role="example")**: MUST have image slots showing the specific examples being discussed. If talking about a person, artwork, building, or object - SHOW IT.
+  
+  4. **SPLIT/COMPARISON SLIDES (role="comparison" or layout_family="split")**: MUST use image slots for visual comparison. Side-by-side images are more impactful than text alone.
+  
+  5. **TIMELINE SLIDES (role="timeline")**: SHOULD include images representing key periods or events for visual context.
+  
+  6. **CONCLUSION SLIDE (Last slide)**: SHOULD have an image slot with a powerful visual that encapsulates the presentation's message.
+
+  **TARGET: At least 60-70% of slides should have image slots.** A presentation with only 2-3 images across 8 slides is UNACCEPTABLE.
+
+  **IMAGE KEYWORD REQUIREMENTS — BE SPECIFIC OR FAIL:**
+  
+  When has_image_slot=true, image_keyword MUST be a highly specific ENGLISH search phrase that would return EXACTLY the image you want:
+  
+  - BAD (too generic): "business", "teamwork", "technology", "art", "building"
+  - GOOD (specific): "Walter White Breaking Bad character portrait"
+  - GOOD (specific): "Mona Lisa painting by Leonardo da Vinci Louvre"
+  - GOOD (specific): "Florence Cathedral Duomo Brunelleschi dome"
+  - GOOD (specific): "Masaccio Holy Trinity fresco Brancacci Chapel"
+  - GOOD (specific): "Sistine Chapel ceiling Creation of Adam Michelangelo"
+  - GOOD (specific): "Starbucks Coffee modern cafe interior design"
+  - GOOD (specific): "Tesla Model S electric car exterior"
+
+  **🚨 CRITICAL: KEYWORD = THE ACTUAL NAME MENTIONED IN THE SLIDE 🚨**
+  
+  The biggest failure mode is generating DESCRIPTIVE keywords like:
+  - ✗ "chaos and psychological tension anime" (describes a vibe)
+  - ✗ "serene blue lagoon water surface landscape" (describes what an image might look like)
+  - ✗ "vibrant colors and dynamic shapes" (abstract description)
+  
+  The keyword MUST be the ACTUAL NAME of what the slide is about. To find it:
+  
+  1. SCAN the slide's title, subtitle, and key_points for PROPER NOUNS (capitalized names of people, places, artworks, songs, albums, products, etc.)
+  2. The keyword = those names + a brief context qualifier
+  3. Examples of CORRECT keyword extraction:
+     - Title "Horizonte (Blue Lagoon)" by Masayoshi Takanaka → "Masayoshi Takanaka Blue Lagoon album cover"
+     - Title "Light Yagami's descent" → "Light Yagami Death Note character portrait"
+     - Title "Mona Lisa" → "Mona Lisa painting by Leonardo da Vinci"
+     - Title "Birth of Kira" → "Light Yagami Kira Death Note anime"
+     - Title "Horizonte" (a song) → "Masayoshi Takanaka Horizonte vinyl cover"
+  4. If the slide mentions a song by name → "ArtistName SongName album cover"
+  5. If the slide mentions a person → "PersonName portrait photo" or "PersonName anime character" (depending on context)
+  6. If the slide mentions an artwork/painting → "ArtworkName by Artist"
+  7. If the slide mentions a place/building → "PlaceName exterior" or "BuildingName architecture"
+  
+  ⚠ NEVER use abstract descriptions like "beautiful", "vibrant", "dynamic", "chaotic", "mysterious" as keywords. ALWAYS use the concrete NAME of the subject.
+  
+  **IMAGE PLACEMENT — SPECIFY EXACTLY:**
+  
+  For image_placement, choose one of these EXACT patterns:
+  - 'full-height left split 420px' - Image takes full left side
+  - 'full-height right split 420px' - Image takes full right side  
+  - 'full-bleed background with overlay' - Image covers entire slide with dark overlay for text
+  - 'beside cards flex-row 360px' - Image beside card grid
+  - 'side left 400px with content right' - Smaller left image with content
+  - 'side right 400px with content left' - Smaller right image with content
+  
+  NEVER use: 'top of slide', 'above content', 'floating', 'corner' - these break layouts.
+
+  **IF A SLIDE MENTIONS SPECIFIC PEOPLE, ARTWORKS, BUILDINGS, OR OBJECTS:**
+  
+  ALWAYS set has_image_slot=true and use the EXACT name in image_keyword. If talking about:
+  - A person: "[Full Name] portrait photo/painting"
+  - An artwork: "[Artwork Title] by [Artist]"
+  - A building: "[Building Name] architecture exterior/interior"
+  - A product: "[Product Name] product photo"
+  - A place: "[Location] landmark scenic view"
+  
+  **FINAL CHECK - BEFORE SUBMITTING JSON:**
+  
+  Count how many slides have has_image_slot=true:
+  - For an 8-slide deck: At least 5-6 slides should have images
+  - For a 10-slide deck: At least 6-7 slides should have images
+  - For a 12-slide deck: At least 8-9 slides should have images
+  
+  If you have fewer images than this, GO BACK and add more image slots to slides about:
+  - Specific people/characters
+  - Artworks, buildings, objects
+  - Examples and case studies
+  - Concepts that would benefit from visual illustration
+  - Timeline events that need visual context
+
 - DENSE CONTENT RULE: If a slide has many facts, 5+ items, or long text, prefer density_strategy='compact-two-column' or 'compact-single-column'. Do NOT add a side image slot to a dense slide unless it is 'full-bleed background'.
 - SIDE IMAGE CAP: For text+image split slides, keep image width in the 320-420px range. Never let the image dominate the slide.
 - HIGHLIGHTED WORDS: In composition descriptions, specify which words in titles should be in accent color

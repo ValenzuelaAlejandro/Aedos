@@ -454,7 +454,59 @@ IMAGE SLOT SYSTEM — USERS UPLOAD THEIR OWN IMAGES
 Image slots are WHERE users upload their own photos. CRITICAL for user experience.
 - data-image-slot="[1-9]" — UNIQUE number across ALL slides
 - data-image-keyword="[English keyword]" — for image search
-- Include 2-4 slots per deck. REQUIRED if Stage 2 specifies has_image_slot=true
+- Include image slots as specified by Stage 2. Set has_image_slot=true when required.
+
+═══════════════════════════════════════
+MANDATORY IMAGE COVERAGE REQUIREMENTS
+═══════════════════════════════════════
+
+When building the HTML, you MUST ensure adequate image coverage:
+
+- **TARGET COVERAGE**: At least 60-70% of slides should have image slots.
+- **COVER SLIDE (Slide 1)**: MUST have an image - either full-bleed background or prominent split layout.
+- **CONCEPT SLIDES (role="concept")**: SHOULD have image slots showing the concept visually.
+- **EXAMPLE SLIDES (role="example")**: MUST have image slots showing the specific examples.
+- **COMPARISON SLIDES (role="comparison")**: SHOULD use image slots for visual comparison.
+- **CONCLUSION SLIDE**: SHOULD have an image slot with a powerful closing visual.
+
+If designJson specifies has_image_slot=false for a slide that CLEARLY should have an image (e.g., a slide about a specific person, artwork, or building), YOU MUST STILL ADD THE IMAGE SLOT in the HTML. The visual communication takes priority over the JSON specification.
+
+**Image Keyword Requirements:**
+- When creating image slots, ALWAYS include data-image-keyword with a highly specific English search phrase
+- BAD: "art", "building", "person" — too generic
+- BAD: "chaos and psychological tension anime" — abstract description
+- GOOD: "Mona Lisa painting by Leonardo da Vinci", "Florence Cathedral Brunelleschi dome", "Michelangelo Sistine Chapel ceiling"
+- Include artist names, specific titles, and context for best search results
+
+**🚨 KEYWORD RULE: USE THE ACTUAL NAME FROM THE SLIDE CONTENT 🚨**
+
+The keyword MUST be the actual name of what the slide discusses, NOT a descriptive phrase. To find it:
+1. Read the slide's h2 title, subtitle, and key content
+2. Extract PROPER NOUNS: names of people, songs, albums, artworks, places, products
+3. The keyword = "[Name] [optional context qualifier like 'portrait', 'album cover', 'painting']"
+
+Examples:
+- Title "Light Yagami's descent" → keyword "Light Yagami Death Note character portrait"
+- Title "The Birth of Kira" → keyword "Light Yagami Kira Death Note anime"
+- Title "Horizonte" (a song) → keyword "Masayoshi Takanaka Horizonte album cover"
+- Title "Character Archetypes: Kira, L, Ryuk" → keyword "Death Note characters Kira L Ryuk anime"
+- Title "Mona Lisa" → keyword "Mona Lisa painting by Leonardo da Vinci"
+- Title "Sistine Chapel ceiling" → keyword "Sistine Chapel ceiling Michelangelo"
+
+NEVER use abstract descriptions like "beautiful", "vibrant", "chaotic", "mysterious" as keywords. Use the concrete name.
+
+**NAME DETECTION — SCAN SLIDE TEXT FOR MISSING IMAGES:**
+
+Before building each slide, scan the slide's h2 title and text content for PROPER NOUNS (capitalized multi-word names of people, characters, songs, artworks, places). If you find them AND the slide lacks an image slot, you MUST add one with the proper noun as the keyword.
+
+Examples of names to detect:
+- Character names: "Light Yagami", "L Lawliet", "Ryuk", "Misa Amane"
+- Artist names: "Masayoshi Takanaka", "Leonardo da Vinci"
+- Artwork names: "Mona Lisa", "Sistine Chapel"
+- Song names: "Horizonte", "Blue Lagoon", "Summer Breeze"
+- Place names: "Florence", "Rome", "Tokyo"
+
+If the slide's content is about ANY of these specific named things and has no image slot, ADD ONE with that exact name as the keyword.
 
 IMG-SLOT PLACEMENT RULES — STRICTLY ENFORCED:
 
@@ -469,9 +521,9 @@ IMG-SLOT PLACEMENT RULES — STRICTLY ENFORCED:
   ✓ THE ONLY ALLOWED PATTERNS:
   • Layout A: section MUST have flex-direction:row explicitly in inline style — img-slot is a side column
   • Layout B: img-slot is INSIDE a flex-row sub-container within a padded section (never a direct section.s child)
-  ✓ The slide title, tag, and key content must always be outside img-slot and in a separate sibling column
-  ✗ NEVER place any text/content/labels/counters inside an img-slot
-  ✗ NEVER use img-slot as full-bleed background behind text
+  ✓ The slide title, tag, and key content must always be outside img-slot and in a separate sibling column (unless using full-bleed background pattern)
+  ✗ NEVER place any text/content/labels/counters inside a side-column img-slot
+  ✓ You MAY use img-slot as full-bleed background behind text if the layout calls for it (e.g. covers).
 
    CRITICAL DIRECTION RULE:
   section.s CSS class defines flex-direction:column. Writing style="display:flex" inline does NOT override this.
@@ -486,8 +538,8 @@ NO width/min-height/flex on .img-slot — sizing via inline style per layout.
 
 WHEN TO USE IMAGE SLOTS:
 - Use a side image slot only when the slide has short to medium text density.
-- If the slide has 5+ facts, multiple paragraphs, or a long explanation, DO NOT use an image slot on that slide.
-- Never solve density by placing text on top of an image slot.
+- If the slide has 5+ facts, multiple paragraphs, or a long explanation, prefer text-focused layouts or use a full-bleed background image with a strong dark overlay.
+- You CAN place text on top of an image slot ONLY if it is a full-bleed background (Pattern C) and you use a dark overlay (e.g. rgba(0,0,0,0.6)) to ensure text readability.
 
 LAYOUT PATTERN A — FULL-HEIGHT SPLIT (THE CORRECT img-slot pattern):
 CRITICAL: section MUST have flex-direction:row in inline style. This overrides the class-level flex-direction:column.
@@ -523,10 +575,18 @@ LAYOUT PATTERN B — IMAGE BESIDE CARDS (inside regular padded section):
   </div>
 </div>
 
-LAYOUT PATTERN C — RESERVED / NOT ALLOWED:
-  Do NOT implement full-bleed image backgrounds with text overlays.
-  If the composition asks for this, convert to a side-column img-slot (Pattern A/B)
-  or remove the image slot for that slide.
+LAYOUT PATTERN C — FULL-BLEED BACKGROUND (for covers or transitions):
+<section class="s" style="padding:4rem 5rem;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+  <div class="img-slot" data-image-slot="[1-9]" data-image-keyword="[keyword]"
+       style="position:absolute;inset:0;z-index:0;border-radius:0;">
+    <!-- Use a dark overlay to ensure text is readable -->
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:1;pointer-events:none;"></div>
+  </div>
+  <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;">
+    <div class="tag" style="color:var(--accent);">TAG</div>
+    <h1 style="color:#FFFFFF;">Title text</h1>
+  </div>
+</section>
 
 ICON SYSTEM — MANDATORY ON CONCEPT/FEATURE/PILLAR SLIDES:
 Lucide icons are injected by server. USAGE: <div class="icon-wrapper"><i data-lucide="brain"></i></div>

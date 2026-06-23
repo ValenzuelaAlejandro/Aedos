@@ -515,6 +515,16 @@ window.renderOutlineSuggestedChips = function(skeletonData) {
             btn.innerHTML = chip.text;
 
             btn.addEventListener('click', () => {
+                // Primary "Looks good! Create presentation" chip: skip the AI skeleton
+                // analysis entirely and kick off the final generation straight from
+                // the current outline. This avoids a wasted /generate-skeleton call.
+                if (chip.action === 'generate') {
+                    if (typeof window.proceedWithCurrentOutline === 'function') {
+                        window.proceedWithCurrentOutline();
+                    }
+                    return;
+                }
+
                 const inputEl = document.getElementById('w-tema');
                 const btnGenerateMain = document.getElementById('btn-generate');
                 if (inputEl && btnGenerateMain) {

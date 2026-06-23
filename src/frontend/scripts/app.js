@@ -1746,6 +1746,158 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Direct proceed shortcut: when the user explicitly approves the outline via the
+    // primary "Looks good! Create presentation" chip, skip the AI skeleton analysis and
+    // immediately start the final generation. This saves a request + tokens that would
+    // otherwise be spent re-asking the model to detect the proceed intent from
+    // "Todo listo! Crear presentación".
+    window.proceedWithCurrentOutline = function() {
+        if (window._activeGenController) {
+            console.warn("A generation is already in progress. Ignoring proceed request.");
+            return;
+        }
+        if (_skeletonGenController) {
+            _skeletonGenController.abort();
+            _skeletonGenController = null;
+        }
+
+        const skeleton = (window.outlineEditorState && window.outlineEditorState.skeleton)
+            ? window.outlineEditorState.skeleton
+            : null;
+        if (!skeleton || !Array.isArray(skeleton.slides) || skeleton.slides.length === 0) {
+            console.warn("proceedWithCurrentOutline: no outline available to proceed with.");
+            return;
+        }
+
+        if (window.location.hash !== '#chat') {
+            window.navigateToChat();
+        }
+
+        // Build the same body/headers that handleGenerate would build for the
+        // /generate-skeleton call. startFinalGeneration reuses these for /generate.
+        const tema = (temaInput && temaInput.value ? temaInput.value.trim() : '') ||
+            (window.__t ? window.__t('default_document_prompt', 'Analyze this document and create a presentation') : 'Analyze this document and create a presentation');
+        const requestData = {
+            tema,
+            mode: 'chat',
+            ...(targetLanguage !== 'auto' ? { language: targetLanguage } : {})
+        };
+        requestData.currentSkeleton = JSON.stringify(skeleton);
+
+        let bodyData;
+        let headers = {};
+        if (window._attachedFiles && window._attachedFiles.length > 0) {
+            const formData = new FormData();
+            formData.append('tema', requestData.tema);
+            if (requestData.mode) formData.append('mode', requestData.mode);
+            if (requestData.language) formData.append('language', requestData.language);
+            if (requestData.slides !== undefined) formData.append('slides', requestData.slides);
+            if (requestData.currentSkeleton) formData.append('currentSkeleton', requestData.currentSkeleton);
+            window._attachedFiles.forEach(f => formData.append('files', f));
+            bodyData = formData;
+        } else {
+            headers['Content-Type'] = 'application/json';
+            bodyData = JSON.stringify(requestData);
+        }
+
+        window._pendingGenerateBodyData = bodyData;
+        window._pendingGenerateHeaders = headers;
+
+        // Lock outline editor buttons while the final generation runs
+        const btnGen = document.getElementById('btn-outline-generate');
+        const btnAdd = document.getElementById('btn-outline-add-slide');
+        if (btnGen) btnGen.disabled = true;
+        if (btnAdd) btnAdd.disabled = true;
+
+        // Mirror the normal "user sent a message" behavior: clear the chip row and
+        // any pending chip render so the user can't fire another request mid-flight.
+        const chipsContainer = document.getElementById('outline-suggested-chips');
+        if (chipsContainer) {
+            chipsContainer.innerHTML = '';
+            if (window._chipsRenderTimeout) {
+                clearTimeout(window._chipsRenderTimeout);
+                window._chipsRenderTimeout = null;
+            }
+        }
+        document.querySelectorAll('.suggested-chip').forEach(el => { el.disabled = true; });
+
+        // Mirror the proceed loading UI normally rendered after the AI returns proceed
+        const aiMessages = document.querySelectorAll('.chat-msg-ai');
+        const latestAiMessage = aiMessages[aiMessages.length - 1];
+        if (latestAiMessage) {
+            const thinking = latestAiMessage.querySelector('.chat-thinking');
+            if (thinking) thinking.classList.add('hidden');
+
+            const aiBody = latestAiMessage.querySelector('.chat-ai-body');
+            if (aiBody) {
+                aiBody.querySelectorAll('.chat-proceed-message').forEach(el => el.remove());
+
+                const progressMsg = document.createElement('div');
+                progressMsg.className = 'chat-proceed-message';
+                progressMsg.style.cssText = 'padding: 0.8rem 1rem; color: var(--text); font-weight: 500; font-family: var(--font-body); display: flex; align-items: center; gap: 0.5rem;';
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = window.__t ? window.__t('chat_proceeding_1', 'Analyzing request...') : 'Analyzing request...';
+
+                progressMsg.innerHTML = `<span style="color: var(--accent); font-size: 1.2rem; display: inline-block;" class="loading-spinner">⟳</span>`;
+                progressMsg.appendChild(textSpan);
+                aiBody.appendChild(progressMsg);
+
+                if (window.gsap) {
+                    window.gsap.fromTo(progressMsg, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+                }
+
+                const spinner = progressMsg.querySelector('.loading-spinner');
+                if (spinner && spinner.animate) {
+                    spinner.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 1500, iterations: Infinity });
+                }
+
+                const msgs = [
+                    window.__t ? window.__t('chat_proceeding_2', 'Drafting slides...') : 'Drafting slides...',
+                    window.__t ? window.__t('chat_proceeding_3', 'Structuring narrative...') : 'Structuring narrative...',
+                    window.__t ? window.__t('chat_proceeding_4', 'Finding visual assets...') : 'Finding visual assets...',
+                    window.__t ? window.__t('chat_proceeding_5', 'Polishing layout...') : 'Polishing layout...'
+                ];
+                let msgIdx = 0;
+                if (window._proceedMsgInterval) {
+                    clearInterval(window._proceedMsgInterval);
+                }
+                window._proceedMsgInterval = setInterval(() => {
+                    if (!document.body.contains(progressMsg) || document.body.classList.contains('no-scroll')) {
+                        clearInterval(window._proceedMsgInterval);
+                        window._proceedMsgInterval = null;
+                        return;
+                    }
+                    if (window.gsap) {
+                        window.gsap.to(textSpan, {
+                            opacity: 0,
+                            y: -4,
+                            duration: 0.25,
+                            onComplete: () => {
+                                textSpan.textContent = msgs[msgIdx % msgs.length];
+                                window.gsap.fromTo(textSpan, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
+                                msgIdx++;
+                            }
+                        });
+                    } else {
+                        textSpan.style.opacity = 0;
+                        setTimeout(() => {
+                            textSpan.textContent = msgs[msgIdx % msgs.length];
+                            textSpan.style.opacity = 1;
+                            msgIdx++;
+                        }, 200);
+                    }
+                }, 2500);
+            }
+        }
+
+        document.body.classList.remove('split-outline-active');
+
+        if (window.startFinalGeneration) {
+            window.startFinalGeneration(skeleton);
+        }
+    };
+
     window.startFinalGeneration = async function (skeleton) {
         // Keep hash as #chat during loading, we will only transition to #editor when the first chunk arrives!
         
