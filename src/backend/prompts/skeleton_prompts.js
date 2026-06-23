@@ -1,6 +1,5 @@
 module.exports.buildAddSlidePrompt = function(topic, existingSlides) {
-  return `You are a presentation outline assistant. 
-The user is building a presentation about: "${topic}".
+  return `You are a presentation outline assistant. The user is building a presentation about: "${topic}".
 Here are the current slides:
 ${JSON.stringify(existingSlides, null, 2)}
 
@@ -20,8 +19,7 @@ Allowed roles: cover, problem, concept, data, comparison, process, example, erro
 }
 
 module.exports.buildAddPointPrompt = function(topic, slideTitle, slideSubtitle, existingPoints) {
-  return `You are a presentation outline assistant.
-The user is building a slide titled "${slideTitle}" (Subtitle: "${slideSubtitle || ''}") for a presentation about "${topic}".
+  return `You are a presentation outline assistant. The user is building a slide titled "${slideTitle}" (Subtitle: "${slideSubtitle || ''}") for a presentation about "${topic}".
 Here are the current bullet points on this slide:
 ${JSON.stringify(existingPoints, null, 2)}
 

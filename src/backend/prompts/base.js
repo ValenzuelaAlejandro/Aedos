@@ -35,28 +35,28 @@ CRITICAL MANDATORY IMAGE SLOT RULES - BEFORE ANYTHING ELSE!
 - Include image slots on: split/comparison slides, concept slides, example slides, cover slides, slides about specific people/characters, slides about specific artworks/paintings, and any slide where a photo adds visual value.
 - When has_image_slot is true, ALWAYS set image_keyword to a highly specific ENGLISH phrase that exactly describes what should be on the image (e.g., "Walter White Breaking Bad", "Mona Lisa painting by Leonardo da Vinci", "Space Dandy anime character", "Sistine Chapel ceiling Michelangelo", NOT generic like "business" or "teamwork").
 
-🚨 KEYWORD RULE: USE THE ACTUAL NAME FROM THE SLIDE CONTENT 🚨
+KEYWORD RULE: USE THE ACTUAL NAME FROM THE SLIDE CONTENT
 
 The biggest failure is generating DESCRIPTIVE keywords instead of actual names:
-- ✗ "chaos and psychological tension anime" (describes a vibe)
-- ✗ "serene blue lagoon water surface landscape" (describes what an image might look like)
-- ✗ "vibrant colors and dynamic shapes" (abstract description)
+- "chaos and psychological tension anime" (describes a vibe)
+- "serene blue lagoon water surface landscape" (describes what an image might look like)
+- "vibrant colors and dynamic shapes" (abstract description)
 
 The keyword MUST be the ACTUAL NAME of what the slide is about. To find it:
 1. SCAN the slide's title, subtitle, and key_points for PROPER NOUNS (capitalized names of people, places, artworks, songs, albums, products)
 2. The keyword = those names + a brief context qualifier
 
 Examples of CORRECT keyword extraction:
-- Title "Horizonte (Blue Lagoon)" by Masayoshi Takanaka → "Masayoshi Takanaka Blue Lagoon album cover"
-- Title "Light Yagami's descent" → "Light Yagami Death Note character portrait"
-- Title "Mona Lisa" → "Mona Lisa painting by Leonardo da Vinci"
-- Title "Birth of Kira" → "Light Yagami Kira Death Note anime"
-- Title "Character Archetypes: Kira, L, Ryuk" → "Death Note characters Kira L Ryuk anime"
-- Title "Sistine Chapel ceiling" → "Sistine Chapel ceiling Michelangelo"
-- If the slide mentions a song by name → "ArtistName SongName album cover"
-- If the slide mentions a person → "PersonName portrait photo" or "PersonName anime character"
-- If the slide mentions an artwork → "ArtworkName by Artist"
-- If the slide mentions a place/building → "PlaceName exterior" or "BuildingName architecture"
+- Title "Horizonte (Blue Lagoon)" by Masayoshi Takanaka -> "Masayoshi Takanaka Blue Lagoon album cover"
+- Title "Light Yagami's descent" -> "Light Yagami Death Note character portrait"
+- Title "Mona Lisa" -> "Mona Lisa painting by Leonardo da Vinci"
+- Title "Birth of Kira" -> "Light Yagami Kira Death Note anime"
+- Title "Character Archetypes: Kira, L, Ryuk" -> "Death Note characters Kira L Ryuk anime"
+- Title "Sistine Chapel ceiling" -> "Sistine Chapel ceiling Michelangelo"
+- If the slide mentions a song by name -> "ArtistName SongName album cover"
+- If the slide mentions a person -> "PersonName portrait photo" or "PersonName anime character"
+- If the slide mentions an artwork -> "ArtworkName by Artist"
+- If the slide mentions a place/building -> "PlaceName exterior" or "BuildingName architecture"
 
 NEVER use abstract descriptions like "beautiful", "vibrant", "dynamic", "chaotic", "mysterious" as keywords. ALWAYS use the concrete NAME of the subject.
 - DO NOT skip or omit image slots if they add value! They are required for the final presentation.
@@ -181,15 +181,15 @@ ${skeletonStr ? `- STRICTLY use the provided CONFIG JSON for content (slides, ti
 - Keep metadata fields as null when USER INPUT does not provide that value.`}
 - Use this role to layout mapping:
   cover -> cover
-  data -> stats
-  comparison -> comparison
-  timeline -> timeline
-  process -> steps
-  concept -> cards when 3+ points, otherwise editorial
-  problem -> cards when 3+ points, otherwise editorial
-  example -> split (image + content) when the example involves a specific person, artwork, song, album, building or object. Only use "cards" for abstract examples (e.g., "an example of bad UI design"). For "Mejores canciones de X" (specific songs) or "biografía de Y" or "la obra Z" — ALWAYS use "split" with an image of that specific thing.
-  quote -> quote
-  conclusion -> conclusion
+data -> stats
+comparison -> comparison
+timeline -> timeline
+process -> steps
+concept -> cards when 3+ points, otherwise editorial
+problem -> cards when 3+ points, otherwise editorial
+example -> split (image + content) when the example involves a specific person, artwork, song, album, building or object. Only use "cards" for abstract examples (e.g., "an example of bad UI design"). For "Mejores canciones de X" (specific songs) or "biografia de Y" or "la obra Z" -- ALWAYS use "split" with an image of that specific thing.
+quote -> quote
+conclusion -> conclusion
 - Include deck variety:
   at least 1 cards slide
   at least 1 stats slide
@@ -201,13 +201,13 @@ ${skeletonStr ? `- STRICTLY use the provided CONFIG JSON for content (slides, ti
 ICON CONTRACT
 - Use this allowed icon set only:
   activity, alert-circle, archive, arrow-right, atom, award, bar-chart, book, book-open,
-  brain, briefcase, building, calendar, camera, check, check-circle, clock, cloud, code,
-  compass, cpu, database, dna, dollar-sign, download, file-text, flag, flame, globe,
-  handshake, hard-drive, heart, home, info, key, laptop, layers, leaf, lightbulb, lock,
-  map, map-pin, medal, microscope, monitor, moon, mountain, phone, pie-chart, play,
-  rocket, search, settings, shield, star, stethoscope, sun, target, telescope,
-  thermometer, tool, trash, trending-down, trending-up, trophy, user, users, video,
-  wallet, wifi, wrench, x, x-circle, zap
+brain, briefcase, building, calendar, camera, check, check-circle, clock, cloud, code,
+compass, cpu, database, dna, dollar-sign, download, file-text, flag, flame, globe,
+handshake, hard-drive, heart, home, info, key, laptop, layers, leaf, lightbulb, lock,
+map, map-pin, medal, microscope, monitor, moon, mountain, phone, pie-chart, play,
+rocket, search, settings, shield, star, stethoscope, sun, target, telescope,
+thermometer, tool, trash, trending-down, trending-up, trophy, user, users, video,
+wallet, wifi, wrench, x, x-circle, zap
 - Use icon_names only for cards or split card blocks.
 - For steps, stats, cover, timeline, quote, conclusion, editorial, and text layouts: set icon_names to null values and render no icon markup.
 - Render each icon with this exact structure:
@@ -284,7 +284,7 @@ REQUIRED CSS BLOCK (single <style>, first line is @import)
   .img-slot { position:relative; overflow:hidden; border-radius:12px; }
   .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
   .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
-  .flex-row > *, .grid-2 > *, .grid-3 > * { min-width:0; box-sizing:border-box; }
+  .flex-row > , .grid-2 > , .grid-3 > * { min-width:0; box-sizing:border-box; }
   .card { flex:1 1 0%; }
   .card h1, .card h2, .card h3, .card h4 { margin:0 0 .5rem; }
   .card p { flex:1 1 auto; min-height:0; overflow:hidden; }
@@ -305,13 +305,13 @@ A) COVER
   <p class="subtitle">[one-line subtitle]</p>
   <div class="accent-bar"></div>
   [If at least one of subject/institution/teacher/author/team is non-null:
-   <p style="font-size:1.3rem;margin-top:1.5rem;color:var(--text-dim);">[join only non-null values with " · "]</p>]
+   <p style="font-size:1.3rem;margin-top:1.5rem;color:var(--text-dim);">[join only non-null values with " - "]</p>]
   [counter]
 </section>
 
 B) CARDS-2
 <section class="s">
-  <div class="tag">[NN · LABEL]</div>
+  <div class="tag">[NN - LABEL]</div>
   <h2>[Title]</h2>
   <p class="subtitle">[Context]</p>
   <div class="grid-2" style="flex:1;min-height:0;">
@@ -323,7 +323,7 @@ B) CARDS-2
 
 C) CARDS-3
 <section class="s">
-  <div class="tag">[NN · LABEL]</div>
+  <div class="tag">[NN - LABEL]</div>
   <h2>[Title]</h2>
   <p class="subtitle">[Context]</p>
   <div class="grid-3" style="flex:1;min-height:0;">
@@ -340,7 +340,7 @@ D) SPLIT IMAGE + CARDS
     <div class="img-bg1"></div><div class="img-bg2"></div>
   </div>
   <div style="flex:1;min-width:0;padding:3.5rem 4rem;display:flex;flex-direction:column;gap:2rem;overflow:hidden;">
-    <div class="tag">[NN · LABEL]</div>
+    <div class="tag">[NN - LABEL]</div>
     <h2 style="margin-bottom:0;">[Title]</h2>
     <div class="flex-col" style="flex:1;min-height:0;">
       <div class="card accent">[optional icon wrapper][h3][p]</div>
@@ -352,7 +352,7 @@ D) SPLIT IMAGE + CARDS
 
 E) STATS
 <section class="s">
-  <div class="tag">[NN · LABEL]</div>
+  <div class="tag">[NN - LABEL]</div>
   <h2>[Title]</h2>
   <p class="subtitle">[Context]</p>
   <div class="stat-grid">
@@ -365,7 +365,7 @@ E) STATS
 
 F) STEPS
 <section class="s">
-  <div class="tag">[NN · LABEL]</div>
+  <div class="tag">[NN - LABEL]</div>
   <h2>[Title]</h2>
   <p class="subtitle">[Intro]</p>
   <div class="steps-list">
@@ -378,7 +378,7 @@ F) STEPS
 
 G) QUOTE
 <section class="s" style="justify-content:center;overflow:hidden;">
-  <div class="tag">[NN · LABEL]</div>
+  <div class="tag">[NN - LABEL]</div>
   <div class="quote-block">
     <blockquote>"[quote]"</blockquote>
     <cite>[author/source]</cite>
@@ -389,7 +389,7 @@ G) QUOTE
 
 H) TIMELINE (horizontal)
 <section class="s">
-  <div class="tag">[NN · LABEL]</div>
+  <div class="tag">[NN - LABEL]</div>
   <h2>[Title]</h2>
   <div style="flex:1;min-height:0;display:flex;justify-content:center;flex-direction:column;">
     <div style="display:flex;width:100%;gap:2rem;">
@@ -418,7 +418,7 @@ I) CONCLUSION
 
 J) TEXT
 <section class="s">
-  <div class="tag">[NN · LABEL]</div>
+  <div class="tag">[NN - LABEL]</div>
   <h2>[Title]</h2>
   <p class="subtitle">[Context]</p>
   <div class="card" style="width:100%;flex:1;overflow:hidden;">
@@ -432,7 +432,7 @@ J) TEXT
 
 K) EDITORIAL
 <section class="s">
-  <div class="tag">[NN · LABEL]</div>
+  <div class="tag">[NN - LABEL]</div>
   <div style="flex:1;min-height:0;display:grid;grid-template-columns:58% 42%;gap:4rem;align-items:start;">
     <div>
       <h2 style="font-size:5rem;line-height:.95;letter-spacing:-.02em;margin-bottom:2rem;">[Title with one accent word]</h2>

@@ -1,13 +1,3 @@
-/**
- * Pipeline Orchestrator
- * 
- * Coordinates the 3-stage generation pipeline:
- *   Stage 1 (Content) → Stage 2 (Design) → Stage 3 (HTML, streamed)
- * 
- * Stages 1 and 2 are non-streaming JSON calls.
- * Stage 3 is streamed via SSE to the client.
- */
-
 const buildStage1Prompt = require('./stage1-content');
 const buildStage2Prompt = require('./stage2-design');
 const buildStage3Prompt = require('./stage3-compositor');
@@ -15,7 +5,6 @@ const { createLogger, ErrorCategory } = require('../utils/logger');
 
 const pipelineLog = createLogger({ scope: 'PIPELINE' });
 
-// Re-export the legacy prompt for backwards compatibility
 const buildLegacyPrompt = require('./base');
 
 /**
@@ -48,7 +37,6 @@ function repairJsonEscapes(text) {
     const ch = text[i];
 
     if (!inString) {
-      // Entering a string
       if (ch === '"') {
         inString = true;
         out += ch;
@@ -60,15 +48,12 @@ function repairJsonEscapes(text) {
       continue;
     }
 
-    // Inside a JSON string value
     if (ch === '\\') {
       const next = text[i + 1];
       if (next !== undefined && VALID_ESCAPES.has(next)) {
-        // Valid escape sequence — keep as-is
         out += ch + next;
         i += 2;
       } else {
-        // Invalid escape — double the backslash to make it a literal backslash
         out += '\\\\';
         i++;
       }
@@ -76,14 +61,12 @@ function repairJsonEscapes(text) {
     }
 
     if (ch === '"') {
-      // End of string
       inString = false;
       out += ch;
       i++;
       continue;
     }
 
-    // Literal control characters inside a string — these are never valid in JSON
     if (ch === '\n') { out += '\\n'; i++; continue; }
     if (ch === '\r') { out += '\\r'; i++; continue; }
     if (ch === '\t') { out += '\\t'; i++; continue; }
@@ -99,24 +82,22 @@ function repairJsonEscapes(text) {
  * Extracts and parses JSON from a model response that may contain markdown
  * fences, extra prose, JS comments, or invalid escape sequences.
  *
- * Parsing strategy (cascading — stops at the first success):
- *   Level 1 — Direct JSON.parse() on the trimmed text.
- *   Level 2 — Strip markdown fences, extract the outermost {...} block,
- *              strip JS-style // comments, then JSON.parse().
- *   Level 3 — Apply repairJsonEscapes() to the cleaned text, then JSON.parse().
- *              A warning is logged when this level is reached so we can track
- *              how often the model emits malformed escapes.
+ * Parsing strategy (cascading - stops at the first success):
+ *   Level 1 - Direct JSON.parse() on the trimmed text.
+ *   Level 2 - Strip markdown fences, extract the outermost {...} block,
+ *             strip JS-style // comments, then JSON.parse().
+ *   Level 3 - Apply repairJsonEscapes() to the cleaned text, then JSON.parse().
+ *             A warning is logged when this level is reached so we can track
+ *             how often the model emits malformed escapes.
  *
  * @param {string} text - Raw model output
  * @returns {object} Parsed JSON object
  */
 function extractJson(text) {
-  // ── Level 1: direct parse ──────────────────────────────────────────────────
   try {
     return JSON.parse(text.trim());
   } catch (_) { /* fall through */ }
 
-  // ── Level 2: strip fences + brace extraction + strip JS comments ───────────
   let cleaned = text.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
 
   const firstBrace = cleaned.indexOf('{');
@@ -125,18 +106,15 @@ function extractJson(text) {
     cleaned = cleaned.substring(firstBrace, lastBrace + 1);
   }
 
-  // Strip JS-style // line comments (model sometimes copies comment syntax from prompt examples)
   cleaned = cleaned.replace(/\/\/[^\n"]*/g, '');
 
   try {
     return JSON.parse(cleaned);
   } catch (_) { /* fall through to repair */ }
 
-  // ── Level 3: repair bad escape sequences ──────────────────────────────────
   try {
     const repaired = repairJsonEscapes(cleaned);
     const result = JSON.parse(repaired);
-    // Log so we can monitor how often the model produces bad escapes
     pipelineLog.warn(ErrorCategory.PIPELINE, 'extractJson: used escape-repair fallback — model emitted invalid JSON escapes');
     return result;
   } catch (finalErr) {
@@ -157,7 +135,6 @@ async function runStage(tryModelsFn, prompt, stageName) {
   
   const result = await tryModelsFn(prompt);
   
-  // Collect the full streamed response
   let fullText = '';
   for await (const chunk of result.stream) {
     fullText += chunk;
@@ -202,7 +179,6 @@ function enrichSkeletonForStage2(skeleton, rawInput) {
 
   const slides = Array.isArray(skeleton.slides) ? skeleton.slides : [];
 
-  // Map editor density to Stage 1 text_density enum
   const densityMap = { low: 'low', medium: 'medium', high: 'high' };
 
   const enriched = {
@@ -220,9 +196,6 @@ function enrichSkeletonForStage2(skeleton, rawInput) {
     institution:         skeleton.institution         || null,
     date:                skeleton.date                || null,
     cta:                 skeleton.cta                 || null,
-    // Provide a visual_world block so Stage 2 has a creative anchor.
-    // If the user-skeleton already has one (carried over from a previous Stage 1 run)
-    // we keep it; otherwise we derive a lightweight placeholder.
     visual_world: skeleton.visual_world || {
       real_world_analog: `(Derive from topic: ${rawInput})`,
       color_temperature: 'neutral',
@@ -230,13 +203,11 @@ function enrichSkeletonForStage2(skeleton, rawInput) {
       typography_energy: 'neutral',
       reference_era:     'contemporary'
     },
-    // Carry over any existing slides, enriching missing per-slide fields
     slides: slides.map((slide, idx) => ({
       index:         idx + 1,
       role:          slide.role          || 'concept',
       title:         slide.title         || '',
       subtitle:      slide.subtitle      || null,
-      // core_message defaults to the title when absent (Stage 2 uses it for focal point guidance)
       core_message:  slide.core_message  || slide.title || '',
       key_points:    Array.isArray(slide.key_points) ? slide.key_points.filter(Boolean) : [],
       data_points:   Array.isArray(slide.data_points) ? slide.data_points : null,
@@ -250,7 +221,6 @@ function enrichSkeletonForStage2(skeleton, rawInput) {
 }
 
 async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, maxSlides = 12 }) {
-  // Allow legacy callers that pass a single tryModels function
   const callStage1 = tryModelsStage1 || tryModels;
   const callStage2 = tryModelsStage2 || tryModels;
   const callStage3 = tryModelsStage3 || tryModels;
@@ -258,11 +228,9 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
 
   if (skeleton) {
     pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 1 skipped (Skeleton provided)');
-    // Enrich the editor skeleton with all fields Stage 2 needs before skipping Stage 1
     contentJson = enrichSkeletonForStage2(skeleton, rawInput);
     onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count || contentJson.slides?.length || 0 });
   } else {
-    // ── Stage 1: Content Extraction ──
     onStageUpdate('stage1', { status: 'running' });
     
     const stage1Prompt = buildStage1Prompt(rawInput, targetLanguage);
@@ -274,17 +242,14 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
       throw new Error(`STAGE1_PARSE_ERROR: Could not parse Stage 1 output as JSON. Raw: ${stage1Raw.substring(0, 500)}`);
     }
     
-    // Check for rejection
     if (contentJson.rejected) {
       throw new Error('CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic'));
     }
     
-    // Validate minimum fields
     if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
       throw new Error('STAGE1_INVALID: Stage 1 output has no slides array');
     }
     
-    // Safety net: Forcibly trim slides array if model hallucinated past the limit to prevent token waste
     if (contentJson.slides.length > maxSlides) {
       pipelineLog.warn(ErrorCategory.VALIDATION, 'Stage 1 exceeded max slides and was trimmed', {
         maxSlides,
@@ -302,7 +267,6 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
     });
   }
   
-  // ── Stage 2: Creative Direction ──
   onStageUpdate('stage2', { status: 'running' });
   
   const stage2Prompt = buildStage2Prompt(rawInput, contentJson);
@@ -315,13 +279,11 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
     throw new Error(`STAGE2_PARSE_ERROR: Could not parse Stage 2 output as JSON. Raw: ${stage2Raw.substring(0, 500)}`);
   }
   
-  // Validate minimum fields
   if (!designJson.palette || !designJson.slides || !Array.isArray(designJson.slides)) {
     throw new Error('STAGE2_INVALID: Stage 2 output missing palette or slides');
   }
   
   onStageUpdate('stage2', { status: 'done' });
-  // Support both the newer `colors_hex` array and legacy `accent_hex`/`accent2_hex` keys
   const p = designJson.palette || {};
   const colors = Array.isArray(p.colors_hex) && p.colors_hex.length > 0
     ? p.colors_hex
@@ -337,7 +299,6 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
     mood: designJson.mood_global
   });
   
-  // ── Stage 3: HTML Generation (streamed) ──
   onStageUpdate('stage3', { status: 'running' });
   
   const stage3Prompt = buildStage3Prompt(rawInput, contentJson, designJson);
