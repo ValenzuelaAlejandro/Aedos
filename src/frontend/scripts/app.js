@@ -1471,7 +1471,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ...(targetLanguage !== 'auto' ? { language: targetLanguage } : {})
         };
 
-        if (window.outlineEditorState && window.outlineEditorState.skeleton) {
+        const isFollowUpRequest = window.outlineEditorState && window.outlineEditorState.skeleton !== null;
+
+        if (isFollowUpRequest) {
             requestData.currentSkeleton = JSON.stringify(window.outlineEditorState.skeleton);
             // Backup the current skeleton in case the next instruction is a "proceed/create" action
             window._backupSkeleton = JSON.parse(JSON.stringify(window.outlineEditorState.skeleton));
@@ -1508,6 +1510,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.prepareOutlineStreaming) {
             window.prepareOutlineStreaming(proModeEnabled ? 'pro' : 'flash');
         }
+        // #region debug-point B:post-loading-pre-stream
+        __appDebugReport('B', 'after loading + prepareOutlineStreaming', {
+            isFollowUpRequest,
+            totalAiMessages: document.querySelectorAll('.chat-msg-ai').length,
+            latestAiBodyClass: document.querySelectorAll('.chat-msg-ai .chat-ai-body')[document.querySelectorAll('.chat-msg-ai .chat-ai-body').length - 1]?.className || null,
+            outlineContainerId: window.outlineEditorState?.activeContainer?.id || null,
+            outlineContainerClass: window.outlineEditorState?.activeContainer?.className || null,
+            outlineParentClass: window.outlineEditorState?.activeContainer?.parentElement?.className || null
+        });
+        // #endregion
+
+        // Only the very first request should mount the panel in the static
+        // `#chat-ai-response` bubble. Follow-ups already create their own AI
+        // bubble in `showOutlineEditorLoading()`, and re-targeting the static
+        // bubble here makes the old top panel look like it is being reused.
+        try {
+            if (!isFollowUpRequest) {
+                const _initialAiBody = document.querySelector('#chat-ai-response .chat-ai-body');
+                if (_initialAiBody && window.AedosThinking) {
+                    window.AedosThinking.show(_initialAiBody, {
+                        label: window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…',
+                        stage: 'stage1'
+                    });
+                }
+            }
+        } catch (_) { /* panel is non-critical */ }
 
         try {
             const skeletonResponse = await fetch('/generate-skeleton', {
@@ -1528,6 +1556,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let buffer = '';
             let rawText = '';
             let finalSkeleton = null;
+            const _skeletonReasoningAiBody = (() => {
+                const _aiMessages = document.querySelectorAll('.chat-msg-ai');
+                const _latestAi = _aiMessages[_aiMessages.length - 1];
+                return _latestAi && _latestAi.querySelector('.chat-ai-body');
+            })();
 
             while (true) {
                 const { value, done } = await reader.read();
@@ -1547,9 +1580,50 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (data.error) {
                                 throw new Error(data.error);
                             }
+
+                            // Reasoning tokens — surface in the thinking panel
+                            // for the currently active AI bubble. The first
+                            // request reuses the static #chat-ai-response;
+                            // follow-ups work via showOutlineEditorLoading.
+                            if (data.reasoning && typeof data.reasoning === 'string') {
+                                const allAiBodies = document.querySelectorAll('.chat-msg-ai .chat-ai-body');
+                                const _aiBody = allAiBodies[allAiBodies.length - 1];
+                                // #region debug-point B:reasoning-target
+                                __appDebugReport('B', 'reasoning token target body resolved', {
+                                    aiBodies: allAiBodies.length,
+                                    targetBodyClass: _aiBody?.className || null,
+                                    targetBodyParentClass: _aiBody?.parentElement?.className || null,
+                                    activeOutlineClass: window.outlineEditorState?.activeContainer?.className || null,
+                                    activeOutlineParentClass: window.outlineEditorState?.activeContainer?.parentElement?.className || null,
+                                    reasoningLength: data.reasoning.length
+                                });
+                                // #endregion
+                                if (_aiBody && window.AedosThinking) {
+                                    // Lazily create the panel if a previous
+                                    // legacy code path forgot to call show().
+                                    if (!window.AedosThinking.getPanel(_aiBody)) {
+                                        window.AedosThinking.show(_aiBody, {
+                                            label: window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…',
+                                            stage: data.stage || 'stage1'
+                                        });
+                                    }
+                                    window.AedosThinking.appendReasoning(_aiBody, data.reasoning);
+                                }
+                                continue;
+                            }
+
                             if (data.chunk) {
                                 rawText += data.chunk;
                                 const partialSkeleton = window.parsePartialSkeleton(rawText);
+                                // #region debug-point E:chunk-collapse-target
+                                __appDebugReport('E', 'chunk received before collapse', {
+                                    latestResolvedAiBodyClass: document.querySelectorAll('.chat-msg-ai .chat-ai-body')[document.querySelectorAll('.chat-msg-ai .chat-ai-body').length - 1]?.className || null,
+                                    collapseBodyMatchesLatest: _skeletonReasoningAiBody === document.querySelectorAll('.chat-msg-ai .chat-ai-body')[document.querySelectorAll('.chat-msg-ai .chat-ai-body').length - 1],
+                                    collapseBodyParentClass: _skeletonReasoningAiBody?.parentElement?.className || null,
+                                    activeOutlineParentClass: window.outlineEditorState?.activeContainer?.parentElement?.className || null,
+                                    partialSlides: partialSkeleton?.slides?.length || 0
+                                });
+                                // #endregion
                                 if (window.outlineEditorState) {
                                     window.outlineEditorState.skeleton = partialSkeleton;
                                 }
@@ -1557,8 +1631,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                     window.renderStreamingOutline(partialSkeleton);
                                 }
 
-                                // Hide the thinking dots inside the latest AI bubble only when the first streaming slide starts rendering
+                                // Collapse the thinking panel (instead of
+                                // hiding it) once the first slide starts
+                                // streaming. The pill stays visible so the
+                                // user can re-expand it to see what the
+                                // model was thinking about.
                                 if (partialSkeleton && partialSkeleton.slides && partialSkeleton.slides.length > 0) {
+                                    if (window.AedosThinking) {
+                                        window.AedosThinking.collapse(_skeletonReasoningAiBody);
+                                    }
+                                    // Legacy fall-back: also hide the old
+                                    // dot loader if it's still around.
                                     const aiMessages = document.querySelectorAll('.chat-msg-ai');
                                     const latestAiMessage = aiMessages[aiMessages.length - 1];
                                     if (latestAiMessage) {
@@ -1582,6 +1665,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // The skeleton fetch stream is complete. Free the skeleton controller safely.
             _skeletonGenController = null;
+
+            // If the model never produced any reasoning AND no slides, the
+            // panel is still in its "thinking" state. Hide it so the empty
+            // AI bubble doesn't keep a spinner alive.
+            if (window.AedosThinking) {
+                if (!finalSkeleton || (Array.isArray(finalSkeleton.slides) && finalSkeleton.slides.length === 0)) {
+                    if (!finalSkeleton || !finalSkeleton.action) {
+                        window.AedosThinking.hide(_skeletonReasoningAiBody);
+                    }
+                } else if (finalSkeleton.action === 'proceed') {
+                    // Proceed flow: collapse (not hide) the panel and let
+                    // the "Drafting slides…" message take over visually.
+                    window.AedosThinking.collapse(_skeletonReasoningAiBody);
+                }
+            }
 
             window._pendingGenerateBodyData = bodyData;
             window._pendingGenerateHeaders = headers;
@@ -1710,6 +1808,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const aiBody = latestAiBubble.querySelector('.chat-ai-body');
                 if (aiBody) {
+                    // Hide the new thinking panel on error/cancel so it doesn't
+                    // keep spinning forever. The legacy chat-thinking dots are
+                    // handled below for backwards compatibility.
+                    if (window.AedosThinking) {
+                        window.AedosThinking.hide(aiBody);
+                    }
+
                     const errEl = document.createElement('div');
                     if (isAbort) {
                         errEl.className = 'chat-cancelled-message';
@@ -1746,12 +1851,188 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Direct proceed shortcut: when the user explicitly approves the outline via the
+    // primary "Looks good! Create presentation" chip, skip the AI skeleton analysis and
+    // immediately start the final generation. This saves a request + tokens that would
+    // otherwise be spent re-asking the model to detect the proceed intent from
+    // "Todo listo! Crear presentación".
+    window.proceedWithCurrentOutline = function() {
+        if (window._activeGenController) {
+            console.warn("A generation is already in progress. Ignoring proceed request.");
+            return;
+        }
+        if (_skeletonGenController) {
+            _skeletonGenController.abort();
+            _skeletonGenController = null;
+        }
+
+        const skeleton = (window.outlineEditorState && window.outlineEditorState.skeleton)
+            ? window.outlineEditorState.skeleton
+            : null;
+        if (!skeleton || !Array.isArray(skeleton.slides) || skeleton.slides.length === 0) {
+            console.warn("proceedWithCurrentOutline: no outline available to proceed with.");
+            return;
+        }
+
+        if (window.location.hash !== '#chat') {
+            window.navigateToChat();
+        }
+
+        // Build the same body/headers that handleGenerate would build for the
+        // /generate-skeleton call. startFinalGeneration reuses these for /generate.
+        const tema = (temaInput && temaInput.value ? temaInput.value.trim() : '') ||
+            (window.__t ? window.__t('default_document_prompt', 'Analyze this document and create a presentation') : 'Analyze this document and create a presentation');
+        const requestData = {
+            tema,
+            mode: 'chat',
+            ...(targetLanguage !== 'auto' ? { language: targetLanguage } : {})
+        };
+        requestData.currentSkeleton = JSON.stringify(skeleton);
+
+        let bodyData;
+        let headers = {};
+        if (window._attachedFiles && window._attachedFiles.length > 0) {
+            const formData = new FormData();
+            formData.append('tema', requestData.tema);
+            if (requestData.mode) formData.append('mode', requestData.mode);
+            if (requestData.language) formData.append('language', requestData.language);
+            if (requestData.slides !== undefined) formData.append('slides', requestData.slides);
+            if (requestData.currentSkeleton) formData.append('currentSkeleton', requestData.currentSkeleton);
+            window._attachedFiles.forEach(f => formData.append('files', f));
+            bodyData = formData;
+        } else {
+            headers['Content-Type'] = 'application/json';
+            bodyData = JSON.stringify(requestData);
+        }
+
+        window._pendingGenerateBodyData = bodyData;
+        window._pendingGenerateHeaders = headers;
+
+        // Lock outline editor buttons while the final generation runs
+        const btnGen = document.getElementById('btn-outline-generate');
+        const btnAdd = document.getElementById('btn-outline-add-slide');
+        if (btnGen) btnGen.disabled = true;
+        if (btnAdd) btnAdd.disabled = true;
+
+        // Mirror the normal "user sent a message" behavior: clear the chip row and
+        // any pending chip render so the user can't fire another request mid-flight.
+        const chipsContainer = document.getElementById('outline-suggested-chips');
+        if (chipsContainer) {
+            chipsContainer.innerHTML = '';
+            if (window._chipsRenderTimeout) {
+                clearTimeout(window._chipsRenderTimeout);
+                window._chipsRenderTimeout = null;
+            }
+        }
+        document.querySelectorAll('.suggested-chip').forEach(el => { el.disabled = true; });
+
+        // Mirror the proceed loading UI normally rendered after the AI returns proceed
+        const aiMessages = document.querySelectorAll('.chat-msg-ai');
+        const latestAiMessage = aiMessages[aiMessages.length - 1];
+        if (latestAiMessage) {
+            const thinking = latestAiMessage.querySelector('.chat-thinking');
+            if (thinking) thinking.classList.add('hidden');
+
+            const aiBody = latestAiMessage.querySelector('.chat-ai-body');
+            if (aiBody) {
+                aiBody.querySelectorAll('.chat-proceed-message').forEach(el => el.remove());
+
+                const progressMsg = document.createElement('div');
+                progressMsg.className = 'chat-proceed-message';
+                progressMsg.style.cssText = 'padding: 0.8rem 1rem; color: var(--text); font-weight: 500; font-family: var(--font-body); display: flex; align-items: center; gap: 0.5rem;';
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = window.__t ? window.__t('chat_proceeding_1', 'Analyzing request...') : 'Analyzing request...';
+
+                progressMsg.innerHTML = `<span style="color: var(--accent); font-size: 1.2rem; display: inline-block;" class="loading-spinner">⟳</span>`;
+                progressMsg.appendChild(textSpan);
+                aiBody.appendChild(progressMsg);
+
+                // Activate (or reactivate) the new Claude-style thinking panel
+                // for the proceed flow. Stages 1 and 2 (content + design) are
+                // non-streaming on the server, but the server still emits
+                // reasoning tokens that we'll pipe into this panel. Once Stage
+                // 3 starts, the panel collapses into a "Thought for Ns" pill.
+                if (window.AedosThinking) {
+                    window.AedosThinking.show(aiBody, {
+                        label: window.__t ? window.__t('chat_proceeding_1', 'Analyzing request…') : 'Analyzing request…',
+                        stage: proModeEnabled ? 'stage1' : 'flash'
+                    });
+                }
+
+                if (window.gsap) {
+                    window.gsap.fromTo(progressMsg, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+                }
+
+                const spinner = progressMsg.querySelector('.loading-spinner');
+                if (spinner && spinner.animate) {
+                    spinner.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 1500, iterations: Infinity });
+                }
+
+                const msgs = [
+                    window.__t ? window.__t('chat_proceeding_2', 'Drafting slides...') : 'Drafting slides...',
+                    window.__t ? window.__t('chat_proceeding_3', 'Structuring narrative...') : 'Structuring narrative...',
+                    window.__t ? window.__t('chat_proceeding_4', 'Finding visual assets...') : 'Finding visual assets...',
+                    window.__t ? window.__t('chat_proceeding_5', 'Polishing layout...') : 'Polishing layout...'
+                ];
+                let msgIdx = 0;
+                if (window._proceedMsgInterval) {
+                    clearInterval(window._proceedMsgInterval);
+                }
+                window._proceedMsgInterval = setInterval(() => {
+                    if (!document.body.contains(progressMsg) || document.body.classList.contains('no-scroll')) {
+                        clearInterval(window._proceedMsgInterval);
+                        window._proceedMsgInterval = null;
+                        return;
+                    }
+                    if (window.gsap) {
+                        window.gsap.to(textSpan, {
+                            opacity: 0,
+                            y: -4,
+                            duration: 0.25,
+                            onComplete: () => {
+                                textSpan.textContent = msgs[msgIdx % msgs.length];
+                                window.gsap.fromTo(textSpan, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
+                                msgIdx++;
+                            }
+                        });
+                    } else {
+                        textSpan.style.opacity = 0;
+                        setTimeout(() => {
+                            textSpan.textContent = msgs[msgIdx % msgs.length];
+                            textSpan.style.opacity = 1;
+                            msgIdx++;
+                        }, 200);
+                    }
+                }, 2500);
+            }
+        }
+
+        document.body.classList.remove('split-outline-active');
+
+        if (window.startFinalGeneration) {
+            window.startFinalGeneration(skeleton);
+        }
+    };
+
     window.startFinalGeneration = async function (skeleton) {
         // Keep hash as #chat during loading, we will only transition to #editor when the first chunk arrives!
-        
+
         generatedHtml = ''; // Reset state for a fresh start
         currentSlide = 0;
         totalSlides = 0;
+
+        // Keep the send button in the generation (stop-icon) state during the final HTML
+        // generation, regardless of whether we got here via a chat "proceed" or via the
+        // outline "Create Presentation" button. The finally block below calls
+        // toggleGenerateLoading(false) to clear it once streaming settles.
+        const btnGenerateSend = document.getElementById('btn-generate');
+        if (btnGenerateSend) {
+            btnGenerateSend.classList.add('is-generating');
+            btnGenerateSend.disabled = false;
+        }
+        const btnLangSend = document.getElementById('btn-lang-dropdown');
+        if (btnLangSend) btnLangSend.disabled = true;
 
         window.removeEventListener('resize', scaleIframe); // evita acumulación
 
@@ -1860,6 +2141,24 @@ document.addEventListener('DOMContentLoaded', () => {
         slideLabel.textContent = "1 / 1";
         updateMinimapSkeleton(1);
 
+        // Activate the new Claude-style thinking panel BEFORE the network
+        // request goes out so the user sees the elapsed-time counter from
+        // the very first moment. The panel auto-expands as soon as reasoning
+        // tokens arrive and collapses once the HTML stream begins.
+        try {
+            const _aiMessages = document.querySelectorAll('.chat-msg-ai');
+            const _latestAi = _aiMessages[_aiMessages.length - 1];
+            const _aiBody = _latestAi && _latestAi.querySelector('.chat-ai-body');
+            if (_aiBody && window.AedosThinking) {
+                window.AedosThinking.show(_aiBody, {
+                    label: proModeEnabled
+                        ? (window.__t ? window.__t('chat_proceeding_1', 'Analyzing request…') : 'Analyzing request…')
+                        : (window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…'),
+                    stage: proModeEnabled ? 'stage1' : 'flash'
+                });
+            }
+        } catch (_) { /* non-critical */ }
+
         try {
             if (_activeGenController) {
                 console.warn("A generation is already in progress. Ignoring duplicate request.");
@@ -1918,6 +2217,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const decoder = new TextDecoder("utf-8");
             let buffer = "";
             let firstWrite = true;
+            const _generateReasoningAiBody = (() => {
+                const _aiMessages = document.querySelectorAll('.chat-msg-ai');
+                const _latestAi = _aiMessages[_aiMessages.length - 1];
+                return _latestAi && _latestAi.querySelector('.chat-ai-body');
+            })();
             // Safety timeout: if no SSE data arrives within a period, abort to prevent
             // an infinite hang when the server closes without sending {done:true}.
             // Pro mode (3-stage pipeline) can take longer, so use a longer timeout that also
@@ -1966,23 +2270,65 @@ document.addEventListener('DOMContentLoaded', () => {
                             continue;
                         }
 
+                        // Reasoning tokens stream — surface them in the new
+                        // thinking panel. We use the latest AI bubble as the
+                        // host (the same one that shows the "Drafting
+                        // slides…" status text). For Pro mode, the server
+                        // tags reasoning with a `stage` field so we can
+                        // update the panel's accent color and label.
+                        if (parsed.reasoning && typeof parsed.reasoning === 'string') {
+                            const allAiBodies = document.querySelectorAll('.chat-msg-ai .chat-ai-body');
+                            const _aiBody = allAiBodies[allAiBodies.length - 1];
+                            if (_aiBody && window.AedosThinking) {
+                                if (!window.AedosThinking.getPanel(_aiBody)) {
+                                    const stageMap = {
+                                        stage1: 'Analyzing request…',
+                                        stage2: 'Designing visuals…',
+                                        stage3: 'Composing slides…',
+                                        flash: 'Drafting slides…'
+                                    };
+                                    const fallbackLabel = stageMap[parsed.stage] || 'Thinking…';
+                                    window.AedosThinking.show(_aiBody, {
+                                        label: window.__t ? window.__t('chat_thinking', fallbackLabel) : fallbackLabel,
+                                        stage: parsed.stage || 'flash'
+                                    });
+                                }
+                                window.AedosThinking.appendReasoning(_aiBody, parsed.reasoning);
+                            }
+                            continue;
+                        }
+
                         // Pipeline stage progress events
                         if (parsed.pipeline) {
                             pauseBtnMessages();
-                            const stageI18nKeys = {
-                                content: 'stage_content',
-                                design: 'stage_design',
-                                compositing: 'stage_compositing'
-                            };
-                            const stageFallbacks = {
-                                content: 'Analyzing content...',
-                                design: 'Resolving design...',
-                                compositing: 'Composing slides...'
-                            };
-                            const i18nKey = stageI18nKeys[parsed.stage];
-                            const stageText = i18nKey
-                                ? (window.__t ? window.__t(i18nKey, stageFallbacks[parsed.stage]) : stageFallbacks[parsed.stage])
-                                : parsed.stage;
+                            let stageText;
+                            if (parsed.status === 'retrying') {
+                                // The AI returned bad JSON / missing fields and the
+                                // server is retrying the same stage. Show a clear
+                                // "retrying X/Y" message so the user understands the
+                                // longer wait is on purpose, not a hang.
+                                const tpl = window.__t
+                                    ? window.__t('stage_retry', 'The AI stumbled — retrying ({attempt}/{maxAttempts})...')
+                                    : 'The AI stumbled — retrying ({attempt}/{maxAttempts})...';
+                                const attempt = Number.isFinite(parsed.attempt) ? parsed.attempt : '?';
+                                const maxAttempts = Number.isFinite(parsed.maxAttempts) ? parsed.maxAttempts : '?';
+                                stageText = tpl.replace('{attempt}', String(attempt)).replace('{maxAttempts}', String(maxAttempts));
+                            } else {
+                                const stageI18nKeys = {
+                                    content: 'stage_content',
+                                    design: 'stage_design',
+                                    compositing: 'stage_compositing'
+                                };
+                                const stageFallbacks = {
+                                    content: 'Analyzing content...',
+                                    design: 'Resolving design...',
+                                    compositing: 'Composing slides...'
+                                };
+                                const i18nKey = stageI18nKeys[parsed.stage];
+                                stageText = i18nKey
+                                    ? (window.__t ? window.__t(i18nKey, stageFallbacks[parsed.stage]) : stageFallbacks[parsed.stage])
+                                    : parsed.stage;
+                            }
                             // Update hero title animation
                             if (typeof animateHeroTitle === 'function') animateHeroTitle(stageText);
                             // Also update button label with premium GSAP fade-and-slide animation
@@ -2009,6 +2355,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (firstWrite) {
                                 firstWrite = false;
                                 _pendingTransitionFn = doTransitionToPreview;
+                                // Collapse the thinking panel into a "Thought
+                                // for Ns" pill now that the slides are about
+                                // to render. The user can still re-expand
+                                // the panel to read the model's reasoning.
+                                if (window.AedosThinking) {
+                                    window.AedosThinking.collapse(_generateReasoningAiBody);
+                                }
                                 iframeDoc.open();
                                 const skelStyle = `
                                 <style class="skeleton-injector">
@@ -4318,6 +4671,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Scroll is now native; no custom scroll-loop system
 });
+
+// #region debug-point B:app-debug-report
+function __appDebugReport(hypothesisId, msg, data) {
+    fetch('http://127.0.0.1:7778/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sessionId: 'outline-bubble-dom',
+            runId: 'pre-fix',
+            hypothesisId,
+            location: 'app.js',
+            msg: `[DEBUG] ${msg}`,
+            data,
+            ts: Date.now()
+        })
+    }).catch(() => {});
+}
+// #endregion
 
 // -- Suggestion Pills Logic ---------------------------------------------------
 document.querySelectorAll('.suggestion-pill').forEach(pill => {

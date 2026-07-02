@@ -1,13 +1,3 @@
-/**
- * Pipeline Orchestrator
- * 
- * Coordinates the 3-stage generation pipeline:
- *   Stage 1 (Content) → Stage 2 (Design) → Stage 3 (HTML, streamed)
- * 
- * Stages 1 and 2 are non-streaming JSON calls.
- * Stage 3 is streamed via SSE to the client.
- */
-
 const buildStage1Prompt = require('./stage1-content');
 const buildStage2Prompt = require('./stage2-design');
 const buildStage3Prompt = require('./stage3-compositor');
@@ -15,7 +5,6 @@ const { createLogger, ErrorCategory } = require('../utils/logger');
 
 const pipelineLog = createLogger({ scope: 'PIPELINE' });
 
-// Re-export the legacy prompt for backwards compatibility
 const buildLegacyPrompt = require('./base');
 
 /**
@@ -48,7 +37,6 @@ function repairJsonEscapes(text) {
     const ch = text[i];
 
     if (!inString) {
-      // Entering a string
       if (ch === '"') {
         inString = true;
         out += ch;
@@ -60,15 +48,12 @@ function repairJsonEscapes(text) {
       continue;
     }
 
-    // Inside a JSON string value
     if (ch === '\\') {
       const next = text[i + 1];
       if (next !== undefined && VALID_ESCAPES.has(next)) {
-        // Valid escape sequence — keep as-is
         out += ch + next;
         i += 2;
       } else {
-        // Invalid escape — double the backslash to make it a literal backslash
         out += '\\\\';
         i++;
       }
@@ -76,14 +61,12 @@ function repairJsonEscapes(text) {
     }
 
     if (ch === '"') {
-      // End of string
       inString = false;
       out += ch;
       i++;
       continue;
     }
 
-    // Literal control characters inside a string — these are never valid in JSON
     if (ch === '\n') { out += '\\n'; i++; continue; }
     if (ch === '\r') { out += '\\r'; i++; continue; }
     if (ch === '\t') { out += '\\t'; i++; continue; }
@@ -99,24 +82,22 @@ function repairJsonEscapes(text) {
  * Extracts and parses JSON from a model response that may contain markdown
  * fences, extra prose, JS comments, or invalid escape sequences.
  *
- * Parsing strategy (cascading — stops at the first success):
- *   Level 1 — Direct JSON.parse() on the trimmed text.
- *   Level 2 — Strip markdown fences, extract the outermost {...} block,
- *              strip JS-style // comments, then JSON.parse().
- *   Level 3 — Apply repairJsonEscapes() to the cleaned text, then JSON.parse().
- *              A warning is logged when this level is reached so we can track
- *              how often the model emits malformed escapes.
+ * Parsing strategy (cascading - stops at the first success):
+ *   Level 1 - Direct JSON.parse() on the trimmed text.
+ *   Level 2 - Strip markdown fences, extract the outermost {...} block,
+ *             strip JS-style // comments, then JSON.parse().
+ *   Level 3 - Apply repairJsonEscapes() to the cleaned text, then JSON.parse().
+ *             A warning is logged when this level is reached so we can track
+ *             how often the model emits malformed escapes.
  *
  * @param {string} text - Raw model output
  * @returns {object} Parsed JSON object
  */
 function extractJson(text) {
-  // ── Level 1: direct parse ──────────────────────────────────────────────────
   try {
     return JSON.parse(text.trim());
   } catch (_) { /* fall through */ }
 
-  // ── Level 2: strip fences + brace extraction + strip JS comments ───────────
   let cleaned = text.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
 
   const firstBrace = cleaned.indexOf('{');
@@ -125,18 +106,15 @@ function extractJson(text) {
     cleaned = cleaned.substring(firstBrace, lastBrace + 1);
   }
 
-  // Strip JS-style // line comments (model sometimes copies comment syntax from prompt examples)
   cleaned = cleaned.replace(/\/\/[^\n"]*/g, '');
 
   try {
     return JSON.parse(cleaned);
   } catch (_) { /* fall through to repair */ }
 
-  // ── Level 3: repair bad escape sequences ──────────────────────────────────
   try {
     const repaired = repairJsonEscapes(cleaned);
     const result = JSON.parse(repaired);
-    // Log so we can monitor how often the model produces bad escapes
     pipelineLog.warn(ErrorCategory.PIPELINE, 'extractJson: used escape-repair fallback — model emitted invalid JSON escapes');
     return result;
   } catch (finalErr) {
@@ -149,28 +127,99 @@ function extractJson(text) {
  * @param {Function} tryModelsFn - The tryModels function from server.js
  * @param {string} prompt - The prompt text
  * @param {string} stageName - For logging
+ * @param {Function} [onChunk] - Optional callback ({type,text}) => void invoked
+ *   on every streamed token. Useful for piping reasoning tokens out to the
+ *   chat SSE response without buffering the whole output first.
  * @returns {Promise<string>} The full text response
  */
-async function runStage(tryModelsFn, prompt, stageName) {
+async function runStage(tryModelsFn, prompt, stageName, onChunk = null) {
   pipelineLog.info(ErrorCategory.PIPELINE, 'Stage started', { stage: stageName });
   const startTime = Date.now();
-  
+
   const result = await tryModelsFn(prompt);
-  
-  // Collect the full streamed response
+
   let fullText = '';
   for await (const chunk of result.stream) {
-    fullText += chunk;
+    // The stream may be plain text (legacy) or tagged {type,text} objects
+    // (chat/reasoning-aware mode). Normalize so we always get a string for
+    // the JSON parse AND can still forward reasoning to the client live.
+    if (chunk && typeof chunk === 'object' && typeof chunk.text === 'string') {
+      if (onChunk) onChunk(chunk);
+      if (chunk.type === 'reasoning') continue; // reasoning isn't part of the JSON
+      fullText += chunk.text;
+    } else if (typeof chunk === 'string') {
+      if (onChunk) onChunk({ type: 'content', text: chunk });
+      fullText += chunk;
+    }
   }
-  
+
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   pipelineLog.success(ErrorCategory.PIPELINE, 'Stage completed', {
     stage: stageName,
     elapsedSeconds: Number(elapsed),
     outputChars: fullText.length
   });
-  
+
   return fullText;
+}
+
+/**
+ * Wraps a pipeline stage (model call + JSON parse + validation) with up to
+ * `maxRetries` retries on parse/validation errors. CONTENT_REJECTED is treated
+ * as a permanent failure (the user input was rejected) and is propagated
+ * immediately so we don't waste calls on the same topic.
+ *
+ * The underlying `tryModels*` callers already retry on 503 and fall back to
+ * OpenRouter, so this helper specifically targets the post-call failure mode:
+ * the model returns 200 OK but the output is unusable (bad JSON, missing
+ * fields). One transient parse miss is common; two in a row is enough to
+ * give up and surface the error to the user.
+ *
+ * @param {object} options
+ * @param {Function} options.task - async () => parsed JSON. Must throw an Error
+ *   whose .message starts with CONTENT_REJECTED, STAGE1_*, or STAGE2_*.
+ * @param {number} [options.maxRetries=2] - extra attempts after the first one
+ * @param {string} options.stageName - human-readable stage name for logs
+ * @param {string} options.stageKey - 'stage1' | 'stage2' for onStageUpdate
+ * @param {Function} options.onStageUpdate - (stageKey, data) => void
+ * @returns {Promise<object>} parsed JSON
+ */
+async function runContentStageWithRetry({ task, maxRetries = 2, stageName, stageKey, onStageUpdate }) {
+  let lastError;
+  const maxAttempts = maxRetries + 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await task();
+    } catch (err) {
+      lastError = err;
+      const msg = err && err.message ? err.message : '';
+      // Permanent failure: the user's topic was rejected by the model.
+      // Retrying with the same prompt will only get the same rejection.
+      if (msg.startsWith('CONTENT_REJECTED')) throw err;
+      // Out of retries — bubble up so the SSE error path can show a friendly
+      // message and the user can try again with different wording.
+      if (attempt >= maxAttempts) throw err;
+
+      pipelineLog.warn(ErrorCategory.PIPELINE,
+        `${stageName} attempt ${attempt}/${maxAttempts} failed, retrying`, {
+        attempt,
+        maxAttempts,
+        error: msg
+      });
+      if (onStageUpdate) {
+        onStageUpdate(stageKey, {
+          status: 'retrying',
+          attempt,
+          maxAttempts,
+          error: msg
+        });
+      }
+      // Small linear backoff so the model/provider can recover from a
+      // transient parse miss (e.g. a malformed JSON block).
+      await new Promise(r => setTimeout(r, 500 * attempt));
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -202,7 +251,6 @@ function enrichSkeletonForStage2(skeleton, rawInput) {
 
   const slides = Array.isArray(skeleton.slides) ? skeleton.slides : [];
 
-  // Map editor density to Stage 1 text_density enum
   const densityMap = { low: 'low', medium: 'medium', high: 'high' };
 
   const enriched = {
@@ -220,9 +268,6 @@ function enrichSkeletonForStage2(skeleton, rawInput) {
     institution:         skeleton.institution         || null,
     date:                skeleton.date                || null,
     cta:                 skeleton.cta                 || null,
-    // Provide a visual_world block so Stage 2 has a creative anchor.
-    // If the user-skeleton already has one (carried over from a previous Stage 1 run)
-    // we keep it; otherwise we derive a lightweight placeholder.
     visual_world: skeleton.visual_world || {
       real_world_analog: `(Derive from topic: ${rawInput})`,
       color_temperature: 'neutral',
@@ -230,13 +275,11 @@ function enrichSkeletonForStage2(skeleton, rawInput) {
       typography_energy: 'neutral',
       reference_era:     'contemporary'
     },
-    // Carry over any existing slides, enriching missing per-slide fields
     slides: slides.map((slide, idx) => ({
       index:         idx + 1,
       role:          slide.role          || 'concept',
       title:         slide.title         || '',
       subtitle:      slide.subtitle      || null,
-      // core_message defaults to the title when absent (Stage 2 uses it for focal point guidance)
       core_message:  slide.core_message  || slide.title || '',
       key_points:    Array.isArray(slide.key_points) ? slide.key_points.filter(Boolean) : [],
       data_points:   Array.isArray(slide.data_points) ? slide.data_points : null,
@@ -249,51 +292,69 @@ function enrichSkeletonForStage2(skeleton, rawInput) {
   return enriched;
 }
 
-async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, maxSlides = 12 }) {
-  // Allow legacy callers that pass a single tryModels function
+async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, onChunk, maxSlides = 12 }) {
   const callStage1 = tryModelsStage1 || tryModels;
   const callStage2 = tryModelsStage2 || tryModels;
   const callStage3 = tryModelsStage3 || tryModels;
+  // Reasoning chunks are emitted through onChunk, regardless of which stage
+  // they come from. We tag them with the stage key so the client can group
+  // them visually under "Designing" vs "Composing" headings.
+  const stageChunk = (stageKey) => onChunk
+    ? (item) => onChunk({ ...item, stage: stageKey })
+    : null;
   let contentJson;
 
   if (skeleton) {
     pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 1 skipped (Skeleton provided)');
-    // Enrich the editor skeleton with all fields Stage 2 needs before skipping Stage 1
     contentJson = enrichSkeletonForStage2(skeleton, rawInput);
     onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count || contentJson.slides?.length || 0 });
   } else {
-    // ── Stage 1: Content Extraction ──
     onStageUpdate('stage1', { status: 'running' });
-    
-    const stage1Prompt = buildStage1Prompt(rawInput, targetLanguage);
-    const stage1Raw = await runStage((p) => callStage1(p, fileContext), stage1Prompt, 'Stage 1 (Content)');
-    
-    try {
-      contentJson = extractJson(stage1Raw);
-    } catch (e) {
-      throw new Error(`STAGE1_PARSE_ERROR: Could not parse Stage 1 output as JSON. Raw: ${stage1Raw.substring(0, 500)}`);
-    }
-    
-    // Check for rejection
-    if (contentJson.rejected) {
-      throw new Error('CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic'));
-    }
-    
-    // Validate minimum fields
-    if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
-      throw new Error('STAGE1_INVALID: Stage 1 output has no slides array');
-    }
-    
-    // Safety net: Forcibly trim slides array if model hallucinated past the limit to prevent token waste
-    if (contentJson.slides.length > maxSlides) {
-      pipelineLog.warn(ErrorCategory.VALIDATION, 'Stage 1 exceeded max slides and was trimmed', {
-        maxSlides,
-        receivedSlides: contentJson.slides.length
-      });
-      contentJson.slides = contentJson.slides.slice(0, maxSlides);
-      contentJson.slide_count = maxSlides;
-    }
-    
+
+    contentJson = await runContentStageWithRetry({
+      stageName: 'Stage 1 (Content)',
+      stageKey: 'stage1',
+      maxRetries: 2,
+      onStageUpdate,
+      task: async () => {
+        const stage1Prompt = buildStage1Prompt(rawInput, targetLanguage);
+        const stage1Raw = await runStage(
+          (p) => callStage1(p, fileContext),
+          stage1Prompt,
+          'Stage 1 (Content)',
+          stageChunk('stage1')
+        );
+
+        let parsed;
+        try {
+          parsed = extractJson(stage1Raw);
+        } catch (e) {
+          throw new Error(`STAGE1_PARSE_ERROR: Could not parse Stage 1 output as JSON. Raw: ${stage1Raw.substring(0, 500)}`);
+        }
+
+        if (parsed.rejected) {
+          // Permanent — the user's input was rejected. The retry helper will
+          // see the CONTENT_REJECTED prefix and propagate immediately.
+          throw new Error('CONTENT_REJECTED: ' + (parsed.reason || 'Invalid topic'));
+        }
+
+        if (!parsed.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0) {
+          throw new Error('STAGE1_INVALID: Stage 1 output has no slides array');
+        }
+
+        if (parsed.slides.length > maxSlides) {
+          pipelineLog.warn(ErrorCategory.VALIDATION, 'Stage 1 exceeded max slides and was trimmed', {
+            maxSlides,
+            receivedSlides: parsed.slides.length
+          });
+          parsed.slides = parsed.slides.slice(0, maxSlides);
+          parsed.slide_count = maxSlides;
+        }
+
+        return parsed;
+      }
+    });
+
     onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count });
     pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 1 extracted content', {
       slideCount: contentJson.slide_count,
@@ -301,27 +362,34 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
       tone: contentJson.tone
     });
   }
-  
-  // ── Stage 2: Creative Direction ──
+
   onStageUpdate('stage2', { status: 'running' });
-  
-  const stage2Prompt = buildStage2Prompt(rawInput, contentJson);
-  const stage2Raw = await runStage(callStage2, stage2Prompt, 'Stage 2 (Design)');
-  
-  let designJson;
-  try {
-    designJson = extractJson(stage2Raw);
-  } catch (e) {
-    throw new Error(`STAGE2_PARSE_ERROR: Could not parse Stage 2 output as JSON. Raw: ${stage2Raw.substring(0, 500)}`);
-  }
-  
-  // Validate minimum fields
-  if (!designJson.palette || !designJson.slides || !Array.isArray(designJson.slides)) {
-    throw new Error('STAGE2_INVALID: Stage 2 output missing palette or slides');
-  }
+
+  const designJson = await runContentStageWithRetry({
+    stageName: 'Stage 2 (Design)',
+    stageKey: 'stage2',
+    maxRetries: 2,
+    onStageUpdate,
+    task: async () => {
+      const stage2Prompt = buildStage2Prompt(rawInput, contentJson);
+      const stage2Raw = await runStage(callStage2, stage2Prompt, 'Stage 2 (Design)', stageChunk('stage2'));
+
+      let parsed;
+      try {
+        parsed = extractJson(stage2Raw);
+      } catch (e) {
+        throw new Error(`STAGE2_PARSE_ERROR: Could not parse Stage 2 output as JSON. Raw: ${stage2Raw.substring(0, 500)}`);
+      }
+
+      if (!parsed.palette || !parsed.slides || !Array.isArray(parsed.slides)) {
+        throw new Error('STAGE2_INVALID: Stage 2 output missing palette or slides');
+      }
+
+      return parsed;
+    }
+  });
   
   onStageUpdate('stage2', { status: 'done' });
-  // Support both the newer `colors_hex` array and legacy `accent_hex`/`accent2_hex` keys
   const p = designJson.palette || {};
   const colors = Array.isArray(p.colors_hex) && p.colors_hex.length > 0
     ? p.colors_hex
@@ -337,7 +405,6 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
     mood: designJson.mood_global
   });
   
-  // ── Stage 3: HTML Generation (streamed) ──
   onStageUpdate('stage3', { status: 'running' });
   
   const stage3Prompt = buildStage3Prompt(rawInput, contentJson, designJson);

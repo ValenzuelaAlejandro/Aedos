@@ -1,0 +1,362 @@
+/* ============================================================================
+   Chat thinking panel — premium on-brand reasoning surface
+   ============================================================================
+   Matches the rest of the app: dark glass surface, Syne display label, subtle
+   gradient accent bar, DM Sans body, monospace reasoning body. No flashy
+   generic icons — the only "live" affordance is a small pulsing status dot
+   anchored to the gradient bar on the left edge.
+   ============================================================================ */
+
+.chat-thinking-panel {
+    /* Theme-aware tokens (fall back to the page tokens / dark defaults) */
+    --tp-surface: #121212;
+    --tp-surface-2: #121212;
+    --tp-border: transparent;
+    --tp-border-soft: transparent;
+    --tp-text: var(--text, #ededed);
+    --tp-muted: var(--muted, #9a9a9a);
+    --tp-faint: rgba(255, 255, 255, 0.55);
+    --tp-accent: #e0e0e0;
+    --tp-radius: 0;
+    --tp-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Fira Code', Menlo, Consolas, monospace;
+
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 600px;
+    margin: 0.5rem 0;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--tp-radius);
+    background: var(--tp-surface);
+    color: var(--tp-text);
+    font-family: var(--tp-mono);
+    overflow: hidden;
+    position: relative;
+    box-shadow: none;
+    animation: thinking-panel-rise 0.32s cubic-bezier(0.4, 0, 0.2, 1) both;
+    /* Align panel to the left */
+    align-self: flex-start;
+}
+
+@keyframes thinking-panel-rise {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Vertical line removed at user request (simple square look) */
+.chat-thinking-panel::before {
+    display: none;
+}
+
+.chat-thinking-panel.is-active::before {
+    opacity: 1;
+}
+
+.chat-thinking-panel.is-collapsed::before {
+    opacity: 0.6;
+}
+
+.chat-thinking-panel.is-hidden { display: none !important; }
+
+/* -----------------------------------------------------------------------
+   Header (the always-visible row)
+   ----------------------------------------------------------------------- */
+.chat-thinking-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.6rem 0.95rem;
+    background: transparent;
+    border: none;
+    color: var(--tp-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.chat-thinking-header:hover {
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.chat-thinking-header:focus-visible {
+    outline: 1.5px solid var(--tp-accent);
+    outline-offset: -2px;
+    border-radius: var(--tp-radius);
+}
+
+/* "Live" affordance: a small dot + the status word. Replaces the generic
+   brain icon — feels native to the rest of the app's loading surfaces. */
+.chat-thinking-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.chat-thinking-status-mark {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--tp-muted);
+    transition: background 0.3s ease;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.chat-thinking-panel.is-active .chat-thinking-status-mark {
+    background: var(--tp-accent);
+    animation: thinking-status-pulse 1.6s ease-in-out infinite;
+}
+
+.chat-thinking-panel.is-collapsed .chat-thinking-status-mark {
+    background: var(--tp-muted);
+    animation: none;
+}
+
+@keyframes thinking-status-pulse {
+    0%, 100% { 
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.5;
+        transform: scale(0.9);
+    }
+}
+
+.chat-thinking-status-text {
+    font-family: var(--tp-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--tp-muted);
+    line-height: 1;
+}
+
+.chat-thinking-panel.is-active .chat-thinking-status-text {
+    color: var(--tp-text);
+}
+
+.chat-thinking-panel.is-collapsed .chat-thinking-status-text {
+    /* Hide the "THINKING" tag in collapsed mode — the dot is enough. */
+    display: none;
+}
+
+.chat-thinking-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--tp-text);
+    font-size: 0.8rem;
+    font-weight: 400;
+    letter-spacing: -0.005em;
+}
+
+.chat-thinking-panel.is-collapsed .chat-thinking-label {
+    color: var(--tp-muted);
+    font-weight: 400;
+    font-family: var(--tp-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0;
+}
+
+.chat-thinking-timer {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.72rem;
+    color: var(--tp-muted);
+    flex-shrink: 0;
+    min-width: 30px;
+    text-align: right;
+    font-family: var(--tp-mono);
+    letter-spacing: 0.02em;
+}
+
+.chat-thinking-panel.is-collapsed .chat-thinking-timer {
+    display: none;
+}
+
+.chat-thinking-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tp-muted);
+    flex-shrink: 0;
+    margin-left: 0.1rem;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s ease;
+}
+
+.chat-thinking-panel.is-expanded .chat-thinking-chevron {
+    transform: rotate(180deg);
+    color: var(--tp-text);
+}
+
+/* -----------------------------------------------------------------------
+   Body (expanded reasoning surface)
+   ----------------------------------------------------------------------- */
+.chat-thinking-body {
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 0.55rem 0.95rem 0.95rem;
+    border-top: none;
+    background: var(--tp-surface-2);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.10) transparent;
+    animation: thinking-body-reveal 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chat-thinking-body::-webkit-scrollbar { width: 4px; }
+.chat-thinking-body::-webkit-scrollbar-track { background: transparent; }
+.chat-thinking-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.10);
+    border-radius: 2px;
+}
+
+@keyframes thinking-body-reveal {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.chat-thinking-content {
+    color: rgba(255, 255, 255, 0.85);
+    font-family: var(--tp-mono);
+    font-size: 0.78rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    position: relative;
+    font-style: normal;
+}
+
+/* Blinking cursor that signals "still streaming" */
+.chat-thinking-content::after {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: var(--tp-accent);
+    animation: thinking-cursor-blink 1s steps(2) infinite;
+    opacity: 0.65;
+    border-radius: 1px;
+}
+
+.chat-thinking-panel.is-collapsed .chat-thinking-content::after { display: none; }
+
+@keyframes thinking-cursor-blink {
+    0%, 100% { opacity: 0; }
+    50%      { opacity: 0.75; }
+}
+
+/* "No reasoning received" placeholder. Shown by JS only when the model
+   hasn't emitted any reasoning tokens after a few seconds (the model may
+   not support it). Kept intentionally subtle. */
+.chat-thinking-empty {
+    color: var(--tp-muted);
+    font-family: var(--tp-mono);
+    font-size: 0.78rem;
+    font-style: normal;
+    letter-spacing: 0.01em;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.chat-thinking-empty::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--tp-muted);
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+/* -----------------------------------------------------------------------
+   Reduced motion + responsive + light theme
+   ----------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .chat-thinking-panel,
+    .chat-thinking-body,
+    .chat-thinking-content::after,
+    .chat-thinking-panel.is-active::before,
+    .chat-thinking-panel.is-active .chat-thinking-status-mark {
+        animation: none !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .chat-thinking-panel {
+        --tp-radius: 12px;
+    }
+    .chat-thinking-body { max-height: 220px; }
+    .chat-thinking-header { padding: 0.55rem 0.8rem; }
+    .chat-thinking-body { padding: 0.5rem 0.8rem 0.8rem; }
+    .chat-thinking-status-text { font-size: 0.66rem; }
+}
+
+/* -----------------------------------------------------------------------
+   Chat-mode alignment with the text input box
+   -----------------------------------------------------------------------
+   In chat mode, the text input is fixed at:
+     left: 50%; transform: translateX(-50%);
+     width: calc(100% - 2rem); max-width: 728px;
+   So its left edge sits at max(1rem, calc(50vw - 364px)).
+
+   The panel is a flex item inside .chat-ai-body, which lives inside
+   .chat-container (max-width: 800px, margin: 0 auto). So the body's
+   left edge sits at:
+     - For viewport >= 800px: (50vw - 400px) + 30px (avatar) + 12px (gap)
+                            = 50vw - 358px
+     - For viewport <  800px: 42px (container is full-width)
+
+   We shift the panel with a margin-left so its left edge matches the
+   text input's left edge at every viewport size. */
+#chat-screen.chat-mode .chat-thinking-panel {
+    /* Narrow viewports: container is full-width, so account for the
+       42px avatar offset. */
+    margin-left: max(calc(1rem - 42px), calc(50vw - 406px));
+}
+
+@media (min-width: 800px) {
+    /* Wide viewports: container is capped at 800px and centered, so
+       the panel just needs a small -6px nudge to line up with the
+       text input (which is centered on the viewport, not the container). */
+    #chat-screen.chat-mode .chat-thinking-panel {
+        margin-left: -6px;
+    }
+}
+
+:root[data-theme="light"] .chat-thinking-panel {
+    --tp-surface: #f5f5f5;
+    --tp-surface-2: #f5f5f5;
+    --tp-border: transparent;
+    --tp-border-soft: transparent;
+    --tp-text: #111827;
+    --tp-muted: #6B7280;
+    --tp-faint: rgba(17, 24, 39, 0.55);
+    --tp-accent: #333333;
+    box-shadow: none;
+}
+
+:root[data-theme="light"] .chat-thinking-content {
+    color: rgba(17, 24, 39, 0.85);
+    font-style: normal;
+}
+
+:root[data-theme="light"] .chat-thinking-body::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme="light"] .chat-thinking-header:hover {
+    background: rgba(15, 23, 42, 0.025);
+}

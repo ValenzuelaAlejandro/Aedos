@@ -588,6 +588,7 @@
 .chat-container {
     width: 100%;
     max-width: 800px;
+    margin: 0 auto;
     position: relative;
     z-index: 10;
     display: flex;
@@ -612,6 +613,7 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    padding: 0 0.82rem; /* Aligns with chat-input-wrapper internal padding */
     opacity: 0;
     transform: translateY(16px);
     transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);

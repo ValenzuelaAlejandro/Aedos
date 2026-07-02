@@ -4,7 +4,8 @@ window.outlineEditorState = {
     skeleton: null,
     mode: 'flash',
     maxSlides: 15,
-    isLoading: false
+    isLoading: false,
+    activeContainer: null
 };
 
 /**
@@ -49,6 +50,151 @@ function scrollToBottom(force = false) {
     }
 }
 
+// #region debug-point A:outline-debug-report
+function __outlineDebugReport(hypothesisId, msg, data) {
+    fetch('http://127.0.0.1:7778/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sessionId: 'outline-bubble-dom',
+            runId: 'pre-fix',
+            hypothesisId,
+            location: 'outline.js',
+            msg: `[DEBUG] ${msg}`,
+            data,
+            ts: Date.now()
+        })
+    }).catch(() => {});
+}
+// #endregion
+
+function getActiveOutlineContainer() {
+    const activeContainer = window.outlineEditorState?.activeContainer;
+    if (activeContainer && document.body.contains(activeContainer)) {
+        return activeContainer;
+    }
+
+    return document.getElementById('outline-container');
+}
+
+function getOutlineDom(container = getActiveOutlineContainer()) {
+    if (!container) {
+        return {
+            container: null,
+            slidesContainer: null,
+            chipsContainer: null,
+            addSlideButton: null,
+            generateButton: null
+        };
+    }
+
+    return {
+        container,
+        slidesContainer: container.querySelector('[data-outline-slides]') || container.querySelector('#outline-slides-container'),
+        chipsContainer: container.querySelector('[data-outline-chips]') || container.querySelector('#outline-suggested-chips'),
+        addSlideButton: container.querySelector('[data-outline-add-slide]') || container.querySelector('#btn-outline-add-slide'),
+        generateButton: container.querySelector('[data-outline-generate]') || container.querySelector('#btn-outline-generate')
+    };
+}
+
+function clearOutlineDom(container = getActiveOutlineContainer()) {
+    const outlineDom = getOutlineDom(container);
+    if (outlineDom.slidesContainer) outlineDom.slidesContainer.innerHTML = '';
+    if (outlineDom.chipsContainer) outlineDom.chipsContainer.innerHTML = '';
+}
+
+function mountActiveOutlineContainer(container) {
+    const fallbackContainer = document.getElementById('outline-container');
+    window.outlineEditorState.activeContainer = container && document.body.contains(container)
+        ? container
+        : fallbackContainer;
+    // #region debug-point A:active-container-mounted
+    __outlineDebugReport('A', 'mountActiveOutlineContainer resolved host', {
+        requestedId: container?.id || null,
+        requestedClass: container?.className || null,
+        activeId: window.outlineEditorState.activeContainer?.id || null,
+        activeClass: window.outlineEditorState.activeContainer?.className || null,
+        activeParentClass: window.outlineEditorState.activeContainer?.parentElement?.className || null
+    });
+    // #endregion
+    return getOutlineDom(window.outlineEditorState.activeContainer);
+}
+
+function handleOutlineGenerateRequest() {
+    const activeGenerateButton = getOutlineDom().generateButton;
+    if (activeGenerateButton && activeGenerateButton.disabled) return;
+
+    const skel = window.outlineEditorState.skeleton;
+    if (!skel) return;
+
+    skel.topic = document.getElementById('outline-title-input').value;
+    skel.tone = document.getElementById('outline-tone-select').value;
+    skel.audience = document.getElementById('outline-audience-select').value;
+    skel.density = document.getElementById('outline-density-select').value;
+
+    const subtitleInput = document.getElementById('outline-subtitle-input');
+    if (subtitleInput) skel.subtitle_context = subtitleInput.value.trim();
+
+    if (!skel.slides || skel.slides.length === 0) {
+        alert(window.__t ? window.__t('outline_empty_slides', 'Please add at least one slide before generating.') : 'Please add at least one slide before generating.');
+        return;
+    }
+
+    skel.slides.forEach(slide => {
+        if (slide.key_points) {
+            slide.key_points = slide.key_points.filter(p => p && p.trim() !== '');
+        }
+    });
+
+    if (activeGenerateButton) {
+        activeGenerateButton.disabled = true;
+        activeGenerateButton.classList.add('is-generating');
+    }
+
+    if (window.startFinalGeneration) {
+        window.startFinalGeneration(skel);
+    }
+}
+
+function bindOutlineBubbleActions(container) {
+    const outlineDom = getOutlineDom(container);
+
+    if (outlineDom.addSlideButton && !outlineDom.addSlideButton.dataset.boundOutlineAction) {
+        outlineDom.addSlideButton.dataset.boundOutlineAction = 'true';
+        outlineDom.addSlideButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            addBlankSlide();
+        });
+    }
+
+    if (outlineDom.generateButton && !outlineDom.generateButton.dataset.boundOutlineAction) {
+        outlineDom.generateButton.dataset.boundOutlineAction = 'true';
+        outlineDom.generateButton.addEventListener('click', handleOutlineGenerateRequest);
+    }
+}
+
+function createFollowUpOutlineContainer() {
+    const container = document.createElement('div');
+    container.className = 'outline-container-local hidden';
+    container.innerHTML = `
+        <div class="seamless-outline-list" data-outline-slides></div>
+        <div class="outline-suggested-chips" data-outline-chips></div>
+        <div class="outline-bubble-footer">
+            <button type="button" class="outline-btn-ghost" data-outline-add-slide>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Add Section
+            </button>
+            <button type="button" class="outline-generate-btn" data-outline-generate>
+                <span class="outline-generate-text" data-i18n="generate_outline_slides">Create Presentation</span>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </button>
+        </div>
+    `;
+
+    bindOutlineBubbleActions(container);
+    return container;
+}
+
 function showOutlineEditorLoading(slideCount = 8) {
     window.outlineEditorState.isLoading = true;
 
@@ -56,9 +202,12 @@ function showOutlineEditorLoading(slideCount = 8) {
     const isFollowUp = !!window.outlineEditorState.skeleton;
     if (!isFollowUp) {
         document.querySelectorAll('.historical-outline-summary').forEach(el => el.remove());
-        const slidesContainer = document.getElementById('outline-slides-container');
+        const globalOutline = document.getElementById('outline-container');
+        mountActiveOutlineContainer(globalOutline);
+        bindOutlineBubbleActions(globalOutline);
+        const slidesContainer = getOutlineDom(globalOutline).slidesContainer;
         if (slidesContainer) slidesContainer.innerHTML = '';
-        const chipsContainer = document.getElementById('outline-suggested-chips');
+        const chipsContainer = getOutlineDom(globalOutline).chipsContainer;
         if (chipsContainer) {
             chipsContainer.innerHTML = '';
             if (window._chipsRenderTimeout) clearTimeout(window._chipsRenderTimeout);
@@ -153,7 +302,11 @@ function showOutlineEditorLoading(slideCount = 8) {
                     </svg>
                 </div>
                 <div class="chat-ai-body">
-                    <div class="chat-thinking"><span></span><span></span><span></span></div>
+                    <!-- Thinking panel is injected by the caller via
+                         window.AedosThinking.show(aiBody, ...). The legacy
+                         chat-thinking div stays here as a graceful
+                         fallback for browsers that block the new module. -->
+                    <div class="chat-thinking hidden"><span></span><span></span><span></span></div>
                 </div>
             `;
             convZone.appendChild(aiBubble);
@@ -162,10 +315,24 @@ function showOutlineEditorLoading(slideCount = 8) {
                 window.gsap.fromTo(aiBubble, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', delay: 0.1 });
             }
 
+            // Attach the new Claude-style thinking panel right away so the
+            // user sees the elapsed-time counter from the very first
+            // millisecond. Reasoning tokens arriving later will auto-expand
+            // it.
+            if (window.AedosThinking) {
+                const aiBody = aiBubble.querySelector('.chat-ai-body');
+                if (aiBody) {
+                    window.AedosThinking.show(aiBody, {
+                        label: window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…',
+                        stage: 'stage1'
+                    });
+                }
+            }
+
             // Archive and freeze the previous outline state into a gorgeous static summary
-            const outlineContainer = document.getElementById('outline-container');
+            const outlineContainer = getActiveOutlineContainer();
             if (outlineContainer) {
-                const slidesContainer = document.getElementById('outline-slides-container');
+                const slidesContainer = getOutlineDom(outlineContainer).slidesContainer;
                 if (slidesContainer && !outlineContainer.classList.contains('hidden')) {
                     // Create a static read-only snapshot
                     const staticSummary = document.createElement('div');
@@ -205,10 +372,28 @@ function showOutlineEditorLoading(slideCount = 8) {
                     }
                 }
 
-                // Now safely detach the active outline editor and move it to the new AI loading bubble
-                outlineContainer.classList.add('hidden');
-                aiBubble.querySelector('.chat-ai-body').appendChild(outlineContainer);
+                // Retire the previous interactive host without reparenting the
+                // same outline DOM subtree into the next bubble.
+                clearOutlineDom(outlineContainer);
+                if (outlineContainer.id === 'outline-container') {
+                    outlineContainer.classList.add('hidden');
+                } else {
+                    outlineContainer.remove();
+                }
             }
+
+            const followUpOutlineContainer = createFollowUpOutlineContainer();
+            aiBubble.querySelector('.chat-ai-body').appendChild(followUpOutlineContainer);
+            mountActiveOutlineContainer(followUpOutlineContainer);
+            // #region debug-point C:follow-up-bubble-host
+            __outlineDebugReport('C', 'follow-up AI bubble received local outline host', {
+                aiBubbleClass: aiBubble.className,
+                aiBodyChildren: aiBubble.querySelector('.chat-ai-body')?.children?.length || 0,
+                followUpHostClass: followUpOutlineContainer.className,
+                followUpHostParentClass: followUpOutlineContainer.parentElement?.className || null,
+                totalAiMessages: document.querySelectorAll('.chat-msg-ai').length
+            });
+            // #endregion
         } else {
             // First loading state: populate the static placeholders
             const firstUserBubble = document.getElementById('chat-user-bubble');
@@ -243,6 +428,12 @@ function showOutlineEditorLoading(slideCount = 8) {
                     }
                 }
             }
+
+            const globalOutline = document.getElementById('outline-container');
+            if (globalOutline) {
+                mountActiveOutlineContainer(globalOutline);
+                bindOutlineBubbleActions(globalOutline);
+            }
         }
 
         // Auto-scroll to bottom of conversation (force since new content is added)
@@ -250,8 +441,9 @@ function showOutlineEditorLoading(slideCount = 8) {
     }
 
     // 6. Disable generate/add-slide while loading
-    const btnGen = document.getElementById('btn-outline-generate');
-    const btnAdd = document.getElementById('btn-outline-add-slide');
+    const outlineDom = getOutlineDom();
+    const btnGen = outlineDom.generateButton;
+    const btnAdd = outlineDom.addSlideButton;
     if (btnGen) btnGen.disabled = true;
     if (btnAdd) btnAdd.disabled = true;
 }
@@ -300,8 +492,9 @@ window.prepareOutlineStreaming = function(mode) {
     window.outlineEditorState.skeleton = null;
     window.outlineEditorState.mode = mode;
     window.outlineEditorState.maxSlides = mode === 'pro' ? 8 : 15;
-    
-    const container = document.getElementById('outline-slides-container');
+
+    const activeOutlineDom = mountActiveOutlineContainer(getActiveOutlineContainer());
+    const container = activeOutlineDom.slidesContainer;
     if (container) container.innerHTML = '';
     
     const btnGenerate = document.getElementById('btn-generate');
@@ -319,21 +512,10 @@ window.prepareOutlineStreaming = function(mode) {
     const counter = document.querySelector('.chat-counter-row');
     if (counter) { counter.style.transition = 'opacity 0.3s'; counter.style.opacity = '0'; }
 
-    const aiMessages = document.querySelectorAll('.chat-msg-ai');
-    const latestAiMessage = aiMessages[aiMessages.length - 1];
-    
-    if (latestAiMessage) {
-        const latestAiBody = latestAiMessage.querySelector('.chat-ai-body');
-        const outlineContainer = document.getElementById('outline-container');
-        if (latestAiBody && outlineContainer && !latestAiBody.contains(outlineContainer)) {
-            latestAiBody.appendChild(outlineContainer);
-        }
-    }
-
-    const outlineContainer = document.getElementById('outline-container');
+    const outlineContainer = activeOutlineDom.container;
     if (outlineContainer) outlineContainer.classList.remove('hidden');
-    
-    const chipsContainer = document.getElementById('outline-suggested-chips');
+
+    const chipsContainer = activeOutlineDom.chipsContainer;
     if (chipsContainer) {
         chipsContainer.innerHTML = '';
         if (window._chipsRenderTimeout) clearTimeout(window._chipsRenderTimeout);
@@ -341,8 +523,18 @@ window.prepareOutlineStreaming = function(mode) {
 };
 
 window.renderStreamingOutline = function(partialSkeleton) {
-    const container = document.getElementById('outline-slides-container');
+    const container = getOutlineDom().slidesContainer;
     if (!container) return;
+    // #region debug-point D:stream-render-target
+    __outlineDebugReport('D', 'renderStreamingOutline target resolved', {
+        activeContainerId: getOutlineDom().container?.id || null,
+        activeContainerClass: getOutlineDom().container?.className || null,
+        slidesContainerId: container.id || null,
+        slidesContainerDataset: container.getAttribute('data-outline-slides') || null,
+        slidesParentClass: container.parentElement?.className || null,
+        slideCount: partialSkeleton?.slides?.length || 0
+    });
+    // #endregion
 
     const slides = partialSkeleton.slides || [];
     const existingItems = container.querySelectorAll('.seamless-slide-item');
@@ -448,8 +640,9 @@ window.finalizeStreamingOutline = function(finalSkeleton) {
     const btnLang = document.getElementById('btn-lang-dropdown');
     if (btnLang) btnLang.disabled = false;
     
-    const btnGen = document.getElementById('btn-outline-generate');
-    const btnAdd = document.getElementById('btn-outline-add-slide');
+    const outlineDom = getOutlineDom();
+    const btnGen = outlineDom.generateButton;
+    const btnAdd = outlineDom.addSlideButton;
     if (btnGen) btnGen.disabled = false;
     if (btnAdd) btnAdd.disabled = false;
     
@@ -459,7 +652,7 @@ window.finalizeStreamingOutline = function(finalSkeleton) {
 };
 
 window.renderOutlineSuggestedChips = function(skeletonData) {
-    const chipsContainer = document.getElementById('outline-suggested-chips');
+    const chipsContainer = getOutlineDom().chipsContainer;
     if (!chipsContainer) return;
     chipsContainer.innerHTML = '';
     
@@ -505,7 +698,7 @@ window.renderOutlineSuggestedChips = function(skeletonData) {
     }
 
     window._chipsRenderTimeout = setTimeout(() => {
-        if (!document.getElementById('outline-suggested-chips')) return;
+        if (!document.body.contains(chipsContainer)) return;
         chipsContainer.innerHTML = '';
         
         suggestedChips.forEach((chip, cIdx) => {
@@ -515,6 +708,16 @@ window.renderOutlineSuggestedChips = function(skeletonData) {
             btn.innerHTML = chip.text;
 
             btn.addEventListener('click', () => {
+                // Primary "Looks good! Create presentation" chip: skip the AI skeleton
+                // analysis entirely and kick off the final generation straight from
+                // the current outline. This avoids a wasted /generate-skeleton call.
+                if (chip.action === 'generate') {
+                    if (typeof window.proceedWithCurrentOutline === 'function') {
+                        window.proceedWithCurrentOutline();
+                    }
+                    return;
+                }
+
                 const inputEl = document.getElementById('w-tema');
                 const btnGenerateMain = document.getElementById('btn-generate');
                 if (inputEl && btnGenerateMain) {
@@ -542,7 +745,8 @@ function initOutlineEditor(skeletonData, mode) {
 }
 
 function renderOutlineSlides() {
-    const container = document.getElementById('outline-slides-container');
+    const container = getOutlineDom().slidesContainer;
+    if (!container) return;
     container.innerHTML = '';
 
     const slides = window.outlineEditorState.skeleton.slides || [];
@@ -749,8 +953,9 @@ window.stopOutlineGeneration = function () {
     const btnLang = document.getElementById('btn-lang-dropdown');
     if (btnLang) btnLang.disabled = false;
 
-    const btnGen = document.getElementById('btn-outline-generate');
-    const btnAdd = document.getElementById('btn-outline-add-slide');
+    const outlineDom = getOutlineDom();
+    const btnGen = outlineDom.generateButton;
+    const btnAdd = outlineDom.addSlideButton;
     if (btnGen) btnGen.disabled = false;
     if (btnAdd) btnAdd.disabled = false;
 
@@ -764,7 +969,7 @@ function updateOutlineSlideCount() {
     const countEl = document.getElementById('outline-slide-count');
     if (countEl) countEl.textContent = `${slides.length} slides`;
 
-    const addSlideBtn = document.getElementById('btn-outline-add-slide');
+    const addSlideBtn = getOutlineDom().addSlideButton;
     if (addSlideBtn) {
         if (slides.length >= window.outlineEditorState.maxSlides) {
             addSlideBtn.disabled = true;
@@ -815,7 +1020,8 @@ async function addSlideWithAI() {
     btn.disabled = true;
 
     // Inject a loading skeleton card at the bottom
-    const container = document.getElementById('outline-slides-container');
+    const container = getOutlineDom().slidesContainer;
+    if (!container) return;
     const loadingCard = document.createElement('div');
     loadingCard.className = 'outline-slide-card is-loading is-ai-loading is-new';
     loadingCard.innerHTML = `
@@ -995,7 +1201,8 @@ function resumeOutlineEditor() {
     // Sync custom dropdown UI values when resuming
     if (typeof syncCustomDropdowns === 'function') syncCustomDropdowns();
 
-    document.getElementById('outline-container').classList.remove('hidden');
+    const outlineContainer = getActiveOutlineContainer();
+    if (outlineContainer) outlineContainer.classList.remove('hidden');
 
     const backdrop = document.getElementById('outline-backdrop');
     if (backdrop) backdrop.classList.add('active');
@@ -1134,55 +1341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Add Slide Button
-    const addSlideBtn = document.getElementById('btn-outline-add-slide');
-    if (addSlideBtn) {
-        addSlideBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            addBlankSlide();
-        });
-    }
-
-    // Generate Button
-    const btnGenerate = document.getElementById('btn-outline-generate');
-    if (btnGenerate) {
-        btnGenerate.addEventListener('click', () => {
-            if (btnGenerate.disabled) return;
-
-            // Re-sync global settings
-            const skel = window.outlineEditorState.skeleton;
-            skel.topic = document.getElementById('outline-title-input').value;
-            skel.tone = document.getElementById('outline-tone-select').value;
-            skel.audience = document.getElementById('outline-audience-select').value;
-            skel.density = document.getElementById('outline-density-select').value;
-
-            // Fix #13: Persist the additional context from outline-subtitle-input
-            const subtitleInput = document.getElementById('outline-subtitle-input');
-            if (subtitleInput) skel.subtitle_context = subtitleInput.value.trim();
-
-            // Fix #15: Validate at least one slide exists
-            if (!skel.slides || skel.slides.length === 0) {
-                alert(window.__t ? window.__t('outline_empty_slides', 'Please add at least one slide before generating.') : 'Please add at least one slide before generating.');
-                return;
-            }
-
-            // Clean up empty points
-            skel.slides.forEach(slide => {
-                if (slide.key_points) {
-                    slide.key_points = slide.key_points.filter(p => p && p.trim() !== '');
-                }
-            });
-
-            btnGenerate.disabled = true;
-            // Add loading state to button (morphs into textless filling progress bar)
-            btnGenerate.classList.add('is-generating');
-
-            // Call app.js (we DO NOT hide outline-container here. We let the transition hide it when first slide renders!)
-            if (window.startFinalGeneration) {
-                window.startFinalGeneration(skel);
-            }
-        });
-    }
+    bindOutlineBubbleActions(document.getElementById('outline-container'));
 
     // Back to Chat button
     const btnBack = document.getElementById('btn-outline-back');
@@ -1198,7 +1357,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Hide container so beforeunload doesn't fire a duplicate warning
-            const container = document.getElementById('outline-container');
+            const container = getActiveOutlineContainer();
             if (container) container.classList.add('hidden');
 
             // Cleanly return to the main menu with a pristine Home URL (no hashes)
