@@ -215,6 +215,34 @@ const OPENROUTER_MODELS_STAGE3_ONLY = parseModelList(
     ''
 ).map(model => String(model).trim().toLowerCase());
 
+// Per-stage reasoning effort for OpenRouter fallback.
+// Accepted values: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+// Not all models support all values — OpenRouter ignores unsupported efforts.
+// DeepSeek V4 Flash specifically supports 'high' and 'xhigh' only, but we
+// keep 'low' / 'medium' here because the user asked for them and the
+// upstream layer maps unsupported efforts to a sensible default.
+const OPENROUTER_REASONING_FLASH  = (process.env.OPENROUTER_REASONING_FLASH  || 'low').trim().toLowerCase();
+const OPENROUTER_REASONING_STAGE1 = (process.env.OPENROUTER_REASONING_STAGE1 || 'medium').trim().toLowerCase();
+const OPENROUTER_REASONING_STAGE2 = (process.env.OPENROUTER_REASONING_STAGE2 || 'medium').trim().toLowerCase();
+const OPENROUTER_REASONING_STAGE3 = (process.env.OPENROUTER_REASONING_STAGE3 || 'medium').trim().toLowerCase();
+
+const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+
+function reasoningForStage(stageName) {
+    let effort;
+    switch (stageName) {
+        case 'Flash':  effort = OPENROUTER_REASONING_FLASH;  break;
+        case 'Stage1': effort = OPENROUTER_REASONING_STAGE1; break;
+        case 'Stage2': effort = OPENROUTER_REASONING_STAGE2; break;
+        case 'Stage3': effort = OPENROUTER_REASONING_STAGE3; break;
+        default:       effort = 'low';
+    }
+    if (!VALID_REASONING_EFFORTS.has(effort)) effort = 'low';
+    // 'none' maps to enabled:false in OpenRouter's reasoning object
+    if (effort === 'none') return null;
+    return { effort };
+}
+
 // Gemini direct API primary models (read from .env)
 const GEMINI_MODEL_FLASH  = (process.env.GEMINI_MODELS_FLASH  || 'gemini-3-flash-preview').trim();
 const GEMINI_MODEL_STAGE1 = (process.env.GEMINI_MODELS_STAGE1 || 'gemini-2.5-flash-lite').trim();
@@ -880,7 +908,61 @@ async function* geminiSSEToChunks(response) {
     }
 }
 
-async function callGeminiDirect(prompt, stageName, geminiModel, fileContext = null) {
+/**
+ * Structured Gemini streaming parser. Yields {type,text} objects.
+ * Gemini reasoning is delivered in a separate part with `thought: true` on the
+ * underlying part (when thinking is enabled on the model), so we route those
+ * to type:'reasoning' and everything else to type:'content'. This lets the
+ * chat UI show the model's internal reasoning even when Gemini is the
+ * primary provider.
+ *
+ * Reasoning field shapes handled (per Gemini 2.5+ spec):
+ *   - { thought: true, text: '...' }             ← primary
+ *   - { thought: '...', text: '...' }            ← older "thoughts" array
+ *   - { thoughtSignature, text: '...' }          ← newer signature variant
+ *   - parts[].thought_summary / thought_text     ← (defensive)
+ */
+async function* geminiSSEToStructuredChunks(response) {
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for await (const bytes of response.body) {
+        buffer += decoder.decode(bytes, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') return;
+            try {
+                const parsed = JSON.parse(data);
+                const parts = parsed.candidates?.[0]?.content?.parts;
+                if (!Array.isArray(parts)) continue;
+                for (const part of parts) {
+                    if (!part || typeof part.text !== 'string' || part.text.length === 0) continue;
+                    // `thought: true` marks internal reasoning. Some Gemini
+                    // versions put the thought text on `thought` itself
+                    // (boolean true or string). Other versions expose it via
+                    // `thoughtSummary`. We treat any of these as reasoning.
+                    const isReasoning = (
+                        part.thought === true ||
+                        typeof part.thought === 'string' ||
+                        part.thoughtSummary === true ||
+                        typeof part.thoughtSummary === 'string' ||
+                        part.thoughtSignature != null
+                    );
+                    if (isReasoning) {
+                        yield { type: 'reasoning', text: part.text };
+                    } else {
+                        yield { type: 'content', text: part.text };
+                    }
+                }
+            } catch (_) { /* skip malformed SSE frames */ }
+        }
+    }
+}
+
+async function callGeminiDirect(prompt, stageName, geminiModel, fileContext = null, options = {}) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_KEY_MISSING');
 
@@ -898,10 +980,26 @@ async function callGeminiDirect(prompt, stageName, geminiModel, fileContext = nu
         parts: { text: textCount, inlineData: inlineDataCount }
     });
 
+    // Gemini's thinking/reasoning is enabled by passing a `generationConfig`
+    // with `thinkingConfig` (or the older `thinkingBudget`). For the chat UX
+    // we ask for a moderate budget so the model produces visible reasoning
+    // without runaway cost. The exact field depends on the Gemini model
+    // version, so we keep it conservative and let the API reject on bad ones.
+    const includeReasoning = options && options.includeReasoning === true;
+    const requestBody = { contents: [{ role: 'user', parts }] };
+    if (includeReasoning) {
+        requestBody.generationConfig = {
+            // Allow up to ~4k thinking tokens. This is a soft hint; Gemini
+            // may decide to use less. A non-zero value makes the model
+            // emit `thought: true` parts that we surface in the UI.
+            thinkingConfig: { thinkingBudget: 4096 }
+        };
+    }
+
     const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ role: 'user', parts }] })
+        body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -922,10 +1020,121 @@ async function callGeminiDirect(prompt, stageName, geminiModel, fileContext = nu
     }
 
     providerLog.success(ErrorCategory.PROVIDER, 'Gemini direct accepted request', { stage: stageName, model: geminiModel });
-    return { stream: geminiSSEToChunks(response), provider: 'gemini', model: geminiModel };
+    return {
+        stream: includeReasoning
+            ? geminiSSEToStructuredChunks(response)
+            : geminiSSEToChunks(response),
+        provider: 'gemini',
+        model: geminiModel
+    };
 }
 
 // ── OpenRouter fallback (try a list of models sequentially) ───────────────────
+
+/**
+ * Streaming SSE parser for OpenRouter. Yields tagged objects so the caller can
+ * distinguish reasoning tokens from final content tokens. This matches the
+ * OpenAI streaming shape used by OpenRouter in 2026.
+ *
+ * Reasoning surfaces in several shapes depending on the upstream model:
+ *   - `delta.reasoning` (string)               ← OpenRouter-normalized
+ *   - `delta.reasoning_content` (string)       ← DeepSeek native
+ *   - `delta.reasoning_text` (string)          ← some Anthropic bridges
+ *   - `delta.reasoning_details` (array)        ← Anthropic structured
+ *   - `delta.thinking` (string)                ← OpenAI o-series
+ *   - `delta.thought` (string)                 ← legacy / provider-specific
+ *   - `delta.content[].thinking` (parts)       ← some multi-part streams
+ * We concatenate any text we find from these locations so the chat UI shows
+ * the model's reasoning regardless of which shape the upstream uses.
+ *
+ * @param {Response} response - fetch response with body already streaming
+ * @returns {AsyncGenerator<{type: 'content'|'reasoning', text: string}>}
+ */
+async function* openRouterStructuredSSE(response) {
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for await (const bytes of response.body) {
+        buffer += decoder.decode(bytes, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') return;
+            try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta;
+                if (!delta) continue;
+
+                // 1) Plain string reasoning fields. We check several common
+                //    names because the OpenRouter normalization is best-effort
+                //    and some upstreams still emit provider-native keys.
+                const stringReasoningFields = [
+                    'reasoning',         // OpenRouter-normalized (most common)
+                    'reasoning_content', // DeepSeek native
+                    'reasoning_text',    // Some Anthropic bridges
+                    'thinking',          // OpenAI o-series
+                    'thought',           // Legacy / provider-specific
+                    'reasoning_text_delta', // Defensive
+                ];
+                for (const field of stringReasoningFields) {
+                    const value = delta[field];
+                    if (typeof value === 'string' && value.length > 0) {
+                        yield { type: 'reasoning', text: value };
+                    }
+                }
+
+                // 2) Anthropic-style `reasoning_details` array. Each entry
+                //    can be {type:'reasoning.text', text:'...'} or carry
+                //    the text on a different key depending on the bridge.
+                if (Array.isArray(delta.reasoning_details)) {
+                    let acc = '';
+                    for (const detail of delta.reasoning_details) {
+                        if (!detail || typeof detail !== 'object') continue;
+                        // Some Anthropic entries are encrypted and carry no
+                        // text — skip them rather than emitting empty noise.
+                        if (detail.type === 'reasoning.encrypted') continue;
+                        if (typeof detail.text === 'string' && detail.text.length > 0) {
+                            acc += detail.text;
+                        } else if (typeof detail.summary === 'string' && detail.summary.length > 0) {
+                            acc += detail.summary;
+                        } else if (typeof detail.reasoning === 'string' && detail.reasoning.length > 0) {
+                            acc += detail.reasoning;
+                        }
+                    }
+                    if (acc.length > 0) yield { type: 'reasoning', text: acc };
+                }
+
+                // 3) Content as a list of {type,text} parts — some providers
+                //    emit reasoning on parts with type='reasoning' or
+                //    'thinking'. We route those to reasoning and everything
+                //    else to content.
+                if (Array.isArray(delta.content)) {
+                    for (const part of delta.content) {
+                        if (typeof part === 'string') {
+                            yield { type: 'content', text: part };
+                        } else if (part && typeof part.text === 'string' && part.text.length > 0) {
+                            if (part.type === 'reasoning' || part.type === 'thinking') {
+                                yield { type: 'reasoning', text: part.text };
+                            } else {
+                                yield { type: 'content', text: part.text };
+                            }
+                        }
+                    }
+                } else if (typeof delta.content === 'string' && delta.content.length > 0) {
+                    yield { type: 'content', text: delta.content };
+                }
+            } catch (_) { /* skip malformed SSE frames */ }
+        }
+    }
+}
+
+/**
+ * Plain-content streaming SSE parser. Kept for the legacy generation path
+ * (Flash + Stage 3 streaming) that only cares about the final text. This
+ * avoids forcing every consumer to switch to the structured object format.
+ */
 async function* openRouterSSEToChunks(response) {
     const decoder = new TextDecoder();
     let buffer = '';
@@ -949,7 +1158,7 @@ async function* openRouterSSEToChunks(response) {
     }
 }
 
-async function callOpenRouter(prompt, stageName, openrouterModels, fileContext = null) {
+async function callOpenRouter(prompt, stageName, openrouterModels, fileContext = null, options = {}) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) throw new Error('QUOTA_EXHAUSTED'); // no key → surface original error
 
@@ -986,13 +1195,50 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
         throw new Error('OPENROUTER_MODELS_UNAVAILABLE');
     }
 
+    // Resolve the reasoning config. Callers can either:
+    //   - pass options.reasoning = { effort: 'low' } explicitly
+    //   - pass options.reasoning = 'auto' (default) to use the per-stage default
+    //   - pass options.reasoning = null to disable reasoning entirely
+    const reasoningConfig = (() => {
+        if (options && options.reasoning === null) return null;
+        if (options && options.reasoning && typeof options.reasoning === 'object') return options.reasoning;
+        return reasoningForStage(stageName);
+    })();
+
+    const includeReasoning = options && options.includeReasoning === true;
+
     // Try each configured OpenRouter model until one responds
     for (const model of modelsToTry) {
+        // Detect if we should prefer SiliconFlow for this model (DeepSeek models)
+        const isDeepSeek = model.toLowerCase().includes('deepseek');
+        
         providerLog.info(ErrorCategory.PROVIDER, 'Trying OpenRouter model', {
             stage: stageName,
-            model
+            model,
+            reasoning: reasoningConfig || 'disabled',
+            preferSiliconFlow: isDeepSeek
         });
         try {
+            const body = {
+                model,
+                messages: [{ role: 'user', content: messagesContent }],
+                stream: true
+            };
+            
+            if (isDeepSeek) {
+                // Force/Prefer SiliconFlow for DeepSeek models through OpenRouter
+                body.provider = {
+                    order: ['SiliconFlow'],
+                    allow_fallbacks: true
+                };
+            }
+
+            if (reasoningConfig) {
+                // OpenRouter accepts {effort} or {max_tokens}; both formats work
+                // alongside `enabled: true` (auto-inferred from effort).
+                body.reasoning = reasoningConfig;
+            }
+
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -1001,11 +1247,7 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
                     'HTTP-Referer': process.env.APP_URL || 'https://aedos.app',
                     'X-Title': 'Aedos'
                 },
-                body: JSON.stringify({
-                    model,
-                    messages: [{ role: 'user', content: messagesContent }],
-                    stream: true
-                })
+                body: JSON.stringify(body)
             });
 
             if (!response.ok) {
@@ -1021,9 +1263,16 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
 
             providerLog.success(ErrorCategory.PROVIDER, 'OpenRouter model accepted request', {
                 stage: stageName,
-                model
+                model,
+                reasoning: reasoningConfig || 'disabled'
             });
-            return { stream: openRouterSSEToChunks(response), provider: 'openrouter', model };
+            return {
+                stream: includeReasoning
+                    ? openRouterStructuredSSE(response)
+                    : openRouterSSEToChunks(response),
+                provider: 'openrouter',
+                model
+            };
         } catch (err) {
             providerLog.warn(classifyError(err, ErrorCategory.NETWORK), 'OpenRouter request error', {
                 stage: stageName,
@@ -1037,13 +1286,57 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
     throw new Error('QUOTA_EXHAUSTED');
 }
 
+// ── Gemini direct with 503 retry ─────────────────────────────────────────────
+const GEMINI_503_MAX_RETRIES = 2;
+const GEMINI_503_RETRY_BASE_DELAY_MS = 500;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isGeminiHttpStatus(err, status) {
+    if (!err || typeof err.message !== 'string') return false;
+    return err.message === `GEMINI_HTTP_${status}`;
+}
+
+/**
+ * Wraps callGeminiDirect with up to 2 retries on HTTP 503 (Service Unavailable)
+ * before letting the caller fall back to OpenRouter. Other errors propagate
+ * immediately so the fallback is reached sooner.
+ */
+async function callGeminiDirectWithRetry(prompt, stageName, geminiModel, fileContext = null, options = null) {
+    let lastErr;
+    for (let attempt = 1; attempt <= GEMINI_503_MAX_RETRIES; attempt++) {
+        try {
+            return await callGeminiDirect(prompt, stageName, geminiModel, fileContext, options);
+        } catch (err) {
+            lastErr = err;
+            if (!isGeminiHttpStatus(err, 503) || attempt === GEMINI_503_MAX_RETRIES) {
+                throw err;
+            }
+            const delay = GEMINI_503_RETRY_BASE_DELAY_MS * attempt;
+            providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct returned 503, retrying', {
+                stage: stageName,
+                model: geminiModel,
+                attempt,
+                maxRetries: GEMINI_503_MAX_RETRIES,
+                delayMs: delay,
+                error: err.message
+            });
+            await sleep(delay);
+        }
+    }
+    // Unreachable, but keep TS/linter happy.
+    throw lastErr;
+}
+
 /**
  * Tries Gemini direct API first; on any error falls back to OpenRouter.
+ * The `options` arg is forwarded to both providers so callers can request
+ * structured (reasoning-aware) output for the chat UX.
  */
-async function callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext = null) {
+async function callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext = null, options = null) {
     if (process.env.GEMINI_API_KEY) {
         try {
-            return await callGeminiDirect(prompt, stageName, geminiModel, fileContext);
+            return await callGeminiDirectWithRetry(prompt, stageName, geminiModel, fileContext, options);
         } catch (err) {
             providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct failed, falling back to OpenRouter', {
                 stage: stageName,
@@ -1053,23 +1346,34 @@ async function callWithFallback(prompt, stageName, geminiModel, openrouterModels
         }
     }
     // Fallback: OpenRouter
-    return await callOpenRouter(prompt, stageName, openrouterModels, fileContext);
+    return await callOpenRouter(prompt, stageName, openrouterModels, fileContext, options);
 }
 
 /**
  * Builds a caller that uses Gemini direct as primary and OpenRouter as fallback.
+ * Pass `options` (third arg) to enable structured (reasoning-aware) streaming.
  */
 function makeCallerFn(stageName, geminiModel, openrouterModels) {
-    return async function (prompt, fileContext = null) {
-        return await callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext);
+    return async function (prompt, fileContext = null, options = null) {
+        return await callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext, options);
     };
 }
 
-// Stage routing
-const tryModelsFlash  = makeCallerFn('Flash',  GEMINI_MODEL_FLASH,  OPENROUTER_MODELS_FLASH);
-const tryModelsStage1 = makeCallerFn('Stage1', GEMINI_MODEL_STAGE1, OPENROUTER_MODELS_STAGE1);
-const tryModelsStage2 = makeCallerFn('Stage2', GEMINI_MODEL_STAGE2, OPENROUTER_MODELS_STAGE2);
-const tryModelsStage3 = makeCallerFn('Stage3', GEMINI_MODEL_STAGE3, OPENROUTER_MODELS_STAGE3);
+// Stage routing. Two flavours per stage:
+//   - `tryModels*`         → plain text streaming (used by Flash / Stage 3
+//                            HTML generation paths that only need the final
+//                            text, never reasoning).
+//   - `tryModels*Thinking` → structured (reasoning + content) streaming, used
+//                            by the chat UX (`/generate-skeleton`) to surface
+//                            the model's internal thinking in real time.
+const tryModelsFlash        = makeCallerFn('Flash',  GEMINI_MODEL_FLASH,  OPENROUTER_MODELS_FLASH);
+const tryModelsStage1       = makeCallerFn('Stage1', GEMINI_MODEL_STAGE1, OPENROUTER_MODELS_STAGE1);
+const tryModelsStage2       = makeCallerFn('Stage2', GEMINI_MODEL_STAGE2, OPENROUTER_MODELS_STAGE2);
+const tryModelsStage3       = makeCallerFn('Stage3', GEMINI_MODEL_STAGE3, OPENROUTER_MODELS_STAGE3);
+const tryModelsFlashThinking  = (prompt, fileContext) => tryModelsFlash(prompt, fileContext,  { includeReasoning: true });
+const tryModelsStage1Thinking = (prompt, fileContext) => tryModelsStage1(prompt, fileContext, { includeReasoning: true });
+const tryModelsStage2Thinking = (prompt, fileContext) => tryModelsStage2(prompt, fileContext, { includeReasoning: true });
+const tryModelsStage3Thinking = (prompt, fileContext) => tryModelsStage3(prompt, fileContext, { includeReasoning: true });
 
 // Legacy alias kept for any remaining references
 const tryModels = tryModelsFlash;
@@ -1389,7 +1693,12 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
     const requestId = req.requestId || 'n/a';
     let cancelled = false;
 
+    // The 'close' event fires when the underlying connection is closed by EITHER
+    // side. When the server ends the response (success or error path) we must NOT
+    // mark the request as cancelled — the loop is either already done or about
+    // to bail out via the error path.
     res.on('close', () => {
+        if (res.writableEnded) return;
         cancelled = true;
     });
 
@@ -1458,24 +1767,45 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
         const stage1Prompt = currentSkeleton && typeof currentSkeleton === 'object'
             ? buildStage1RevisionPrompt(sanitizeResult.tema, currentSkeleton, targetLang)
             : buildStage1Prompt(sanitizeResult.tema, targetLang);
-        // Skeleton generation uses the same model as Stage 1
-        const stage1Response = await tryModelsStage1(stage1Prompt, fileContext);
-        
+        // Skeleton generation uses the same model as Stage 1, with reasoning
+        // enabled so the chat UI can stream the model's internal thinking.
+        const stage1Response = await tryModelsStage1Thinking(stage1Prompt, fileContext);
+
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
 
+        // Emit provider metadata so the client can show "Powered by X" on the
+        // thinking panel if it wants. Skipped silently if the model isn't
+        // exposed (legacy call shape).
+        if (stage1Response && stage1Response.provider && stage1Response.model) {
+            try {
+                res.write(`data: ${JSON.stringify({ metadata: { provider: stage1Response.provider, model: stage1Response.model } })}\n\n`);
+            } catch (_) {}
+        }
+
         let stage1Raw = '';
-        for await (const chunk of stage1Response.stream) {
+        for await (const item of stage1Response.stream) {
             if (cancelled) {
                 log.warn(ErrorCategory.STREAM, 'Skeleton generation loop stopped because client disconnected', { requestId });
                 break;
             }
-            stage1Raw += chunk;
-            res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+            // The stream may be a plain text iterator (legacy callers) or a
+            // structured {type,text} iterator (this endpoint). Normalize.
+            if (item && typeof item === 'object' && typeof item.text === 'string') {
+                if (item.type === 'reasoning') {
+                    res.write(`data: ${JSON.stringify({ reasoning: item.text })}\n\n`);
+                } else {
+                    stage1Raw += item.text;
+                    res.write(`data: ${JSON.stringify({ chunk: item.text })}\n\n`);
+                }
+            } else if (typeof item === 'string') {
+                stage1Raw += item;
+                res.write(`data: ${JSON.stringify({ chunk: item })}\n\n`);
+            }
         }
-        
+
         if (cancelled) return;
 
         let contentJson;
@@ -1576,13 +1906,16 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
     let hasGenerationSlot = false;
     const requestId = req.requestId || 'n/a';
 
+    // The 'close' event fires when the underlying connection is closed by EITHER
+    // side — including when the server itself calls res.end() (e.g. after writing
+    // an error message via SSE). Without this guard, an AI failure would log a
+    // misleading "Client disconnected" warning even though the client never left.
     res.on('close', () => {
-        if (!completed) {
-            log.warn(ErrorCategory.STREAM, 'Client disconnected before generation completed', {
-                requestId
-            });
-            cancelled = true;
-        }
+        if (res.writableEnded || completed) return;
+        log.warn(ErrorCategory.STREAM, 'Client disconnected before generation completed', {
+            requestId
+        });
+        cancelled = true;
     });
 
     try {
@@ -1769,7 +2102,6 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
         }
 
         // Choose generation path: Flash (single-prompt) or Pro (3-stage pipeline)
-        let result;
         let fileContext = null;
 
         if (req.files && req.files.length > 0) {
@@ -1843,13 +2175,194 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
             log.info(ErrorCategory.PIPELINE, 'File context ready for generation', { requestId, count: fileContext.length });
         }
 
+        // ── Flash mode retry helper ─────────────────────────────────────────────
+        // Flash mode is a single streaming call (no staged pipeline), so the
+        // per-stage retry used in Pro mode doesn't apply. Instead we wrap the
+        // whole "tryModels + stream + validation" sequence in a retry loop.
+        // The underlying callWithFallback already retries 503s and falls back to
+        // OpenRouter; this loop specifically targets the post-call failure mode
+        // where the model returns 200 OK but the output is unusable (no design
+        // CSS, parse error before any CSS was streamed, etc.). CONTENT_REJECTED
+        // / explicit refusals are NOT retried because re-prompting the same
+        // topic will just get rejected again.
+        const FLASH_MAX_RETRIES = 2;
+        async function runFlashGenerationWithRetry() {
+            let lastError;
+            for (let attempt = 1; attempt <= FLASH_MAX_RETRIES + 1; attempt++) {
+                if (cancelled) throw new Error('GENERATION_CANCELLED');
+
+                if (attempt > 1) {
+                    res.write(`data: ${JSON.stringify({
+                        pipeline: true,
+                        stage: 'flash',
+                        status: 'retrying',
+                        attempt: attempt - 1,
+                        maxAttempts: FLASH_MAX_RETRIES + 1,
+                        error: lastError ? lastError.message : 'AI returned bad output'
+                    })}\n\n`);
+                    await new Promise(r => setTimeout(r, 500 * (attempt - 1)));
+                    if (cancelled) throw new Error('GENERATION_CANCELLED');
+                }
+
+                const prompt = buildPrompt(opciones);
+                log.info(ErrorCategory.PIPELINE,
+                    `Running flash generation path (attempt ${attempt}/${FLASH_MAX_RETRIES + 1})`, {
+                    requestId
+                });
+                // Use the Flash *Thinking variant so the chat UX receives
+                // reasoning tokens while the model is still composing the
+                // presentation HTML. Reasoning events are tagged with
+                // `stage: 'flash'` so the client can group them in the panel.
+                const flashResult = await tryModelsFlashThinking(prompt, fileContext);
+
+                // Consume the stream into a local buffer. The same cleanup/
+                // forwards-to-client logic used by Pro mode applies here; only
+                // the retry semantics differ. On the next attempt the iframe
+                // will receive a fresh batch of chunks appended to whatever
+                // it already had — the final `done` event carries the full
+                // HTML so the editor always uses the latest valid output.
+                const consumed = await consumeModelStream(
+                    flashResult, res, requestId,
+                    () => cancelled, slideHardLimit
+                );
+
+                const fullHtml = consumed.fullHtml;
+                const hasDesignCss = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(fullHtml)
+                    || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(fullHtml);
+
+                if (!hasDesignCss) {
+                    lastError = new Error('FLASH_NO_DESIGN_CSS: The AI generated a presentation without design CSS');
+                    log.warn(ErrorCategory.PIPELINE,
+                        `Flash attempt ${attempt}/${FLASH_MAX_RETRIES + 1}: no design CSS in output`, {
+                        requestId,
+                        outputChars: fullHtml.length
+                    });
+                    if (attempt > FLASH_MAX_RETRIES) throw lastError;
+                    continue;
+                }
+
+                // Success
+                return { result: flashResult, fullHtml, hasStartedValidContent: consumed.hasStartedValidContent };
+            }
+            // Unreachable (loop either returns or throws) but keep linter happy.
+            throw lastError;
+        }
+
+        // ── Shared stream consumer ──────────────────────────────────────────────
+        // Reads chunks from the model stream, strips backticks / <script> /
+        // <link> tags, and forwards them to the SSE response. Returns the
+        // accumulated raw HTML and a flag indicating whether the document
+        // body has started streaming. Throws if the underlying stream errors;
+        // parse-error recovery is handled by the caller (the Flash retry
+        // wrapper re-runs the generation; the Pro path can recover inline
+        // because it always starts from a validated Stage 3 prompt).
+        //
+        // Supports both legacy text-yielding streams and the structured
+        // {type:'content'|'reasoning', text} streams used by the chat UX.
+        // Reasoning tokens are forwarded as separate SSE `reasoning` events
+        // so the client can show the model's internal thinking in real time.
+        async function consumeModelStream(streamResult, res, requestId, cancelledRef, slideHardLimit) {
+            let fullHtml = '';
+            let hasStartedValidContent = false;
+            let streamSlideCount = 0;
+            const slideTagRegex = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
+
+            function cleanSSEChunk(text) {
+                let c = text.replace(/```html\n?/g, '').replace(/```\n?/g, '');
+                c = c.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+                c = c.replace(/<script[^>]*>/gi, '');
+                c = c.replace(/<script\b[^>]*/gi, '');
+                c = c.replace(/<\/script>/gi, '');
+                c = c.replace(/<link[^>]*\/?>/gi, '');
+                c = c.replace(/<link\b[^>]*/gi, '');
+                return c;
+            }
+
+            if (streamResult.provider && streamResult.model) {
+                res.write(`data: ${JSON.stringify({ metadata: { provider: streamResult.provider, model: streamResult.model } })}\n\n`);
+            }
+
+            for await (const item of streamResult.stream) {
+                if (cancelledRef()) {
+                    log.warn(ErrorCategory.STREAM, 'Generation loop stopped because client disconnected', {
+                        requestId
+                    });
+                    break;
+                }
+
+                // Normalize structured vs. plain-text stream shapes.
+                let chunkText = null;
+                if (item && typeof item === 'object' && typeof item.text === 'string') {
+                    if (item.type === 'reasoning') {
+                        // Forward reasoning tokens untouched — the client
+                        // decides how to display them. We don't accumulate
+                        // them into fullHtml because they aren't HTML.
+                        try {
+                            res.write(`data: ${JSON.stringify({ reasoning: item.text })}\n\n`);
+                        } catch (_) { /* ignore broken pipe mid-write */ }
+                        continue;
+                    }
+                    chunkText = item.text;
+                } else if (typeof item === 'string') {
+                    chunkText = item;
+                }
+                if (!chunkText) continue;
+
+                const matches = chunkText.match(slideTagRegex);
+                if (matches) {
+                    streamSlideCount += matches.length;
+                    if (streamSlideCount > slideHardLimit) {
+                        log.warn(ErrorCategory.VALIDATION, 'Stream exceeded slide hard limit, stopping generation', {
+                            requestId,
+                            streamSlideCount,
+                            slideHardLimit
+                        });
+                        break;
+                    }
+                }
+
+                fullHtml += chunkText;
+
+                let cleanChunk = cleanSSEChunk(chunkText);
+
+                if (!hasStartedValidContent) {
+                    const matchIdx = fullHtml.indexOf('<!-- CONFIG');
+                    const htmlIdx = fullHtml.indexOf('<html');
+
+                    if (matchIdx !== -1) {
+                        hasStartedValidContent = true;
+                        cleanChunk = cleanSSEChunk(fullHtml.substring(matchIdx));
+                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                    } else if (htmlIdx !== -1) {
+                        hasStartedValidContent = true;
+                        cleanChunk = cleanSSEChunk(fullHtml.substring(htmlIdx));
+                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                    } else if (fullHtml.length > 500) {
+                        hasStartedValidContent = true;
+                        cleanChunk = cleanSSEChunk(fullHtml);
+                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                    }
+                } else {
+                    res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                }
+            }
+
+            return { fullHtml, hasStartedValidContent, streamSlideCount };
+        }
+
+        let fullHtml = '';
+        let hasStartedValidContent = false;
+
         if (!usePipeline) {
-            // Flash mode — single-prompt path (default)
-            const prompt = buildPrompt(opciones);
-            log.info(ErrorCategory.PIPELINE, 'Running flash generation path', { requestId });
-            result = await tryModels(prompt, fileContext);
+            // Flash mode — single-prompt path with retry on bad output
+            const flashOut = await runFlashGenerationWithRetry();
+            fullHtml = flashOut.fullHtml;
+            hasStartedValidContent = flashOut.hasStartedValidContent;
         } else {
             // Pro mode — 3-Stage Pipeline: Content → Design → HTML
+            // (per-stage retries are handled inside runPipeline in pipeline.js;
+            // here we only consume the resulting Stage 3 stream and feed it to
+            // the same sanitization path as Flash mode).
             log.info(ErrorCategory.PIPELINE, 'Running pro pipeline path', { requestId });
             res.write(`data: ${JSON.stringify({ pipeline: true, stage: 'content', status: 'running' })}\n\n`);
 
@@ -1859,13 +2372,26 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                 fileContext: fileContext,
                 skeleton: opciones.skeleton,
                 maxSlides: slideHardLimit,
-                tryModelsStage1,
-                tryModelsStage2,
-                tryModelsStage3,
+                // Use the *Thinking variants so Stages 1 & 2 emit reasoning
+                // tokens via onChunk. Stage 3 reuses the same stream shape
+                // through consumeModelStream, which also forwards reasoning.
+                tryModelsStage1: tryModelsStage1Thinking,
+                tryModelsStage2: tryModelsStage2Thinking,
+                tryModelsStage3: tryModelsStage3Thinking,
                 onStageUpdate: (stage, data) => {
                     if (!cancelled) {
                         const stageNames = { stage1: 'content', stage2: 'design', stage3: 'compositing' };
                         res.write(`data: ${JSON.stringify({ pipeline: true, stage: stageNames[stage] || stage, ...data })}\n\n`);
+                    }
+                },
+                onChunk: (item) => {
+                    // Forward Stage 1/2 reasoning tokens to the client.
+                    // Stage 3 reasoning is forwarded inside consumeModelStream
+                    // so we don't double-emit here.
+                    if (!cancelled && item && item.type === 'reasoning' && item.stage !== 'stage3') {
+                        try {
+                            res.write(`data: ${JSON.stringify({ reasoning: item.text, stage: item.stage })}\n\n`);
+                        } catch (_) { /* ignore broken pipe */ }
                     }
                 }
             });
@@ -1892,117 +2418,16 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
 
             if (cancelled) { res.end(); return; }
 
-            result = pipelineResult.stage3Stream;
             log.info(ErrorCategory.PIPELINE, 'Stage 3 stream ready, starting SSE forwarding', {
                 requestId
             });
-        }
 
-        let fullHtml = '';
-        let hasStartedValidContent = false;
-
-        // Strip backticks AND Google Fonts <link> tags from SSE chunks.
-        function cleanSSEChunk(text) {
-            let c = text.replace(/```html\n?/g, '').replace(/```\n?/g, '');
-            c = c.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-            c = c.replace(/<script[^>]*>/gi, '');
-            c = c.replace(/<script\b[^>]*/gi, '');
-            c = c.replace(/<\/script>/gi, '');
-            c = c.replace(/<link[^>]*\/?>/gi, '');
-            c = c.replace(/<link\b[^>]*/gi, '');
-            return c;
-        }
-
-        try {
-            if (result.provider && result.model) {
-                res.write(`data: ${JSON.stringify({ metadata: { provider: result.provider, model: result.model } })}\n\n`);
-            }
-
-            let streamSlideCount = 0;
-            const slideTagRegex = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
-
-            for await (const chunk of result.stream) {
-                if (cancelled) {
-                    log.warn(ErrorCategory.STREAM, 'Generation loop stopped because client disconnected', {
-                        requestId
-                    });
-                    break;
-                }
-                let chunkText = "";
-                chunkText = chunk;
-
-                if (!chunkText) continue;
-
-                // Stop AI hallucination: If we detect more slides than allowed, kill the stream immediately to save tokens.
-                const matches = chunkText.match(slideTagRegex);
-                if (matches) {
-                    streamSlideCount += matches.length;
-                    if (streamSlideCount > slideHardLimit) {
-                        log.warn(ErrorCategory.VALIDATION, 'Stream exceeded slide hard limit, stopping generation', {
-                            requestId,
-                            streamSlideCount,
-                            slideHardLimit
-                        });
-                        break;
-                    }
-                }
-
-                fullHtml += chunkText;
-
-                let cleanChunk = cleanSSEChunk(chunkText);
-
-                if (!hasStartedValidContent) {
-                    const matchIdx = fullHtml.indexOf('<!-- CONFIG');
-                    const htmlIdx = fullHtml.indexOf('<html');
-
-                    if (matchIdx !== -1) {
-                        hasStartedValidContent = true;
-                        const validContentStart = fullHtml.substring(matchIdx);
-                        cleanChunk = cleanSSEChunk(validContentStart);
-                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                    } else if (htmlIdx !== -1) {
-                        hasStartedValidContent = true;
-                        const validContentStart = fullHtml.substring(htmlIdx);
-                        cleanChunk = cleanSSEChunk(validContentStart);
-                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                    } else if (fullHtml.length > 500) {
-                        hasStartedValidContent = true;
-                        cleanChunk = cleanSSEChunk(fullHtml);
-                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                    }
-                } else {
-                    res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                }
-            }
-
-        } catch (streamErr) {
-            const isParseError = streamErr.message && streamErr.message.includes('parse stream');
-            if (isParseError && fullHtml.length > 200) {
-                const hasStyleBlock = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(fullHtml)
-                    || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(fullHtml);
-                if (hasStyleBlock) {
-                    log.warn(ErrorCategory.STREAM, 'Recovered from stream parse error because CSS was already present', {
-                        requestId,
-                        htmlChars: fullHtml.length
-                    });
-                } else {
-                    log.warn(ErrorCategory.STREAM, 'Stream parse error without CSS, aborting generation', {
-                        requestId,
-                        htmlChars: fullHtml.length
-                    });
-                    res.write(`data: ${JSON.stringify({ error: 'Stream ended before CSS was generated. Please try again.' })}\n\n`);
-                    res.end();
-                    return;
-                }
-            } else {
-                log.error(classifyError(streamErr, ErrorCategory.STREAM), 'Error while streaming presentation output', {
-                    requestId,
-                    error: streamErr
-                });
-                res.write(`data: ${JSON.stringify({ error: streamErr.message })}\n\n`);
-                res.end();
-                return;
-            }
+            const proStream = await consumeModelStream(
+                pipelineResult.stage3Stream,
+                res, requestId, () => cancelled, slideHardLimit
+            );
+            fullHtml = proStream.fullHtml;
+            hasStartedValidContent = proStream.hasStartedValidContent;
         }
 
         if (cancelled) {
@@ -2240,6 +2665,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
             error.message.startsWith('STAGE2_') ||
             error.message.startsWith('CONTENT_REJECTED')
         );
+        const isFlashNoCss = error.message && error.message.startsWith('FLASH_NO_DESIGN_CSS');
 
         let userMessage;
         if (isQuotaError) {
@@ -2253,6 +2679,15 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                 requestId,
                 details: error.message
             });
+        } else if (isFlashNoCss) {
+            // Flash mode's retry loop exhausted (3 attempts × 503-retry + OpenRouter
+            // fallback) and every attempt returned HTML without design CSS. The model
+            // is up but consistently misformatting — give the user actionable advice.
+            userMessage = 'The AI could not produce a valid design after several attempts. Please rephrase your topic with a bit more detail, or switch to Pro mode for better formatting.';
+            log.error(ErrorCategory.PIPELINE, 'Flash generation exhausted retries without design CSS', {
+                requestId,
+                details: error.message
+            });
         } else {
             userMessage = 'Something went wrong. Please try again.';
             log.error(classifyError(error, ErrorCategory.UNKNOWN), 'Unhandled generation failure', {
@@ -2263,9 +2698,11 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
 
         if (!res.headersSent) {
             res.status(isQuotaError ? 429 : 500).json({ error: userMessage });
+            completed = true;
         } else {
             res.write(`data: ${JSON.stringify({ error: userMessage })}\n\n`);
             res.end();
+            completed = true;
         }
     } finally {
         if (sseKeepAlive) clearInterval(sseKeepAlive);

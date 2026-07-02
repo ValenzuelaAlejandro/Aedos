@@ -85,7 +85,7 @@ NOT "historical topic -> use serif font"
 DO think: "this history is about [specific era/place/culture] -> what artifact would capture this world? What fonts/colors does THAT artifact use?"
 
 Example correct reasoning:
-  Topic: "Historia del Hip-Hop en los 90s"
+  Topic: "History of Hip-Hop in the 90s"
   Artifact: "concert tour poster on glossy black with gold chain lettering and spray-paint texture"
   Color derivation: Hip-hop era = GOLD (#D4AF37) warm + deep crimson (#8B0000) (not purple, not cyan)
   -> Font: Bebas Neue (compressed, aggressive) + DM Sans (clean body text)
@@ -94,7 +94,7 @@ Example correct reasoning:
   Tone: iconic, street credibility, cultural weight
 
 Incorrect reasoning (AVOID):
-  Topic: "Historia del Hip-Hop"
+  Topic: "History of Hip-Hop"
   Artifact: "generic history presentation slide theme"
   -> Color: pick from a startup palette (blue, purple, cyan)
   -> Font: nice sans-serif (no connection to artifact)
@@ -104,7 +104,7 @@ DECK VARIATION SYSTEM -- SIGNATURE DERIVATION:
 - You are designing ONE specific deck, not a reusable template.
 - DERIVE the deck_signature directly from real_world_analog AND topic emotional core. Do NOT pick a generic signature.
   Examples of proper derivations (NOT templates):
-    "Historia de Metallica" (concert tour poster) -> signature: "heavy metal tour archive"
+    "History of [Music Genre/Artist]" (concert tour poster) -> signature: "concert tour archive"
     "Feudal Japan" (museum samurai armor exhibit) -> signature: "shogun artifacts museum"
     "Cybersecurity pentesting" (hacker zine with green terminal) -> signature: "penetration testing terminal culture"
     "Pasta recipes" (artisan cookbook, warm paper) -> signature: "trattoria recipe tradition"
@@ -220,8 +220,13 @@ Stage 3 will INTERPRET this and build the layout accordingly.
 COMPOSITION LITERAL -- WRITE LIKE A DEVELOPER SPEC
 ===============================================
 
-The composition_literal field is a code spec, not a mood description.
-Stage 3 follows it directly -- it does not make creative decisions of its own.
+The composition_literal field is a code spec for VISUAL STYLE (typography, sizing, positioning, colors), not a mood description.
+Stage 3 follows it directly for style -- it does not make creative decisions of its own on styling.
+
+CRITICAL CLARIFICATION -- WHAT composition_literal CONTROLS vs WHAT IT DOES NOT:
+- composition_literal controls: typography sizes, colors, layout positioning, structural elements, density.
+- composition_literal does NOT control: whether to include an image. That is controlled by has_image_slot (boolean) AND image_placement fields.
+- When you specify has_image_slot=true, you MUST describe in composition_literal how the image fits (e.g., "side image 400px left, content flex:1 right" or "full-bleed background with overlay"). The image is MANDATORY -- Stage 3 will not skip it.
 
 BAD:  "Clean editorial layout with hero title and supporting text"
 GOOD: "section flex-col. Tag top-left. H2 at 5.5rem/-0.02em/white, 2 lines max, line 2 in accent italic. Body 1.3rem/dim/max-width:55rem. Counter absolute bottom-right."
@@ -390,11 +395,39 @@ contentJson.slides[N].role constrains your layout_family choice. This is NOT a r
   role: "concept"    -> layout_family: "cards" if key_points >= 3 standalone items, else "editorial"
   role: "problem"    -> layout_family: "cards" if 3+ distinct problems, else "editorial"
   role: "error_list" -> layout_family: "cards" (each error = one card)
-  role: "example"    -> layout_family: "split" (image + content) -- USE "split" WHEN THE EXAMPLE INVOLVES A SPECIFIC PERSON, ARTWORK, SONG, ALBUM, BUILDING OR OBJECT. Only use "cards" if the example is abstract (e.g., "an example of bad UI design"). For "Mejores canciones de X" (specific songs) or "biografia de Y" or "la obra Z" -- ALWAYS use "split" with an image of that specific thing.
+  role: "example"    -> layout_family: "split" (image + content) -- USE "split" WHEN THE EXAMPLE INVOLVES A SPECIFIC PERSON, ARTWORK, SONG, ALBUM, BUILDING OR OBJECT. Only use "cards" if the example is abstract (e.g., "an example of bad UI design"). For prompts listing specific songs/works by an author, biographical topics about a specific person, or analyses of a specific piece, or ANY slide mentioning a proper noun (album title, song name, artist name, place, artwork, building, character) -- ALWAYS use "split" with an image of that specific thing. This rule OVERRIDES the KEY_POINTS COUNT RULE below.
   role: "internals"  -> layout_family: "editorial" or "stats"
   role: "quote"      -> layout_family: "editorial" with oversized typographic quote treatment
   role: "cover"      -> follow cover_archetype
   role: "conclusion" -> follow conclusion_archetype
+
+PROPER NOUN DETECTION -- MANDATORY IMAGE OVERRIDE (applies to ALL roles, not just example/concept/data):
+  Before applying KEY_POINTS COUNT RULE OR the ROLE -> LAYOUT_FAMILY MANDATORY MAPPING, SCAN each slide's title, subtitle, and key_points for PROPER NOUNS (capitalized multi-word names of people, characters, songs, albums, artworks, places, buildings, dates with specific titles).
+  If the slide mentions ANY specific named subject (album, song, artwork, building, place, character, person) -- REGARDLESS of role (timeline, stats, cards, comparison, process, example, concept, data, quote):
+    - has_image_slot MUST be true
+    - image_keyword MUST use the actual proper noun from the slide content. Use the generic placeholder patterns below as templates -- replace placeholders with the real proper nouns from your specific slide.
+    - The slide MUST visually show the image. Choose layout_family that accommodates it: "split" (image side + content side), "full-bleed" (image background with text overlay), or "cards with image header".
+  This applies EVEN to timeline/stats/cards layouts. Any timeline/stats/cards slide that names a specific album, song, artwork, building, or person MUST show an image of it.
+  This is the #1 most violated rule. A slide whose title contains a specific song, album, painting, building, or character name MUST have an image slot for it, even if it has 5+ key_points. A stats slide that names specific works/products MUST include those images.
+
+  HOW TO LAYOUT IMAGES IN EACH ROLE (when proper nouns detected):
+  - cover -> full-bleed background with overlay (large image, text on top)
+  - concept -> split (image left 360-420px, content right with cards) OR cards with image header
+  - data/stats -> full-bleed background with overlay (image behind, big numbers on top) -- DO NOT skip image just because stats dominate
+  - timeline -> each major node can have a small image, OR use full-bleed background with timeline overlay, OR use split (image left, timeline right)
+  - comparison -> split (image A left, image B right) OR full-bleed background
+  - process -> cards with images on top of each step
+  - example -> split (image left 400-450px, content right with cards/text)
+  - quote -> full-bleed background with quote overlay
+  - conclusion -> full-bleed background with conclusion text on top
+
+  EXAMPLES OF CORRECT IMAGE KEYWORD EXTRACTION (use the pattern, fill placeholders with real names from your slide):
+    - "[Song Name]" -> "[Artist Name] [Song Name] vinyl cover"
+    - "[Album Name]" -> "[Artist Name] [Album Name] album cover"
+    - "[Concert/Live Album Name]" -> "[Artist Name] [Concert Name] concert album"
+    - "[Artist Name]'s discography" -> "[Artist Name] portrait photo"
+    - "[Painting Name]" -> "[Painting Name] painting by [Artist]"
+    - "[Character Name]" -> "[Character Name] [Source Work] character portrait"
 
 DATA_POINTS MANDATE:
   If contentJson.slides[N].data_points has ANY items, that slide's rules are:
@@ -404,12 +437,13 @@ DATA_POINTS MANDATE:
     - Stat minimum size: 6rem. Preferred: 7-8rem. Never smaller.
   Exception: a split/image slide where the stat is an overlay detail.
 
-KEY_POINTS COUNT RULE:
+KEY_POINTS COUNT RULE (does NOT apply to slides with proper nouns / specific named subjects):
   1-2 key_points -> editorial or split
   3-4 key_points -> cards (PREFERRED) or compact-single-column
   5+ key_points  -> compact-two-column (density_strategy)
   Never assign layout_family "editorial" to a slide with 5+ key_points -- it becomes an unread wall of text.
   Never assign layout_family "cards" and then render the cards as a vertical column -- cards are always a flex-row or grid.
+  CRITICAL EXCEPTION: If the slide has a proper noun (album name, song title, artist, artwork, place, building, character) AND role is "example"/"concept"/"data", USE "split" with has_image_slot=true INSTEAD. The KEY_POINTS COUNT does NOT override the image mandate for named subjects.
 
 ===============================================
 
@@ -433,7 +467,7 @@ Your palette comes ONLY from the visual_world.real_world_analog from Stage 1.
 USER COLOR RULE -- TWO MUTUALLY EXCLUSIVE CASES:
 
 CASE A -- USER NAMED COLORS (override):
-If rawInput explicitly mentions color names or hex codes (e.g., "usa colores verdes, amarillos y azules", "in red and gold tones", "use #FF0000"):
+If rawInput explicitly mentions color names or hex codes (e.g., "use green, yellow and blue", "in red and gold tones", "use #FF0000"):
   1. Translate EVERY named color to an appropriate hex. Examples:
        verde/green -> #4CAF50 or similar green hex
        amarillo/yellow -> #F5C518 or similar yellow hex
@@ -583,17 +617,19 @@ CRITICAL RULES:
   TARGET: At least 60-70% of slides should have image slots. A presentation with only 2-3 images across 8 slides is UNACCEPTABLE.
 
   IMAGE KEYWORD REQUIREMENTS -- BE SPECIFIC OR FAIL:
-  
+
   When has_image_slot=true, image_keyword MUST be a highly specific ENGLISH search phrase that would return EXACTLY the image you want:
-  
+
   - BAD (too generic): "business", "teamwork", "technology", "art", "building"
-  - GOOD (specific): "Walter White Breaking Bad character portrait"
-  - GOOD (specific): "Mona Lisa painting by Leonardo da Vinci Louvre"
-  - GOOD (specific): "Florence Cathedral Duomo Brunelleschi dome"
-  - GOOD (specific): "Masaccio Holy Trinity fresco Brancacci Chapel"
-  - GOOD (specific): "Sistine Chapel ceiling Creation of Adam Michelangelo"
-  - GOOD (specific): "Starbucks Coffee modern cafe interior design"
-  - GOOD (specific): "Tesla Model S electric car exterior"
+  - GOOD (specific, generic patterns -- replace placeholders with actual proper nouns from the slide):
+    - "[Main Character] [Source Work] character portrait"
+    - "[Painting Name] painting by [Artist Name] [Museum]"
+    - "[Building Name] [Architect] [City] architecture exterior"
+    - "[Artist Name] [Album Name] vinyl cover"
+    - "[Historical Site Name] [City] landmark photo"
+  - GOOD (specific, generic patterns for products/locations):
+    - "[Brand Name] [Product Category] interior/exterior design"
+    - "[Brand Name] [Product Name] product photo"
 
   [ALERT] CRITICAL: KEYWORD = THE ACTUAL NAME MENTIONED IN THE SLIDE [ALERT]
   
@@ -603,21 +639,21 @@ CRITICAL RULES:
   - "vibrant colors and dynamic shapes" (abstract description)
   
   The keyword MUST be the ACTUAL NAME of what the slide is about. To find it:
-  
+
   1. SCAN the slide's title, subtitle, and key_points for PROPER NOUNS (capitalized names of people, places, artworks, songs, albums, products, etc.)
   2. The keyword = those names + a brief context qualifier
-  3. Examples of CORRECT keyword extraction:
-     - Title "Horizonte (Blue Lagoon)" by Masayoshi Takanaka -> "Masayoshi Takanaka Blue Lagoon album cover"
-     - Title "Light Yagami's descent" -> "Light Yagami Death Note character portrait"
-     - Title "Mona Lisa" -> "Mona Lisa painting by Leonardo da Vinci"
-     - Title "Birth of Kira" -> "Light Yagami Kira Death Note anime"
-     - Title "Horizonte" (a song) -> "Masayoshi Takanaka Horizonte vinyl cover"
-  4. If the slide mentions a song by name -> "ArtistName SongName album cover"
-  5. If the slide mentions a person -> "PersonName portrait photo" or "PersonName anime character" (depending on context)
-  6. If the slide mentions an artwork/painting -> "ArtworkName by Artist"
-  7. If the slide mentions a place/building -> "PlaceName exterior" or "BuildingName architecture"
-  
-  [WARN] NEVER use abstract descriptions like "beautiful", "vibrant", "dynamic", "chaotic", "mysterious" as keywords. ALWAYS use the concrete NAME of the subject.
+  3. Examples of CORRECT keyword extraction (use generic placeholder patterns; replace placeholders with the actual proper nouns from your slide):
+     - Title "[Song Name] by [Artist]" -> "[Artist Name] [Song Name] album cover"
+     - Title "[Character Name]'s [event]" -> "[Character Name] [Source Work] character portrait"
+     - Title containing a painting name -> "[Painting Name] painting by [Artist]"
+     - Title containing an album/song name -> "[Artist Name] [Album Name] vinyl cover"
+     - Title containing a place name -> "[Location Name] landmark view"
+  4. If the slide mentions a song by name -> "[Artist Name] [Song Name] album cover"
+  5. If the slide mentions a person -> "[Person Name] portrait photo" or "[Person Name] character illustration" (depending on context)
+  6. If the slide mentions an artwork/painting -> "[Artwork Name] by [Artist Name]"
+  7. If the slide mentions a place/building -> "[Place Name] exterior" or "[Building Name] architecture"
+
+  [WARN] NEVER use abstract descriptions like "beautiful", "vibrant", "dynamic", "chaotic", "mysterious" as keywords. ALWAYS use the concrete NAME of the subject from the actual slide.
   
   IMAGE PLACEMENT -- SPECIFY EXACTLY:
   
@@ -655,7 +691,9 @@ CRITICAL RULES:
   - Timeline events that need visual context
 
 - DENSE CONTENT RULE: If a slide has many facts, 5+ items, or long text, prefer density_strategy='compact-two-column' or 'compact-single-column'. Do NOT add a side image slot to a dense slide unless it is 'full-bleed background'.
+  CRITICAL EXCEPTION: This rule does NOT apply when the slide has a proper noun (album, song, person, artwork, etc.) -- in that case has_image_slot=true is MANDATORY regardless of density. Use image_placement='full-bleed background with overlay' or smaller side image (320px) with compact-two-column content.
 - SIDE IMAGE CAP: For text+image split slides, keep image width in the 320-420px range. Never let the image dominate the slide.
+  EXCEPTION: When has_image_slot is REQUIRED because of a proper noun, image width 320-400px is acceptable to leave room for content.
 - HIGHLIGHTED WORDS: In composition descriptions, specify which words in titles should be in accent color
 - ICONS: Set icon_names on ALL slides with concept/feature/pillar/step cards (2-3 Lucide icon names from the allowed list). Set null for cover, data/stats, conclusion, and image-split slides.`;
 };

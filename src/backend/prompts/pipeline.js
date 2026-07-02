@@ -127,27 +127,99 @@ function extractJson(text) {
  * @param {Function} tryModelsFn - The tryModels function from server.js
  * @param {string} prompt - The prompt text
  * @param {string} stageName - For logging
+ * @param {Function} [onChunk] - Optional callback ({type,text}) => void invoked
+ *   on every streamed token. Useful for piping reasoning tokens out to the
+ *   chat SSE response without buffering the whole output first.
  * @returns {Promise<string>} The full text response
  */
-async function runStage(tryModelsFn, prompt, stageName) {
+async function runStage(tryModelsFn, prompt, stageName, onChunk = null) {
   pipelineLog.info(ErrorCategory.PIPELINE, 'Stage started', { stage: stageName });
   const startTime = Date.now();
-  
+
   const result = await tryModelsFn(prompt);
-  
+
   let fullText = '';
   for await (const chunk of result.stream) {
-    fullText += chunk;
+    // The stream may be plain text (legacy) or tagged {type,text} objects
+    // (chat/reasoning-aware mode). Normalize so we always get a string for
+    // the JSON parse AND can still forward reasoning to the client live.
+    if (chunk && typeof chunk === 'object' && typeof chunk.text === 'string') {
+      if (onChunk) onChunk(chunk);
+      if (chunk.type === 'reasoning') continue; // reasoning isn't part of the JSON
+      fullText += chunk.text;
+    } else if (typeof chunk === 'string') {
+      if (onChunk) onChunk({ type: 'content', text: chunk });
+      fullText += chunk;
+    }
   }
-  
+
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   pipelineLog.success(ErrorCategory.PIPELINE, 'Stage completed', {
     stage: stageName,
     elapsedSeconds: Number(elapsed),
     outputChars: fullText.length
   });
-  
+
   return fullText;
+}
+
+/**
+ * Wraps a pipeline stage (model call + JSON parse + validation) with up to
+ * `maxRetries` retries on parse/validation errors. CONTENT_REJECTED is treated
+ * as a permanent failure (the user input was rejected) and is propagated
+ * immediately so we don't waste calls on the same topic.
+ *
+ * The underlying `tryModels*` callers already retry on 503 and fall back to
+ * OpenRouter, so this helper specifically targets the post-call failure mode:
+ * the model returns 200 OK but the output is unusable (bad JSON, missing
+ * fields). One transient parse miss is common; two in a row is enough to
+ * give up and surface the error to the user.
+ *
+ * @param {object} options
+ * @param {Function} options.task - async () => parsed JSON. Must throw an Error
+ *   whose .message starts with CONTENT_REJECTED, STAGE1_*, or STAGE2_*.
+ * @param {number} [options.maxRetries=2] - extra attempts after the first one
+ * @param {string} options.stageName - human-readable stage name for logs
+ * @param {string} options.stageKey - 'stage1' | 'stage2' for onStageUpdate
+ * @param {Function} options.onStageUpdate - (stageKey, data) => void
+ * @returns {Promise<object>} parsed JSON
+ */
+async function runContentStageWithRetry({ task, maxRetries = 2, stageName, stageKey, onStageUpdate }) {
+  let lastError;
+  const maxAttempts = maxRetries + 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await task();
+    } catch (err) {
+      lastError = err;
+      const msg = err && err.message ? err.message : '';
+      // Permanent failure: the user's topic was rejected by the model.
+      // Retrying with the same prompt will only get the same rejection.
+      if (msg.startsWith('CONTENT_REJECTED')) throw err;
+      // Out of retries — bubble up so the SSE error path can show a friendly
+      // message and the user can try again with different wording.
+      if (attempt >= maxAttempts) throw err;
+
+      pipelineLog.warn(ErrorCategory.PIPELINE,
+        `${stageName} attempt ${attempt}/${maxAttempts} failed, retrying`, {
+        attempt,
+        maxAttempts,
+        error: msg
+      });
+      if (onStageUpdate) {
+        onStageUpdate(stageKey, {
+          status: 'retrying',
+          attempt,
+          maxAttempts,
+          error: msg
+        });
+      }
+      // Small linear backoff so the model/provider can recover from a
+      // transient parse miss (e.g. a malformed JSON block).
+      await new Promise(r => setTimeout(r, 500 * attempt));
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -220,10 +292,16 @@ function enrichSkeletonForStage2(skeleton, rawInput) {
   return enriched;
 }
 
-async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, maxSlides = 12 }) {
+async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tryModelsStage1, tryModelsStage2, tryModelsStage3, tryModels, onStageUpdate, onChunk, maxSlides = 12 }) {
   const callStage1 = tryModelsStage1 || tryModels;
   const callStage2 = tryModelsStage2 || tryModels;
   const callStage3 = tryModelsStage3 || tryModels;
+  // Reasoning chunks are emitted through onChunk, regardless of which stage
+  // they come from. We tag them with the stage key so the client can group
+  // them visually under "Designing" vs "Composing" headings.
+  const stageChunk = (stageKey) => onChunk
+    ? (item) => onChunk({ ...item, stage: stageKey })
+    : null;
   let contentJson;
 
   if (skeleton) {
@@ -232,33 +310,51 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
     onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count || contentJson.slides?.length || 0 });
   } else {
     onStageUpdate('stage1', { status: 'running' });
-    
-    const stage1Prompt = buildStage1Prompt(rawInput, targetLanguage);
-    const stage1Raw = await runStage((p) => callStage1(p, fileContext), stage1Prompt, 'Stage 1 (Content)');
-    
-    try {
-      contentJson = extractJson(stage1Raw);
-    } catch (e) {
-      throw new Error(`STAGE1_PARSE_ERROR: Could not parse Stage 1 output as JSON. Raw: ${stage1Raw.substring(0, 500)}`);
-    }
-    
-    if (contentJson.rejected) {
-      throw new Error('CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic'));
-    }
-    
-    if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
-      throw new Error('STAGE1_INVALID: Stage 1 output has no slides array');
-    }
-    
-    if (contentJson.slides.length > maxSlides) {
-      pipelineLog.warn(ErrorCategory.VALIDATION, 'Stage 1 exceeded max slides and was trimmed', {
-        maxSlides,
-        receivedSlides: contentJson.slides.length
-      });
-      contentJson.slides = contentJson.slides.slice(0, maxSlides);
-      contentJson.slide_count = maxSlides;
-    }
-    
+
+    contentJson = await runContentStageWithRetry({
+      stageName: 'Stage 1 (Content)',
+      stageKey: 'stage1',
+      maxRetries: 2,
+      onStageUpdate,
+      task: async () => {
+        const stage1Prompt = buildStage1Prompt(rawInput, targetLanguage);
+        const stage1Raw = await runStage(
+          (p) => callStage1(p, fileContext),
+          stage1Prompt,
+          'Stage 1 (Content)',
+          stageChunk('stage1')
+        );
+
+        let parsed;
+        try {
+          parsed = extractJson(stage1Raw);
+        } catch (e) {
+          throw new Error(`STAGE1_PARSE_ERROR: Could not parse Stage 1 output as JSON. Raw: ${stage1Raw.substring(0, 500)}`);
+        }
+
+        if (parsed.rejected) {
+          // Permanent — the user's input was rejected. The retry helper will
+          // see the CONTENT_REJECTED prefix and propagate immediately.
+          throw new Error('CONTENT_REJECTED: ' + (parsed.reason || 'Invalid topic'));
+        }
+
+        if (!parsed.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0) {
+          throw new Error('STAGE1_INVALID: Stage 1 output has no slides array');
+        }
+
+        if (parsed.slides.length > maxSlides) {
+          pipelineLog.warn(ErrorCategory.VALIDATION, 'Stage 1 exceeded max slides and was trimmed', {
+            maxSlides,
+            receivedSlides: parsed.slides.length
+          });
+          parsed.slides = parsed.slides.slice(0, maxSlides);
+          parsed.slide_count = maxSlides;
+        }
+
+        return parsed;
+      }
+    });
+
     onStageUpdate('stage1', { status: 'done', slideCount: contentJson.slide_count });
     pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 1 extracted content', {
       slideCount: contentJson.slide_count,
@@ -266,22 +362,32 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
       tone: contentJson.tone
     });
   }
-  
+
   onStageUpdate('stage2', { status: 'running' });
-  
-  const stage2Prompt = buildStage2Prompt(rawInput, contentJson);
-  const stage2Raw = await runStage(callStage2, stage2Prompt, 'Stage 2 (Design)');
-  
-  let designJson;
-  try {
-    designJson = extractJson(stage2Raw);
-  } catch (e) {
-    throw new Error(`STAGE2_PARSE_ERROR: Could not parse Stage 2 output as JSON. Raw: ${stage2Raw.substring(0, 500)}`);
-  }
-  
-  if (!designJson.palette || !designJson.slides || !Array.isArray(designJson.slides)) {
-    throw new Error('STAGE2_INVALID: Stage 2 output missing palette or slides');
-  }
+
+  const designJson = await runContentStageWithRetry({
+    stageName: 'Stage 2 (Design)',
+    stageKey: 'stage2',
+    maxRetries: 2,
+    onStageUpdate,
+    task: async () => {
+      const stage2Prompt = buildStage2Prompt(rawInput, contentJson);
+      const stage2Raw = await runStage(callStage2, stage2Prompt, 'Stage 2 (Design)', stageChunk('stage2'));
+
+      let parsed;
+      try {
+        parsed = extractJson(stage2Raw);
+      } catch (e) {
+        throw new Error(`STAGE2_PARSE_ERROR: Could not parse Stage 2 output as JSON. Raw: ${stage2Raw.substring(0, 500)}`);
+      }
+
+      if (!parsed.palette || !parsed.slides || !Array.isArray(parsed.slides)) {
+        throw new Error('STAGE2_INVALID: Stage 2 output missing palette or slides');
+      }
+
+      return parsed;
+    }
+  });
   
   onStageUpdate('stage2', { status: 'done' });
   const p = designJson.palette || {};

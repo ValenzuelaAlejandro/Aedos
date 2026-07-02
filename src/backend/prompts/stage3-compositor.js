@@ -78,13 +78,23 @@ These are NOT suggestions. These MUST NOT appear in your output, ever:
   RULE: Ban ONLY radial gradients. Do NOT ban linear gradients.
 
 2. LANGUAGE MIX -- ALL TEXT MUST BE IN ${contentJson.language}:
-  English labels when ${contentJson.language} is Spanish/Portuguese/French/etc
-  Code like "x86 Origins", "Pentium Era", "IPC Increase" when the deck is in ${contentJson.language}
-  "x86 Origins" should be translated when the deck language is Spanish/French/etc
-  "Pentium Era" should be translated when the deck language is Spanish/French/etc
-  Technical acronyms are OK (x86, IPC, CPU, GPU) but descriptive text MUST be translated
-  SOLUTION: Every label, tag, title, description MUST be in contentJson.language
-  Read contentJson.language: "${contentJson.language}" -- that is your target language
+  CRITICAL: The TARGET LANGUAGE for this entire deck is "${contentJson.language}" (an ISO-639-1 code). Every single word of user-facing text (titles, subtitles, paragraphs, list items, button labels, alt text, placeholder text, dates written out in words) MUST be written in this language.
+  You are FORBIDDEN from:
+    - Using English when ${contentJson.language} is Spanish, Portuguese, French, Italian, German, Japanese, Chinese, Korean, Arabic, Russian, or any other non-English language.
+    - Using any other language when ${contentJson.language} is English.
+    - Mixing languages within a single slide.
+    - Translating technical acronyms or proper nouns from the user input.
+  Allowed exceptions (these are NOT translations, they are universally understood identifiers):
+    - CSS class names, HTML attribute names, JSON keys, and CSS variable names stay in English (they are code, not user-facing).
+    - Technical acronyms (CPU, GPU, API, URL) when they are themselves the term being referenced.
+    - Proper nouns from the user's input (names of people, products, places, companies) -- keep these as the user wrote them.
+  Self-check before submitting: scan every section.s and verify all visible text matches ${contentJson.language}. If you see any English word in a Spanish deck (or vice versa), translate it.
+  Examples of correct translation behavior:
+    - Spanish deck, English label "Source" -> "Fuente"
+    - Spanish deck, English label "Conclusion" -> "Conclusión"
+    - English deck, Spanish label "Conclusión" -> "Conclusion"
+    - Spanish deck, English label "Click here" -> "Haz clic aquí"
+  Read contentJson.language: "${contentJson.language}" -- this is the ONLY language you may use for user-facing text.
 
 3. MARKDOWN SYNTAX IN OUTPUT -- CONVERT TO HTML:
   Text like "**bold text**" is NOT converted to bold -- it displays as literal asterisks: **bold text**
@@ -96,8 +106,9 @@ These are NOT suggestions. These MUST NOT appear in your output, ever:
   Run regex replacements if needed, but NEVER output markdown in HTML
 
 4. SAME BACKGROUND ON ALL SLIDES -- BANNED:
-  Using identical solid color or gradient overlay on every section.s
-  Slides use clean solid backgrounds -- do NOT add decorative background overlays or texture divs
+  Using identical solid color or gradient overlay on EVERY section.s (do not make all slides identical)
+  Slides use clean solid backgrounds -- do NOT add decorative background overlays or texture divs to regular slides
+  EXCEPTION: Full-bleed image backgrounds (Layout Pattern C) ARE allowed and encouraged when the slide has a proper noun requiring an image. The dark overlay (e.g. rgba(0,0,0,0.6)) for text readability on full-bleed images is REQUIRED and not a violation of this rule.
 
 =======================================
 HARD TECHNICAL CONSTRAINTS
@@ -313,12 +324,12 @@ INPUT PROCESSING -- CRITICAL TRANSFORMATIONS
 LANGUAGE:
   contentJson.language = "${contentJson.language || 'en'}"
   EVERY text element in your output must be in THIS language.
-  Do NOT mix languages. If you find yourself writing "x86 Origins" in a ${contentJson.language} deck, STOP.
+  Do NOT mix languages. If you find yourself writing English text in a non-English deck, STOP and translate it.
   Translate it: ask yourself "what would a native ${contentJson.language} speaker call this?"
-  Examples:
-    "Pentium Era" (English) -> "Ere du Pentium" (French) / "Era del Pentium" (Spanish)
-    "x86 Origins" (English) -> "Origines du x86" (French) / "Origenes del x86" (Spanish)
-    "IPC Increase" (English) -> "Hausse IPC" (French) / "Aumento de IPC" (Spanish)
+  Examples (these are generic patterns -- replace the terms with whatever appears in your actual slide):
+    English term "[Technical Term]" -> "[Translation in target language]" when deck language is non-English
+    Example: "CPU Era" in French deck -> "Ère du CPU"; "Memory Architecture" in Spanish deck -> "Arquitectura de Memoria"
+  REINFORCEMENT: language mixing is the #1 visible failure. Self-check before submitting: pick one slide at random and verify every word is in ${contentJson.language}.
 
 MARKDOWN CONVERSION:
   contentJson.slides[N].content and other text fields may contain markdown:
@@ -469,13 +480,24 @@ When building the HTML, you MUST ensure adequate image coverage:
 - COMPARISON SLIDES (role="comparison"): SHOULD use image slots for visual comparison.
 - CONCLUSION SLIDE: SHOULD have an image slot with a powerful closing visual.
 
-If designJson specifies has_image_slot=false for a slide that CLEARLY should have an image (e.g., a slide about a specific person, artwork, or building), YOU MUST STILL ADD THE IMAGE SLOT in the HTML. The visual communication takes priority over the JSON specification.
+If designJson specifies has_image_slot=false for a slide that CLEARLY should have an image (e.g., a slide about a specific person, artwork, album, song, or building), YOU MUST STILL ADD THE IMAGE SLOT in the HTML. The visual communication takes priority over the JSON specification.
+
+RELATIONSHIP BETWEEN composition_literal AND has_image_slot:
+- composition_literal is a VISUAL STYLE spec (typography, positioning, density, colors). It does NOT control image inclusion.
+- has_image_slot=true is a HARD REQUIREMENT: the image slot MUST be rendered in the HTML, regardless of what composition_literal says.
+- If composition_literal describes a layout that doesn't include space for an image (e.g., "compact-two-column full width"), but has_image_slot=true, you MUST adapt: use full-bleed background image (Layout Pattern C) OR shrink the side image to 320px with the content in compact-two-column.
+- NEVER skip an image just because composition_literal describes a text-only layout. The image mandate wins.
+- STAGE 3 CREATIVE AUTHORITY ON IMAGES: Stage 3 has full authority to ADD an image slot when the slide content has clear proper nouns (album, song, person, artwork, place, character) even if Stage 2 omitted has_image_slot. This is a recovery mechanism for missing images.
 
 Image Keyword Requirements:
 - When creating image slots, ALWAYS include data-image-keyword with a highly specific English search phrase
 - BAD: "art", "building", "person" -- too generic
 - BAD: "chaos and psychological tension anime" -- abstract description
-- GOOD: "Mona Lisa painting by Leonardo da Vinci", "Florence Cathedral Brunelleschi dome", "Michelangelo Sistine Chapel ceiling"
+- GOOD (generic patterns -- replace placeholders with actual proper nouns from the slide being built):
+  - "[Painting Name] painting by [Artist Name]"
+  - "[Architectural Landmark Name] [City] architecture exterior"
+  - "[Main Subject] in [Source Work] character portrait"
+  - "[Artist Name] [Album Name] album cover"
 - Include artist names, specific titles, and context for best search results
 
 [ALERT] KEYWORD RULE: USE THE ACTUAL NAME FROM THE SLIDE CONTENT [ALERT]
@@ -485,28 +507,28 @@ The keyword MUST be the actual name of what the slide discusses, NOT a descripti
 2. Extract PROPER NOUNS: names of people, songs, albums, artworks, places, products
 3. The keyword = "[Name] [optional context qualifier like 'portrait', 'album cover', 'painting']"
 
-Examples:
-- Title "Light Yagami's descent" -> keyword "Light Yagami Death Note character portrait"
-- Title "The Birth of Kira" -> keyword "Light Yagami Kira Death Note anime"
-- Title "Horizonte" (a song) -> keyword "Masayoshi Takanaka Horizonte album cover"
-- Title "Character Archetypes: Kira, L, Ryuk" -> keyword "Death Note characters Kira L Ryuk anime"
-- Title "Mona Lisa" -> keyword "Mona Lisa painting by Leonardo da Vinci"
-- Title "Sistine Chapel ceiling" -> keyword "Sistine Chapel ceiling Michelangelo"
+Examples (use generic placeholder patterns; replace placeholders with the actual proper nouns from the slide being built):
+- Title "[Character Name]'s [event]" -> keyword "[Character Name] [Source Work] character portrait"
+- Title "[Character Name]'s origin" -> keyword "[Character Name] [Source Work] character"
+- Title "[Song Name]" -> keyword "[Artist Name] [Song Name] album cover"
+- Title "Character archetypes: [Name A], [Name B], [Name C]" -> keyword "[Source Work] characters [Name A] [Name B] [Name C]"
+- Title containing a painting name -> keyword "[Painting Name] painting by [Artist]"
+- Title containing an artwork/architecture name -> keyword "[Work Name] by [Artist Name]"
 
-NEVER use abstract descriptions like "beautiful", "vibrant", "chaotic", "mysterious" as keywords. Use the concrete name.
+NEVER use abstract descriptions like "beautiful", "vibrant", "chaotic", "mysterious" as keywords. Use the concrete name from the actual slide.
 
 NAME DETECTION -- SCAN SLIDE TEXT FOR MISSING IMAGES:
 
 Before building each slide, scan the slide's h2 title and text content for PROPER NOUNS (capitalized multi-word names of people, characters, songs, artworks, places). If you find them AND the slide lacks an image slot, you MUST add one with the proper noun as the keyword.
 
-Examples of names to detect:
-- Character names: "Light Yagami", "L Lawliet", "Ryuk", "Misa Amane"
-- Artist names: "Masayoshi Takanaka", "Leonardo da Vinci"
-- Artwork names: "Mona Lisa", "Sistine Chapel"
-- Song names: "Horizonte", "Blue Lagoon", "Summer Breeze"
-- Place names: "Florence", "Rome", "Tokyo"
+Examples of name categories to detect (NOT a fixed list -- scan for any capitalized multi-word proper noun in the slide):
+- Character names from any narrative work (fiction, mythology, biography)
+- Real-world artist / author / creator names
+- Specific artwork, building, monument, or place names
+- Specific song, album, film, book, or composition titles
+- Specific historical event or date references
 
-If the slide's content is about ANY of these specific named things and has no image slot, ADD ONE with that exact name as the keyword.
+If the slide's content is about ANY specific named thing and has no image slot, ADD ONE with that exact name as the keyword.
 
 IMG-SLOT PLACEMENT RULES -- STRICTLY ENFORCED:
 
@@ -537,9 +559,20 @@ IMG-SLOT CSS: .img-slot { position:relative; overflow:hidden; border-radius:12px
 NO width/min-height/flex on .img-slot -- sizing via inline style per layout.
 
 WHEN TO USE IMAGE SLOTS:
-- Use a side image slot only when the slide has short to medium text density.
-- If the slide has 5+ facts, multiple paragraphs, or a long explanation, prefer text-focused layouts or use a full-bleed background image with a strong dark overlay.
+- MANDATORY: When designJson.slides[N].has_image_slot is true, you MUST render an img-slot. No exceptions.
+- MANDATORY: When a slide has PROPER NOUNS in title/subtitle/key_points (album name, song, artist, artwork, building, character, place) AND no image slot yet, ADD ONE -- even if Stage 2 didn't request it. This overrides ANY density concerns.
+- Use a side image slot when the slide has short to medium text density.
+- If the slide has 5+ facts, multiple paragraphs, or a long explanation AND has no proper nouns requiring images, prefer text-focused layouts or use a full-bleed background image with a strong dark overlay (Layout Pattern C).
+- IF the slide has 5+ facts BUT also has a proper noun (album/song/person/etc.) requiring an image: use full-bleed background image with overlay (Layout Pattern C) OR side image 320-360px + compact-two-column content.
 - You CAN place text on top of an image slot ONLY if it is a full-bleed background (Pattern C) and you use a dark overlay (e.g. rgba(0,0,0,0.6)) to ensure text readability.
+
+RESOLUTION OF CONTRADICTIONS -- READ THIS CAREFULLY:
+The following rules appear contradictory but are resolved by priority order:
+1. has_image_slot=true from Stage 2 is the HIGHEST priority -- image is always rendered.
+2. Proper noun detection (album/song/person/etc.) is the SECOND highest priority -- if detected and no image yet, add one.
+3. Text density concerns (compact-two-column, no side image, etc.) are the LOWEST priority -- they only apply when no image is required.
+4. composition_literal describes VISUAL STYLE only (e.g., "split 420px", "compact-two-column"). It does NOT control whether to include an image. has_image_slot is what controls image inclusion.
+5. NEVER skip an image slot to satisfy a layout density rule -- use a different layout (full-bleed background) instead.
 
 LAYOUT PATTERN A -- FULL-HEIGHT SPLIT (THE CORRECT img-slot pattern):
 CRITICAL: section MUST have flex-direction:row in inline style. This overrides the class-level flex-direction:column.
@@ -588,11 +621,22 @@ LAYOUT PATTERN C -- FULL-BLEED BACKGROUND (for covers or transitions):
   </div>
 </section>
 
-ICON SYSTEM -- MANDATORY ON CONCEPT/FEATURE/PILLAR SLIDES:
+ICON SYSTEM -- USAGE RULES:
 Lucide icons are injected by server. USAGE: <div class="icon-wrapper"><i data-lucide="brain"></i></div>
 Place at TOP of each feature card, before h3 title. Alternate styles: .icon-wrapper (accent) or style="background:var(--accent-2-dim)".
 USE EXACTLY the names from designJson.slides[N].icon_names -- do NOT substitute, invent, or rename them.
-MANDATORY RULE: Every deck uses icons on >=2 slides. Every card (2+) with icons gets ICON on each.
+WHEN ICONS APPLY (icons are appropriate on these layouts only):
+  - cards layout (3-4 feature cards)
+  - split layout (when there are 2+ cards in the content column)
+  - process/timeline layout (when rendered as cards, not as nodes)
+WHEN ICONS DO NOT APPLY (icon_names MUST be null, render no icon markup):
+  - cover, conclusion
+  - stats / data slides (numbers are the visual)
+  - timeline with nodes (numbers/dates are the visual)
+  - quote (the text is the visual)
+  - editorial (freeform typography is the visual)
+  - text layout (paragraphs are the visual)
+DECK RULE: A typical deck of 8+ slides should have icons on at least 2 cards-based slides. If your Stage 2 design has 0 cards-based slides, you do not need to add icons (e.g., a pure data/stats deck is fine without icons).
 Per slide: designJson.slides[N].icon_names specifies exact names. Size: 22px (already in CSS).
 
 =======================================
