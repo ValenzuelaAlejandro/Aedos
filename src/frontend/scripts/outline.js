@@ -50,24 +50,6 @@ function scrollToBottom(force = false) {
     }
 }
 
-// #region debug-point A:outline-debug-report
-function __outlineDebugReport(hypothesisId, msg, data) {
-    fetch('http://127.0.0.1:7778/event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            sessionId: 'outline-bubble-dom',
-            runId: 'pre-fix',
-            hypothesisId,
-            location: 'outline.js',
-            msg: `[DEBUG] ${msg}`,
-            data,
-            ts: Date.now()
-        })
-    }).catch(() => {});
-}
-// #endregion
-
 function getActiveOutlineContainer() {
     const activeContainer = window.outlineEditorState?.activeContainer;
     if (activeContainer && document.body.contains(activeContainer)) {
@@ -108,15 +90,6 @@ function mountActiveOutlineContainer(container) {
     window.outlineEditorState.activeContainer = container && document.body.contains(container)
         ? container
         : fallbackContainer;
-    // #region debug-point A:active-container-mounted
-    __outlineDebugReport('A', 'mountActiveOutlineContainer resolved host', {
-        requestedId: container?.id || null,
-        requestedClass: container?.className || null,
-        activeId: window.outlineEditorState.activeContainer?.id || null,
-        activeClass: window.outlineEditorState.activeContainer?.className || null,
-        activeParentClass: window.outlineEditorState.activeContainer?.parentElement?.className || null
-    });
-    // #endregion
     return getOutlineDom(window.outlineEditorState.activeContainer);
 }
 
@@ -385,15 +358,6 @@ function showOutlineEditorLoading(slideCount = 8) {
             const followUpOutlineContainer = createFollowUpOutlineContainer();
             aiBubble.querySelector('.chat-ai-body').appendChild(followUpOutlineContainer);
             mountActiveOutlineContainer(followUpOutlineContainer);
-            // #region debug-point C:follow-up-bubble-host
-            __outlineDebugReport('C', 'follow-up AI bubble received local outline host', {
-                aiBubbleClass: aiBubble.className,
-                aiBodyChildren: aiBubble.querySelector('.chat-ai-body')?.children?.length || 0,
-                followUpHostClass: followUpOutlineContainer.className,
-                followUpHostParentClass: followUpOutlineContainer.parentElement?.className || null,
-                totalAiMessages: document.querySelectorAll('.chat-msg-ai').length
-            });
-            // #endregion
         } else {
             // First loading state: populate the static placeholders
             const firstUserBubble = document.getElementById('chat-user-bubble');
@@ -525,16 +489,6 @@ window.prepareOutlineStreaming = function(mode) {
 window.renderStreamingOutline = function(partialSkeleton) {
     const container = getOutlineDom().slidesContainer;
     if (!container) return;
-    // #region debug-point D:stream-render-target
-    __outlineDebugReport('D', 'renderStreamingOutline target resolved', {
-        activeContainerId: getOutlineDom().container?.id || null,
-        activeContainerClass: getOutlineDom().container?.className || null,
-        slidesContainerId: container.id || null,
-        slidesContainerDataset: container.getAttribute('data-outline-slides') || null,
-        slidesParentClass: container.parentElement?.className || null,
-        slideCount: partialSkeleton?.slides?.length || 0
-    });
-    // #endregion
 
     const slides = partialSkeleton.slides || [];
     const existingItems = container.querySelectorAll('.seamless-slide-item');
@@ -657,6 +611,13 @@ window.renderOutlineSuggestedChips = function(skeletonData) {
     chipsContainer.innerHTML = '';
     
     if (window._chipsRenderTimeout) clearTimeout(window._chipsRenderTimeout);
+
+    const hasSlides = !!(
+        skeletonData &&
+        Array.isArray(skeletonData.slides) &&
+        skeletonData.slides.length > 0
+    );
+    if (!hasSlides) return;
 
     let suggestedChips = [];
     const isEnglish = (skeletonData.language || 'es').toLowerCase().startsWith('en');

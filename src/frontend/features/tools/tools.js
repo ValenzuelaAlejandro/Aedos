@@ -647,6 +647,15 @@ function initTools(iframe) {
             const btnReplace = document.getElementById('tool-replace-img');
             const radius = document.getElementById('tool-radius');
             const opacity = document.getElementById('tool-opacity');
+            const comp = iframeWin.getComputedStyle(el);
+
+            if (radius) {
+                radius.value = String(Math.round(parseFloat(comp.borderTopLeftRadius) || 0));
+            }
+            if (opacity) {
+                const currentOpacity = parseFloat(comp.opacity);
+                opacity.value = String(Math.round((Number.isFinite(currentOpacity) ? currentOpacity : 1) * 100));
+            }
 
             btnReplace.addEventListener('click', () => {
                 const input = document.createElement('input');
@@ -662,11 +671,11 @@ function initTools(iframe) {
                             } else {
                                 el.style.backgroundImage = `url('${dataUrl}')`;
                                 el.style.backgroundSize = 'cover';
+                                el.style.backgroundPosition = 'center';
+                                el.style.backgroundRepeat = 'no-repeat';
                                 el.classList.add('has-custom-image');
-                                const decorativeDivs = Array.from(el.querySelectorAll(':scope > div')).filter(c =>
-                                    !c.classList.contains('img-replace-overlay') && c.tagName !== 'INPUT'
-                                );
-                                decorativeDivs.forEach(d => d.style.display = 'none');
+                                const placeholderLayers = Array.from(el.querySelectorAll(':scope > .img-bg1, :scope > .img-bg2'));
+                                placeholderLayers.forEach(layer => layer.style.display = 'none');
                             }
                         });
                     }

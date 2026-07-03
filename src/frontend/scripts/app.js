@@ -1510,16 +1510,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.prepareOutlineStreaming) {
             window.prepareOutlineStreaming(proModeEnabled ? 'pro' : 'flash');
         }
-        // #region debug-point B:post-loading-pre-stream
-        __appDebugReport('B', 'after loading + prepareOutlineStreaming', {
-            isFollowUpRequest,
-            totalAiMessages: document.querySelectorAll('.chat-msg-ai').length,
-            latestAiBodyClass: document.querySelectorAll('.chat-msg-ai .chat-ai-body')[document.querySelectorAll('.chat-msg-ai .chat-ai-body').length - 1]?.className || null,
-            outlineContainerId: window.outlineEditorState?.activeContainer?.id || null,
-            outlineContainerClass: window.outlineEditorState?.activeContainer?.className || null,
-            outlineParentClass: window.outlineEditorState?.activeContainer?.parentElement?.className || null
-        });
-        // #endregion
 
         // Only the very first request should mount the panel in the static
         // `#chat-ai-response` bubble. Follow-ups already create their own AI
@@ -1556,6 +1546,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let buffer = '';
             let rawText = '';
             let finalSkeleton = null;
+            let sawSkeletonSseParseError = false;
             const _skeletonReasoningAiBody = (() => {
                 const _aiMessages = document.querySelectorAll('.chat-msg-ai');
                 const _latestAi = _aiMessages[_aiMessages.length - 1];
@@ -1588,16 +1579,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (data.reasoning && typeof data.reasoning === 'string') {
                                 const allAiBodies = document.querySelectorAll('.chat-msg-ai .chat-ai-body');
                                 const _aiBody = allAiBodies[allAiBodies.length - 1];
-                                // #region debug-point B:reasoning-target
-                                __appDebugReport('B', 'reasoning token target body resolved', {
-                                    aiBodies: allAiBodies.length,
-                                    targetBodyClass: _aiBody?.className || null,
-                                    targetBodyParentClass: _aiBody?.parentElement?.className || null,
-                                    activeOutlineClass: window.outlineEditorState?.activeContainer?.className || null,
-                                    activeOutlineParentClass: window.outlineEditorState?.activeContainer?.parentElement?.className || null,
-                                    reasoningLength: data.reasoning.length
-                                });
-                                // #endregion
                                 if (_aiBody && window.AedosThinking) {
                                     // Lazily create the panel if a previous
                                     // legacy code path forgot to call show().
@@ -1615,15 +1596,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (data.chunk) {
                                 rawText += data.chunk;
                                 const partialSkeleton = window.parsePartialSkeleton(rawText);
-                                // #region debug-point E:chunk-collapse-target
-                                __appDebugReport('E', 'chunk received before collapse', {
-                                    latestResolvedAiBodyClass: document.querySelectorAll('.chat-msg-ai .chat-ai-body')[document.querySelectorAll('.chat-msg-ai .chat-ai-body').length - 1]?.className || null,
-                                    collapseBodyMatchesLatest: _skeletonReasoningAiBody === document.querySelectorAll('.chat-msg-ai .chat-ai-body')[document.querySelectorAll('.chat-msg-ai .chat-ai-body').length - 1],
-                                    collapseBodyParentClass: _skeletonReasoningAiBody?.parentElement?.className || null,
-                                    activeOutlineParentClass: window.outlineEditorState?.activeContainer?.parentElement?.className || null,
-                                    partialSlides: partialSkeleton?.slides?.length || 0
-                                });
-                                // #endregion
                                 if (window.outlineEditorState) {
                                     window.outlineEditorState.skeleton = partialSkeleton;
                                 }
@@ -1654,6 +1626,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 finalSkeleton = data.skeleton;
                             }
                         } catch (e) {
+                            sawSkeletonSseParseError = true;
                             console.error('SSE JSON error:', e);
                             if (e.message && (e.message.includes('Limit') || e.message.includes('pressure') || e.message.includes('failed') || e.message.includes('REJECTED'))) {
                                 throw e;
@@ -1666,21 +1639,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // The skeleton fetch stream is complete. Free the skeleton controller safely.
             _skeletonGenController = null;
 
-            // If the model never produced any reasoning AND no slides, the
-            // panel is still in its "thinking" state. Hide it so the empty
-            // AI bubble doesn't keep a spinner alive.
-            if (window.AedosThinking) {
-                if (!finalSkeleton || (Array.isArray(finalSkeleton.slides) && finalSkeleton.slides.length === 0)) {
-                    if (!finalSkeleton || !finalSkeleton.action) {
-                        window.AedosThinking.hide(_skeletonReasoningAiBody);
-                    }
-                } else if (finalSkeleton.action === 'proceed') {
-                    // Proceed flow: collapse (not hide) the panel and let
-                    // the "Drafting slides…" message take over visually.
-                    window.AedosThinking.collapse(_skeletonReasoningAiBody);
-                }
-            }
-
             window._pendingGenerateBodyData = bodyData;
             window._pendingGenerateHeaders = headers;
 
@@ -1688,6 +1646,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!finalSkeleton) {
                 finalSkeleton = window.parsePartialSkeleton(rawText);
+            }
+
+            const hasRenderableSkeleton = !!(
+                finalSkeleton &&
+                Array.isArray(finalSkeleton.slides) &&
+                finalSkeleton.slides.length > 0
+            );
+
+            if (!hasRenderableSkeleton && (!finalSkeleton || !finalSkeleton.action)) {
+                const streamWasInterrupted = sawSkeletonSseParseError || rawText.trim().length > 0 || !finalSkeleton;
+                if (streamWasInterrupted) {
+                    throw new Error(
+                        window.__t
+                            ? window.__t('outline_stream_interrupted', 'The outline response was interrupted. Please try again.')
+                            : 'The outline response was interrupted. Please try again.'
+                    );
+                }
+            }
+
+            // Only hide the panel when nothing useful arrived. If the model
+            // streamed reasoning successfully, keep it collapsed so the chat
+            // does not look empty after a recoverable failure.
+            if (window.AedosThinking) {
+                if (!hasRenderableSkeleton) {
+                    if (!finalSkeleton || !finalSkeleton.action) {
+                        if (window.AedosThinking.hasReasoning && window.AedosThinking.hasReasoning(_skeletonReasoningAiBody)) {
+                            window.AedosThinking.collapse(_skeletonReasoningAiBody);
+                        } else {
+                            window.AedosThinking.hide(_skeletonReasoningAiBody);
+                        }
+                    }
+                } else if (finalSkeleton.action === 'proceed') {
+                    // Proceed flow: collapse (not hide) the panel and let
+                    // the "Drafting slides…" message take over visually.
+                    window.AedosThinking.collapse(_skeletonReasoningAiBody);
+                }
             }
 
             // Intention Parser Interception
@@ -1808,12 +1802,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const aiBody = latestAiBubble.querySelector('.chat-ai-body');
                 if (aiBody) {
-                    // Hide the new thinking panel on error/cancel so it doesn't
-                    // keep spinning forever. The legacy chat-thinking dots are
-                    // handled below for backwards compatibility.
+                    // Preserve the reasoning pill on recoverable errors so the
+                    // bubble does not look empty. Aborts still remove it.
                     if (window.AedosThinking) {
-                        window.AedosThinking.hide(aiBody);
+                        const preserveThinking =
+                            !isAbort &&
+                            window.AedosThinking.hasReasoning &&
+                            window.AedosThinking.hasReasoning(aiBody);
+                        if (preserveThinking) {
+                            window.AedosThinking.collapse(aiBody);
+                        } else {
+                            window.AedosThinking.hide(aiBody);
+                        }
                     }
+
+                    aiBody.querySelectorAll('.chat-proceed-message, .chat-error-message, .chat-cancelled-message').forEach(el => el.remove());
 
                     const errEl = document.createElement('div');
                     if (isAbort) {
@@ -4060,16 +4063,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyImageToSlot(slot, imageDataOrUrl) {
-        // Hide all gradient/decorative child divs — they're just placeholders
-        const decorativeDivs = Array.from(slot.querySelectorAll(':scope > div')).filter(c =>
-            !c.classList.contains('img-replace-overlay') && c.tagName !== 'INPUT'
-        );
-        decorativeDivs.forEach(d => d.style.display = 'none');
+        // Hide only placeholder layers. Keep real overlays intact so background
+        // image readability settings are preserved when the user swaps the photo.
+        const placeholderLayers = Array.from(slot.querySelectorAll(':scope > .img-bg1, :scope > .img-bg2'));
+        placeholderLayers.forEach(layer => layer.style.display = 'none');
 
         // Apply image directly on the slot container
         slot.style.backgroundImage = `url('${imageDataOrUrl}')`;
         slot.style.backgroundSize = 'cover';
         slot.style.backgroundPosition = 'center';
+        slot.style.backgroundRepeat = 'no-repeat';
 
         slot.classList.add('has-custom-image');
 
@@ -4671,24 +4674,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Scroll is now native; no custom scroll-loop system
 });
-
-// #region debug-point B:app-debug-report
-function __appDebugReport(hypothesisId, msg, data) {
-    fetch('http://127.0.0.1:7778/event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            sessionId: 'outline-bubble-dom',
-            runId: 'pre-fix',
-            hypothesisId,
-            location: 'app.js',
-            msg: `[DEBUG] ${msg}`,
-            data,
-            ts: Date.now()
-        })
-    }).catch(() => {});
-}
-// #endregion
 
 // -- Suggestion Pills Logic ---------------------------------------------------
 document.querySelectorAll('.suggestion-pill').forEach(pill => {

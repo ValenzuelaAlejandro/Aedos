@@ -40,29 +40,49 @@ CRITICAL MANDATORY IMAGE SLOT RULES - BEFORE ANYTHING ELSE!
 - Set has_image_slot=true dynamically depending on the presentation's narrative needs. DO NOT hardcode exactly 3-6 images; prioritize visual impact and versatile layouts over a fixed count.
 - Primary patterns: vary the image layout. Sometimes use full-height splits, sometimes use small side images next to text, or use full-bleed background images (possibly with low opacity) for cover slides or transitional slides. Prioritize the visual impact and proper display of images (avoid awkward cropping).
 - Include image slots on: split/comparison slides, concept slides, example slides, cover slides, slides about specific people/characters, slides about specific artworks/paintings, and any slide where a photo adds visual value.
-- When has_image_slot is true, ALWAYS set image_keyword to a highly specific ENGLISH phrase that exactly describes what should be on the image (use generic patterns -- replace placeholders with actual proper nouns from the slide being processed; e.g., "[Main Subject] in [Source Work]" for fictional characters, "[Painting Name] by [Artist]" for artworks, "[Building Name] architecture" for landmarks, NOT generic like "business" or "teamwork").
+- When has_image_slot is true, ALWAYS set image_keyword to a concrete ENGLISH search phrase for the PRIMARY VISUAL SUBJECT of the slide.
+- READABILITY RULE: if text is placed on top of a photo, ALWAYS add a separate dark overlay layer behind the text (roughly rgba(0,0,0,0.45) to rgba(0,0,0,0.68)). Never place text directly on a raw image with no overlay.
+- SPLIT DENSITY RULE: NEVER stack 3 or more cards vertically next to an image. In split slides, use a 2-column card grid for 3-4 short points. If the slide has 5+ points or long explanations, do NOT use a side-image split; use a full-bleed background with overlay or a text-focused layout instead.
 
-KEYWORD RULE: USE THE ACTUAL NAME FROM THE SLIDE CONTENT
+KEYWORD RULE: MATCH THE VISUAL INTENT, NOT JUST RANDOM WORDS FROM THE TEXT
 
-The biggest failure is generating DESCRIPTIVE keywords instead of actual names:
-- "chaos and psychological tension anime" (describes a vibe)
-- "serene blue lagoon water surface landscape" (describes what an image might look like)
-- "vibrant colors and dynamic shapes" (abstract description)
+There are TWO valid keyword strategies. Pick the correct one for each slide:
+1. NAMED SUBJECT RULE:
+   If the slide is mainly about a specific named person, place, artwork, building, song, album, character, product, or event, the keyword MUST use that actual proper noun plus a short qualifier.
+2. CONCEPT VISUAL RULE:
+   If the slide is mainly explaining a concept for learning and there is NO single named subject, the keyword MUST describe the intended visual asset itself, using concrete subject words + medium/style words.
 
-The keyword MUST be the ACTUAL NAME of what the slide is about. To find it:
-1. SCAN the slide's title, subtitle, and key_points for PROPER NOUNS (capitalized names of people, places, artworks, songs, albums, products)
-2. The keyword = those names + a brief context qualifier
+The biggest failures are:
+- abstract mood-only keywords like "chaos and psychological tension anime"
+- over-literal scene keywords that invent the wrong subject, like putting children in the query when the slide is actually about volcanoes
+- keywords that describe viewers of the topic instead of the topic itself
 
-Examples of CORRECT keyword extraction (use generic placeholders, replace with whatever proper nouns appear in your actual slide):
+For concept slides, search for the THING TO SHOW, not for people looking at it.
+BAD: "children watching [subject]", "student looking at [diagram]", "kids observing [topic]"
+GOOD: "[subject] illustration for kids", "[subject] cross section diagram", "real [subject] aerial photo", "[topic] diagram for children"
+
+How to choose the keyword:
+1. Read the slide title, subtitle, and key points
+2. Decide the true visual subject:
+   - named entity -> use the name
+   - concept/process/object -> use the concept/object itself
+3. Add only useful qualifiers such as "diagram", "illustration", "infographic", "aerial photo", "historical painting", "map", "cross section"
+4. For children/education decks, prefer educational visuals of the subject itself; use "for kids", "children illustration", or "cartoon" ONLY when the slide truly needs an illustrated child-friendly asset
+5. Do NOT add people unless people are the actual subject of the slide
+
+Examples of CORRECT keyword extraction:
 - Title containing "[Song Name]" by [Artist] -> "[Artist] [Song Name] album cover"
 - Title containing "[Character Name]'s [event]" -> "[Character Name] [Source Work] character portrait"
 - Title containing a painting name -> "[Painting Name] painting by [Artist]"
-- Title containing a building name -> "[Building Name] architecture exterior/interior"
-- Title containing an album/song name -> "[Artist] [Album Name] vinyl cover"
-- Title containing a place name -> "[Location] landmark scenic view"
-NEVER use abstract descriptions like "beautiful", "vibrant", "dynamic", "chaotic", "mysterious" as keywords. ALWAYS use the concrete NAME of the subject from the actual slide.
-- DO NOT skip or omit image slots if they add value! They are required for the final presentation.
-- If the slide mentions a specific person, character, painting, building, or object, ALWAYS set has_image_slot=true and use that exact name in the image_keyword in English.
+- Title containing a building name -> "[Building Name] architecture exterior"
+- Slide teaching a natural phenomenon to children -> "[phenomenon] illustration for kids"
+- Slide comparing categories or types -> "[subject] types diagram"
+- Slide about a real-world event in nature -> "[subject] aerial photo"
+- Slide about internal structure or parts -> "[subject] cross section diagram"
+
+NEVER use vague aesthetic adjectives like "beautiful", "vibrant", "dynamic", "chaotic", "mysterious" as the main keyword.
+- DO NOT skip or omit image slots if they add value. They are required for the final presentation.
+- If the slide mentions a specific person, character, painting, building, or object as the main subject, ALWAYS set has_image_slot=true and use that exact name in the image_keyword in English.
 
 USER INPUT
 "${rawInput}"
@@ -227,6 +247,7 @@ PROPER NOUN DETECTION -- MANDATORY IMAGE OVERRIDE (applies to ALL roles, not jus
   adjacent slides use different layout_family
 - Every non-cover/non-conclusion slide includes one focal anchor:
   big number >= 6rem, or card grid, or heading >= 5rem.
+- For any slide with 3+ equal-weight points, use a grid/row layout, never a vertical single-column stack of cards.
 
 ICON CONTRACT
 - Use this allowed icon set only:
@@ -314,7 +335,7 @@ REQUIRED CSS BLOCK (single <style>, first line is @import)
   .img-slot { position:relative; overflow:hidden; border-radius:12px; }
   .img-slot .img-bg1 { position:absolute; inset:0; z-index:0; background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim)); }
   .img-slot .img-bg2 { position:absolute; inset:0; z-index:2; background:linear-gradient(to right,rgba(0,0,0,.25),transparent); }
-  .flex-row > , .grid-2 > , .grid-3 > * { min-width:0; box-sizing:border-box; }
+  .flex-row > *, .grid-2 > *, .grid-3 > * { min-width:0; box-sizing:border-box; }
   .card { flex:1 1 0%; }
   .card h1, .card h2, .card h3, .card h4 { margin:0 0 .5rem; }
   .card p { flex:1 1 auto; min-height:0; overflow:hidden; }
@@ -372,7 +393,7 @@ D) SPLIT IMAGE + CARDS
   <div style="flex:1;min-width:0;padding:3.5rem 4rem;display:flex;flex-direction:column;gap:2rem;overflow:hidden;">
     <div class="tag">[NN - LABEL]</div>
     <h2 style="margin-bottom:0;">[Title]</h2>
-    <div class="flex-col" style="flex:1;min-height:0;">
+    <div class="grid-2" style="flex:1;min-height:0;align-content:start;">
       <div class="card accent">[optional icon wrapper][h3][p]</div>
       <div class="card">[optional icon wrapper sec][h3][p]</div>
     </div>

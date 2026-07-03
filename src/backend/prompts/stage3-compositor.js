@@ -180,6 +180,7 @@ CONTENT BUDGET AND SCALING:
   ALWAYS write: <div class="grid-3" style="flex:1;min-height:0;align-content:start;"> for 3 concept cards.
   The horizontal grid naturally limits each card height to its intrinsic content size (150-170px),
   leaving ample vertical space for the title block above without any overflow.
+  SPLIT-SLIDE OVERRIDE: inside a side-image split, 3-4 cards on the text side MUST use grid-2 (2x2). NEVER use .flex-col with 3+ direct .card children next to an image.
 
   INCLUDE ALL CONTENT (never truncate). Scale fonts:\n    - 3-4 items -> 1.4rem + gap:1rem\n    - 5-6 items -> 1.2rem + gap:0.7rem (h2->3rem)\n    - 7+ items -> grid 2 columns\n  Always: flex:1;min-height:0;overflow:hidden
 
@@ -479,6 +480,7 @@ When building the HTML, you MUST ensure adequate image coverage:
 - EXAMPLE SLIDES (role="example"): MUST have image slots showing the specific examples.
 - COMPARISON SLIDES (role="comparison"): SHOULD use image slots for visual comparison.
 - CONCLUSION SLIDE: SHOULD have an image slot with a powerful closing visual.
+- TEXT-ON-IMAGE READABILITY: if any title, subtitle, paragraph, stat, or card sits over a photo, add a dedicated overlay layer behind the text. Use approximately rgba(0,0,0,0.55) to rgba(0,0,0,0.72). Never rely on the photo itself being dark enough.
 
 If designJson specifies has_image_slot=false for a slide that CLEARLY should have an image (e.g., a slide about a specific person, artwork, album, song, or building), YOU MUST STILL ADD THE IMAGE SLOT in the HTML. The visual communication takes priority over the JSON specification.
 

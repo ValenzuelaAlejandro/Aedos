@@ -524,46 +524,163 @@ if (IS_DEVELOPMENT) {
  * If anything fails, falls back to the gradient placeholder.
  */
 async function fetchImages(html) {
-    // Extract every unique slot (id + keyword)
-    const slotIdRegex = /data-image-slot=["']?(\d+)["']?/g;
+    const debugImages = process.env.NODE_ENV !== 'production';
+    const debugImageLog = (...args) => {
+        if (debugImages) console.log(...args);
+    };
+    const slotTagRegex = /<div\b[^>]*(?:class\s*=\s*["'][^"']*\bimg-slot\b[^"']*["']|data-image-slot\s*=\s*["'][^"']+["'])[^>]*>/gi;
     const slots = [];
     const seenSlotIds = new Set();
-    let m;
-    console.log('[DEBUG IMAGES] Buscando slots en el HTML (robusto)...');
-    while ((m = slotIdRegex.exec(html)) !== null) {
-        const slotId = m[1];
-        const matchIndex = m.index;
-        
-        if (seenSlotIds.has(slotId)) continue;
-        
-        // Search in a window around the match for keyword attributes
-        const startIdx = Math.max(0, matchIndex - 300);
-        const searchWindow = html.substring(startIdx, matchIndex + 500);
-        
-        const keywordMatch = searchWindow.match(/data-image-keyword=["']([^"']+)["']/i) ||
-                             searchWindow.match(/data-keyword=["']([^"']+)["']/i);
-                             
-        if (keywordMatch) {
-            const keyword = keywordMatch[1];
-            console.log('[DEBUG IMAGES] Encontrado slot (robusto):', { slotId, keyword });
-            seenSlotIds.add(slotId);
-            slots.push({ slotId, keyword });
-        } else {
-            console.log('[DEBUG IMAGES] Advertencia: Encontrado slot ID', slotId, 'pero no se halló keyword en la ventana HTML cercana.');
+    const usedImageFingerprints = new Set();
+    let autoSlotCounter = 1;
+
+    function toPositiveInt(value) {
+        const parsed = parseInt(String(value || '').replace(/[^\d]/g, ''), 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    }
+
+    function normalizeImageFingerprint(url) {
+        if (!url) return '';
+        try {
+            const parsed = new URL(url);
+            parsed.hash = '';
+            parsed.search = '';
+            return parsed.toString();
+        } catch (_) {
+            return String(url).split('#')[0].split('?')[0];
         }
     }
 
-    console.log('[DEBUG IMAGES] Total de slots encontrados:', slots.length);
-    if (slots.length === 0) {
-        console.log('[DEBUG IMAGES] No hay slots, devolviendo HTML original');
-        const configMatch = html.match(/<!-- CONFIG([\s\S]*?)-->/);
-        if (configMatch) {
-            console.log('[DEBUG IMAGES] CONFIG encontrado:', configMatch[1].substring(0, 1000));
+    function stableHash(input) {
+        let hash = 0;
+        const text = String(input || '');
+        for (let i = 0; i < text.length; i++) {
+            hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
         }
+        return Math.abs(hash);
+    }
+
+    function tokenizeKeyword(keyword) {
+        return String(keyword || '')
+            .toLowerCase()
+            .split(/[^a-z0-9]+/)
+            .map(token => token.trim())
+            .filter(token => token.length >= 3);
+    }
+
+    function scoreImageCandidate(candidate, slot, indexHint = 0) {
+        const width = toPositiveInt(candidate.width);
+        const height = toPositiveInt(candidate.height);
+        const area = width * height;
+        const aspect = width && height ? width / height : 0;
+        const url = String(candidate.imageUrl || '').toLowerCase();
+        const metadata = `${candidate.title || ''} ${candidate.sourceUrl || ''}`.toLowerCase();
+        const tokens = tokenizeKeyword(slot.keyword);
+        const fingerprint = candidate.fingerprint || normalizeImageFingerprint(candidate.imageUrl);
+        let score = 0;
+
+        if (!candidate.imageUrl || !/^https?:\/\//i.test(candidate.imageUrl)) return -Infinity;
+        if (url.endsWith('.svg') || url.includes('.svg?')) return -Infinity;
+
+        if (area >= 2400000) score += 90;
+        else if (area >= 1600000) score += 70;
+        else if (area >= 1000000) score += 45;
+        else if (area >= 500000) score += 20;
+        else if (area > 0) score -= 30;
+
+        if (width >= 1600) score += 25;
+        else if (width >= 1280) score += 15;
+        else if (width > 0 && width < 900) score -= 15;
+
+        if (aspect >= 1.2 && aspect <= 2.2) score += 18;
+        else if (aspect >= 0.9 && aspect <= 2.8) score += 6;
+        else if (aspect > 0) score -= 18;
+
+        if (/\.(jpe?g|png|webp)(\?|$)/i.test(url)) score += 4;
+        if (metadata.includes('thumbnail') || metadata.includes('icon') || metadata.includes('logo')) score -= 35;
+
+        let tokenHits = 0;
+        for (const token of tokens) {
+            if (metadata.includes(token)) tokenHits += 1;
+        }
+        score += Math.min(20, tokenHits * 4);
+
+        if (usedImageFingerprints.has(fingerprint)) score -= 400;
+        score -= indexHint * 2;
+        return score;
+    }
+
+    function buildCandidatePool(rawCandidates, slot) {
+        return rawCandidates
+            .map((candidate, index) => {
+                const imageUrl = candidate.imageUrl || candidate.image || candidate.largeImageURL || candidate.fullHDURL || candidate.webformatURL;
+                const fingerprint = candidate.fingerprint || normalizeImageFingerprint(imageUrl);
+                return {
+                    ...candidate,
+                    imageUrl,
+                    fingerprint,
+                    score: scoreImageCandidate({ ...candidate, imageUrl, fingerprint }, slot, index)
+                };
+            })
+            .filter(candidate => Number.isFinite(candidate.score))
+            .sort((a, b) => b.score - a.score);
+    }
+
+    function buildDownloadOrder(candidates, slot) {
+        if (!candidates.length) return [];
+        const unused = candidates.filter(candidate => !usedImageFingerprints.has(candidate.fingerprint));
+        const pool = (unused.length ? unused : candidates).slice(0, Math.min(8, unused.length || candidates.length));
+        if (pool.length <= 1) return pool;
+
+        // Rotate among the top-scoring unused candidates so identical/near-identical
+        // keywords across slides do not always land on the exact same photo.
+        const rotationBase = Math.min(3, pool.length);
+        const rotation = stableHash(`${slot.slotId}|${slot.keyword}`) % rotationBase;
+        return [...pool.slice(rotation), ...pool.slice(0, rotation)];
+    }
+
+    function parseTagAttributes(tag) {
+        const attrs = {};
+        const attrRegex = /([:@\w-]+)\s*=\s*["']([^"']*)["']/g;
+        let match;
+        while ((match = attrRegex.exec(tag)) !== null) {
+            attrs[match[1].toLowerCase()] = match[2];
+        }
+        return attrs;
+    }
+
+    debugImageLog('[DEBUG IMAGES] Buscando slots en el HTML...');
+    let tagMatch;
+    while ((tagMatch = slotTagRegex.exec(html)) !== null) {
+        const openTag = tagMatch[0];
+        const attrs = parseTagAttributes(openTag);
+        const keyword = decodeBasicHtmlEntities(attrs['data-image-keyword'] || attrs['data-keyword'] || '').trim();
+        if (!keyword) continue;
+
+        const explicitSlotId = String(attrs['data-image-slot'] || '').trim();
+        const slotId = explicitSlotId || `auto-slot-${autoSlotCounter++}`;
+        if (seenSlotIds.has(slotId)) continue;
+
+        seenSlotIds.add(slotId);
+        slots.push({
+            slotId,
+            keyword,
+            openTag,
+            hasExplicitSlotId: Boolean(explicitSlotId)
+        });
+        debugImageLog('[DEBUG IMAGES] Slot detectado:', {
+            slotId,
+            keyword,
+            syntheticId: !explicitSlotId
+        });
+    }
+
+    if (slots.length === 0) {
+        debugImageLog('[DEBUG IMAGES] No se detectaron slots de imagen en el HTML');
         return html;
     }
-    
-    console.log('[DEBUG IMAGES] Estado del navegador global:', !!browser);
+
+    debugImageLog('[DEBUG IMAGES] Total de slots encontrados:', slots.length);
 
     /**
      * Fetches an image for a slot using DuckDuckGo's internal images API (/i.js).
@@ -575,7 +692,7 @@ async function fetchImages(html) {
     async function fetchSlotImageDuckDuckGo(slot) {
         const DDG_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
         try {
-            console.log(`[DEBUG IMAGES] Buscando "${slot.keyword}" en DuckDuckGo Images (API)...`);
+            debugImageLog(`[DEBUG IMAGES] Buscando "${slot.keyword}" en DuckDuckGo Images (API)...`);
 
             // Step 1: Get initial page to extract vqd session token
             const initUrl = `https://duckduckgo.com/?q=${encodeURIComponent(slot.keyword)}&iax=images&ia=images`;
@@ -591,7 +708,7 @@ async function fetchImages(html) {
             });
 
             if (!initRes.ok) {
-                console.log(`[DEBUG IMAGES] DDG init page failed: ${initRes.status}`);
+                debugImageLog(`[DEBUG IMAGES] DDG init page failed: ${initRes.status}`);
                 return null;
             }
 
@@ -604,11 +721,11 @@ async function fetchImages(html) {
                 initHtml.match(/vqd%3D([\d-]+)/);
 
             if (!vqdMatch) {
-                console.log(`[DEBUG IMAGES] No se encontró token vqd de DuckDuckGo`);
+                debugImageLog(`[DEBUG IMAGES] No se encontró token vqd de DuckDuckGo`);
                 return null;
             }
             const vqd = vqdMatch[1];
-            console.log(`[DEBUG IMAGES] Token vqd obtenido: ${vqd.substring(0, 20)}...`);
+            debugImageLog(`[DEBUG IMAGES] Token vqd obtenido: ${vqd.substring(0, 20)}...`);
 
             // Step 2: Query the internal images API
             const apiUrl = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(slot.keyword)}&vqd=${encodeURIComponent(vqd)}&f=,,,,,&p=1&s=0`;
@@ -624,7 +741,7 @@ async function fetchImages(html) {
             });
 
             if (!apiRes.ok) {
-                console.log(`[DEBUG IMAGES] DDG images API failed: ${apiRes.status}`);
+                debugImageLog(`[DEBUG IMAGES] DDG images API failed: ${apiRes.status}`);
                 return null;
             }
 
@@ -632,19 +749,40 @@ async function fetchImages(html) {
             const results = data?.results || [];
 
             if (results.length === 0) {
-                console.log(`[DEBUG IMAGES] DDG no encontró imágenes para "${slot.keyword}"`);
+                debugImageLog(`[DEBUG IMAGES] DDG no encontró imágenes para "${slot.keyword}"`);
                 return null;
             }
 
-            console.log(`[DEBUG IMAGES] DDG encontró ${results.length} imágenes para "${slot.keyword}"`);
+            debugImageLog(`[DEBUG IMAGES] DDG encontró ${results.length} imágenes para "${slot.keyword}"`);
 
-            // Try to download the top results until one succeeds
-            for (let i = 0; i < Math.min(6, results.length); i++) {
-                const imageUrl = results[i]?.image;
+            const candidates = buildCandidatePool(results.map(result => ({
+                imageUrl: result?.image,
+                sourceUrl: result?.url,
+                title: result?.title,
+                width: result?.width,
+                height: result?.height
+            })), slot);
+
+            if (candidates.length === 0) {
+                debugImageLog(`[DEBUG IMAGES] DDG no devolvió candidatos utilizables para "${slot.keyword}"`);
+                return null;
+            }
+
+            const downloadOrder = buildDownloadOrder(candidates, slot);
+
+            // Try the best candidates first, but rotate within the top set for variety.
+            for (let i = 0; i < downloadOrder.length; i++) {
+                const candidate = downloadOrder[i];
+                const imageUrl = candidate.imageUrl;
                 if (!imageUrl || !imageUrl.startsWith('http')) continue;
 
                 try {
-                    console.log(`[DEBUG IMAGES] Descargando imagen ${i + 1} de DDG: ${imageUrl.substring(0, 80)}`);
+                    debugImageLog(`[DEBUG IMAGES] Descargando imagen ${i + 1} de DDG: ${imageUrl.substring(0, 80)}`, {
+                        keyword: slot.keyword,
+                        score: candidate.score,
+                        width: candidate.width,
+                        height: candidate.height
+                    });
                     const imgRes = await fetch(imageUrl, {
                         headers: {
                             'User-Agent': DDG_UA,
@@ -659,22 +797,23 @@ async function fetchImages(html) {
                             const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
                             // Reject suspiciously small files (likely error pages)
                             if (imgBuffer.length < 5000) {
-                                console.log(`[DEBUG IMAGES] Imagen ${i + 1} demasiado pequeña (${imgBuffer.length}B), saltando`);
+                                debugImageLog(`[DEBUG IMAGES] Imagen ${i + 1} demasiado pequeña (${imgBuffer.length}B), saltando`);
                                 continue;
                             }
-                            console.log(`[DEBUG IMAGES] ✓ Imagen descargada de DDG para "${slot.keyword}" (${Math.round(imgBuffer.length / 1024)}KB)`);
+                            usedImageFingerprints.add(candidate.fingerprint);
+                            debugImageLog(`[DEBUG IMAGES] Imagen descargada de DDG para "${slot.keyword}" (${Math.round(imgBuffer.length / 1024)}KB)`);
                             return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
                         }
                     }
                 } catch (e) {
-                    console.log(`[DEBUG IMAGES] Error descargando imagen ${i + 1} de DDG:`, e.message);
+                    debugImageLog(`[DEBUG IMAGES] Error descargando imagen ${i + 1} de DDG:`, e.message);
                 }
             }
 
-            console.log(`[DEBUG IMAGES] No se pudo descargar ninguna imagen de DDG para "${slot.keyword}"`);
+            debugImageLog(`[DEBUG IMAGES] No se pudo descargar ninguna imagen de DDG para "${slot.keyword}"`);
             return null;
         } catch (err) {
-            console.log(`[DEBUG IMAGES] Error en DDG API para "${slot.keyword}":`, err.message);
+            debugImageLog(`[DEBUG IMAGES] Error en DDG API para "${slot.keyword}":`, err.message);
             return null;
         }
     }
@@ -692,18 +831,37 @@ async function fetchImages(html) {
             const hits = data?.hits || [];
             if (hits.length === 0) return null;
 
-            hits.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
-            const hit = hits[0];
-            if (!hit?.webformatURL) return null;
+            const candidates = buildCandidatePool(hits.map(hit => ({
+                imageUrl: hit.largeImageURL || hit.fullHDURL || hit.webformatURL,
+                sourceUrl: hit.pageURL,
+                title: hit.tags,
+                width: hit.imageWidth || hit.webformatWidth,
+                height: hit.imageHeight || hit.webformatHeight,
+                fingerprint: hit.id ? `pixabay:${hit.id}` : normalizeImageFingerprint(hit.largeImageURL || hit.fullHDURL || hit.webformatURL),
+                downloads: hit.downloads || 0,
+                likes: hit.likes || 0
+            })).map(candidate => ({
+                ...candidate,
+                width: candidate.width,
+                height: candidate.height,
+                title: `${candidate.title || ''} downloads:${candidate.downloads} likes:${candidate.likes}`
+            })), slot);
 
-            const imgRes = await fetch(hit.webformatURL, { signal: AbortSignal.timeout(8000) });
-            if (!imgRes.ok) return null;
+            const downloadOrder = buildDownloadOrder(candidates, slot);
+            for (const candidate of downloadOrder) {
+                if (!candidate.imageUrl) continue;
+                const imgRes = await fetch(candidate.imageUrl, { signal: AbortSignal.timeout(8000) });
+                if (!imgRes.ok) continue;
 
-            const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-            const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-            return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
+                const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+                if (imgBuffer.length < 5000) continue;
+                const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+                usedImageFingerprints.add(candidate.fingerprint);
+                return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
+            }
+            return null;
         } catch (err) {
-            console.log(`[DEBUG IMAGES] Error en Pixabay para "${slot.keyword}":`, err.message);
+            debugImageLog(`[DEBUG IMAGES] Error en Pixabay para "${slot.keyword}":`, err.message);
             return null;
         }
     }
@@ -715,50 +873,49 @@ async function fetchImages(html) {
         dataUri = await fetchSlotImageDuckDuckGo(slot);
         if (!dataUri) {
             // Pixabay as fallback — only good for generic stock photos
-            console.log(`[DEBUG IMAGES] DDG falló, usando Pixabay para "${slot.keyword}"`);
+            debugImageLog(`[DEBUG IMAGES] DDG falló, usando Pixabay para "${slot.keyword}"`);
             dataUri = await fetchSlotImagePixabay(slot);
         }
-        results.push(dataUri ? { slotId: slot.slotId, dataUri } : null);
+        results.push(dataUri ? { slot, dataUri } : null);
     }
 
     for (const result of results) {
         if (!result) continue;
-        const { slotId, dataUri } = result;
-        console.log('[DEBUG IMAGES] Aplicando imagen al slot:', slotId);
-        const slotOpenRe = new RegExp(`(<div[^>]*data-image-slot="${slotId}"[^>]*>)`, 'i');
-        if (slotOpenRe.test(html)) {
-            html = html.replace(slotOpenRe, (_, openTag) => {
-                let newOpenTag = openTag;
-                
-                if (/class\s*=/.test(newOpenTag)) {
-                    newOpenTag = newOpenTag.replace(/(class\s*=\s*["'])([^"']*)(["'])/, (_, qOpen, classes, qClose) => 
-                        classes.includes('has-custom-image') ? `${qOpen}${classes}${qClose}` : `${qOpen}${classes} has-custom-image${qClose}`
-                    );
-                } else {
-                    newOpenTag = newOpenTag.replace(/>$/, ' class="has-custom-image">');
-                }
-                
-                if (/style\s*=/.test(newOpenTag)) {
-                    newOpenTag = newOpenTag.replace(/(style\s*=\s*["'])([^"']*)(["'])/, (_, qOpen, style, qClose) => {
-                        const bgStyle = `background-image:url('${dataUri}');background-size:cover;background-position:center`;
-                        return style.includes('background-image') 
-                            ? `${qOpen}${style.replace(/background-image\s*:[^;"]*;?/gi, bgStyle)}${qClose}`
-                            : `${qOpen}${style};${bgStyle}${qClose}`;
-                    });
-                } else {
-                    newOpenTag = newOpenTag.replace(/>$/, ` style="background-image:url('${dataUri}');background-size:cover;background-position:center">`);
-                }
-                
-                return newOpenTag;
-            });
+        const { slot, dataUri } = result;
+        let newOpenTag = slot.openTag;
+        debugImageLog('[DEBUG IMAGES] Aplicando imagen al slot:', slot.slotId);
+
+        if (!slot.hasExplicitSlotId) {
+            newOpenTag = newOpenTag.replace(/>$/, ` data-image-slot="${slot.slotId}">`);
         }
+
+        if (/class\s*=/.test(newOpenTag)) {
+            newOpenTag = newOpenTag.replace(/(class\s*=\s*["'])([^"']*)(["'])/, (_, qOpen, classes, qClose) =>
+                classes.includes('has-custom-image') ? `${qOpen}${classes}${qClose}` : `${qOpen}${classes} has-custom-image${qClose}`
+            );
+        } else {
+            newOpenTag = newOpenTag.replace(/>$/, ' class="has-custom-image">');
+        }
+
+        if (/style\s*=/.test(newOpenTag)) {
+            newOpenTag = newOpenTag.replace(/(style\s*=\s*["'])([^"']*)(["'])/, (_, qOpen, style, qClose) => {
+                const bgStyle = `background-image:url('${dataUri}');background-size:cover;background-position:center`;
+                return /background-image\s*:/.test(style)
+                    ? `${qOpen}${style.replace(/background-image\s*:[^;"]*;?/gi, `${bgStyle};`)}${qClose}`
+                    : `${qOpen}${style}${style.trim().endsWith(';') ? '' : ';'}${bgStyle};${qClose}`;
+            });
+        } else {
+            newOpenTag = newOpenTag.replace(/>$/, ` style="background-image:url('${dataUri}');background-size:cover;background-position:center">`);
+        }
+
+        html = html.replace(slot.openTag, newOpenTag);
     }
     
     html = html.replace(/<div[^>]*class\s*=\s*["'][^"']*img-bg1[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '');
     html = html.replace(/<div[^>]*class\s*=\s*["'][^"']*img-bg2[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '');
     html = html.replace(/<div[^>]*class\s*=\s*["'][^"']*img-replace-overlay[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, '');
 
-    console.log('[DEBUG IMAGES] ¡Listo!');
+    debugImageLog('[DEBUG IMAGES] Inyeccion de imagenes completada');
     return html;
 }
 
@@ -776,13 +933,35 @@ function sanitizeGeneratedHtml(html) {
     html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
     // Remove javascript: URLs in href / src / action attributes
     html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
-    // Remove ALL Google Fonts <link> tags produced by the AI.
-    // The server always injects its own verified font links immediately after
-    // this sanitization step, so AI-provided ones are redundant. Removing them
-    // also eliminates any malformed href="url('...')" syntax that causes:
-    //   "Refused to apply style … MIME type text/html"
-    html = html.replace(/<link[^>]*fonts\.googleapis\.com[^>]*\/?>/gi, '');
+    // Remove malformed Google Fonts <link> tags such as href="url('https://...')".
+    // Valid AI-provided font links are preserved so the final deck keeps the
+    // original typography chosen during generation.
+    html = html.replace(/<link[^>]*href\s*=\s*["']\s*url\(\s*['"]?https:\/\/fonts\.googleapis\.com[\s\S]*?\/?>/gi, '');
     return html;
+}
+
+function injectLayoutSafetyNet(html) {
+    if (typeof html !== 'string' || /aedos-layout-safety-net/.test(html)) return html;
+
+    const safetyCss = `
+/* aedos-layout-safety-net */
+section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(3)) {
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    align-content:start !important;
+}
+section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(5)) {
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+}
+section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(3)) > .card {
+    min-width:0 !important;
+}
+`;
+
+    if (/<\/style>/i.test(html)) {
+        return html.replace(/<\/style>/i, `${safetyCss}\n</style>`);
+    }
+    return `${html}\n<style>${safetyCss}\n</style>`;
 }
 
 function decodeBasicHtmlEntities(value) {
@@ -996,11 +1175,23 @@ async function callGeminiDirect(prompt, stageName, geminiModel, fileContext = nu
         };
     }
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-    });
+    let response;
+    try {
+        response = await fetchWithAcceptTimeout(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        }, PROVIDER_ACCEPT_TIMEOUT_MS, 'GEMINI_ACCEPT_TIMEOUT');
+    } catch (err) {
+        if (err?.message === 'GEMINI_ACCEPT_TIMEOUT') {
+            providerLog.warn(ErrorCategory.NETWORK, 'Gemini direct accept timeout', {
+                stage: stageName,
+                model: geminiModel,
+                timeoutMs: PROVIDER_ACCEPT_TIMEOUT_MS
+            });
+        }
+        throw err;
+    }
 
     if (!response.ok) {
         const errText = await response.text();
@@ -1209,14 +1400,19 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
 
     // Try each configured OpenRouter model until one responds
     for (const model of modelsToTry) {
-        // Detect if we should prefer SiliconFlow for this model (DeepSeek models)
-        const isDeepSeek = model.toLowerCase().includes('deepseek');
+        const normalizedModel = model.toLowerCase();
+        // Prefer specific OpenRouter providers for models with known best routes.
+        const providerOrder = normalizedModel.includes('deepseek')
+            ? ['SiliconFlow']
+            : (stageName === 'Flash' && normalizedModel.includes('mimo')
+                ? ['Xiaomi', 'Parasail']
+                : null);
         
         providerLog.info(ErrorCategory.PROVIDER, 'Trying OpenRouter model', {
             stage: stageName,
             model,
             reasoning: reasoningConfig || 'disabled',
-            preferSiliconFlow: isDeepSeek
+            providerOrder: providerOrder || 'default'
         });
         try {
             const body = {
@@ -1225,10 +1421,11 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
                 stream: true
             };
             
-            if (isDeepSeek) {
-                // Force/Prefer SiliconFlow for DeepSeek models through OpenRouter
+            if (providerOrder) {
+                // Hint OpenRouter toward the preferred upstreams while keeping
+                // fallbacks enabled if those providers are unavailable.
                 body.provider = {
-                    order: ['SiliconFlow'],
+                    order: providerOrder,
                     allow_fallbacks: true
                 };
             }
@@ -1239,7 +1436,7 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
                 body.reasoning = reasoningConfig;
             }
 
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            const response = await fetchWithAcceptTimeout('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
@@ -1248,7 +1445,7 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
                     'X-Title': 'Aedos'
                 },
                 body: JSON.stringify(body)
-            });
+            }, PROVIDER_ACCEPT_TIMEOUT_MS, 'OPENROUTER_ACCEPT_TIMEOUT');
 
             if (!response.ok) {
                 const errText = await response.text();
@@ -1274,6 +1471,14 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
                 model
             };
         } catch (err) {
+            if (err?.message === 'OPENROUTER_ACCEPT_TIMEOUT') {
+                providerLog.warn(ErrorCategory.NETWORK, 'OpenRouter accept timeout', {
+                    stage: stageName,
+                    model,
+                    timeoutMs: PROVIDER_ACCEPT_TIMEOUT_MS
+                });
+                continue;
+            }
             providerLog.warn(classifyError(err, ErrorCategory.NETWORK), 'OpenRouter request error', {
                 stage: stageName,
                 model,
@@ -1289,12 +1494,39 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
 // ── Gemini direct with 503 retry ─────────────────────────────────────────────
 const GEMINI_503_MAX_RETRIES = 2;
 const GEMINI_503_RETRY_BASE_DELAY_MS = 500;
+const PROVIDER_ACCEPT_TIMEOUT_MS = 10000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function isGeminiHttpStatus(err, status) {
     if (!err || typeof err.message !== 'string') return false;
     return err.message === `GEMINI_HTTP_${status}`;
+}
+
+function isAbortLikeError(err) {
+    return err?.name === 'AbortError' || err?.name === 'TimeoutError';
+}
+
+async function fetchWithAcceptTimeout(url, options, timeoutMs, timeoutMessage) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+    } catch (err) {
+        if (isAbortLikeError(err)) {
+            throw new Error(timeoutMessage);
+        }
+        throw err;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+function isGeminiRetryableError(err) {
+    return isGeminiHttpStatus(err, 503) || err?.message === 'GEMINI_ACCEPT_TIMEOUT';
 }
 
 /**
@@ -1309,11 +1541,11 @@ async function callGeminiDirectWithRetry(prompt, stageName, geminiModel, fileCon
             return await callGeminiDirect(prompt, stageName, geminiModel, fileContext, options);
         } catch (err) {
             lastErr = err;
-            if (!isGeminiHttpStatus(err, 503) || attempt === GEMINI_503_MAX_RETRIES) {
+            if (!isGeminiRetryableError(err) || attempt === GEMINI_503_MAX_RETRIES) {
                 throw err;
             }
             const delay = GEMINI_503_RETRY_BASE_DELAY_MS * attempt;
-            providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct returned 503, retrying', {
+            providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct request was retryable, retrying', {
                 stage: stageName,
                 model: geminiModel,
                 attempt,
@@ -2209,11 +2441,10 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                     `Running flash generation path (attempt ${attempt}/${FLASH_MAX_RETRIES + 1})`, {
                     requestId
                 });
-                // Use the Flash *Thinking variant so the chat UX receives
-                // reasoning tokens while the model is still composing the
-                // presentation HTML. Reasoning events are tagged with
-                // `stage: 'flash'` so the client can group them in the panel.
-                const flashResult = await tryModelsFlashThinking(prompt, fileContext);
+                // Flash mode streams only the generated HTML/content. Unlike
+                // the staged chat flows, we intentionally hide model reasoning
+                // here to avoid exposing internal thinking in the UI.
+                const flashResult = await tryModelsFlash(prompt, fileContext);
 
                 // Consume the stream into a local buffer. The same cleanup/
                 // forwards-to-client logic used by Pro mode applies here; only
@@ -2282,69 +2513,73 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                 res.write(`data: ${JSON.stringify({ metadata: { provider: streamResult.provider, model: streamResult.model } })}\n\n`);
             }
 
-            for await (const item of streamResult.stream) {
-                if (cancelledRef()) {
-                    log.warn(ErrorCategory.STREAM, 'Generation loop stopped because client disconnected', {
-                        requestId
-                    });
-                    break;
-                }
-
-                // Normalize structured vs. plain-text stream shapes.
-                let chunkText = null;
-                if (item && typeof item === 'object' && typeof item.text === 'string') {
-                    if (item.type === 'reasoning') {
-                        // Forward reasoning tokens untouched — the client
-                        // decides how to display them. We don't accumulate
-                        // them into fullHtml because they aren't HTML.
-                        try {
-                            res.write(`data: ${JSON.stringify({ reasoning: item.text })}\n\n`);
-                        } catch (_) { /* ignore broken pipe mid-write */ }
-                        continue;
-                    }
-                    chunkText = item.text;
-                } else if (typeof item === 'string') {
-                    chunkText = item;
-                }
-                if (!chunkText) continue;
-
-                const matches = chunkText.match(slideTagRegex);
-                if (matches) {
-                    streamSlideCount += matches.length;
-                    if (streamSlideCount > slideHardLimit) {
-                        log.warn(ErrorCategory.VALIDATION, 'Stream exceeded slide hard limit, stopping generation', {
-                            requestId,
-                            streamSlideCount,
-                            slideHardLimit
+            try {
+                for await (const item of streamResult.stream) {
+                    if (cancelledRef()) {
+                        log.warn(ErrorCategory.STREAM, 'Generation loop stopped because client disconnected', {
+                            requestId
                         });
                         break;
                     }
-                }
 
-                fullHtml += chunkText;
+                    // Normalize structured vs. plain-text stream shapes.
+                    let chunkText = null;
+                    if (item && typeof item === 'object' && typeof item.text === 'string') {
+                        if (item.type === 'reasoning') {
+                            // Forward reasoning tokens untouched — the client
+                            // decides how to display them. We don't accumulate
+                            // them into fullHtml because they aren't HTML.
+                            try {
+                                res.write(`data: ${JSON.stringify({ reasoning: item.text })}\n\n`);
+                            } catch (_) { /* ignore broken pipe mid-write */ }
+                            continue;
+                        }
+                        chunkText = item.text;
+                    } else if (typeof item === 'string') {
+                        chunkText = item;
+                    }
+                    if (!chunkText) continue;
 
-                let cleanChunk = cleanSSEChunk(chunkText);
+                    const matches = chunkText.match(slideTagRegex);
+                    if (matches) {
+                        streamSlideCount += matches.length;
+                        if (streamSlideCount > slideHardLimit) {
+                            log.warn(ErrorCategory.VALIDATION, 'Stream exceeded slide hard limit, stopping generation', {
+                                requestId,
+                                streamSlideCount,
+                                slideHardLimit
+                            });
+                            break;
+                        }
+                    }
 
-                if (!hasStartedValidContent) {
-                    const matchIdx = fullHtml.indexOf('<!-- CONFIG');
-                    const htmlIdx = fullHtml.indexOf('<html');
+                    fullHtml += chunkText;
 
-                    if (matchIdx !== -1) {
-                        hasStartedValidContent = true;
-                        cleanChunk = cleanSSEChunk(fullHtml.substring(matchIdx));
-                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                    } else if (htmlIdx !== -1) {
-                        hasStartedValidContent = true;
-                        cleanChunk = cleanSSEChunk(fullHtml.substring(htmlIdx));
-                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                    } else if (fullHtml.length > 500) {
-                        hasStartedValidContent = true;
-                        cleanChunk = cleanSSEChunk(fullHtml);
+                    let cleanChunk = cleanSSEChunk(chunkText);
+
+                    if (!hasStartedValidContent) {
+                        const matchIdx = fullHtml.indexOf('<!-- CONFIG');
+                        const htmlIdx = fullHtml.indexOf('<html');
+
+                        if (matchIdx !== -1) {
+                            hasStartedValidContent = true;
+                            cleanChunk = cleanSSEChunk(fullHtml.substring(matchIdx));
+                            res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                        } else if (htmlIdx !== -1) {
+                            hasStartedValidContent = true;
+                            cleanChunk = cleanSSEChunk(fullHtml.substring(htmlIdx));
+                            res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                        } else if (fullHtml.length > 500) {
+                            hasStartedValidContent = true;
+                            cleanChunk = cleanSSEChunk(fullHtml);
+                            res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                        }
+                    } else {
                         res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
                     }
-                } else {
-                    res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
                 }
+            } catch (streamErr) {
+                throw streamErr;
             }
 
             return { fullHtml, hasStartedValidContent, streamSlideCount };
@@ -2437,15 +2672,12 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
 
         // 6. Clean the full response
         let finalHtml = fullHtml.replace(/^```html\n?/m, '').replace(/^```\n?/m, '').replace(/```\n?$/m, '').trim();
-        console.log('[DEBUG SERVER] fullHtml limpiado, longitud:', finalHtml.length);
 
         // 6.5 Remove any existing CSP meta tags to avoid conflicts
         finalHtml = finalHtml.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/gi, '');
 
-        // 6.6 Fetch & inject Pixabay photos into img-slot divs (graceful fallback)
-        console.log('[DEBUG SERVER] Llamando a fetchImages...');
+        // 6.6 Fetch & inject remote photos into img-slot divs (graceful fallback)
         finalHtml = await fetchImages(finalHtml);
-        console.log('[DEBUG SERVER] fetchImages completado');
 
         // 7. Validate the response — detect refusals
         const configRegex = /<!--\s*CONFIG[\s\S]*?-->/i;
@@ -2546,19 +2778,22 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
 
             // Server-side HTML sanitization
             cleanedOutput = sanitizeGeneratedHtml(cleanedOutput);
+            cleanedOutput = injectLayoutSafetyNet(cleanedOutput);
 
             const lucideSrc = 'https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js';
             const lucideIntegrity = 'sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei';
-            // Strip any @import the AI put for Google Fonts — the server injects the definitive
-            // 23-family link below. Removing duplicates avoids double-downloading font CSS.
-            cleanedOutput = cleanedOutput.replace(/@import\s+url\(['"]?https:\/\/fonts\.googleapis\.com\/[^'"\)]+['"]?\)\s*;?\s*/gi, '');
+            const hasGoogleFontsReference = /fonts\.googleapis\.com/i.test(cleanedOutput);
 
-            // The editor's font picker (tools.js) applies any of 23 Google Fonts to elements
-            // INSIDE the iframe. All 23 must be available in the iframe document.
-            // One canonical <link> here replaces whatever @import the AI had.
-            // 1. Ensure Google Fonts and Lucide library are present
+            // The editor's font picker injects its own broad font catalog in the live preview.
+            // Here on the server, only add the fallback catalog when the generated HTML does
+            // not already declare its own Google Fonts, so we preserve the original look.
             const G_FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">`;
-            const headInjection = G_FONTS + (!cleanedOutput.includes(lucideSrc) ? `\n<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>` : '');
+            const headInjectionParts = [];
+            if (!hasGoogleFontsReference) headInjectionParts.push(G_FONTS);
+            if (!cleanedOutput.includes(lucideSrc)) {
+                headInjectionParts.push(`<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>`);
+            }
+            const headInjection = headInjectionParts.join('\n');
 
             if (headInjection) {
                 if (cleanedOutput.includes('</head>')) {
@@ -2568,7 +2803,11 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                 } else {
                     cleanedOutput = `${headInjection}\n` + cleanedOutput;
                 }
-                sanitizerLog.info(ErrorCategory.SANITIZER, 'Injected Google Fonts and Lucide library');
+                sanitizerLog.info(ErrorCategory.SANITIZER, 'Injected sanitizer head dependencies', {
+                    requestId,
+                    injectedGoogleFonts: !hasGoogleFontsReference,
+                    injectedLucide: !cleanedOutput.includes(lucideSrc)
+                });
             }
 
             // 2. Ensure lucide.createIcons() call is present

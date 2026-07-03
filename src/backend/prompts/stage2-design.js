@@ -381,6 +381,8 @@ HERO/SPLIT -- layout_family: "split"
   Content block: h2 title, subtitle, description, 2-3 key points.
   Composition: "Image left (420px), content right (flex). Image slot for [keyword]."
   This is MEDIUM density, VISUAL anchored.
+  Split density rule: NEVER stack 3+ cards in one vertical column next to the image. For 3-4 equal-weight points, specify a 2x2 card grid on the content side. If the slide has 5+ points or long explanations, switch to full-bleed background with overlay or a text-first layout instead of a side split.
+  Readability rule: if any text sits directly over the image, specify a dark overlay in the 0.55-0.7 opacity range.
 
 ===============================================
 ROLE -> LAYOUT_FAMILY MANDATORY MAPPING
@@ -692,6 +694,7 @@ CRITICAL RULES:
 
 - DENSE CONTENT RULE: If a slide has many facts, 5+ items, or long text, prefer density_strategy='compact-two-column' or 'compact-single-column'. Do NOT add a side image slot to a dense slide unless it is 'full-bleed background'.
   CRITICAL EXCEPTION: This rule does NOT apply when the slide has a proper noun (album, song, person, artwork, etc.) -- in that case has_image_slot=true is MANDATORY regardless of density. Use image_placement='full-bleed background with overlay' or smaller side image (320px) with compact-two-column content.
+- SPLIT LAYOUT SAFETY: In composition_literal, never describe "cards in flex-direction:column" for 3+ items. Write "grid-2" or "2x2 cards" explicitly when a split slide contains multiple short points.
 - SIDE IMAGE CAP: For text+image split slides, keep image width in the 320-420px range. Never let the image dominate the slide.
   EXCEPTION: When has_image_slot is REQUIRED because of a proper noun, image width 320-400px is acceptable to leave room for content.
 - HIGHLIGHTED WORDS: In composition descriptions, specify which words in titles should be in accent color
