@@ -3,7 +3,10 @@ const express = require('express');
 const crypto = require('crypto');
 const cors = require('cors');
 const fs = require('fs');
+const http = require('http');
+const https = require('https');
 const path = require('path');
+const zlib = require('zlib');
 const { execSync } = require('child_process');
 
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
@@ -125,6 +128,76 @@ function checkFinalizePressure(req, res, next) {
 function parsePositiveInt(value, fallback) {
     const parsed = parseInt(value || '', 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function decodeCompressedBody(buffer, encoding = '') {
+    const normalized = String(encoding || '').toLowerCase();
+    if (!buffer || !buffer.length) return buffer;
+    if (normalized.includes('br')) return zlib.brotliDecompressSync(buffer);
+    if (normalized.includes('gzip')) return zlib.gunzipSync(buffer);
+    if (normalized.includes('deflate')) return zlib.inflateSync(buffer);
+    return buffer;
+}
+
+function requestBuffer(url, { headers = {}, timeoutMs = 10000, maxRedirects = 5, family = 4 } = {}) {
+    return new Promise((resolve, reject) => {
+        let targetUrl;
+        try {
+            targetUrl = new URL(url);
+        } catch (err) {
+            reject(err);
+            return;
+        }
+
+        const transport = targetUrl.protocol === 'http:' ? http : https;
+        const req = transport.request({
+            protocol: targetUrl.protocol,
+            hostname: targetUrl.hostname,
+            port: targetUrl.port || undefined,
+            path: `${targetUrl.pathname}${targetUrl.search}`,
+            method: 'GET',
+            headers,
+            family,
+            servername: targetUrl.hostname
+        }, (res) => {
+            const status = res.statusCode || 0;
+
+            if ([301, 302, 303, 307, 308].includes(status) && res.headers.location && maxRedirects > 0) {
+                const redirectUrl = new URL(res.headers.location, targetUrl).toString();
+                res.resume();
+                resolve(requestBuffer(redirectUrl, {
+                    headers,
+                    timeoutMs,
+                    maxRedirects: maxRedirects - 1,
+                    family
+                }));
+                return;
+            }
+
+            const chunks = [];
+            res.on('data', chunk => chunks.push(Buffer.from(chunk)));
+            res.on('end', () => {
+                try {
+                    const rawBody = Buffer.concat(chunks);
+                    const body = decodeCompressedBody(rawBody, res.headers['content-encoding']);
+                    resolve({
+                        ok: status >= 200 && status < 300,
+                        status,
+                        headers: res.headers,
+                        body
+                    });
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+
+        req.setTimeout(timeoutMs, () => {
+            req.destroy(new Error(`REQUEST_TIMEOUT_${timeoutMs}`));
+        });
+        req.on('error', reject);
+        req.end();
+    });
 }
 
 function normalizeGenerationMode(body) {
@@ -737,15 +810,16 @@ async function fetchImages(html) {
 
             // Step 1: Get initial page to extract vqd session token
             const initUrl = `https://duckduckgo.com/?q=${encodeURIComponent(slot.keyword)}&iax=images&ia=images`;
-            const initRes = await fetch(initUrl, {
+            const initRes = await requestBuffer(initUrl, {
                 headers: {
                     'User-Agent': DDG_UA,
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Accept-Encoding': 'gzip, deflate, br',
-                    'Connection': 'keep-alive',
+                    'Connection': 'keep-alive'
                 },
-                signal: AbortSignal.timeout(12000)
+                timeoutMs: 12000,
+                family: 4
             });
 
             if (!initRes.ok) {
@@ -757,8 +831,11 @@ async function fetchImages(html) {
                 return null;
             }
 
-            const initHtml = await initRes.text();
-            const ddgCookie = initRes.headers.get('set-cookie') || undefined;
+            const initHtml = initRes.body.toString('utf8');
+            const ddgCookieHeader = initRes.headers['set-cookie'];
+            const ddgCookie = Array.isArray(ddgCookieHeader)
+                ? ddgCookieHeader.map(cookie => String(cookie).split(';')[0]).join('; ')
+                : (ddgCookieHeader ? String(ddgCookieHeader).split(';')[0] : undefined);
 
             // Extract vqd token — DDG embeds it in script blocks as vqd='4-...' or "vqd":"4-..."
             const vqdMatch =
@@ -778,16 +855,17 @@ async function fetchImages(html) {
 
             // Step 2: Query the internal images API
             const apiUrl = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(slot.keyword)}&vqd=${encodeURIComponent(vqd)}&f=,,,,,&p=1&s=0`;
-            const apiRes = await fetch(apiUrl, {
+            const apiRes = await requestBuffer(apiUrl, {
                 headers: {
                     'User-Agent': DDG_UA,
                     'Accept': 'application/json, text/javascript, */*; q=0.01',
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Referer': 'https://duckduckgo.com/',
                     'X-Requested-With': 'XMLHttpRequest',
-                    ...(ddgCookie ? { 'Cookie': ddgCookie } : {}),
+                    ...(ddgCookie ? { 'Cookie': ddgCookie } : {})
                 },
-                signal: AbortSignal.timeout(12000)
+                timeoutMs: 12000,
+                family: 4
             });
 
             if (!apiRes.ok) {
@@ -799,7 +877,7 @@ async function fetchImages(html) {
                 return null;
             }
 
-            const data = await apiRes.json();
+            const data = JSON.parse(apiRes.body.toString('utf8'));
             const results = data?.results || [];
 
             if (results.length === 0) {
@@ -837,18 +915,19 @@ async function fetchImages(html) {
                         width: candidate.width,
                         height: candidate.height
                     });
-                    const imgRes = await fetch(resolveDuckDuckGoImageUrl(imageUrl), {
+                    const imgRes = await requestBuffer(resolveDuckDuckGoImageUrl(imageUrl), {
                         headers: {
                             'User-Agent': DDG_UA,
-                            'Referer': 'https://duckduckgo.com/',
+                            'Referer': 'https://duckduckgo.com/'
                         },
-                        signal: AbortSignal.timeout(10000)
+                        timeoutMs: 10000,
+                        family: 4
                     });
 
                     if (imgRes.ok) {
-                        const contentType = imgRes.headers.get('content-type') || '';
+                        const contentType = String(imgRes.headers['content-type'] || '');
                         if (contentType.startsWith('image/')) {
-                            const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+                            const imgBuffer = imgRes.body;
                             // Reject suspiciously small files (likely error pages)
                             if (imgBuffer.length < 5000) {
                                 debugImageLog(`[DEBUG IMAGES] Imagen ${i + 1} demasiado pequeña (${imgBuffer.length}B), saltando`);
@@ -870,7 +949,8 @@ async function fetchImages(html) {
             debugImageLog(`[DEBUG IMAGES] Error en DDG API para "${slot.keyword}":`, err.message);
             warnImageLog('DuckDuckGo API flow failed', {
                 keyword: slot.keyword,
-                error: err.message
+                error: err.message,
+                cause: err.cause?.message || err.code || null
             });
             return null;
         }
@@ -899,9 +979,18 @@ async function fetchImages(html) {
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Upgrade-Insecure-Requests': '1'
             });
+            await page.setRequestInterception(true);
+            page.on('request', (request) => {
+                const resourceType = request.resourceType();
+                if (resourceType === 'font' || resourceType === 'media') {
+                    request.abort().catch(() => {});
+                    return;
+                }
+                request.continue().catch(() => {});
+            });
 
             const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(slot.keyword)}&iax=images&ia=images`;
-            await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
             await page.waitForNetworkIdle({ idleTime: 500, timeout: 5000 }).catch(() => {});
             await page.waitForFunction(() => {
                 return Array.from(document.images).some(img => {
@@ -953,19 +1042,20 @@ async function fetchImages(html) {
                 if (!candidate.imageUrl) continue;
 
                 try {
-                    const imgRes = await fetch(resolveDuckDuckGoImageUrl(candidate.imageUrl), {
+                    const imgRes = await requestBuffer(resolveDuckDuckGoImageUrl(candidate.imageUrl), {
                         headers: {
                             'User-Agent': DDG_UA,
                             'Referer': 'https://duckduckgo.com/'
                         },
-                        signal: AbortSignal.timeout(10000)
+                        timeoutMs: 10000,
+                        family: 4
                     });
 
                     if (!imgRes.ok) continue;
-                    const contentType = imgRes.headers.get('content-type') || '';
+                    const contentType = String(imgRes.headers['content-type'] || '');
                     if (!contentType.startsWith('image/')) continue;
 
-                    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+                    const imgBuffer = imgRes.body;
                     if (imgBuffer.length < 5000) continue;
 
                     usedImageFingerprints.add(candidate.fingerprint);
@@ -984,7 +1074,8 @@ async function fetchImages(html) {
         } catch (err) {
             warnImageLog('DuckDuckGo browser fallback failed', {
                 keyword: slot.keyword,
-                error: err.message
+                error: err.message,
+                cause: err.cause?.message || err.code || null
             });
             return null;
         } finally {
@@ -1968,6 +2059,7 @@ async function initBrowser() {
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
+                '--disable-ipv6',
                 '--no-first-run',
                 '--no-zygote',
                 '--disable-blink-features=AutomationControlled',
