@@ -139,6 +139,15 @@ function decodeCompressedBody(buffer, encoding = '') {
     return buffer;
 }
 
+function attachRequestMeta(error, meta) {
+    if (!(error instanceof Error)) return error;
+    error.requestMeta = {
+        ...(error.requestMeta || {}),
+        ...meta
+    };
+    return error;
+}
+
 function requestBuffer(url, { headers = {}, timeoutMs = 10000, maxRedirects = 5, family = 4 } = {}) {
     return new Promise((resolve, reject) => {
         let targetUrl;
@@ -148,6 +157,21 @@ function requestBuffer(url, { headers = {}, timeoutMs = 10000, maxRedirects = 5,
             reject(err);
             return;
         }
+
+        const requestMeta = {
+            url: targetUrl.toString(),
+            host: targetUrl.hostname,
+            family,
+            timeoutMs,
+            phase: 'creating_request',
+            lookupAddress: null,
+            lookupFamily: null,
+            lookupError: null,
+            remoteAddress: null,
+            remotePort: null,
+            localAddress: null,
+            status: null
+        };
 
         const transport = targetUrl.protocol === 'http:' ? http : https;
         const req = transport.request({
@@ -160,6 +184,8 @@ function requestBuffer(url, { headers = {}, timeoutMs = 10000, maxRedirects = 5,
             family,
             servername: targetUrl.hostname
         }, (res) => {
+            requestMeta.phase = 'response_headers';
+            requestMeta.status = res.statusCode || 0;
             const status = res.statusCode || 0;
 
             if ([301, 302, 303, 307, 308].includes(status) && res.headers.location && maxRedirects > 0) {
@@ -192,10 +218,35 @@ function requestBuffer(url, { headers = {}, timeoutMs = 10000, maxRedirects = 5,
             });
         });
 
-        req.setTimeout(timeoutMs, () => {
-            req.destroy(new Error(`REQUEST_TIMEOUT_${timeoutMs}`));
+        req.on('socket', (socket) => {
+            requestMeta.phase = 'socket_assigned';
+
+            socket.on('lookup', (err, address, resolvedFamily) => {
+                requestMeta.phase = err ? 'dns_lookup_failed' : 'dns_lookup_complete';
+                requestMeta.lookupAddress = address || null;
+                requestMeta.lookupFamily = resolvedFamily || null;
+                requestMeta.lookupError = err ? err.message : null;
+            });
+
+            socket.on('connect', () => {
+                requestMeta.phase = 'tcp_connected';
+                requestMeta.remoteAddress = socket.remoteAddress || null;
+                requestMeta.remotePort = socket.remotePort || null;
+                requestMeta.localAddress = socket.localAddress || null;
+            });
+
+            socket.on('secureConnect', () => {
+                requestMeta.phase = 'tls_connected';
+            });
         });
-        req.on('error', reject);
+
+        req.setTimeout(timeoutMs, () => {
+            const timeoutError = new Error(`REQUEST_TIMEOUT_${timeoutMs}`);
+            timeoutError.code = 'REQUEST_TIMEOUT';
+            requestMeta.phase = `${requestMeta.phase || 'request'}_timeout`;
+            req.destroy(attachRequestMeta(timeoutError, requestMeta));
+        });
+        req.on('error', (err) => reject(attachRequestMeta(err, requestMeta)));
         req.end();
     });
 }
@@ -810,17 +861,29 @@ async function fetchImages(html) {
 
             // Step 1: Get initial page to extract vqd session token
             const initUrl = `https://duckduckgo.com/?q=${encodeURIComponent(slot.keyword)}&iax=images&ia=images`;
-            const initRes = await requestBuffer(initUrl, {
-                headers: {
-                    'User-Agent': DDG_UA,
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Connection': 'keep-alive'
-                },
-                timeoutMs: 12000,
-                family: 4
-            });
+            let initRes;
+            try {
+                initRes = await requestBuffer(initUrl, {
+                    headers: {
+                        'User-Agent': DDG_UA,
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive'
+                    },
+                    timeoutMs: 12000,
+                    family: 4
+                });
+            } catch (err) {
+                warnImageLog('DuckDuckGo init request failed', {
+                    keyword: slot.keyword,
+                    stage: 'init',
+                    url: initUrl,
+                    error: err.message,
+                    requestMeta: err.requestMeta || null
+                });
+                throw err;
+            }
 
             if (!initRes.ok) {
                 debugImageLog(`[DEBUG IMAGES] DDG init page failed: ${initRes.status}`);
@@ -855,18 +918,30 @@ async function fetchImages(html) {
 
             // Step 2: Query the internal images API
             const apiUrl = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(slot.keyword)}&vqd=${encodeURIComponent(vqd)}&f=,,,,,&p=1&s=0`;
-            const apiRes = await requestBuffer(apiUrl, {
-                headers: {
-                    'User-Agent': DDG_UA,
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Referer': 'https://duckduckgo.com/',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    ...(ddgCookie ? { 'Cookie': ddgCookie } : {})
-                },
-                timeoutMs: 12000,
-                family: 4
-            });
+            let apiRes;
+            try {
+                apiRes = await requestBuffer(apiUrl, {
+                    headers: {
+                        'User-Agent': DDG_UA,
+                        'Accept': 'application/json, text/javascript, */*; q=0.01',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Referer': 'https://duckduckgo.com/',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...(ddgCookie ? { 'Cookie': ddgCookie } : {})
+                    },
+                    timeoutMs: 12000,
+                    family: 4
+                });
+            } catch (err) {
+                warnImageLog('DuckDuckGo images API request failed', {
+                    keyword: slot.keyword,
+                    stage: 'images_api',
+                    url: apiUrl,
+                    error: err.message,
+                    requestMeta: err.requestMeta || null
+                });
+                throw err;
+            }
 
             if (!apiRes.ok) {
                 debugImageLog(`[DEBUG IMAGES] DDG images API failed: ${apiRes.status}`);
@@ -915,7 +990,8 @@ async function fetchImages(html) {
                         width: candidate.width,
                         height: candidate.height
                     });
-                    const imgRes = await requestBuffer(resolveDuckDuckGoImageUrl(imageUrl), {
+                    const resolvedImageUrl = resolveDuckDuckGoImageUrl(imageUrl);
+                    const imgRes = await requestBuffer(resolvedImageUrl, {
                         headers: {
                             'User-Agent': DDG_UA,
                             'Referer': 'https://duckduckgo.com/'
@@ -940,6 +1016,13 @@ async function fetchImages(html) {
                     }
                 } catch (e) {
                     debugImageLog(`[DEBUG IMAGES] Error descargando imagen ${i + 1} de DDG:`, e.message);
+                    warnImageLog('DuckDuckGo image download failed', {
+                        keyword: slot.keyword,
+                        stage: 'image_download',
+                        candidateIndex: i + 1,
+                        error: e.message,
+                        requestMeta: e.requestMeta || null
+                    });
                 }
             }
 
@@ -950,7 +1033,8 @@ async function fetchImages(html) {
             warnImageLog('DuckDuckGo API flow failed', {
                 keyword: slot.keyword,
                 error: err.message,
-                cause: err.cause?.message || err.code || null
+                cause: err.cause?.message || err.code || null,
+                requestMeta: err.requestMeta || null
             });
             return null;
         }
@@ -958,6 +1042,8 @@ async function fetchImages(html) {
 
     async function fetchSlotImageDuckDuckGoBrowser(slot) {
         let page = null;
+        const requestFailures = [];
+        const responseSnapshot = [];
         try {
             if (!browser || !browser.isConnected()) {
                 await initBrowser();
@@ -978,6 +1064,22 @@ async function fetchImages(html) {
             await page.setExtraHTTPHeaders({
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Upgrade-Insecure-Requests': '1'
+            });
+            page.on('requestfailed', (request) => {
+                requestFailures.push({
+                    url: request.url(),
+                    method: request.method(),
+                    resourceType: request.resourceType(),
+                    failure: request.failure()?.errorText || 'unknown'
+                });
+            });
+            page.on('response', (response) => {
+                if (responseSnapshot.length >= 8) return;
+                responseSnapshot.push({
+                    url: response.url(),
+                    status: response.status(),
+                    resourceType: response.request().resourceType()
+                });
             });
             await page.setRequestInterception(true);
             page.on('request', (request) => {
@@ -1075,7 +1177,10 @@ async function fetchImages(html) {
             warnImageLog('DuckDuckGo browser fallback failed', {
                 keyword: slot.keyword,
                 error: err.message,
-                cause: err.cause?.message || err.code || null
+                cause: err.cause?.message || err.code || null,
+                currentUrl: page ? page.url() : null,
+                requestFailures: requestFailures.slice(0, 8),
+                responses: responseSnapshot
             });
             return null;
         } finally {
