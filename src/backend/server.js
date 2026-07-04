@@ -682,6 +682,7 @@ async function fetchImages(html) {
     const usedImageFingerprints = new Set();
     let autoSlotCounter = 1;
     const DDG_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+    const DDG_IMAGE_HOST_CANDIDATES = ['duckduckgo.com', 'start.duckduckgo.com'];
 
     function toPositiveInt(value) {
         const parsed = parseInt(String(value || '').replace(/[^\d]/g, ''), 10);
@@ -724,6 +725,30 @@ async function fetchImages(html) {
             hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
         }
         return Math.abs(hash);
+    }
+
+    function buildDuckDuckGoSearchUrl(keyword, host = DDG_IMAGE_HOST_CANDIDATES[0]) {
+        const url = new URL(`https://${host}/`);
+        url.searchParams.set('q', keyword);
+        url.searchParams.set('iax', 'images');
+        url.searchParams.set('ia', 'images');
+        return url.toString();
+    }
+
+    function buildDuckDuckGoImagesApiUrl(keyword, vqd, host = DDG_IMAGE_HOST_CANDIDATES[0]) {
+        const url = new URL(`https://${host}/i.js`);
+        url.searchParams.set('l', 'us-en');
+        url.searchParams.set('o', 'json');
+        url.searchParams.set('q', keyword);
+        url.searchParams.set('vqd', vqd);
+        url.searchParams.set('f', ',,,,,');
+        url.searchParams.set('p', '1');
+        url.searchParams.set('s', '0');
+        return url.toString();
+    }
+
+    function buildDuckDuckGoReferer(host = DDG_IMAGE_HOST_CANDIDATES[0]) {
+        return `https://${host}/`;
     }
 
     function tokenizeKeyword(keyword) {
@@ -859,170 +884,200 @@ async function fetchImages(html) {
         try {
             debugImageLog(`[DEBUG IMAGES] Buscando "${slot.keyword}" en DuckDuckGo Images (API)...`);
 
-            // Step 1: Get initial page to extract vqd session token
-            const initUrl = `https://duckduckgo.com/?q=${encodeURIComponent(slot.keyword)}&iax=images&ia=images`;
-            let initRes;
-            try {
-                initRes = await requestBuffer(initUrl, {
-                    headers: {
-                        'User-Agent': DDG_UA,
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.9',
-                        'Accept-Encoding': 'gzip, deflate, br',
-                        'Connection': 'keep-alive'
-                    },
-                    timeoutMs: 12000,
-                    family: 4
-                });
-            } catch (err) {
-                warnImageLog('DuckDuckGo init request failed', {
+            for (const ddgHost of DDG_IMAGE_HOST_CANDIDATES) {
+                debugImageLog('[DEBUG IMAGES] Probando host DDG', {
                     keyword: slot.keyword,
-                    stage: 'init',
-                    url: initUrl,
-                    error: err.message,
-                    requestMeta: err.requestMeta || null
+                    host: ddgHost
                 });
-                throw err;
-            }
 
-            if (!initRes.ok) {
-                debugImageLog(`[DEBUG IMAGES] DDG init page failed: ${initRes.status}`);
-                warnImageLog('DuckDuckGo init page failed', {
-                    keyword: slot.keyword,
-                    status: initRes.status
-                });
-                return null;
-            }
-
-            const initHtml = initRes.body.toString('utf8');
-            const ddgCookieHeader = initRes.headers['set-cookie'];
-            const ddgCookie = Array.isArray(ddgCookieHeader)
-                ? ddgCookieHeader.map(cookie => String(cookie).split(';')[0]).join('; ')
-                : (ddgCookieHeader ? String(ddgCookieHeader).split(';')[0] : undefined);
-
-            // Extract vqd token — DDG embeds it in script blocks as vqd='4-...' or "vqd":"4-..."
-            const vqdMatch =
-                initHtml.match(/vqd=["']?([^"'&\s]+)["']?/) ||
-                initHtml.match(/"vqd"\s*:\s*"([^"]+)"/) ||
-                initHtml.match(/vqd%3D([^"'&\s]+)/);
-
-            if (!vqdMatch) {
-                debugImageLog(`[DEBUG IMAGES] No se encontró token vqd de DuckDuckGo`);
-                warnImageLog('DuckDuckGo vqd token missing', {
-                    keyword: slot.keyword
-                });
-                return null;
-            }
-            const vqd = vqdMatch[1];
-            debugImageLog(`[DEBUG IMAGES] Token vqd obtenido: ${vqd.substring(0, 20)}...`);
-
-            // Step 2: Query the internal images API
-            const apiUrl = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(slot.keyword)}&vqd=${encodeURIComponent(vqd)}&f=,,,,,&p=1&s=0`;
-            let apiRes;
-            try {
-                apiRes = await requestBuffer(apiUrl, {
-                    headers: {
-                        'User-Agent': DDG_UA,
-                        'Accept': 'application/json, text/javascript, */*; q=0.01',
-                        'Accept-Language': 'en-US,en;q=0.9',
-                        'Referer': 'https://duckduckgo.com/',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        ...(ddgCookie ? { 'Cookie': ddgCookie } : {})
-                    },
-                    timeoutMs: 12000,
-                    family: 4
-                });
-            } catch (err) {
-                warnImageLog('DuckDuckGo images API request failed', {
-                    keyword: slot.keyword,
-                    stage: 'images_api',
-                    url: apiUrl,
-                    error: err.message,
-                    requestMeta: err.requestMeta || null
-                });
-                throw err;
-            }
-
-            if (!apiRes.ok) {
-                debugImageLog(`[DEBUG IMAGES] DDG images API failed: ${apiRes.status}`);
-                warnImageLog('DuckDuckGo images API failed', {
-                    keyword: slot.keyword,
-                    status: apiRes.status
-                });
-                return null;
-            }
-
-            const data = JSON.parse(apiRes.body.toString('utf8'));
-            const results = data?.results || [];
-
-            if (results.length === 0) {
-                debugImageLog(`[DEBUG IMAGES] DDG no encontró imágenes para "${slot.keyword}"`);
-                return null;
-            }
-
-            debugImageLog(`[DEBUG IMAGES] DDG encontró ${results.length} imágenes para "${slot.keyword}"`);
-
-            const candidates = buildCandidatePool(results.map(result => ({
-                imageUrl: result?.image,
-                sourceUrl: result?.url,
-                title: result?.title,
-                width: result?.width,
-                height: result?.height
-            })), slot);
-
-            if (candidates.length === 0) {
-                debugImageLog(`[DEBUG IMAGES] DDG no devolvió candidatos utilizables para "${slot.keyword}"`);
-                return null;
-            }
-
-            const downloadOrder = buildDownloadOrder(candidates, slot);
-
-            // Try the best candidates first, but rotate within the top set for variety.
-            for (let i = 0; i < downloadOrder.length; i++) {
-                const candidate = downloadOrder[i];
-                const imageUrl = candidate.imageUrl;
-                if (!imageUrl || !imageUrl.startsWith('http')) continue;
-
+                const initUrl = buildDuckDuckGoSearchUrl(slot.keyword, ddgHost);
+                let initRes;
                 try {
-                    debugImageLog(`[DEBUG IMAGES] Descargando imagen ${i + 1} de DDG: ${imageUrl.substring(0, 80)}`, {
-                        keyword: slot.keyword,
-                        score: candidate.score,
-                        width: candidate.width,
-                        height: candidate.height
-                    });
-                    const resolvedImageUrl = resolveDuckDuckGoImageUrl(imageUrl);
-                    const imgRes = await requestBuffer(resolvedImageUrl, {
+                    initRes = await requestBuffer(initUrl, {
                         headers: {
                             'User-Agent': DDG_UA,
-                            'Referer': 'https://duckduckgo.com/'
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'Connection': 'keep-alive'
                         },
-                        timeoutMs: 10000,
+                        timeoutMs: 12000,
                         family: 4
                     });
-
-                    if (imgRes.ok) {
-                        const contentType = String(imgRes.headers['content-type'] || '');
-                        if (contentType.startsWith('image/')) {
-                            const imgBuffer = imgRes.body;
-                            // Reject suspiciously small files (likely error pages)
-                            if (imgBuffer.length < 5000) {
-                                debugImageLog(`[DEBUG IMAGES] Imagen ${i + 1} demasiado pequeña (${imgBuffer.length}B), saltando`);
-                                continue;
-                            }
-                            usedImageFingerprints.add(candidate.fingerprint);
-                            debugImageLog(`[DEBUG IMAGES] Imagen descargada de DDG para "${slot.keyword}" (${Math.round(imgBuffer.length / 1024)}KB)`);
-                            return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
-                        }
-                    }
-                } catch (e) {
-                    debugImageLog(`[DEBUG IMAGES] Error descargando imagen ${i + 1} de DDG:`, e.message);
-                    warnImageLog('DuckDuckGo image download failed', {
+                } catch (err) {
+                    warnImageLog('DuckDuckGo init request failed', {
                         keyword: slot.keyword,
-                        stage: 'image_download',
-                        candidateIndex: i + 1,
-                        error: e.message,
-                        requestMeta: e.requestMeta || null
+                        host: ddgHost,
+                        stage: 'init',
+                        url: initUrl,
+                        error: err.message,
+                        requestMeta: err.requestMeta || null
                     });
+                    continue;
+                }
+
+                if (!initRes.ok) {
+                    debugImageLog(`[DEBUG IMAGES] DDG init page failed: ${initRes.status}`, {
+                        keyword: slot.keyword,
+                        host: ddgHost
+                    });
+                    warnImageLog('DuckDuckGo init page failed', {
+                        keyword: slot.keyword,
+                        host: ddgHost,
+                        status: initRes.status
+                    });
+                    continue;
+                }
+
+                const initHtml = initRes.body.toString('utf8');
+                const ddgCookieHeader = initRes.headers['set-cookie'];
+                const ddgCookie = Array.isArray(ddgCookieHeader)
+                    ? ddgCookieHeader.map(cookie => String(cookie).split(';')[0]).join('; ')
+                    : (ddgCookieHeader ? String(ddgCookieHeader).split(';')[0] : undefined);
+
+                const vqdMatch =
+                    initHtml.match(/vqd=["']?([^"'&\s]+)["']?/) ||
+                    initHtml.match(/"vqd"\s*:\s*"([^"]+)"/) ||
+                    initHtml.match(/vqd%3D([^"'&\s]+)/);
+
+                if (!vqdMatch) {
+                    debugImageLog(`[DEBUG IMAGES] No se encontró token vqd de DuckDuckGo`, {
+                        keyword: slot.keyword,
+                        host: ddgHost
+                    });
+                    warnImageLog('DuckDuckGo vqd token missing', {
+                        keyword: slot.keyword,
+                        host: ddgHost
+                    });
+                    continue;
+                }
+                const vqd = vqdMatch[1];
+                debugImageLog(`[DEBUG IMAGES] Token vqd obtenido: ${vqd.substring(0, 20)}...`, {
+                    keyword: slot.keyword,
+                    host: ddgHost
+                });
+
+                const apiUrl = buildDuckDuckGoImagesApiUrl(slot.keyword, vqd, ddgHost);
+                let apiRes;
+                try {
+                    apiRes = await requestBuffer(apiUrl, {
+                        headers: {
+                            'User-Agent': DDG_UA,
+                            'Accept': 'application/json, text/javascript, */*; q=0.01',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Referer': buildDuckDuckGoReferer(ddgHost),
+                            'X-Requested-With': 'XMLHttpRequest',
+                            ...(ddgCookie ? { 'Cookie': ddgCookie } : {})
+                        },
+                        timeoutMs: 12000,
+                        family: 4
+                    });
+                } catch (err) {
+                    warnImageLog('DuckDuckGo images API request failed', {
+                        keyword: slot.keyword,
+                        host: ddgHost,
+                        stage: 'images_api',
+                        url: apiUrl,
+                        error: err.message,
+                        requestMeta: err.requestMeta || null
+                    });
+                    continue;
+                }
+
+                if (!apiRes.ok) {
+                    debugImageLog(`[DEBUG IMAGES] DDG images API failed: ${apiRes.status}`, {
+                        keyword: slot.keyword,
+                        host: ddgHost
+                    });
+                    warnImageLog('DuckDuckGo images API failed', {
+                        keyword: slot.keyword,
+                        host: ddgHost,
+                        status: apiRes.status
+                    });
+                    continue;
+                }
+
+                const data = JSON.parse(apiRes.body.toString('utf8'));
+                const results = data?.results || [];
+
+                if (results.length === 0) {
+                    debugImageLog(`[DEBUG IMAGES] DDG no encontró imágenes para "${slot.keyword}"`, {
+                        host: ddgHost
+                    });
+                    continue;
+                }
+
+                debugImageLog(`[DEBUG IMAGES] DDG encontró ${results.length} imágenes para "${slot.keyword}"`, {
+                    host: ddgHost
+                });
+
+                const candidates = buildCandidatePool(results.map(result => ({
+                    imageUrl: result?.image,
+                    sourceUrl: result?.url,
+                    title: result?.title,
+                    width: result?.width,
+                    height: result?.height,
+                    ddgHost
+                })), slot);
+
+                if (candidates.length === 0) {
+                    debugImageLog(`[DEBUG IMAGES] DDG no devolvió candidatos utilizables para "${slot.keyword}"`, {
+                        host: ddgHost
+                    });
+                    continue;
+                }
+
+                const downloadOrder = buildDownloadOrder(candidates, slot);
+
+                for (let i = 0; i < downloadOrder.length; i++) {
+                    const candidate = downloadOrder[i];
+                    const imageUrl = candidate.imageUrl;
+                    if (!imageUrl || !imageUrl.startsWith('http')) continue;
+
+                    try {
+                        debugImageLog(`[DEBUG IMAGES] Descargando imagen ${i + 1} de DDG: ${imageUrl.substring(0, 80)}`, {
+                            keyword: slot.keyword,
+                            host: candidate.ddgHost || ddgHost,
+                            score: candidate.score,
+                            width: candidate.width,
+                            height: candidate.height
+                        });
+                        const resolvedImageUrl = resolveDuckDuckGoImageUrl(imageUrl);
+                        const imgRes = await requestBuffer(resolvedImageUrl, {
+                            headers: {
+                                'User-Agent': DDG_UA,
+                                'Referer': buildDuckDuckGoReferer(candidate.ddgHost || ddgHost)
+                            },
+                            timeoutMs: 10000,
+                            family: 4
+                        });
+
+                        if (imgRes.ok) {
+                            const contentType = String(imgRes.headers['content-type'] || '');
+                            if (contentType.startsWith('image/')) {
+                                const imgBuffer = imgRes.body;
+                                if (imgBuffer.length < 5000) {
+                                    debugImageLog(`[DEBUG IMAGES] Imagen ${i + 1} demasiado pequeña (${imgBuffer.length}B), saltando`);
+                                    continue;
+                                }
+                                usedImageFingerprints.add(candidate.fingerprint);
+                                debugImageLog(`[DEBUG IMAGES] Imagen descargada de DDG para "${slot.keyword}" (${Math.round(imgBuffer.length / 1024)}KB)`, {
+                                    host: candidate.ddgHost || ddgHost
+                                });
+                                return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
+                            }
+                        }
+                    } catch (e) {
+                        debugImageLog(`[DEBUG IMAGES] Error descargando imagen ${i + 1} de DDG:`, e.message);
+                        warnImageLog('DuckDuckGo image download failed', {
+                            keyword: slot.keyword,
+                            host: candidate.ddgHost || ddgHost,
+                            stage: 'image_download',
+                            candidateIndex: i + 1,
+                            error: e.message,
+                            requestMeta: e.requestMeta || null
+                        });
+                    }
                 }
             }
 
@@ -1091,86 +1146,106 @@ async function fetchImages(html) {
                 request.continue().catch(() => {});
             });
 
-            const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(slot.keyword)}&iax=images&ia=images`;
-            await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
-            await page.waitForNetworkIdle({ idleTime: 500, timeout: 5000 }).catch(() => {});
-            await page.waitForFunction(() => {
-                return Array.from(document.images).some(img => {
-                    const src = img.currentSrc || img.src || '';
-                    return /^https?:\/\//i.test(src) && !/duckduckgo\.com\/assets/i.test(src);
-                });
-            }, { timeout: 7000 }).catch(() => {});
-
-            const rawCandidates = await page.evaluate(() => {
-                const items = [];
-                const seen = new Set();
-
-                for (const img of Array.from(document.images)) {
-                    const imageUrl = img.currentSrc || img.src || '';
-                    if (!/^https?:\/\//i.test(imageUrl)) continue;
-                    if (/duckduckgo\.com\/assets/i.test(imageUrl)) continue;
-
-                    const fingerprint = imageUrl.split('#')[0].split('?')[0];
-                    if (seen.has(fingerprint)) continue;
-                    seen.add(fingerprint);
-
-                    const parentLink = img.closest('a[href]');
-                    items.push({
-                        imageUrl,
-                        sourceUrl: parentLink ? parentLink.href : '',
-                        title: img.alt || (parentLink ? parentLink.textContent || '' : ''),
-                        width: img.naturalWidth || img.width || 0,
-                        height: img.naturalHeight || img.height || 0
-                    });
-                }
-
-                return items.slice(0, 24);
-            });
-
-            if (!rawCandidates.length) {
-                warnImageLog('DuckDuckGo browser fallback produced no candidates', {
-                    keyword: slot.keyword
-                });
-                return null;
-            }
-
-            debugImageLog(`[DEBUG IMAGES] DDG browser fallback encontró ${rawCandidates.length} candidatos para "${slot.keyword}"`);
-
-            const candidates = buildCandidatePool(rawCandidates, slot);
-            const downloadOrder = buildDownloadOrder(candidates, slot);
-
-            for (let i = 0; i < downloadOrder.length; i++) {
-                const candidate = downloadOrder[i];
-                if (!candidate.imageUrl) continue;
-
+            for (const ddgHost of DDG_IMAGE_HOST_CANDIDATES) {
                 try {
-                    const imgRes = await requestBuffer(resolveDuckDuckGoImageUrl(candidate.imageUrl), {
-                        headers: {
-                            'User-Agent': DDG_UA,
-                            'Referer': 'https://duckduckgo.com/'
-                        },
-                        timeoutMs: 10000,
-                        family: 4
+                    const searchUrl = buildDuckDuckGoSearchUrl(slot.keyword, ddgHost);
+                    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+                    await page.waitForNetworkIdle({ idleTime: 500, timeout: 5000 }).catch(() => {});
+                    await page.waitForFunction(() => {
+                        return Array.from(document.images).some(img => {
+                            const src = img.currentSrc || img.src || '';
+                            return /^https?:\/\//i.test(src) && !/duckduckgo\.com\/assets/i.test(src);
+                        });
+                    }, { timeout: 7000 }).catch(() => {});
+
+                    const rawCandidates = await page.evaluate((activeHost) => {
+                        const items = [];
+                        const seen = new Set();
+
+                        for (const img of Array.from(document.images)) {
+                            const imageUrl = img.currentSrc || img.src || '';
+                            if (!/^https?:\/\//i.test(imageUrl)) continue;
+                            if (/duckduckgo\.com\/assets/i.test(imageUrl)) continue;
+
+                            const fingerprint = imageUrl.split('#')[0].split('?')[0];
+                            if (seen.has(fingerprint)) continue;
+                            seen.add(fingerprint);
+
+                            const parentLink = img.closest('a[href]');
+                            items.push({
+                                imageUrl,
+                                sourceUrl: parentLink ? parentLink.href : '',
+                                title: img.alt || (parentLink ? parentLink.textContent || '' : ''),
+                                width: img.naturalWidth || img.width || 0,
+                                height: img.naturalHeight || img.height || 0,
+                                ddgHost: activeHost
+                            });
+                        }
+
+                        return items.slice(0, 24);
+                    }, ddgHost);
+
+                    if (!rawCandidates.length) {
+                        warnImageLog('DuckDuckGo browser fallback produced no candidates', {
+                            keyword: slot.keyword,
+                            host: ddgHost
+                        });
+                        continue;
+                    }
+
+                    debugImageLog(`[DEBUG IMAGES] DDG browser fallback encontró ${rawCandidates.length} candidatos para "${slot.keyword}"`, {
+                        host: ddgHost
                     });
 
-                    if (!imgRes.ok) continue;
-                    const contentType = String(imgRes.headers['content-type'] || '');
-                    if (!contentType.startsWith('image/')) continue;
+                    const candidates = buildCandidatePool(rawCandidates, slot);
+                    const downloadOrder = buildDownloadOrder(candidates, slot);
 
-                    const imgBuffer = imgRes.body;
-                    if (imgBuffer.length < 5000) continue;
+                    for (let i = 0; i < downloadOrder.length; i++) {
+                        const candidate = downloadOrder[i];
+                        if (!candidate.imageUrl) continue;
 
-                    usedImageFingerprints.add(candidate.fingerprint);
-                    debugImageLog(`[DEBUG IMAGES] Imagen descargada desde DDG browser fallback para "${slot.keyword}" (${Math.round(imgBuffer.length / 1024)}KB)`);
-                    return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
-                } catch (err) {
-                    debugImageLog(`[DEBUG IMAGES] Error descargando candidato ${i + 1} de DDG browser fallback:`, err.message);
+                        try {
+                            const imgRes = await requestBuffer(resolveDuckDuckGoImageUrl(candidate.imageUrl), {
+                                headers: {
+                                    'User-Agent': DDG_UA,
+                                    'Referer': buildDuckDuckGoReferer(candidate.ddgHost || ddgHost)
+                                },
+                                timeoutMs: 10000,
+                                family: 4
+                            });
+
+                            if (!imgRes.ok) continue;
+                            const contentType = String(imgRes.headers['content-type'] || '');
+                            if (!contentType.startsWith('image/')) continue;
+
+                            const imgBuffer = imgRes.body;
+                            if (imgBuffer.length < 5000) continue;
+
+                            usedImageFingerprints.add(candidate.fingerprint);
+                            debugImageLog(`[DEBUG IMAGES] Imagen descargada desde DDG browser fallback para "${slot.keyword}" (${Math.round(imgBuffer.length / 1024)}KB)`, {
+                                host: candidate.ddgHost || ddgHost
+                            });
+                            return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
+                        } catch (err) {
+                            debugImageLog(`[DEBUG IMAGES] Error descargando candidato ${i + 1} de DDG browser fallback:`, err.message);
+                        }
+                    }
+                } catch (hostErr) {
+                    warnImageLog('DuckDuckGo browser host failed', {
+                        keyword: slot.keyword,
+                        host: ddgHost,
+                        error: hostErr.message,
+                        cause: hostErr.cause?.message || hostErr.code || null,
+                        currentUrl: page ? page.url() : null,
+                        requestFailures: requestFailures.slice(0, 8),
+                        responses: responseSnapshot
+                    });
                 }
             }
 
             warnImageLog('DuckDuckGo browser fallback could not download any usable image', {
                 keyword: slot.keyword,
-                candidates: rawCandidates.length
+                hostsTried: DDG_IMAGE_HOST_CANDIDATES
             });
             return null;
         } catch (err) {
