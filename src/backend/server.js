@@ -41,6 +41,7 @@ const providerLog = log.child('PROVIDER');
 const queueLog = log.child('QUEUE');
 const sanitizerLog = log.child('SANITIZER');
 const devLog = log.child('DEV');
+const imageLog = log.child('IMAGES');
 const puppeteerLog = log.child('PUPPETEER');
 
 const AEDOS_LOGO = [
@@ -524,15 +525,39 @@ if (IS_DEVELOPMENT) {
  * If anything fails, falls back to the gradient placeholder.
  */
 async function fetchImages(html) {
-    const debugImages = process.env.NODE_ENV !== 'production';
+    const debugImages = IS_DEVELOPMENT || /^(1|true|yes|on)$/i.test(String(process.env.IMAGE_DEBUG || ''));
     const debugImageLog = (...args) => {
-        if (debugImages) console.log(...args);
+        if (!debugImages || args.length === 0) return;
+        const [message, ...rest] = args;
+        if (rest.length === 0) {
+            imageLog.info(ErrorCategory.DOWNLOAD, String(message));
+            return;
+        }
+
+        if (rest.length === 1 && rest[0] && typeof rest[0] === 'object' && !(rest[0] instanceof Error)) {
+            imageLog.info(ErrorCategory.DOWNLOAD, String(message), rest[0]);
+            return;
+        }
+
+        imageLog.info(ErrorCategory.DOWNLOAD, String(message), {
+            details: rest.map(item => {
+                if (item instanceof Error) return item.message;
+                if (typeof item === 'string') return item;
+                try {
+                    return JSON.stringify(item);
+                } catch (_) {
+                    return String(item);
+                }
+            }).join(' | ')
+        });
     };
+    const warnImageLog = (message, meta = {}) => imageLog.warn(ErrorCategory.DOWNLOAD, message, meta);
     const slotTagRegex = /<div\b[^>]*(?:class\s*=\s*["'][^"']*\bimg-slot\b[^"']*["']|data-image-slot\s*=\s*["'][^"']+["'])[^>]*>/gi;
     const slots = [];
     const seenSlotIds = new Set();
     const usedImageFingerprints = new Set();
     let autoSlotCounter = 1;
+    const DDG_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
     function toPositiveInt(value) {
         const parsed = parseInt(String(value || '').replace(/[^\d]/g, ''), 10);
@@ -548,6 +573,23 @@ async function fetchImages(html) {
             return parsed.toString();
         } catch (_) {
             return String(url).split('#')[0].split('?')[0];
+        }
+    }
+
+    function resolveDuckDuckGoImageUrl(url) {
+        if (!url) return url;
+        try {
+            const parsed = new URL(url);
+            if (
+                parsed.hostname === 'external-content.duckduckgo.com' &&
+                parsed.pathname === '/iu/' &&
+                parsed.searchParams.get('u')
+            ) {
+                return parsed.searchParams.get('u');
+            }
+            return parsed.toString();
+        } catch (_) {
+            return url;
         }
     }
 
@@ -690,7 +732,6 @@ async function fetchImages(html) {
      * This returns real web images (anime, people, artworks, etc.) not stock photos.
      */
     async function fetchSlotImageDuckDuckGo(slot) {
-        const DDG_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
         try {
             debugImageLog(`[DEBUG IMAGES] Buscando "${slot.keyword}" en DuckDuckGo Images (API)...`);
 
@@ -709,19 +750,27 @@ async function fetchImages(html) {
 
             if (!initRes.ok) {
                 debugImageLog(`[DEBUG IMAGES] DDG init page failed: ${initRes.status}`);
+                warnImageLog('DuckDuckGo init page failed', {
+                    keyword: slot.keyword,
+                    status: initRes.status
+                });
                 return null;
             }
 
             const initHtml = await initRes.text();
+            const ddgCookie = initRes.headers.get('set-cookie') || undefined;
 
             // Extract vqd token — DDG embeds it in script blocks as vqd='4-...' or "vqd":"4-..."
             const vqdMatch =
-                initHtml.match(/vqd=["']?([\d-]+)["']?/) ||
+                initHtml.match(/vqd=["']?([^"'&\s]+)["']?/) ||
                 initHtml.match(/"vqd"\s*:\s*"([^"]+)"/) ||
-                initHtml.match(/vqd%3D([\d-]+)/);
+                initHtml.match(/vqd%3D([^"'&\s]+)/);
 
             if (!vqdMatch) {
                 debugImageLog(`[DEBUG IMAGES] No se encontró token vqd de DuckDuckGo`);
+                warnImageLog('DuckDuckGo vqd token missing', {
+                    keyword: slot.keyword
+                });
                 return null;
             }
             const vqd = vqdMatch[1];
@@ -736,12 +785,17 @@ async function fetchImages(html) {
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Referer': 'https://duckduckgo.com/',
                     'X-Requested-With': 'XMLHttpRequest',
+                    ...(ddgCookie ? { 'Cookie': ddgCookie } : {}),
                 },
                 signal: AbortSignal.timeout(12000)
             });
 
             if (!apiRes.ok) {
                 debugImageLog(`[DEBUG IMAGES] DDG images API failed: ${apiRes.status}`);
+                warnImageLog('DuckDuckGo images API failed', {
+                    keyword: slot.keyword,
+                    status: apiRes.status
+                });
                 return null;
             }
 
@@ -783,7 +837,7 @@ async function fetchImages(html) {
                         width: candidate.width,
                         height: candidate.height
                     });
-                    const imgRes = await fetch(imageUrl, {
+                    const imgRes = await fetch(resolveDuckDuckGoImageUrl(imageUrl), {
                         headers: {
                             'User-Agent': DDG_UA,
                             'Referer': 'https://duckduckgo.com/',
@@ -814,7 +868,129 @@ async function fetchImages(html) {
             return null;
         } catch (err) {
             debugImageLog(`[DEBUG IMAGES] Error en DDG API para "${slot.keyword}":`, err.message);
+            warnImageLog('DuckDuckGo API flow failed', {
+                keyword: slot.keyword,
+                error: err.message
+            });
             return null;
+        }
+    }
+
+    async function fetchSlotImageDuckDuckGoBrowser(slot) {
+        let page = null;
+        try {
+            if (!browser || !browser.isConnected()) {
+                await initBrowser();
+            }
+            if (!browser) {
+                warnImageLog('DuckDuckGo browser fallback unavailable', {
+                    keyword: slot.keyword,
+                    reason: 'browser_not_initialized'
+                });
+                return null;
+            }
+
+            debugImageLog(`[DEBUG IMAGES] Reintentando "${slot.keyword}" con DuckDuckGo browser fallback...`);
+
+            page = await browser.newPage();
+            await page.setUserAgent(DDG_UA);
+            await page.setViewport({ width: 1365, height: 900 });
+            await page.setExtraHTTPHeaders({
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Upgrade-Insecure-Requests': '1'
+            });
+
+            const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(slot.keyword)}&iax=images&ia=images`;
+            await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            await page.waitForNetworkIdle({ idleTime: 500, timeout: 5000 }).catch(() => {});
+            await page.waitForFunction(() => {
+                return Array.from(document.images).some(img => {
+                    const src = img.currentSrc || img.src || '';
+                    return /^https?:\/\//i.test(src) && !/duckduckgo\.com\/assets/i.test(src);
+                });
+            }, { timeout: 7000 }).catch(() => {});
+
+            const rawCandidates = await page.evaluate(() => {
+                const items = [];
+                const seen = new Set();
+
+                for (const img of Array.from(document.images)) {
+                    const imageUrl = img.currentSrc || img.src || '';
+                    if (!/^https?:\/\//i.test(imageUrl)) continue;
+                    if (/duckduckgo\.com\/assets/i.test(imageUrl)) continue;
+
+                    const fingerprint = imageUrl.split('#')[0].split('?')[0];
+                    if (seen.has(fingerprint)) continue;
+                    seen.add(fingerprint);
+
+                    const parentLink = img.closest('a[href]');
+                    items.push({
+                        imageUrl,
+                        sourceUrl: parentLink ? parentLink.href : '',
+                        title: img.alt || (parentLink ? parentLink.textContent || '' : ''),
+                        width: img.naturalWidth || img.width || 0,
+                        height: img.naturalHeight || img.height || 0
+                    });
+                }
+
+                return items.slice(0, 24);
+            });
+
+            if (!rawCandidates.length) {
+                warnImageLog('DuckDuckGo browser fallback produced no candidates', {
+                    keyword: slot.keyword
+                });
+                return null;
+            }
+
+            debugImageLog(`[DEBUG IMAGES] DDG browser fallback encontró ${rawCandidates.length} candidatos para "${slot.keyword}"`);
+
+            const candidates = buildCandidatePool(rawCandidates, slot);
+            const downloadOrder = buildDownloadOrder(candidates, slot);
+
+            for (let i = 0; i < downloadOrder.length; i++) {
+                const candidate = downloadOrder[i];
+                if (!candidate.imageUrl) continue;
+
+                try {
+                    const imgRes = await fetch(resolveDuckDuckGoImageUrl(candidate.imageUrl), {
+                        headers: {
+                            'User-Agent': DDG_UA,
+                            'Referer': 'https://duckduckgo.com/'
+                        },
+                        signal: AbortSignal.timeout(10000)
+                    });
+
+                    if (!imgRes.ok) continue;
+                    const contentType = imgRes.headers.get('content-type') || '';
+                    if (!contentType.startsWith('image/')) continue;
+
+                    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+                    if (imgBuffer.length < 5000) continue;
+
+                    usedImageFingerprints.add(candidate.fingerprint);
+                    debugImageLog(`[DEBUG IMAGES] Imagen descargada desde DDG browser fallback para "${slot.keyword}" (${Math.round(imgBuffer.length / 1024)}KB)`);
+                    return `data:${contentType};base64,${imgBuffer.toString('base64')}`;
+                } catch (err) {
+                    debugImageLog(`[DEBUG IMAGES] Error descargando candidato ${i + 1} de DDG browser fallback:`, err.message);
+                }
+            }
+
+            warnImageLog('DuckDuckGo browser fallback could not download any usable image', {
+                keyword: slot.keyword,
+                candidates: rawCandidates.length
+            });
+            return null;
+        } catch (err) {
+            warnImageLog('DuckDuckGo browser fallback failed', {
+                keyword: slot.keyword,
+                error: err.message
+            });
+            return null;
+        } finally {
+            if (page) {
+                await page.close().catch(() => {});
+            }
         }
     }
 
@@ -872,8 +1048,14 @@ async function fetchImages(html) {
         // DuckDuckGo first — it searches the real web (anime, characters, artworks, etc.)
         dataUri = await fetchSlotImageDuckDuckGo(slot);
         if (!dataUri) {
+            dataUri = await fetchSlotImageDuckDuckGoBrowser(slot);
+        }
+        if (!dataUri) {
             // Pixabay as fallback — only good for generic stock photos
             debugImageLog(`[DEBUG IMAGES] DDG falló, usando Pixabay para "${slot.keyword}"`);
+            warnImageLog('DuckDuckGo failed, falling back to Pixabay', {
+                keyword: slot.keyword
+            });
             dataUri = await fetchSlotImagePixabay(slot);
         }
         results.push(dataUri ? { slot, dataUri } : null);
