@@ -1,4 +1,4 @@
-const buildStage1Prompt = require('./stage1-content');
+const buildStage1 = require('./stage1-content');
 const buildStage2Prompt = require('./stage2-design');
 const buildStage3Prompt = require('./stage3-compositor');
 const { createLogger, ErrorCategory } = require('../utils/logger');
@@ -132,14 +132,53 @@ function extractJson(text) {
  *   chat SSE response without buffering the whole output first.
  * @returns {Promise<string>} The full text response
  */
+// Safety cap per pipeline stage. In production a single Stage 2 (Design) call
+// ran for 275s and streamed 0 chars (OpenRouter + gemini-2.5-flash-lite with
+// reasoning effort=medium). A hard wall-clock budget turns that into a fast,
+// retryable timeout instead of a minutes-long user wait. Configurable via env.
+const STAGE_TIMEOUT_MS =
+  (Number(process.env.STAGE_TIMEOUT_MS) > 0 ? Number(process.env.STAGE_TIMEOUT_MS) : 180000);
+
 async function runStage(tryModelsFn, prompt, stageName, onChunk = null) {
   pipelineLog.info(ErrorCategory.PIPELINE, 'Stage started', { stage: stageName });
   const startTime = Date.now();
 
+  const stageTimeoutError = () => {
+    const elapsedSeconds = (Date.now() - startTime) / 1000;
+    pipelineLog.warn(ErrorCategory.PIPELINE, 'Stage wall-clock timeout reached', {
+      stage: stageName,
+      timeoutMs: STAGE_TIMEOUT_MS,
+      elapsedSeconds: Number(elapsedSeconds.toFixed(1))
+    });
+    return new Error(`STAGE_TIMEOUT: ${stageName} exceeded ${STAGE_TIMEOUT_MS}ms wall-clock limit`);
+  };
+
   const result = await tryModelsFn(prompt);
 
+  const iterator = result.stream[Symbol.asyncIterator]();
   let fullText = '';
-  for await (const chunk of result.stream) {
+  for (;;) {
+    const elapsedMs = Date.now() - startTime;
+    if (elapsedMs > STAGE_TIMEOUT_MS) throw stageTimeoutError();
+
+    // Race every read against the remaining time budget so a provider that
+    // accepts the request but then stalls mid-stream still gets cut off.
+    let next;
+    try {
+      next = await Promise.race([
+        iterator.next(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('STAGE_TIMEOUT')), STAGE_TIMEOUT_MS - elapsedMs)
+        )
+      ]);
+    } catch (err) {
+      if (err && err.message === 'STAGE_TIMEOUT') throw stageTimeoutError();
+      throw err;
+    }
+
+    if (next.done) break;
+    const chunk = next.value;
+
     // The stream may be plain text (legacy) or tagged {type,text} objects
     // (chat/reasoning-aware mode). Normalize so we always get a string for
     // the JSON parse AND can still forward reasoning to the client live.
@@ -153,10 +192,23 @@ async function runStage(tryModelsFn, prompt, stageName, onChunk = null) {
     }
   }
 
-  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  const elapsedSeconds = (Date.now() - startTime) / 1000;
+
+  if (fullText.trim().length === 0) {
+    // Provider returned 200 but streamed nothing usable. This was the
+    // production failure mode (`STAGE2_PARSE_ERROR ... Raw: <empty>`): we
+    // sent a 275s response with 0 chars into the JSON parser and then burned
+    // the retries on the same slow path. Fail fast with a recognizable error.
+    pipelineLog.warn(ErrorCategory.PIPELINE, 'Stage returned empty output', {
+      stage: stageName,
+      elapsedSeconds: Number(elapsedSeconds.toFixed(1))
+    });
+    throw new Error('STAGE_EMPTY_OUTPUT');
+  }
+
   pipelineLog.success(ErrorCategory.PIPELINE, 'Stage completed', {
     stage: stageName,
-    elapsedSeconds: Number(elapsed),
+    elapsedSeconds: Number(elapsedSeconds.toFixed(1)),
     outputChars: fullText.length
   });
 
@@ -193,9 +245,12 @@ async function runContentStageWithRetry({ task, maxRetries = 2, stageName, stage
     } catch (err) {
       lastError = err;
       const msg = err && err.message ? err.message : '';
-      // Permanent failure: the user's topic was rejected by the model.
-      // Retrying with the same prompt will only get the same rejection.
+      // Permanent failures: no point retrying. The user's topic was rejected,
+      // or every configured provider is out of quota — retrying only multiplies
+      // the wait (in production a QUOTA_EXHAUSTED attempt was retried 3×, each
+      // attempt burning 5+ minutes of provider timeouts).
       if (msg.startsWith('CONTENT_REJECTED')) throw err;
+      if (msg === 'QUOTA_EXHAUSTED') throw err;
       // Out of retries — bubble up so the SSE error path can show a friendly
       // message and the user can try again with different wording.
       if (attempt >= maxAttempts) throw err;
@@ -317,9 +372,9 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
       maxRetries: 2,
       onStageUpdate,
       task: async () => {
-        const stage1Prompt = buildStage1Prompt(rawInput, targetLanguage);
+        const stage1Prompt = buildStage1.buildStage1Prompt(rawInput, targetLanguage);
         const stage1Raw = await runStage(
-          (p) => callStage1(p, fileContext),
+          (p) => callStage1(p, fileContext, { reasoning: null }),
           stage1Prompt,
           'Stage 1 (Content)',
           stageChunk('stage1')
@@ -372,7 +427,10 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
     onStageUpdate,
     task: async () => {
       const stage2Prompt = buildStage2Prompt(rawInput, contentJson);
-      const stage2Raw = await runStage(callStage2, stage2Prompt, 'Stage 2 (Design)', stageChunk('stage2'));
+      const stage2Raw = await runStage(
+        (p) => callStage2(p, null, { reasoning: null }),
+        stage2Prompt, 'Stage 2 (Design)', stageChunk('stage2')
+      );
 
       let parsed;
       try {
@@ -414,7 +472,7 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
   await new Promise(r => setTimeout(r, 1000));
   pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 3 streaming started');
   
-  const stage3Stream = await callStage3(stage3Prompt);
+  const stage3Stream = await callStage3(stage3Prompt, null, { reasoning: null });
   
   return {
     stage3Stream,

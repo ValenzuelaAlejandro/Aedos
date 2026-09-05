@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/backend/server.js",
     "dev": "node --watch src/backend/server.js",
-    "build": "sh scripts/install-chrome.sh",
-    "postinstall": "sh scripts/install-chrome.sh || true"
+    "build": "node scripts/install-chrome.js",
+    "postinstall": "node scripts/install-chrome.js"
   },
   "dependencies": {
     "@google/genai": "^2.6.0",

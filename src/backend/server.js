@@ -1947,7 +1947,13 @@ async function callOpenRouter(prompt, stageName, openrouterModels, fileContext =
 // ── Gemini direct with 503 retry ─────────────────────────────────────────────
 const GEMINI_503_MAX_RETRIES = 2;
 const GEMINI_503_RETRY_BASE_DELAY_MS = 500;
-const PROVIDER_ACCEPT_TIMEOUT_MS = 10000;
+// How long we wait for the provider to ACCEPT the request (response headers).
+// 10s was too aggressive: when Gemini/OpenRouter are busy the reasoning models
+// can take >10s just to open the SSE stream, which triggered the avalanche of
+// GEMINI_ACCEPT_TIMEOUT → fallback → timeout → QUOTA_EXHAUSTED in production.
+// Now configurable via env; 30s default gives providers room to queue without
+// letting the request hang forever.
+const PROVIDER_ACCEPT_TIMEOUT_MS = parsePositiveInt(process.env.PROVIDER_ACCEPT_TIMEOUT_MS, 30000);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -2093,19 +2099,21 @@ function findChromeExecutable(cacheDir) {
         // readdirSync with recursive returns relative paths (POSIX separators on Linux)
         const files = fs.readdirSync(cacheDir, { recursive: true });
 
-        // Priority 1: Find chrome-headless-shell binary (modern Puppeteer preference)
+        // Priority 1: Find chrome-headless-shell binary (modern Puppeteer preference).
+        // On Windows the binary is chrome-headless-shell.exe and on POSIX it has
+        // no extension, so match by base name with the optional .exe suffix.
         const shell = files.find(f => {
             const base = path.basename(String(f));
-            if (base !== 'chrome-headless-shell') return false;
+            if (base !== 'chrome-headless-shell' && base !== 'chrome-headless-shell.exe') return false;
             if (String(f).includes('.zip')) return false;
             return isFile(path.join(cacheDir, String(f)));
         });
         if (shell) return path.join(cacheDir, String(shell));
 
-        // Priority 2: Find standard chrome binary
+        // Priority 2: Find standard chrome binary (chrome.exe on Windows).
         const chrome = files.find(f => {
             const base = path.basename(String(f));
-            if (base !== 'chrome') return false;
+            if (base !== 'chrome' && base !== 'chrome.exe') return false;
             if (String(f).includes('.zip')) return false;
             if (String(f).includes('chrome-headless-shell')) return false;
             return isFile(path.join(cacheDir, String(f)));
@@ -2185,9 +2193,9 @@ function extractChromeFromZip(cacheDir) {
 }
 
 async function installChrome(cacheDir) {
-    // Bash-style VAR=value env assignment doesn't work on Windows.
-    // On dev machines Chrome is already found via Puppeteer's default cache, so skip.
-    if (process.platform === 'win32') return;
+    // Install into the visible cache dir, using an explicit env map so the
+    // command is cross-platform (a bash-style `VAR=value cmd` prefix does not
+    // work on Windows cmd.exe).
     puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Chrome binary not found — attempting runtime install', { cacheDir });
     try {
         const { execSync: execSyncInstall } = require('child_process');
@@ -2207,8 +2215,13 @@ async function installChrome(cacheDir) {
         }
 
         execSyncInstall(
-            `PUPPETEER_CACHE_DIR="${cacheDir}" npx puppeteer browsers install chrome-headless-shell`,
-            { stdio: 'pipe', timeout: 5 * 60 * 1000, cwd: path.join(__dirname, '..', '..') }
+            'npx puppeteer browsers install chrome-headless-shell',
+            {
+                stdio: 'pipe',
+                timeout: 5 * 60 * 1000,
+                cwd: path.join(__dirname, '..', '..'),
+                env: { ...process.env, PUPPETEER_CACHE_DIR: cacheDir }
+            }
         );
         puppeteerLog.info(ErrorCategory.PUPPETEER, 'Chrome runtime install completed');
     } catch (installErr) {
@@ -3356,6 +3369,8 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
         const isPipelineError = error.message && (
             error.message.startsWith('STAGE1_') ||
             error.message.startsWith('STAGE2_') ||
+            error.message.startsWith('STAGE_TIMEOUT') ||
+            error.message.startsWith('STAGE_EMPTY_OUTPUT') ||
             error.message.startsWith('CONTENT_REJECTED')
         );
         const isFlashNoCss = error.message && error.message.startsWith('FLASH_NO_DESIGN_CSS');
@@ -3365,6 +3380,18 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
             userMessage = 'The AI service has reached its usage limit. Please try again in a few minutes.';
             log.warn(ErrorCategory.QUOTA, 'All configured models are quota exhausted', {
                 requestId
+            });
+        } else if (error.message && error.message.startsWith('STAGE_TIMEOUT')) {
+            userMessage = 'The AI took too long to respond. Please try again in a moment.';
+            log.error(ErrorCategory.PIPELINE, 'Stage timed out', {
+                requestId,
+                details: error.message
+            });
+        } else if (error.message && error.message.startsWith('STAGE_EMPTY_OUTPUT')) {
+            userMessage = 'The AI returned an empty response. Please try again in a moment.';
+            log.error(ErrorCategory.PIPELINE, 'Stage returned empty output', {
+                requestId,
+                details: error.message
             });
         } else if (isPipelineError) {
             userMessage = 'The AI had trouble understanding the request. Please try rephrasing or adding more detail.';
