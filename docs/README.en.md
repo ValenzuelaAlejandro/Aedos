@@ -56,7 +56,6 @@ Node.js + Express backend
        +--> OpenRouter (fallback by model/stage)
        +--> Upstash Redis (rate limiting, with in-memory fallback)
        +--> Puppeteer / Chrome Headless (HTML -> PDF)
-       +--> Optional Pixabay fallback (remote image enrichment)
 ```
 
 Important notes:
@@ -581,7 +580,6 @@ At least one of these must exist:
 |----------|-------------|
 | `UPSTASH_REDIS_REST_URL` | Redis URL |
 | `UPSTASH_REDIS_REST_TOKEN` | Redis token |
-| `PIXABAY_API_KEY` | Optional image-search fallback |
 | `PUPPETEER_EXECUTABLE_PATH` | Manual Chrome binary path |
 
 ---
