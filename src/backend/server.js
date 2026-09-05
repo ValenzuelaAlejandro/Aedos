@@ -684,6 +684,25 @@ async function fetchImages(html) {
     const DDG_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
     const DDG_IMAGE_HOST_CANDIDATES = ['duckduckgo.com', 'start.duckduckgo.com'];
 
+    // ── DuckDuckGo Images is broken from Render ─────────────────────────────
+    // Attempts from the Render datacenter time out at the DNS/connection phase
+    // on BOTH duckduckgo.com and start.duckduckgo.com (dns_lookup_complete_timeout
+    // and net::ERR_CONNECTION_TIMED_OUT). Every broken lookup burns ~25s of the
+    // http flow plus the whole 25s headless-browser fallback, so a 3-image deck
+    // can stall 2+ minutes before Pixabay ever gets a chance. In production we
+    // skip DDG entirely and go straight to Pixabay (which works from Render).
+    // Local dev keeps DDG by default; override anywhere with DDG_IMAGES_ENABLED=false/true.
+    const ddgImagesEnabled = IS_DEVELOPMENT
+        ? String(process.env.DDG_IMAGES_ENABLED || '').toLowerCase() !== 'false'
+        : String(process.env.DDG_IMAGES_ENABLED || '').toLowerCase() === 'true';
+    if (!ddgImagesEnabled) {
+        imageLog.warn(ErrorCategory.DOWNLOAD, 'DuckDuckGo Images disabled; using Pixabay only', {
+            reason: IS_DEVELOPMENT
+                ? 'overridden via DDG_IMAGES_ENABLED=false'
+                : 'DDG unreachable from production, default off'
+        });
+    }
+
     function toPositiveInt(value) {
         const parsed = parseInt(String(value || '').replace(/[^\d]/g, ''), 10);
         return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
@@ -1316,17 +1335,24 @@ async function fetchImages(html) {
     const results = [];
     for (const slot of slots) {
         let dataUri = null;
-        // DuckDuckGo first — it searches the real web (anime, characters, artworks, etc.)
-        dataUri = await fetchSlotImageDuckDuckGo(slot);
-        if (!dataUri) {
-            dataUri = await fetchSlotImageDuckDuckGoBrowser(slot);
+        // DuckDuckGo first — it searches the real web (anime, characters, artworks, etc.).
+        // Skipped entirely in production (DDG times out from Render; see header flag).
+        if (ddgImagesEnabled) {
+            dataUri = await fetchSlotImageDuckDuckGo(slot);
+            if (!dataUri) {
+                dataUri = await fetchSlotImageDuckDuckGoBrowser(slot);
+            }
         }
         if (!dataUri) {
-            // Pixabay as fallback — only good for generic stock photos
-            debugImageLog(`[DEBUG IMAGES] DDG falló, usando Pixabay para "${slot.keyword}"`);
-            warnImageLog('DuckDuckGo failed, falling back to Pixabay', {
-                keyword: slot.keyword
-            });
+            if (ddgImagesEnabled) {
+                // DDG was attempted and failed — log the fallback.
+                debugImageLog(`[DEBUG IMAGES] DDG falló, usando Pixabay para "${slot.keyword}"`);
+                warnImageLog('DuckDuckGo failed, falling back to Pixabay', {
+                    keyword: slot.keyword
+                });
+            } else {
+                debugImageLog(`[DEBUG IMAGES] DDG deshabilitado, usando Pixabay para "${slot.keyword}"`);
+            }
             dataUri = await fetchSlotImagePixabay(slot);
         }
         results.push(dataUri ? { slot, dataUri } : null);
