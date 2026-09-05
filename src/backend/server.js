@@ -2401,6 +2401,18 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
         cancelled = true;
     });
 
+    // A crashed/closed browser tab (or a proxy that killed the connection during
+    // a long generation) makes the next res.write() emit an 'error' event on the
+    // response stream. Without a listener Node throws and restarts the whole
+    // process — the "random crash" on Render. Listen, log, and stop the loop.
+    res.on('error', (err) => {
+        log.warn(ErrorCategory.STREAM, 'Skeleton response stream error, marking request cancelled', {
+            requestId,
+            error: String((err && err.message) || err)
+        });
+        cancelled = true;
+    });
+
     try {
         const opciones = req.body;
         const requestedLanguage = req.body.language || req.body.idioma || 'auto';
@@ -2617,6 +2629,18 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
         cancelled = true;
     });
 
+    // Same socket-defence as /generate-skeleton: a disconnected client turns the
+    // next res.write() into an 'error' event on the response stream. With no
+    // listener the process dies mid-stream and Render restarts the service.
+    // Swallow it, log it, and let the 'close' handler / cancelled flag unwind.
+    res.on('error', (err) => {
+        log.warn(ErrorCategory.STREAM, 'Generation response stream error, marking request cancelled', {
+            requestId,
+            error: String((err && err.message) || err)
+        });
+        cancelled = true;
+    });
+
     try {
         const opciones = req.body;
         const requestedLanguage = req.body.language || req.body.idioma || 'auto';
@@ -2716,8 +2740,10 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
         // Keep the SSE stream alive during slow model responses so the browser/proxy
         // does not assume the request stalled while OpenRouter is still generating.
         sseKeepAlive = setInterval(() => {
-            if (!completed && !cancelled && !res.writableEnded) {
-                res.write(`data: ${JSON.stringify({ heartbeat: true })}\n\n`);
+            if (!completed && !cancelled && !res.writableEnded && !res.destroyed) {
+                try {
+                    res.write(`data: ${JSON.stringify({ heartbeat: true })}\n\n`);
+                } catch (_) { /* socket already gone, loop will unwind via cancelled */ }
             }
         }, 25000);
 
@@ -2988,6 +3014,9 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                         });
                         break;
                     }
+                    // Never write to a dead socket: prevents a pointless 'error'
+                    // event burst and lets the loop end gracefully.
+                    if (res.writableEnded || res.destroyed) break;
 
                     // Normalize structured vs. plain-text stream shapes.
                     let chunkText = null;
@@ -3081,16 +3110,18 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                 tryModelsStage2: tryModelsStage2Thinking,
                 tryModelsStage3: tryModelsStage3Thinking,
                 onStageUpdate: (stage, data) => {
-                    if (!cancelled) {
+                    if (!cancelled && !res.writableEnded && !res.destroyed) {
                         const stageNames = { stage1: 'content', stage2: 'design', stage3: 'compositing' };
-                        res.write(`data: ${JSON.stringify({ pipeline: true, stage: stageNames[stage] || stage, ...data })}\n\n`);
+                        try {
+                            res.write(`data: ${JSON.stringify({ pipeline: true, stage: stageNames[stage] || stage, ...data })}\n\n`);
+                        } catch (_) { /* socket gone */ }
                     }
                 },
                 onChunk: (item) => {
                     // Forward Stage 1/2 reasoning tokens to the client.
                     // Stage 3 reasoning is forwarded inside consumeModelStream
                     // so we don't double-emit here.
-                    if (!cancelled && item && item.type === 'reasoning' && item.stage !== 'stage3') {
+                    if (!cancelled && !res.writableEnded && !res.destroyed && item && item.type === 'reasoning' && item.stage !== 'stage3') {
                         try {
                             res.write(`data: ${JSON.stringify({ reasoning: item.text, stage: item.stage })}\n\n`);
                         } catch (_) { /* ignore broken pipe */ }
@@ -3442,6 +3473,16 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
 app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, checkFinalizeLimits, async (req, res) => {
     const requestId = req.requestId || 'n/a';
 
+    // PDF rendering can take tens of seconds; the tab often closes in the
+    // meantime. res.json() to a dead socket emits 'error' on the response
+    // stream — no listener = process crash. Keep it non-fatal.
+    res.on('error', (err) => {
+        puppeteerLog.warn(ErrorCategory.STREAM, 'Finalize response stream error (non-fatal)', {
+            requestId,
+            error: String((err && err.message) || err)
+        });
+    });
+
     if (activeFinalize >= PUPPETEER_MAX_CONCURRENT) {
         puppeteerLog.warn(ErrorCategory.QUEUE, 'Puppeteer queued due to concurrency limit', {
             requestId,
@@ -3686,6 +3727,16 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
 
 app.get('/download/:filename', (req, res) => {
     const requestId = req.requestId || 'n/a';
+
+    // If the client aborts mid-download, res emits 'error' on the response
+    // stream. res.download already routes errors to its callback, but the
+    // socket-level 'error' still needs a listener or Node dies.
+    res.on('error', (err) => {
+        log.warn(ErrorCategory.DOWNLOAD, 'Download response stream error (non-fatal)', {
+            requestId,
+            error: String((err && err.message) || err)
+        });
+    });
     const filename = req.params.filename;
 
     // Security: avoid path traversal
@@ -3733,6 +3784,34 @@ app.get('/download/:filename', (req, res) => {
             // browser pre-fetch) even though the file was delivered successfully.
         }
     });
+});
+
+// ── Global process safety net ─────────────────────────────────────────────
+// Long-lived SSE responses make socket-level failures (EPIPE / aborted /
+// client disconnect) common. Node's default behavior when an 'error' event
+// has no listener — or a promise rejection is unhandled — is to terminate the
+// process. On Render that surfaces as a random "crash": a generation dies
+// mid-stream and the whole service restarts mid-request. We keep the process
+// alive and log instead; the per-request res.on('error') handlers unwind the
+// affected loop gracefully while unrelated requests keep working.
+process.on('uncaughtException', (err) => {
+    try {
+        log.error(ErrorCategory.UNKNOWN, 'Uncaught exception caught, process kept alive', {
+            error: err && err.stack
+                ? String(err.stack).split('\n').slice(0, 6).join(' | ')
+                : String(err)
+        });
+    } catch (_) { /* logging must never crash */ }
+});
+
+process.on('unhandledRejection', (reason) => {
+    try {
+        log.error(ErrorCategory.UNKNOWN, 'Unhandled promise rejection caught, process kept alive', {
+            error: reason && reason.stack
+                ? String(reason.stack).split('\n').slice(0, 6).join(' | ')
+                : String(reason)
+        });
+    } catch (_) { /* logging must never crash */ }
 });
 
 if (require.main === module) {
