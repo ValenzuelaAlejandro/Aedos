@@ -42,6 +42,10 @@ test('outerShdw converts offsets, direction, blur and alpha', () => {
 
     assert.match(shadowEffectXml('rgba(0, 0, 0, 0.45) 4px 0 8px'), /dir="0"/);
     assert.match(shadowEffectXml('rgba(0, 0, 0, 0.45) -3px -3px 6px'), /dir="13500000"/);
+    const withoutAlpha = xml.replace('<a:alpha val="45000"/>', '');
+    assert.notEqual(withoutAlpha, xml);
+    assert.match(xml, /alpha val="45000"/);
+    assert.doesNotMatch(withoutAlpha, /alpha val="45000"/);
 });
 
 test('ring shadow becomes an editable border and is not emitted as outerShdw', async () => {
@@ -63,6 +67,9 @@ test('multiple and inset shadows select the dominant shadow and expose warnings'
     assert.equal(inset.dominant.inset, true);
     assert.match(shadowEffectXml(inset), /outerShdw/);
     assert.equal(inset.warnings[0].fallback, 'aplicar la sombra dominante como outerShdw');
+    const ignoredInset = { ...inset.dominant, inset: false };
+    assert.notDeepEqual(ignoredInset, inset.dominant);
+    assert.equal(inset.warnings.some(warning => /inset/.test(warning.motivo)), true);
 });
 
 test('text-shadow is placed in a run effectLst', async () => {
