@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/backend/server.js",
     "dev": "node --watch src/backend/server.js",
-    "test": "node --test tests/pptx-export-text.test.js tests/pptx-export-layers.test.js tests/pptx-export-styles.test.js",
+    "test": "node --test tests/pptx-export-text.test.js tests/pptx-export-layers.test.js tests/pptx-export-styles.test.js tests/pptx-export-shadows.test.js",
     "build": "node scripts/install-chrome.js",
     "postinstall": "node scripts/install-chrome.js"
   },

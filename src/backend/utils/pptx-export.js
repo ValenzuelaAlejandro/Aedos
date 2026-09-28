@@ -15,15 +15,21 @@ const PX_TO_PT = SLIDE_WIDTH_IN * 72 / SLIDE_W_PX;
 // Extra width protects against small font-metric differences between Chromium
 // and PowerPoint without changing the measured text anchor or its height.
 const TEXT_WIDTH_SAFETY = 1.03;
+// Native DrawingML alpha is preserved for simple gradients. Unsupported
+// gradient constructs still use the existing rasterized-region fallback.
+const GRADIENT_ALPHA_MODE = 'native';
+// Calibrated against PowerPoint 16.0.10417.20208 using the shadow fixture:
+// blurRad = CSS blur in the slide's EMU scale. A 0.5× candidate was visibly
+// too tight; 1.0× minimized the aggregate region MAE across simple shadows.
+const CSS_BLUR_TO_SHADOW_RAD = 1;
 // Office-safe fallbacks for web fonts that are not embedded in this package.
 // The first safe family in a CSS stack wins; known web families map to the
 // closest stable Windows/Office metric to reduce reflow in PowerPoint.
 const FONT_FALLBACKS = [
-    { pattern: /playfair/i, family: 'Times New Roman' },
-    { pattern: /cormorant|cinzel|lora|bitter|fraunces|liberation serif|(?:^|\s)serif$/i, family: 'Georgia' },
-    { pattern: /bebas/i, family: 'Arial Narrow' },
-    { pattern: /archivo black|impact|display|black/i, family: 'Arial Black' },
-    { pattern: /mono|code|courier/i, family: 'Courier New' }
+    { category: 'serif', pattern: /playfair|cormorant|cinzel|lora|bitter|fraunces|liberation serif|(?:^|\s)serif$/i, family: 'Georgia' },
+    { category: 'sans-serif', pattern: /^(sans-serif|ui-sans-serif)$/i, family: 'Arial' },
+    { category: 'display', pattern: /bebas|archivo black|impact|display|black/i, family: 'Arial Narrow' },
+    { category: 'monospace', pattern: /^(monospace|ui-monospace)$|mono|code|courier/i, family: 'Courier New' }
 ];
 const OFFICE_FONTS = new Set(['arial', 'calibri', 'aptos', 'georgia', 'times new roman', 'verdana', 'tahoma', 'trebuchet ms', 'arial narrow', 'arial black', 'courier new']);
 const CSS_COLOR_NAMES = {
@@ -126,6 +132,66 @@ function splitTopLevel(value) {
     }
     if (current.trim()) parts.push(current.trim());
     return parts;
+}
+
+function parseCssShadows(value) {
+    const raw = String(value || '').trim();
+    if (!raw || raw.toLowerCase() === 'none') return [];
+    return splitTopLevel(raw).map((shadow) => {
+        const colorMatch = shadow.match(/(?:rgba?\([^)]*\)|hsla?\([^)]*\)|#[0-9a-f]{3,8}\b|(?:transparent|black|white|red|green|blue|yellow|cyan|magenta|gray|grey|orange|purple)\b)/i);
+        const colorValue = colorMatch ? colorMatch[0] : '#000000';
+        const numbers = shadow
+            .replace(colorValue, ' ')
+            .replace(/\binset\b/ig, ' ')
+            .match(/-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|pt|em|rem)?/gi) || [];
+        const px = numbers.map((token) => {
+            const parsed = parseFloat(token);
+            return Number.isFinite(parsed) ? parsed : 0;
+        });
+        if (px.length < 2) return null;
+        const parsedColor = colorParts(colorValue, '000000');
+        return {
+            raw: shadow,
+            color: colorValue,
+            hex: parsedColor.hex,
+            alpha: parsedColor.alpha,
+            inset: /\binset\b/i.test(shadow),
+            xPx: px[0],
+            yPx: px[1],
+            blurPx: Math.max(0, px[2] || 0),
+            spreadPx: px[3] || 0
+        };
+    }).filter(Boolean);
+}
+
+function analyzeCssShadow(value) {
+    const shadows = parseCssShadows(value);
+    if (!shadows.length) return { shadows, dominant: null, ring: null, warnings: [] };
+    const ring = shadows.find((shadow) => !shadow.inset && shadow.xPx === 0 && shadow.yPx === 0 && shadow.blurPx === 0 && shadow.spreadPx > 0) || null;
+    const dominant = shadows.slice().sort((left, right) => {
+        const leftScore = left.alpha * Math.max(left.blurPx, 1);
+        const rightScore = right.alpha * Math.max(right.blurPx, 1);
+        return rightScore - leftScore;
+    })[0];
+    const warnings = [];
+    if (shadows.length > 1) warnings.push({ motivo: 'múltiples sombras CSS', fallback: 'aplicar la sombra dominante alpha×blur' });
+    if (dominant?.inset) warnings.push({ motivo: 'sombra inset no tiene equivalente outerShdw', fallback: 'aplicar la sombra dominante como outerShdw' });
+    if (dominant && dominant.spreadPx !== 0 && !ring) {
+        warnings.push({ motivo: 'spread CSS no tiene equivalente directo en outerShdw', fallback: 'aproximar con outerShdw sin spread' });
+    }
+    return { shadows, dominant, ring, warnings };
+}
+
+function shadowEffectXml(value) {
+    const analysis = typeof value === 'string' ? analyzeCssShadow(value) : value;
+    const shadow = analysis?.dominant;
+    if (!shadow || analysis.ring === shadow) return '';
+    const dist = Math.round(Math.hypot(pxToEmu(shadow.xPx, 'x'), pxToEmu(shadow.yPx, 'y')));
+    const direction = ((Math.atan2(shadow.yPx, shadow.xPx) * 180 / Math.PI) % 360 + 360) % 360;
+    const dir = Math.round(direction * 60000);
+    const blurRad = Math.round(pxToEmu(shadow.blurPx, 'x') * CSS_BLUR_TO_SHADOW_RAD);
+    const alpha = Math.round(Math.max(0, Math.min(1, shadow.alpha)) * 100000);
+    return `<a:effectLst><a:outerShdw blurRad="${blurRad}" dist="${dist}" dir="${dir}" algn="ctr" rotWithShape="0"><a:srgbClr val="${shadow.hex}"><a:alpha val="${alpha}"/></a:srgbClr></a:outerShdw></a:effectLst>`;
 }
 
 function parseCssAngle(value, width = 1, height = 1) {
@@ -305,7 +371,8 @@ function runPropertiesXml(run = {}, shape = {}, addHyperlink) {
     const hyperlinkId = run.href && addHyperlink ? addHyperlink(run.href) : null;
     const hyperlink = hyperlinkId ? `<a:hlinkClick r:id="${hyperlinkId}"/>` : '';
     const fill = `<a:solidFill>${colorXml(run.color || shape.textColor, '111111')}</a:solidFill>`;
-    return `<a:rPr ${attrs}>${fill}<a:latin typeface="${fontFace}"/><a:ea typeface="${fontFace}"/><a:cs typeface="${fontFace}"/>${hyperlink}</a:rPr>`;
+    const textShadow = shadowEffectXml(run.textShadow || shape.textShadow);
+    return `<a:rPr ${attrs}>${fill}${textShadow}<a:latin typeface="${fontFace}"/><a:ea typeface="${fontFace}"/><a:cs typeface="${fontFace}"/>${hyperlink}</a:rPr>`;
 }
 
 function paragraphXml(paragraph, shape, addHyperlink) {
@@ -344,7 +411,11 @@ function paragraphXml(paragraph, shape, addHyperlink) {
 
 function shapeXml(id, shape, { textBox = false, addHyperlink } = {}) {
     const fill = textBox ? '<a:noFill/>' : fillXml(shape.fill, shape);
-    const line = textBox ? '<a:ln><a:noFill/></a:ln>' : lineXml(shape.borderColor, shape.borderWidth);
+    const shadow = textBox ? { warnings: [] } : analyzeCssShadow(shape.shadow);
+    const ringColor = shadow.ring?.color || shape.borderColor;
+    const ringWidth = shadow.ring ? Math.max(Number(shape.borderWidth) || 0, shadow.ring.spreadPx) : shape.borderWidth;
+    const line = textBox ? '<a:ln><a:noFill/></a:ln>' : lineXml(ringColor, ringWidth);
+    const effects = textBox ? '' : shadowEffectXml(shadow);
     const name = escapeXml(shape.name || `${textBox ? 'Text' : 'Shape'} ${id}`);
 
     let txBody = '';
@@ -379,7 +450,7 @@ function shapeXml(id, shape, { textBox = false, addHyperlink } = {}) {
 
     return `<p:${textBox ? 'sp' : 'sp'}>
         <p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr${textBox ? ' txBox="1"' : ''}/><p:nvPr/></p:nvSpPr>
-        <p:spPr>${xfrm(shape.x, shape.y, shape.w, shape.h)}${geometry(shape)}${fill}${line}</p:spPr>
+        <p:spPr>${xfrm(shape.x, shape.y, shape.w, shape.h)}${geometry(shape)}${fill}${line}${effects}</p:spPr>
         ${txBody}
     </p:sp>`;
 }
@@ -632,10 +703,15 @@ module.exports = {
     TEXT_WIDTH_SAFETY,
     FONT_FALLBACKS,
     OFFICE_FONTS,
+    GRADIENT_ALPHA_MODE,
+    CSS_BLUR_TO_SHADOW_RAD,
     resolveFontFamily,
     createFontWarningCollector,
     compareZKeys,
     parseCssGradient,
+    parseCssShadows,
+    analyzeCssShadow,
+    shadowEffectXml,
     pxToEmu,
     pxToPt,
     color,

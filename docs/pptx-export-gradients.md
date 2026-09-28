@@ -42,5 +42,8 @@ vuelven a renderizarse con texto visible y el XML conserva el fill nativo. Se ab
 exportó el deck con Microsoft PowerPoint `16.0.10417.20208` sin reparación; `soffice`
 no está instalado en este entorno, por lo que no se hizo una comparación LibreOffice.
 La diferencia residual de píxeles en los paneles diagonales se clasifica como C:
-interpolación/rasterización legítimamente distinta entre Chromium y PowerPoint, no
-como un RGB o alpha incorrecto en OOXML.
+interpolación/rasterización legítimamente distinta entre Chromium y PowerPoint,
+no como un RGB o alpha incorrecto en OOXML. La evidencia es el fixture sólido
+135°: cambiar únicamente `scaled="0"` a `scaled="1"` empeora el MAE regional de
+0.791975 a 5.664315 en PowerPoint; por tanto no se corrige alterando la escala
+del gradiente.

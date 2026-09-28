@@ -31,3 +31,10 @@ agrupar la opacidad de hijos editables, por lo que se registra un warning.
 warning cuando un hijo desborda; no se rasteriza el grupo automáticamente.
 Elementos completamente invisibles, de tamaño cero o fuera del slide no se
 exportan.
+
+El fixture versionado `tests/fixtures/pptx-layer-edge.html` cubre opacity con
+hijos, `overflow:hidden`, `position:fixed`, `position:sticky` y
+`visibility:hidden`/`opacity:0`. La exportación registra warnings con la forma
+`{ slide, selector, tipo, motivo, fallback }`; en el caso de prueba se esperan
+`opacity-group` y `overflow-clipping`, mientras que los elementos ocultos se
+omiten sin warning porque no hay pérdida visual.

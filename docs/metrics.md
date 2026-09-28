@@ -26,6 +26,20 @@ Para el fixture diagonal de 520×420 px se usa la región completa de la caja,
 no el slide. Los valores de referencia se comparan entre Chromium y el PNG que
 PowerPoint 16.0.10417.20208 exporta por COM.
 
+La prueba controlada del fix alpha, en esa tira de 10×5 píxeles, dio MAE fijo
+`0.655802, 0.649136, 0.576955, 0.516790, 0.584938` para los casos A–E.
+Al sustituir artificialmente el RGB del stop alpha=0 por negro, los mismos
+casos dieron `15.912346, 15.905844, 15.820165, 0.450123, 4.396296`. Esto
+demuestra que el RGB negro sí era causa A en los casos donde participa en la
+región medida; el caso D no interpola ese stop en la tira y por eso no cambia.
+
+Para el gradiente diagonal sólido `linear-gradient(135deg, ...)`, la región
+completa de 520×420 px tuvo MAE `0.791975` con `scaled="0"` y `5.664315` con
+`scaled="1"`. Se conserva `scaled="0"`; no se recalcula el ángulo OOXML porque
+el experimento real empeora la fidelidad de la caja. El MAE anterior de otra
+ventana de muestreo (`1.441394`) era de una región distinta y no se mezcla con
+esta métrica.
+
 ## Delta baseline → final
 
 En cada fixture y slide:

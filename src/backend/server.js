@@ -2789,8 +2789,55 @@ async function renderEditablePptx(html, title, requestId) {
                     if (opacity >= 0.999) return raw;
                     return raw;
                 };
+                const selectorFor = (el) => {
+                    const classes = typeof el.className === 'string' ? el.className.trim().split(/\s+/).filter(Boolean).slice(0, 2) : [];
+                    return `${el.tagName.toLowerCase()}${classes.map(name => `.${name}`).join('')}`;
+                };
+                const splitShadowList = (value) => {
+                    const parts = [];
+                    let current = '';
+                    let depth = 0;
+                    for (const character of String(value || '')) {
+                        if (character === '(') depth++;
+                        if (character === ')') depth--;
+                        if (character === ',' && depth === 0) {
+                            parts.push(current.trim());
+                            current = '';
+                        } else current += character;
+                    }
+                    if (current.trim()) parts.push(current.trim());
+                    return parts;
+                };
+                const warnUnsupportedEffects = (el, style) => {
+                    const selector = selectorFor(el);
+                    const pushWarning = (tipo, motivo, fallback) => {
+                        const key = `${tipo}:${selector}:${motivo}`;
+                        if (warningKeys.has(key)) return;
+                        warningKeys.add(key);
+                        exportWarnings.push({ tipo, selector, motivo, fallback });
+                    };
+                    const shadows = splitShadowList(style.boxShadow).filter(item => item && item !== 'none');
+                    if (shadows.length > 1) pushWarning('shadow-fallback', 'múltiples sombras CSS', 'aplicar sombra dominante alpha×blur');
+                    if (shadows.some(item => /\binset\b/i.test(item))) pushWarning('shadow-fallback', 'sombra inset no tiene equivalente outerShdw', 'aplicar sombra dominante como outerShdw');
+                    if (shadows.some(item => {
+                        const withoutColor = item.replace(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b|[a-z]+\b/ig, ' ');
+                        const numbers = withoutColor.match(/-?(?:\d+(?:\.\d+)?|\.\d+)(?:px)?/gi) || [];
+                        return numbers.length >= 4 && Number.parseFloat(numbers[3]) !== 0 && !(Number.parseFloat(numbers[0]) === 0 && Number.parseFloat(numbers[1]) === 0 && Number.parseFloat(numbers[2] || 0) === 0);
+                    })) pushWarning('shadow-fallback', 'spread CSS no tiene equivalente directo en outerShdw', 'aproximar con outerShdw sin spread');
+                    if (style.filter !== 'none' && /(drop-shadow|blur)\(/i.test(style.filter)) pushWarning('filter-fallback', 'filter CSS no tiene equivalente editable estable', 'rasterizar el nodo completo a PNG');
+                };
+                const filterOwnerFor = (el) => {
+                    let current = el;
+                    while (current && current !== slide) {
+                        const style = getComputedStyle(current);
+                        if (style.filter !== 'none' && /(drop-shadow|blur)\(/i.test(style.filter)) return current;
+                        current = current.parentElement;
+                    }
+                    return null;
+                };
                 const visible = (el, rect) => {
                     const style = getComputedStyle(el);
+                    warnUnsupportedEffects(el, style);
                     const intersectsSlide = rect.x < slideRect.width && rect.y < slideRect.height && rect.x + rect.w > 0 && rect.y + rect.h > 0;
                     if (intersectsSlide && Number(style.opacity || 1) > 0 && Number(style.opacity || 1) < 1 && el.children.length) {
                         const key = `opacity:${el.tagName}:${rect.x}:${rect.y}`;
@@ -2957,6 +3004,7 @@ async function renderEditablePptx(html, title, requestId) {
                                 underline: (style.textDecorationLine || '').includes('underline'),
                                 strike: (style.textDecorationLine || '').includes('line-through'),
                                 color: colorWithOpacity(style.color, effectiveOpacity(owner)),
+                                textShadow: style.textShadow !== 'none' ? style.textShadow : null,
                                 letterSpacingPx: Number.isFinite(parseFloat(style.letterSpacing)) ? parseFloat(style.letterSpacing) : 0,
                                 baseline: style.verticalAlign === 'sub' ? -25000 : style.verticalAlign === 'super' ? 30000 : (inherited.baseline || 0),
                                 href: inherited.href || owner.closest('a[href]')?.href || null
@@ -2972,6 +3020,7 @@ async function renderEditablePptx(html, title, requestId) {
                                 sizePx: parseFloat(style.fontSize) || 12,
                                 fontFamily: style.fontFamily,
                                 color: style.color,
+                                textShadow: style.textShadow !== 'none' ? style.textShadow : null,
                                 weight: parseInt(style.fontWeight, 10) || 400,
                                 italic: style.fontStyle === 'italic'
                             });
@@ -3126,6 +3175,9 @@ async function renderEditablePptx(html, title, requestId) {
                         align: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'right' : 'left',
                         valign: style.display === 'flex' && style.alignItems === 'center' ? 'middle' : 'top',
                         noWrap: domLooksSingleLine,
+                        textShadow: style.textShadow !== 'none' ? style.textShadow : null,
+                        filter: style.filter !== 'none' ? style.filter : null,
+                        rasterize: Boolean(filterOwnerFor(el)),
                         paragraphGap: false,
                         z: parseInt(style.zIndex, 10) || 10
                     };
@@ -3136,7 +3188,9 @@ async function renderEditablePptx(html, title, requestId) {
                     const rect = relativeRect(el);
                     const hasFill = style.backgroundColor && style.backgroundColor !== 'transparent' && style.backgroundColor !== 'rgba(0, 0, 0, 0)';
                     const hasBorder = parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== 'none';
-                    return visible(el, rect) && (hasFill || hasBorder);
+                    const hasShadow = style.boxShadow && style.boxShadow !== 'none';
+                    const hasFilter = style.filter !== 'none' && /(drop-shadow|blur)\(/i.test(style.filter);
+                    return visible(el, rect) && (hasFill || hasBorder || hasShadow || hasFilter);
                 }).map((el) => {
                     const style = getComputedStyle(el);
                     const rect = relativeRect(el);
@@ -3149,6 +3203,9 @@ async function renderEditablePptx(html, title, requestId) {
                         gradient: style.backgroundImage && style.backgroundImage !== 'none' ? style.backgroundImage : null,
                         borderWidth: parseFloat(style.borderTopWidth) || 0,
                         borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
+                        shadow: style.boxShadow !== 'none' ? style.boxShadow : null,
+                        filter: style.filter !== 'none' ? style.filter : null,
+                        rasterize: Boolean(filterOwnerFor(el)),
                         z: parseInt(style.zIndex, 10) || 0
                     };
                 });
@@ -3173,6 +3230,8 @@ async function renderEditablePptx(html, title, requestId) {
                         ...rect,
                         backgroundImage: style.backgroundImage,
                         gradientColor,
+                        filter: style.filter !== 'none' ? style.filter : null,
+                        rasterize: Boolean(filterOwnerFor(el)),
                         borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
                         visible: visible(el, rect),
                         z: parseInt(style.zIndex, 10) || 1
@@ -3201,11 +3260,20 @@ async function renderEditablePptx(html, title, requestId) {
                             h: height,
                             fill,
                             gradient: style.backgroundImage && style.backgroundImage !== 'none' ? style.backgroundImage : null,
+                            shadow: style.boxShadow !== 'none' ? style.boxShadow : null,
+                            filter: style.filter !== 'none' ? style.filter : null,
+                            rasterize: Boolean(filterOwnerFor(el)),
                             borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
                             z: parseInt(getComputedStyle(el).zIndex, 10) || 1,
                             name: `${record.pseudo === 'before' ? 'Before' : 'After'} decoration`
                         };
                     }
+                }).filter(Boolean);
+                const filteredElements = Array.from(slide.querySelectorAll('*')).map((el) => {
+                    const style = getComputedStyle(el);
+                    const rect = relativeRect(el);
+                    if (style.filter === 'none' || !/(drop-shadow|blur)\(/i.test(style.filter) || filterOwnerFor(el) !== el || !visible(el, rect)) return null;
+                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), z: parseInt(style.zIndex, 10) || 5, name: `Rasterized filter ${selectorFor(el)}` };
                 }).filter(Boolean);
                 const style = getComputedStyle(slide);
                 return {
@@ -3220,6 +3288,7 @@ async function renderEditablePptx(html, title, requestId) {
                     svgs,
                     backgroundElements,
                     pseudoDecorations,
+                    filteredElements,
                     warnings: exportWarnings
                 };
             }).filter(slide => slide.width > 10 && slide.height > 10);
@@ -3310,6 +3379,7 @@ async function renderEditablePptx(html, title, requestId) {
                 const decorativeShapes = [
                     ...model.backgroundElements
                         .filter((item) => {
+                            if (item.rasterize) return false;
                             if (/url\(/i.test(item.backgroundImage || '')) return false;
                             const native = isNativeGradient(item);
                             if (!native && item.backgroundImage) backgroundFallbacks.add(item);
@@ -3320,7 +3390,7 @@ async function renderEditablePptx(html, title, requestId) {
                 ];
                 for (let backgroundIndex = 0; backgroundIndex < model.backgroundElements.length; backgroundIndex++) {
                     const backgroundElement = model.backgroundElements[backgroundIndex];
-                    const shouldRasterize = /url\(/i.test(backgroundElement.backgroundImage || '') || backgroundFallbacks.has(backgroundElement);
+                    const shouldRasterize = !backgroundElement.rasterize && (/url\(/i.test(backgroundElement.backgroundImage || '') || backgroundFallbacks.has(backgroundElement));
                     if (!shouldRasterize) continue;
                     const elementClip = await page.evaluate(({ slideIndex: currentSlide, elementIndex }) => {
                         const slide = document.querySelectorAll('section.s, section')[currentSlide];
@@ -3416,6 +3486,17 @@ async function renderEditablePptx(html, title, requestId) {
                     const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
                     images.push({ ...scaleRect(svg), kind: 'image', data, name: `Slide ${slideIndex + 1} icon ${svgIndex + 1}` });
                 }
+                for (let filterIndex = 0; filterIndex < (model.filteredElements || []).length; filterIndex++) {
+                    const filtered = model.filteredElements[filterIndex];
+                    const absolute = {
+                        x: Math.max(0, model.left + filtered.x),
+                        y: Math.max(0, model.top + filtered.y),
+                        width: Math.max(1, filtered.w),
+                        height: Math.max(1, filtered.h)
+                    };
+                    const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
+                    images.push({ ...scaleRect(filtered), kind: 'image', data, z: filtered.z, name: filtered.name });
+                }
             const warnFont = createFontWarningCollector({
                 slide: slideIndex + 1,
                 onWarning: (warning) => puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint export font substitution (non-fatal)', {
@@ -3433,11 +3514,11 @@ async function renderEditablePptx(html, title, requestId) {
                 }));
                 return normalized;
             };
-            const scaledShapes = [...model.shapes, ...decorativeShapes].map((shape) => ({
+            const scaledShapes = [...model.shapes.filter(item => !item.rasterize), ...decorativeShapes.filter(item => !item.rasterize)].map((shape) => ({
                 ...scaleRect(shape),
                 name: shape.name || `Shape: ${shape.selector || 'background'}`
             }));
-            const scaledTexts = model.texts.map(item => scaleRect(normalizeTextItem(item)));
+            const scaledTexts = model.texts.filter(item => !item.rasterize).map(item => scaleRect(normalizeTextItem(item)));
             const scaledImages = images.map(image => ({
                 ...image,
                 name: image.name || `Image: ${image.alt || 'untitled'}`

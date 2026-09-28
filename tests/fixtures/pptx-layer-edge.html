@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0;background:#fff}section.s{position:relative;width:1122px;height:631px;overflow:hidden;background:#101114;color:#f4f4f4;font-family:Arial}
+.opacity-group{position:absolute;left:40px;top:40px;width:320px;height:120px;opacity:.55;background:#d4a800;padding:20px}
+.opacity-group strong{display:block;color:#fff}.opacity-group p{margin:8px 0}
+.clip{position:absolute;left:430px;top:40px;width:180px;height:80px;overflow:hidden;background:#24304a}
+.clip .child{position:absolute;left:120px;top:10px;width:180px;height:50px;background:#ef4444;color:#fff}
+.fixed{position:fixed;left:40px;top:230px;width:220px;height:60px;background:#334155;color:#fff}
+.sticky{position:sticky;left:300px;top:230px;width:220px;height:60px;background:#475569;color:#fff}
+.hidden{position:absolute;left:40px;top:340px;width:200px;height:40px;background:#f00;visibility:hidden}
+.zero{position:absolute;left:40px;top:400px;width:200px;height:40px;background:#0f0;opacity:0}
+</style></head><body><section class="s">
+<div class="opacity-group"><strong>Opacity group</strong><p>Alpha should reach child content.</p></div>
+<div class="clip"><div class="child">Clipped child</div></div>
+<div class="fixed">Fixed element</div><div class="sticky">Sticky element</div>
+<div class="hidden">Must not export</div><div class="zero">Must not export</div>
+</section></body></html>
