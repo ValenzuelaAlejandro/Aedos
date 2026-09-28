@@ -33,8 +33,14 @@ Esas regiones se capturan a DPR 2 como PNG local, se insertan en el mismo z-orde
 se registra un warning estructurado `gradient-fallback` con
 `fallback: "rasterized-region"`. Nunca se degrada silenciosamente a un color sólido.
 
-La comprobación disponible en este entorno usa el renderer auxiliar de la skill de
-presentaciones. Ese renderer tiene una limitación conocida con un `a:gradFill` que
-contiene stops con alpha 0 y puede ocultar texto posterior en algunos slides; el
-XML conserva los textos, las relaciones y el fill nativo. No se pudo verificar esa
-combinación en PowerPoint de escritorio ni en LibreOffice dentro de este entorno.
+La comprobación disponible en este entorno usa `render_slides.py` de la skill de
+presentaciones, que importa el PPTX con `@oai/artifact-tool` 2.8.59. Inicialmente
+ocultaba texto en algunos slides porque Chromium entrega `transparent` como
+`rgba(0, 0, 0, 0)` y ese RGB negro llegaba al XML. El parser ahora sustituye el RGB
+de cualquier stop con alpha 0 por el stop sólido más cercano; los slides afectados
+vuelven a renderizarse con texto visible y el XML conserva el fill nativo. Se abrió y
+exportó el deck con Microsoft PowerPoint `16.0.10417.20208` sin reparación; `soffice`
+no está instalado en este entorno, por lo que no se hizo una comparación LibreOffice.
+La diferencia residual de píxeles en los paneles diagonales se clasifica como C:
+interpolación/rasterización legítimamente distinta entre Chromium y PowerPoint, no
+como un RGB o alpha incorrecto en OOXML.

@@ -2753,7 +2753,7 @@ async function renderEditablePptx(html, title, requestId) {
         });
 
         const slideData = await page.evaluate((textWidthSafety) => {
-                const textSelector = 'h1,h2,h3,h4,h5,h6,p,li,blockquote,cite,span,strong,b,em,i,small,mark,a,div';
+                const textSelector = 'h1,h2,h3,h4,h5,h6,p,li,blockquote,cite,td,th,span,strong,b,em,i,small,mark,a,div';
                 const blockTextTags = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'LI', 'BLOCKQUOTE', 'CITE']);
                 const slides = Array.from(document.querySelectorAll('section.s, section'));
                 return slides.map((slide) => {

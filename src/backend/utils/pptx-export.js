@@ -192,19 +192,22 @@ function normalizeGradientStops(stopTokens, size) {
     for (index = 1; index < parsed.length; index++) {
         if (parsed[index].position < parsed[index - 1].position) parsed[index].position = parsed[index - 1].position;
     }
+    const parsedColors = parsed.map(stop => colorParts(stop.color));
     const nearestSolid = (index) => {
         for (let distance = 1; distance < parsed.length; distance++) {
             for (const candidate of [index - distance, index + distance]) {
-                if (candidate >= 0 && candidate < parsed.length && !parsed[candidate].transparentKeyword) return parsed[candidate].color;
+                if (candidate >= 0 && candidate < parsed.length && parsedColors[candidate].alpha > 0) return parsed[candidate].color;
             }
         }
         return '#000000';
     };
-    return parsed.map(stop => {
-        const parts = colorParts(stop.transparentKeyword ? nearestSolid(parsed.indexOf(stop)) : stop.color);
+    return parsed.map((stop, index) => {
+        const sourceParts = parsedColors[index];
+        const alphaZero = sourceParts.alpha === 0;
+        const parts = colorParts(alphaZero ? nearestSolid(index) : stop.color);
         return {
             ...parts,
-            alpha: stop.transparentKeyword ? 0 : parts.alpha,
+            alpha: alphaZero ? 0 : parts.alpha,
             position: Math.max(0, Math.min(1, stop.position)),
             source: stop.color
         };

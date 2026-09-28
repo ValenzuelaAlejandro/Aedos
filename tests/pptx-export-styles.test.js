@@ -37,8 +37,25 @@ test('gradient transparency preserves alpha and transparent adopts a neighboring
     assert.equal(gradient.stops[0].hex, 'FFFFFF');
     assert.equal(gradient.stops[0].alpha, 0);
     const rgba = parseCssGradient('linear-gradient(90deg, rgba(0,0,0,0) 0%, #ffffff 100%)');
-    assert.equal(rgba.stops[0].hex, '000000');
+    assert.equal(rgba.stops[0].hex, 'FFFFFF');
     assert.equal(rgba.stops[0].alpha, 0);
+});
+
+test('gradient alpha handles adjacent transparent stops, explicit positions and monotonic correction', () => {
+    const edge = parseCssGradient('linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 25%, #00ff00 50%, rgba(0,0,0,0) 100%)');
+    assert.deepEqual(edge.stops.map(stop => stop.hex), ['00FF00', '00FF00', '00FF00', '00FF00']);
+    assert.deepEqual(edge.stops.map(stop => stop.alpha), [0, 0, 1, 0]);
+    const nonMonotonic = parseCssGradient('linear-gradient(90deg, #f00 80%, #0f0 20%, #00f)');
+    assert.deepEqual(nonMonotonic.stops.map(stop => stop.position), [0.8, 0.8, 1]);
+    assert.ok(nonMonotonic.stops.every((stop, index, stops) => index === 0 || stop.position >= stops[index - 1].position));
+});
+
+test('gradient alpha mutation sentinel rejects a black transparent RGB stop', () => {
+    const gradient = parseCssGradient('linear-gradient(90deg, rgba(0,0,0,0), #ffffff)');
+    assert.equal(gradient.stops[0].hex, 'FFFFFF');
+    const mutated = gradient.stops.map(stop => ({ ...stop }));
+    mutated[0].hex = '000000';
+    assert.notDeepEqual(mutated, gradient.stops);
 });
 
 test('radial gradient emits native path fill and unsupported repeating gradients are rejected', async () => {
