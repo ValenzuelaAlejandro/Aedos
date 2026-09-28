@@ -2854,6 +2854,8 @@ async function renderEditablePptx(html, title, requestId) {
                     if (border.hasRadius && border.distinct) pushWarning('border-fallback', 'lados distintos combinados con border-radius', 'rasterizar nodo completo');
                     if (border.hasRadius && style.overflow === 'hidden' && el.children.length) pushWarning('radius-approx', 'border-radius con overflow hidden contiene hijos', 'rasterizar nodo completo con clipping redondeado');
                     if (parseFloat(style.outlineOffset) !== 0) pushWarning('border-fallback', 'outline-offset no tiene contorno editable equivalente', 'mapear outline al borde del shape conservando el ancho');
+                    if (style.visibility === 'hidden') pushWarning('visibility-fallback', 'visibility:hidden elimina el nodo del render', 'omitir el nodo y conservar warning estructurado');
+                    if (style.position === 'fixed' || style.position === 'sticky') pushWarning('position-fallback', `position:${style.position} no conserva anclaje entre HTML y slide`, 'exportar como posición absoluta medida en el viewport');
                 };
                 const filterOwnerFor = (el) => {
                     let current = el;
