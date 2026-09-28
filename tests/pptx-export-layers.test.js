@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const zlib = require('node:zlib');
-const { createEditablePptx } = require('../src/backend/utils/pptx-export');
+const { createEditablePptx, compareZKeys } = require('../src/backend/utils/pptx-export');
 
 function readZipEntries(buffer) {
     const entries = new Map();
@@ -80,4 +80,29 @@ test('E: before decoration is behind content and after decoration is above it', 
         shape('After decoration', [0, 3, 12, 0], 12)
     ]);
     assert.deepEqual(names.slice(-3), ['Before decoration', 'Content', 'After decoration']);
+});
+
+test('mutation sentinel: inverted z comparator fails A, B and C expectations', () => {
+    const cases = [
+        [
+            { name: 'text', zKey: [0, 0, 10, 2], domIndex: 10 },
+            { name: 'image', zKey: [1, 5, 20, 2], domIndex: 20 },
+            ['text', 'image']
+        ],
+        [
+            { name: 'card1', zKey: [0, 0, 10, 0], domIndex: 10 },
+            { name: 'text1', zKey: [0, 0, 10, 1], domIndex: 10 },
+            { name: 'card2', zKey: [0, 0, 20, 0], domIndex: 20 },
+            { name: 'text2', zKey: [0, 0, 20, 1], domIndex: 20 },
+            ['card1', 'text1', 'card2', 'text2']
+        ],
+        [
+            { name: 'negative', zKey: [-1, -1, 10, 0], domIndex: 10 },
+            { name: 'normal', zKey: [0, 0, 20, 0], domIndex: 20 },
+            ['negative', 'normal']
+        ]
+    ];
+    const broken = (left, right) => compareZKeys(right, left);
+    const failed = cases.filter((items) => items.slice(0, -1).sort(broken).map(item => item.name).join('|') !== items.at(-1).join('|'));
+    assert.equal(failed.length, 3);
 });

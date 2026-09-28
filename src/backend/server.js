@@ -2768,6 +2768,26 @@ async function renderEditablePptx(html, title, requestId) {
                         h: rect.height
                     };
                 };
+                const effectiveOpacity = (el) => {
+                    let opacity = 1;
+                    let current = el;
+                    while (current && current !== slide.parentElement) {
+                        opacity *= Number(getComputedStyle(current).opacity || 1);
+                        if (current === slide) break;
+                        current = current.parentElement;
+                    }
+                    return Math.max(0, Math.min(1, opacity));
+                };
+                const colorWithOpacity = (value, opacity) => {
+                    const raw = String(value || '').trim();
+                    const rgba = raw.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/i);
+                    if (rgba) {
+                        const alpha = (rgba[4] === undefined ? 1 : Number(rgba[4])) * opacity;
+                        return `rgba(${rgba[1]}, ${rgba[2]}, ${rgba[3]}, ${alpha})`;
+                    }
+                    if (opacity >= 0.999) return raw;
+                    return raw;
+                };
                 const visible = (el, rect) => {
                     const style = getComputedStyle(el);
                     const intersectsSlide = rect.x < slideRect.width && rect.y < slideRect.height && rect.x + rect.w > 0 && rect.y + rect.h > 0;
@@ -2775,7 +2795,7 @@ async function renderEditablePptx(html, title, requestId) {
                         const key = `opacity:${el.tagName}:${rect.x}:${rect.y}`;
                         if (!warningKeys.has(key)) {
                             warningKeys.add(key);
-                            exportWarnings.push({ tipo: 'opacity-group', selector: el.tagName.toLowerCase(), decision: 'preserve-dom-opacity-for-rasterized-clips; native children are not grouped in PPTX' });
+                            exportWarnings.push({ tipo: 'opacity-group', selector: el.tagName.toLowerCase(), motivo: 'opacity menor que 1 con hijos', fallback: 'alpha por hijo soportado; imágenes conservan el alpha rasterizado' });
                         }
                     }
                     if (intersectsSlide && style.overflow === 'hidden' && el.children.length) {
@@ -2786,7 +2806,7 @@ async function renderEditablePptx(html, title, requestId) {
                         const key = `overflow:${el.tagName}:${rect.x}:${rect.y}`;
                         if (clipsChild && !warningKeys.has(key)) {
                             warningKeys.add(key);
-                            exportWarnings.push({ tipo: 'overflow-clipping', selector: el.tagName.toLowerCase(), decision: 'preserve-slide-clip; editable children are not rasterized' });
+                            exportWarnings.push({ tipo: 'overflow-clipping', selector: el.tagName.toLowerCase(), motivo: 'overflow hidden recorta un hijo', fallback: 'conservar geometría editable y clipping del slide; no rasterizar grupo' });
                         }
                     }
                     return rect.w > 1 && rect.h > 1 && intersectsSlide && style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0;
@@ -2935,7 +2955,7 @@ async function renderEditablePptx(html, title, requestId) {
                                 italic: style.fontStyle === 'italic',
                                 underline: (style.textDecorationLine || '').includes('underline'),
                                 strike: (style.textDecorationLine || '').includes('line-through'),
-                                color: style.color,
+                                color: colorWithOpacity(style.color, effectiveOpacity(owner)),
                                 letterSpacingPx: Number.isFinite(parseFloat(style.letterSpacing)) ? parseFloat(style.letterSpacing) : 0,
                                 baseline: style.verticalAlign === 'sub' ? -25000 : style.verticalAlign === 'super' ? 30000 : (inherited.baseline || 0),
                                 href: inherited.href || owner.closest('a[href]')?.href || null
@@ -3098,7 +3118,7 @@ async function renderEditablePptx(html, title, requestId) {
                         paragraphs: runsToParagraphs(runs, style, listBullet),
                         fontSize,
                         fontFace: (style.fontFamily || 'Arial').split(',')[0].replace(/["']/g, '').trim(),
-                        textColor: style.color,
+                        textColor: colorWithOpacity(style.color, effectiveOpacity(el)),
                         bold: parseInt(style.fontWeight, 10) >= 600 || style.fontWeight === 'bold',
                         italic: style.fontStyle === 'italic',
                         bullet: listBullet,
@@ -3123,8 +3143,8 @@ async function renderEditablePptx(html, title, requestId) {
                         ...rect,
                         kind: 'shape',
                         ...orderMeta(el, 0, 0),
-                        fill: style.backgroundColor,
-                        borderColor: style.borderTopColor,
+                        fill: colorWithOpacity(style.backgroundColor, effectiveOpacity(el)),
+                        borderColor: colorWithOpacity(style.borderTopColor, effectiveOpacity(el)),
                         borderWidth: parseFloat(style.borderTopWidth) || 0,
                         borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
                         z: parseInt(style.zIndex, 10) || 0
