@@ -50,6 +50,7 @@ const { buildStage1Prompt, buildStage1RevisionPrompt } = require('./prompts/stag
 const { buildAddSlidePrompt, buildAddPointPrompt } = require('./prompts/skeleton_prompts');
 
 const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
+const { normalizeExportWarning, countExportWarnings } = require('./utils/export-warnings');
 const { verifyConnection: verifyRedis, checkRateLimits, checkFinalizeLimits } = require('./utils/rate-limiter');
 
 const log = createLogger({ scope: 'SERVER' });
@@ -2654,7 +2655,7 @@ function normalizePptxFontFamily(fontFace) {
     return resolveFontFamily(fontFace);
 }
 
-async function renderEditablePptx(html, title, requestId) {
+async function renderEditablePptx(html, title, requestId, { debug = false } = {}) {
     const exportDpr = Math.min(3, Math.max(1, Number(process.env.EXPORT_DPR) || 2));
     if (!browser || !browser.isConnected()) await initBrowser();
     if (!browser) throw new Error('PowerPoint generation is unavailable: the browser could not be started.');
@@ -2748,7 +2749,8 @@ async function renderEditablePptx(html, title, requestId) {
             puppeteerLog.warn(ErrorCategory.NETWORK, 'PowerPoint export asset warning (non-fatal)', {
                 requestId,
                 asset: warning.asset,
-                reason: warning.reason
+                reason: warning.reason,
+                warning: normalizeExportWarning({ slide: 0, selector: warning.asset, tipo: 'image-load-failed', motivo: warning.reason, fallback: 'omit failed asset and continue' })
             });
         });
 
@@ -2967,7 +2969,23 @@ async function renderEditablePptx(html, title, requestId) {
                     key.push(record.pseudo === 'before' ? 1 : 3, record.domIndex, 0);
                     return { domIndex: record.domIndex, zKey: key, contextId: record.context?.id || rootContext.id };
                 };
+                const decodePseudoContent = (value) => {
+                    const raw = String(value || '').trim();
+                    if (!raw || raw === 'none' || raw === 'normal') return '';
+                    if (/^(attr|counter|counters|url)\(/i.test(raw) || /^(open-quote|close-quote|no-open-quote|no-close-quote)$/.test(raw)) return null;
+                    const quoted = raw.replace(/^(["'])([\s\S]*)\1$/, '$2');
+                    return quoted.replace(/\\([0-9a-f]{1,6})\s?/ig, (_, hex) => String.fromCodePoint(parseInt(hex, 16))).replace(/\\(["'\\])/g, '$1');
+                };
+                const inlinePseudoContent = (el, pseudo) => {
+                    if (['IMG', 'INPUT', 'TEXTAREA', 'SELECT', 'VIDEO', 'CANVAS', 'SVG'].includes(el.tagName)) return null;
+                    const style = getComputedStyle(el, pseudo);
+                    const content = decodePseudoContent(style.content || '');
+                    if (content === null || !content || style.display === 'none' || style.position !== 'static') return null;
+                    if (style.transform !== 'none' || style.filter !== 'none' || style.backdropFilter !== 'none' || style.maskImage !== 'none' || style.mixBlendMode !== 'normal') return null;
+                    return { content, style };
+                };
                 const candidates = Array.from(slide.querySelectorAll(textSelector)).filter((el) => {
+                    if (el.closest('table')) return false;
                     const text = (el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').trim();
                     if (!text) return false;
                     const rect = relativeRect(el);
@@ -2986,8 +3004,8 @@ async function renderEditablePptx(html, title, requestId) {
                     // Keep complete semantic text blocks. Pro slides commonly
                     // style one word with a nested span/strong and use <br> or
                     // block-level labels inside a paragraph. Selecting only the
-                    // deepest node splits titles (for example "Kendrick" /
-                    // "Lamar") and drops direct text that has no child element.
+                    // deepest node splits long titles and drops direct text that
+                    // has no child element.
                     // A semantic block owns that full text; generic wrappers do
                     // not, so they are excluded when they contain descendants.
                     if (blockTextTags.has(el.tagName)) return true;
@@ -3107,6 +3125,54 @@ async function renderEditablePptx(html, title, requestId) {
                         bullet
                     }];
                 };
+                const tableCellModel = (cell) => {
+                    const style = getComputedStyle(cell);
+                    const rect = relativeRect(cell);
+                    const borderSide = (side) => ({
+                        width: parseFloat(style[`border${side}Width`]) || 0,
+                        color: colorWithOpacity(style[`border${side}Color`], effectiveOpacity(cell)),
+                        style: style[`border${side}Style`] || 'solid'
+                    });
+                    const runs = extractRuns(cell);
+                    return {
+                        text: (cell.innerText || cell.textContent || '').replace(/\u00a0/g, ' ').trim(),
+                        runs,
+                        paragraphs: runsToParagraphs(runs, style, null),
+                        fill: colorWithOpacity(style.backgroundColor, effectiveOpacity(cell)),
+                        fontSize: parseFloat(style.fontSize) || 16,
+                        fontFace: (style.fontFamily || 'Arial').split(',')[0].replace(/["']/g, '').trim(),
+                        textColor: colorWithOpacity(style.color, effectiveOpacity(cell)),
+                        align: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'right' : 'left',
+                        valign: style.verticalAlign === 'middle' ? 'middle' : style.verticalAlign === 'bottom' ? 'bottom' : 'top',
+                        padding: { left: parseFloat(style.paddingLeft) || 0, right: parseFloat(style.paddingRight) || 0, top: parseFloat(style.paddingTop) || 0, bottom: parseFloat(style.paddingBottom) || 0 },
+                        borders: { left: borderSide('Left'), right: borderSide('Right'), top: borderSide('Top'), bottom: borderSide('Bottom') },
+                        colSpan: Math.max(1, Number(cell.colSpan) || 1),
+                        rowSpan: Math.max(1, Number(cell.rowSpan) || 1),
+                        rect
+                    };
+                };
+                const tables = Array.from(slide.querySelectorAll('table')).map((table) => {
+                    const rect = relativeRect(table);
+                    const rows = Array.from(table.rows);
+                    const firstRow = rows[0];
+                    const columns = firstRow ? Array.from(firstRow.cells).flatMap(cell => {
+                        const span = Math.max(1, Number(cell.colSpan) || 1);
+                        return Array.from({ length: span }, () => relativeRect(cell).w / span);
+                    }) : [];
+                    return {
+                        kind: 'table',
+                        ...rect,
+                        ...orderMeta(table, 1, 0),
+                        name: table.getAttribute('aria-label') || table.caption?.textContent?.trim() || 'HTML table',
+                        firstRow: Boolean(table.tHead),
+                        columns,
+                        rows: rows.map(row => ({
+                            height: relativeRect(row).h,
+                            cells: Array.from(row.cells).map(cell => tableCellModel(cell))
+                        })),
+                        z: parseInt(getComputedStyle(table).zIndex, 10) || 2
+                    };
+                }).filter(table => table.w > 1 && table.h > 1);
                 const listInfoFor = (el) => {
                     if (el.tagName !== 'LI') return null;
                     const list = el.closest('ul,ol');
@@ -3151,14 +3217,35 @@ async function renderEditablePptx(html, title, requestId) {
                     const rect = rectOverride || relativeRect(el);
                     const text = (el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').trim();
                     const listBullet = listInfoFor(el);
-                    const resolvedText = (textOverride || text).replace(listBullet ? /^[•◦▪●]\s*/ : /^/, '');
-                    const runs = sliceRunsToText(extractRuns(el), textOverride || '');
+                    const beforePseudo = inlinePseudoContent(el, '::before');
+                    const afterPseudo = inlinePseudoContent(el, '::after');
+                    const pseudoSpacing = (pixels, sizePx) => {
+                        const count = Math.max(1, Math.round((parseFloat(pixels) || 0) / Math.max(1, sizePx * 0.28)));
+                        return '\u00a0'.repeat(count);
+                    };
+                    const pseudoRun = (entry, side) => entry ? {
+                        text: side === 'before'
+                            ? `${entry.content}${pseudoSpacing(entry.style.marginRight, parseFloat(entry.style.fontSize) || parseFloat(style.fontSize) || 12)}`
+                            : `${pseudoSpacing(entry.style.marginLeft, parseFloat(entry.style.fontSize) || parseFloat(style.fontSize) || 12)}${entry.content}`,
+                        fontFamily: entry.style.fontFamily,
+                        sizePx: parseFloat(entry.style.fontSize) || parseFloat(style.fontSize) || 12,
+                        weight: parseInt(entry.style.fontWeight, 10) || 400,
+                        italic: entry.style.fontStyle === 'italic',
+                        underline: (entry.style.textDecorationLine || '').includes('underline'),
+                        strike: (entry.style.textDecorationLine || '').includes('line-through'),
+                        color: colorWithOpacity(entry.style.color, effectiveOpacity(el)),
+                        textShadow: entry.style.textShadow !== 'none' ? entry.style.textShadow : null,
+                        letterSpacingPx: Number.isFinite(parseFloat(entry.style.letterSpacing)) ? parseFloat(entry.style.letterSpacing) : 0,
+                        baseline: 0,
+                        href: el.closest('a[href]')?.href || null
+                    } : null;
+                    const resolvedText = `${beforePseudo ? `${beforePseudo.content}${pseudoSpacing(beforePseudo.style.marginRight, parseFloat(beforePseudo.style.fontSize) || parseFloat(style.fontSize) || 12)}` : ''}${(textOverride || text).replace(listBullet ? /^[•◦▪●]\s*/ : /^/, '')}${afterPseudo ? `${pseudoSpacing(afterPseudo.style.marginLeft, parseFloat(afterPseudo.style.fontSize) || parseFloat(style.fontSize) || 12)}${afterPseudo.content}` : ''}`;
+                    const runs = [pseudoRun(beforePseudo, 'before'), ...sliceRunsToText(extractRuns(el), textOverride || ''), pseudoRun(afterPseudo, 'after')].filter(Boolean);
                     const isHeading = /^H[1-6]$/.test(el.tagName);
                     if (isHeading) {
-                        // Web fonts such as Bebas Neue are narrower than their
-                        // Office fallback. Keep the explicit <br> line breaks,
-                        // but give PowerPoint enough horizontal room so a word
-                        // like "Kendrick" is not rewrapped into fragments.
+                        // Web fonts can be narrower than their Office fallback.
+                        // Keep explicit <br> line breaks, but give PowerPoint
+                        // enough horizontal room to avoid rewrapping fragments.
                         rect.w = Math.max(rect.w, Math.max(1, slideRect.width - rect.x - 40));
                     }
                     let fontSize = parseFloat(style.fontSize) || 12;
@@ -3226,7 +3313,7 @@ async function renderEditablePptx(html, title, requestId) {
                     };
                 });
                 const shapes = Array.from(slide.querySelectorAll('*')).filter((el) => {
-                    if (el.tagName === 'IMG' || el.tagName === 'SVG' || el === slide) return false;
+                    if (el.tagName === 'IMG' || el.tagName === 'SVG' || el === slide || el.closest('table')) return false;
                     const style = getComputedStyle(el);
                     const rect = relativeRect(el);
                     const border = borderInfoFor(style);
@@ -3271,14 +3358,40 @@ async function renderEditablePptx(html, title, requestId) {
                 const images = Array.from(slide.querySelectorAll('img')).map((el) => {
                     const rect = relativeRect(el);
                     const style = getComputedStyle(el);
-                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), opacity: effectiveOpacity(el), rasterize: Boolean(rasterOwnerFor(el)), visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
+                    const objectFit = style.objectFit || 'fill';
+                    const objectPosition = style.objectPosition || '50% 50%';
+                    const naturalWidth = el.naturalWidth || 0;
+                    const naturalHeight = el.naturalHeight || 0;
+                    let crop = null;
+                    if (objectFit === 'cover' && naturalWidth > 0 && naturalHeight > 0 && rect.w > 0 && rect.h > 0) {
+                        const sourceRatio = naturalWidth / naturalHeight;
+                        const boxRatio = rect.w / rect.h;
+                        if (sourceRatio > boxRatio) {
+                            const visibleRatio = boxRatio / sourceRatio;
+                            const position = parseFloat(objectPosition) / 100 || .5;
+                            const left = (1 - visibleRatio) * position;
+                            crop = { l: left * 100000, r: (1 - left - visibleRatio) * 100000, t: 0, b: 0 };
+                        } else if (sourceRatio < boxRatio) {
+                            const visibleRatio = sourceRatio / boxRatio;
+                            const position = parseFloat(String(objectPosition).split(/\s+/)[1] || objectPosition) / 100 || .5;
+                            const top = (1 - visibleRatio) * position;
+                            crop = { l: 0, r: 0, t: top * 100000, b: (1 - top - visibleRatio) * 100000 };
+                        }
+                    }
+                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), opacity: effectiveOpacity(el), rasterize: Boolean(rasterOwnerFor(el)), objectFit, objectPosition, crop, src: el.currentSrc || el.src || '', naturalWidth, naturalHeight, descr: (el.alt || el.getAttribute('aria-label') || el.getAttribute('role') === 'presentation') ? (el.alt || el.getAttribute('aria-label') || '') : '', visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
                 }).filter(image => image.visible);
                 const svgs = Array.from(slide.querySelectorAll('svg')).map((el) => {
                     const rect = relativeRect(el);
                     const style = getComputedStyle(el);
                     return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), opacity: effectiveOpacity(el), rasterize: Boolean(rasterOwnerFor(el)), visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
                 }).filter(svg => svg.visible);
+                const canvases = Array.from(slide.querySelectorAll('canvas')).map((el) => {
+                    const rect = relativeRect(el);
+                    const style = getComputedStyle(el);
+                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), opacity: effectiveOpacity(el), rasterize: false, src: '', descr: el.getAttribute('aria-label') || '', visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
+                }).filter(canvas => canvas.visible);
                 const backgroundElements = Array.from(slide.querySelectorAll('*')).map((el, index) => {
+                    if (el.closest('table')) return null;
                     const rect = relativeRect(el);
                     const style = getComputedStyle(el);
                     const gradientColor = (style.backgroundImage || '').match(/(?:rgba?\([^)]*\)|#[0-9a-f]{3,8})/i)?.[0] || style.backgroundColor;
@@ -3298,7 +3411,7 @@ async function renderEditablePptx(html, title, requestId) {
                         visible: visible(el, rect),
                         z: parseInt(style.zIndex, 10) || 1
                     };
-                }).filter(item => item.visible && item.backgroundImage && item.backgroundImage !== 'none');
+                }).filter(item => item && item.visible && item.backgroundImage && item.backgroundImage !== 'none');
                 const pseudoDecorations = pseudoOrder.map((record) => {
                     const el = record.el;
                     const parentRect = relativeRect(el);
@@ -3307,28 +3420,65 @@ async function renderEditablePptx(html, title, requestId) {
                     {
                         const style = getComputedStyle(el, pseudo);
                         const content = style.content || '';
+                        const decodedContent = decodePseudoContent(content);
+                        if (decodedContent === null) {
+                            exportWarnings.push({ tipo: 'pseudo-fallback', selector: `${selectorFor(el)}${pseudo}`, motivo: `content no editable: ${content}`, fallback: 'omitir pseudo y conservar warning; rasterización aislada no fiable' });
+                            return null;
+                        }
+                        if (inlinePseudoContent(el, pseudo)) return null;
+                        if (style.transform !== 'none' || style.filter !== 'none' || style.backdropFilter !== 'none' || style.maskImage !== 'none' || style.mixBlendMode !== 'normal') {
+                            exportWarnings.push({ tipo: 'pseudo-fallback', selector: `${selectorFor(el)}${pseudo}`, motivo: 'pseudo con transform/filter/mask/blend no tiene captura aislada estable', fallback: 'omitir pseudo y conservar el contenido editable del padre' });
+                            return null;
+                        }
                         const width = parseFloat(style.width) || 0;
-                        const height = parseFloat(style.height) || 0;
+                        const fontSize = parseFloat(style.fontSize) || 16;
+                        const lineHeight = style.lineHeight === 'normal' ? fontSize * 1.2 : parseFloat(style.lineHeight) || fontSize * 1.2;
+                        const measuredWidth = decodedContent ? Math.max(1, decodedContent.length * fontSize * 0.55) : 0;
+                        const height = parseFloat(style.height) || (decodedContent ? lineHeight : 0);
+                        const pseudoWidth = width || measuredWidth;
                         const fill = style.backgroundColor && style.backgroundColor !== 'transparent'
                             ? style.backgroundColor
                             : ((style.backgroundImage || '').match(/(?:rgba?\([^)]*\)|#[0-9a-f]{3,8})/i)?.[0] || 'transparent');
-                        if (!visible(el, parentRect) || !content || content === 'none' || content === 'normal' || width <= 1 || height <= 1 || fill === 'transparent') return null;
+                        if (!visible(el, parentRect) || (decodedContent === '' && fill === 'transparent') || pseudoWidth <= 0 || height <= 0) return null;
+                        const isText = Boolean(decodedContent);
+                        const position = style.position;
+                        let positionedAncestor = null;
+                        if (position === 'absolute' || position === 'fixed') {
+                            let ancestor = el.parentElement;
+                            while (ancestor && ancestor !== slide) {
+                                if (getComputedStyle(ancestor).position !== 'static') { positionedAncestor = ancestor; break; }
+                                ancestor = ancestor.parentElement;
+                            }
+                            positionedAncestor ||= slide;
+                        }
+                        const ancestorRect = positionedAncestor ? relativeRect(positionedAncestor) : parentRect;
+                        const left = parseFloat(style.left);
+                        const top = parseFloat(style.top);
+                        const x = positionedAncestor && Number.isFinite(left) ? ancestorRect.x + (parseFloat(getComputedStyle(positionedAncestor).paddingLeft) || 0) + left : parentRect.x + (pseudoIndex === 1 && !isText ? Math.max(0, parentRect.w - pseudoWidth) : 0);
+                        const y = positionedAncestor && Number.isFinite(top) ? ancestorRect.y + (parseFloat(getComputedStyle(positionedAncestor).paddingTop) || 0) + top : parentRect.y + (isText ? 0 : Math.max(0, (parentRect.h - height) / 2));
                         return {
-                            kind: 'shape',
+                            kind: isText ? 'text' : 'shape',
                             ...pseudoMeta(record),
-                            x: parentRect.x + (pseudoIndex === 1 ? Math.max(0, parentRect.w - width) : 0),
-                            y: parentRect.y + Math.max(0, (parentRect.h - height) / 2),
-                            w: width,
+                            x,
+                            y,
+                            w: pseudoWidth,
                             h: height,
-                            fill,
+                            fill: fill === 'transparent' ? 'transparent' : colorWithOpacity(fill, effectiveOpacity(el)),
                             fillOpacity: effectiveOpacity(el),
                             gradient: style.backgroundImage && style.backgroundImage !== 'none' ? style.backgroundImage : null,
+                            text: isText ? decodedContent : undefined,
+                            textColor: colorWithOpacity(style.color, effectiveOpacity(el)),
+                            fontSize,
+                            fontFace: (style.fontFamily || 'Arial').split(',')[0].replace(/["']/g, '').trim(),
+                            align: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'right' : 'left',
+                            noWrap: true,
+                            paragraphs: isText ? [{ text: decodedContent, runs: [{ text: decodedContent, fontFamily: style.fontFamily, sizePx: fontSize, weight: parseInt(style.fontWeight, 10) || 400, italic: style.fontStyle === 'italic', color: colorWithOpacity(style.color, effectiveOpacity(el)), textShadow: style.textShadow !== 'none' ? style.textShadow : null }], align: style.textAlign || 'left', lineHeightPx: lineHeight }] : undefined,
                             shadow: style.boxShadow !== 'none' ? style.boxShadow : null,
                             filter: style.filter !== 'none' ? style.filter : null,
                             rasterize: Boolean(rasterOwnerFor(el)),
                             borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
                             z: parseInt(getComputedStyle(el).zIndex, 10) || 1,
-                            name: `${record.pseudo === 'before' ? 'Before' : 'After'} decoration`
+                            name: `${record.pseudo === 'before' ? 'Before' : 'After'} ${selectorFor(el)}`
                         };
                     }
                 }).filter(Boolean);
@@ -3354,17 +3504,25 @@ async function renderEditablePptx(html, title, requestId) {
                     shapes,
                     images,
                     svgs,
+                    canvases,
                     backgroundElements,
                     pseudoDecorations,
                     filteredElements,
+                    tables,
                     warnings: exportWarnings
                 };
             }).filter(slide => slide.width > 10 && slide.height > 10);
         }, TEXT_WIDTH_SAFETY);
+        if (!slideData.length) {
+            const error = new Error('HTML contract violation: no exportable section.s/section slide was found');
+            error.code = 'CONTRACT_VIOLATION';
+            throw error;
+        }
 
         const slides = [];
         slideData.forEach((model, slideIndex) => {
-            (model.warnings || []).forEach((warning) => {
+            model.warnings = (model.warnings || []).map(warning => normalizeExportWarning(warning, slideIndex + 1));
+            model.warnings.forEach((warning) => {
                 puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint export fallback decision (non-fatal)', {
                     requestId,
                     warning: { ...warning, slide: slideIndex + 1 }
@@ -3454,7 +3612,7 @@ async function renderEditablePptx(html, title, requestId) {
                             return native && item.gradientColor;
                         })
                         .map((item) => ({ ...item, fill: item.gradientColor, gradient: item.backgroundImage, borderColor: 'transparent', borderWidth: 0 })),
-                    ...model.pseudoDecorations.map((item) => ({ ...item, borderColor: 'transparent', borderWidth: 0 }))
+                    ...model.pseudoDecorations.filter(item => item.kind !== 'text').map((item) => ({ ...item, borderColor: 'transparent', borderWidth: 0 }))
                 ];
                 const sideBorderShapes = model.shapes.flatMap((shape) => {
                     const border = shape.borderInfo;
@@ -3496,6 +3654,10 @@ async function renderEditablePptx(html, title, requestId) {
                         clone.style.width = `${rect.width}px`;
                         clone.style.height = `${rect.height}px`;
                         clone.style.margin = '0';
+                        // A background-only clone must not carry the element's
+                        // direct text node; the text is exported separately as
+                        // an editable shape and would otherwise be duplicated.
+                        clone.style.color = 'transparent';
                         // Keep unsupported background regions above the page while
                         // their original element is hidden for the clip capture.
                         clone.style.zIndex = '2147483647';
@@ -3555,8 +3717,20 @@ async function renderEditablePptx(html, title, requestId) {
                     width: Math.max(1, image.w),
                     height: Math.max(1, image.h)
                 };
+                // Capture the already-rendered node. Reconstructing a cover image
+                // from its source loses object-position and can produce a different
+                // crop in Chromium/PowerPoint, so the screenshot is the source of
+                // truth for visual fidelity. The native srcRect mapping remains
+                // covered by the exporter unit tests for callers that provide it.
                 const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
-                    images.push({ ...scaleRect(image), kind: 'image', data, rasterize: false, name: `Slide ${slideIndex + 1} image ${imageIndex + 1}` });
+                images.push({
+                    ...scaleRect(image),
+                    crop: null,
+                    kind: 'image',
+                    data,
+                    rasterize: false,
+                    name: `Slide ${slideIndex + 1} image ${imageIndex + 1}`
+                });
                 }
                 for (let svgIndex = 0; svgIndex < model.svgs.length; svgIndex++) {
                     const svg = model.svgs[svgIndex];
@@ -3568,6 +3742,12 @@ async function renderEditablePptx(html, title, requestId) {
                     };
                     const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
                     images.push({ ...scaleRect(svg), kind: 'image', data, rasterize: false, name: `Slide ${slideIndex + 1} icon ${svgIndex + 1}` });
+                }
+                for (let canvasIndex = 0; canvasIndex < (model.canvases || []).length; canvasIndex++) {
+                    const canvas = model.canvases[canvasIndex];
+                    const absolute = { x: Math.max(0, model.left + canvas.x), y: Math.max(0, model.top + canvas.y), width: Math.max(1, canvas.w), height: Math.max(1, canvas.h) };
+                    const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
+                    images.push({ ...scaleRect(canvas), kind: 'image', data, rasterize: false, descr: canvas.descr || '', name: `Slide ${slideIndex + 1} canvas ${canvasIndex + 1}` });
                 }
                 for (let filterIndex = 0; filterIndex < (model.filteredElements || []).length; filterIndex++) {
                     const filtered = model.filteredElements[filterIndex];
@@ -3582,10 +3762,10 @@ async function renderEditablePptx(html, title, requestId) {
                 }
             const warnFont = createFontWarningCollector({
                 slide: slideIndex + 1,
-                onWarning: (warning) => puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint export font substitution (non-fatal)', {
-                    requestId,
-                    warning
-                })
+                onWarning: (warning) => {
+                    model.warnings.push(warning);
+                    puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint export font substitution (non-fatal)', { requestId, warning });
+                }
             });
             const normalizeTextItem = (item) => {
                 const normalized = { ...item, fontFace: warnFont(item.fontFace) };
@@ -3605,7 +3785,17 @@ async function renderEditablePptx(html, title, requestId) {
                 ...scaleRect(shape),
                 name: shape.name || `Shape: ${shape.selector || 'background'}`
             }));
-            const scaledTexts = model.texts.filter(item => !item.rasterize).map(item => scaleRect(normalizeTextItem(item)));
+            const scaledTexts = [...model.texts, ...(model.pseudoDecorations || []).filter(item => item.kind === 'text')]
+                .filter(item => !item.rasterize)
+                .map(item => scaleRect(normalizeTextItem(item)));
+            const scaledTables = (model.tables || []).map(table => ({
+                ...scaleRect(table),
+                columns: (table.columns || []).map(width => pxToEmu(width * SLIDE_W_PX / model.width, 'x')),
+                rows: (table.rows || []).map(row => ({
+                    ...row,
+                    height: pxToEmu(row.height * SLIDE_H_PX / model.height, 'y')
+                }))
+            }));
             const scaledImages = images.filter(image => !image.rasterize).map(image => ({
                 ...image,
                 name: image.name || `Image: ${image.alt || 'untitled'}`
@@ -3632,7 +3822,7 @@ async function renderEditablePptx(html, title, requestId) {
                     });
                 }
             });
-            const items = [...scaledShapes, ...scaledImages, ...scaledTexts]
+            const items = [...scaledShapes, ...scaledImages, ...scaledTexts, ...scaledTables]
                 .sort(compareZKeys);
             slides.push({
                 background: { x: 0, y: 0, w: SLIDE_WIDTH, h: SLIDE_HEIGHT, fill: model.background || '#FFFFFF', borderWidth: 0 },
@@ -3640,10 +3830,41 @@ async function renderEditablePptx(html, title, requestId) {
                 items,
                 shapes: items.filter(item => item.kind === 'shape'),
                 texts: items.filter(item => item.kind === 'text'),
-                images: items.filter(item => item.kind === 'image')
+                images: items.filter(item => item.kind === 'image'),
+                tables: items.filter(item => item.kind === 'table')
             });
         }
-        return await createEditablePptx(slides, title || 'Presentation');
+        const pptxBuffer = await createEditablePptx(slides, title || 'Presentation');
+        if (debug || process.env.EXPORT_DEBUG === '1') {
+            const debugDir = path.join(TMP_DIR, 'export-debug', String(requestId).replace(/[^a-z0-9_-]/gi, '_'));
+            fs.mkdirSync(debugDir, { recursive: true });
+            fs.writeFileSync(path.join(debugDir, 'input.html'), html, 'utf8');
+            fs.writeFileSync(path.join(debugDir, 'slideData.json'), JSON.stringify(slideData, null, 2), 'utf8');
+            const allWarnings = [...slideData.flatMap(model => model.warnings || []).map(warning => normalizeExportWarning(warning, warning.slide)), ...assetWarnings.map(warning => normalizeExportWarning({ slide: 0, selector: warning.asset, tipo: 'image-load-failed', motivo: warning.reason, fallback: 'omit failed asset and continue' }))];
+            fs.writeFileSync(path.join(debugDir, 'warnings.json'), JSON.stringify({ warnings: allWarnings, counts: countExportWarnings(allWarnings) }, null, 2), 'utf8');
+            for (let index = 0; index < slideData.length; index++) {
+                const model = slideData[index];
+                await page.screenshot({ path: path.join(debugDir, `slide-${index + 1}-dom.png`), clip: { x: Math.max(0, model.left), y: Math.max(0, model.top), width: Math.max(1, model.width), height: Math.max(1, model.height) }, captureBeyondViewport: true });
+                const rasterItems = (slides[index]?.images || []).filter(item => item.data);
+                rasterItems.forEach((item, rasterIndex) => fs.writeFileSync(path.join(debugDir, `slide-${index + 1}-raster-${rasterIndex + 1}.png`), item.data));
+            }
+            let offset = 0;
+            while (offset + 30 <= pptxBuffer.length) {
+                if (pptxBuffer.readUInt32LE(offset) !== 0x04034b50) { offset += 1; continue; }
+                const method = pptxBuffer.readUInt16LE(offset + 8);
+                const compressedSize = pptxBuffer.readUInt32LE(offset + 18);
+                const nameLength = pptxBuffer.readUInt16LE(offset + 26);
+                const extraLength = pptxBuffer.readUInt16LE(offset + 28);
+                const name = pptxBuffer.subarray(offset + 30, offset + 30 + nameLength).toString('utf8');
+                const start = offset + 30 + nameLength + extraLength;
+                const data = pptxBuffer.subarray(start, start + compressedSize);
+                if (/^ppt\/slides\/slide\d+\.xml$/.test(name)) fs.writeFileSync(path.join(debugDir, path.basename(name)), method === 8 ? zlib.inflateRawSync(data) : data);
+                offset = start + compressedSize;
+            }
+        }
+        const allWarnings = [...slideData.flatMap(model => model.warnings || []).map(warning => normalizeExportWarning(warning, warning.slide)), ...assetWarnings.map(warning => normalizeExportWarning({ slide: 0, selector: warning.asset, tipo: 'image-load-failed', motivo: warning.reason, fallback: 'omit failed asset and continue' }))];
+        pptxBuffer.exportWarningCounts = countExportWarnings(allWarnings);
+        return pptxBuffer;
     } finally {
         await page.close();
     }
@@ -3682,11 +3903,12 @@ app.post('/finalize-pptx', express.json({ limit: '50mb' }), checkFinalizePressur
 
         const pptxFilename = `pptx_${crypto.randomBytes(16).toString('hex')}.pptx`;
         const pptxPath = path.join(TMP_DIR, pptxFilename);
-        const pptxBuffer = await renderEditablePptx(html, title, requestId);
+        const pptxBuffer = await renderEditablePptx(html, title, requestId, { debug: req.query.debug === '1' });
         fs.writeFileSync(pptxPath, pptxBuffer);
 
         const safeTitle = title ? title.replace(/[\/\\?%*:|<|>]/g, '-').trim() : 'Presentacion';
         res.set('Cache-Control', 'no-store');
+        res.set('X-Export-Warnings', JSON.stringify(pptxBuffer.exportWarningCounts || {}));
         res.json({ pptxUrl: `/download/${pptxFilename}?name=${encodeURIComponent(safeTitle)}` });
         log.success(ErrorCategory.PUPPETEER, 'Editable PowerPoint generated successfully', {
             requestId,
@@ -3702,7 +3924,8 @@ app.post('/finalize-pptx', express.json({ limit: '50mb' }), checkFinalizePressur
             requestId,
             error
         });
-        if (!res.headersSent) res.status(500).json({ error: 'Error generating PowerPoint: ' + (error.message || error) });
+        const status = error.code === 'CONTRACT_VIOLATION' ? 400 : 500;
+        if (!res.headersSent) res.status(status).json({ error: 'Error generating PowerPoint: ' + (error.message || error), tipo: error.code === 'CONTRACT_VIOLATION' ? 'contract-violation' : undefined });
     } finally {
         activeFinalize--;
         processFinalizeQueue();

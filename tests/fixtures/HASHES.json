@@ -1,0 +1,16 @@
+[
+  {"file":"pptx-borders-radius-opacity.html","sha256":"03e52a213a49fc530102720cc15d18b34c9271e8db3f14a0f2603a94d4077a8b"},
+  {"file":"pptx-edge-effects.html","sha256":"79f59c3280899a62a645478f7ce60e7722fd5148abe52e93cee41d6f49c4a31e"},
+  {"file":"pptx-generality-dark.html","sha256":"f06daa135377fee098e5d7ecd8c0c7aed0cbd321e000922b41fe63d7a5e21f34"},
+  {"file":"pptx-generality-light.html","sha256":"3052c08e6fede50b2169a8023b127d2ff06b64735466be3f9e6f2375e028c540"},
+  {"file":"pptx-images.html","sha256":"2c6f7584d2d159780eb491be64a05df3508d75b4da4de758d7e923b0a78d8f55"},
+  {"file":"pptx-kendrick.html","sha256":"f81f1fe666ff05bdb2a5ce44435491f765b7f3f597e118e915038781ee7381a1"},
+  {"file":"pptx-layer-edge.html","sha256":"c761e9f813b276c09a3c7c74eefc84e22fefcc28d98f3669352285b862e45600"},
+  {"file":"pptx-minimal.html","sha256":"176aa9002619ec5a871a4c07e52a8e12cf0e964ee4e1d578858e72b3ee894667"},
+  {"file":"pptx-pseudo.html","sha256":"2a8294cc4217979352e16cb1dc06acf9c8a2088553ae0e443a96ccf1d48504f1"},
+  {"file":"pptx-regression-dark.html","sha256":"0c53b33099de2a17a471f745bc439dab92242708d23f84c17440757bbf246e4a"},
+  {"file":"pptx-regression-light.html","sha256":"78ccb161239d8f8eb49ea3cc770c05954f0f2c463b4818d76a851fc072f2c269"},
+  {"file":"pptx-shadows.html","sha256":"97396267b8706fe30eabdfcbdff5dc2dcedd90d6f5efecc55603c8f31674c07f"},
+  {"file":"pptx-tables.html","sha256":"c863a282c59d339aaccf7c4e2800193e55d3dd234c9c52d1f13fb152cfedf8eb"},
+  {"file":"pptx-stress.html","sha256":"0ccab3c63faac6cc8ef4e5746149a2399489df8e138fb87b97acb3313505c64c"}
+]

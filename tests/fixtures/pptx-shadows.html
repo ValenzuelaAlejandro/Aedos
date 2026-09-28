@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0;background:#e8edf3;font-family:Arial;color:#15202b}
+section.s{position:relative;width:1122px;height:631px;box-sizing:border-box;padding:42px;background:#f8fafc;overflow:hidden}
+h1{margin:0 0 22px;font-size:30px} .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{height:132px;padding:18px;box-sizing:border-box;border:1px solid #ccd6e2;border-radius:10px;background:#fff}
+.simple{box-shadow:0 4px 12px rgba(0,0,0,.45)}
+.horizontal{box-shadow:4px 0 8px rgba(28,78,121,.5)}
+.negative{box-shadow:-3px -3px 6px rgba(121,28,28,.6)}
+.ring{box-shadow:0 0 0 3px rgba(28,121,78,.7)}
+.multiple{box-shadow:0 6px 16px rgba(0,0,0,.38),0 0 2px rgba(28,78,121,.8)}
+.inset{box-shadow:inset 0 3px 8px rgba(0,0,0,.5)}
+.text-shadow{font-size:22px;font-weight:700;text-shadow:2px 2px 3px rgba(0,0,0,.5)}
+.filter{filter:drop-shadow(0 8px 8px rgba(0,0,0,.4))}
+.label{font-size:13px;color:#506174;margin-bottom:12px}.value{font-size:25px;font-weight:700}
+</style></head><body>
+<section class="s"><h1>Editable shadow fixtures</h1><div class="grid">
+<div class="card simple"><div class="label">SIMPLE · 0 4 12</div><div class="value">Offset down</div></div>
+<div class="card horizontal"><div class="label">SIMPLE · 4 0 8</div><div class="value">Offset right</div></div>
+<div class="card negative"><div class="label">SIMPLE · -3 -3 6</div><div class="value">Offset up-left</div></div>
+<div class="card ring"><div class="label">RING · 0 0 0 3</div><div class="value">Border equivalent</div></div>
+<div class="card multiple"><div class="label">MULTIPLE</div><div class="value">Dominant + warning</div></div>
+<div class="card inset"><div class="label">INSET</div><div class="value">Outer approximation</div></div>
+</div><div class="card filter" style="position:absolute;left:42px;bottom:28px;width:430px;height:74px;padding:14px"><div class="label">FILTER FALLBACK</div><div>Rasterized node + warning</div></div><div class="text-shadow" style="position:absolute;right:70px;bottom:52px">Editable text shadow</div></section>
+</body></html>

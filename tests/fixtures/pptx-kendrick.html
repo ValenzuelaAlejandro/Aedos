@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  
+  :root {
+    --bg: #0d0d10;
+    --surface: rgba(255,255,255,0.03);
+    --surface2: rgba(255,255,255,0.06);
+    --accent: #C5A028;
+    --accent-dim: rgba(197, 160, 40, 0.15);
+    --accent-2: #8B1A1A;
+    --text: #E0E0E0;
+    --text-dim: #94a3b8;
+    --border: rgba(255,255,255,0.07);
+    --heading-font: 'Bebas Neue', sans-serif;
+    --body-font: 'DM Sans', sans-serif;
+    --mono-font: 'JetBrains Mono', monospace;
+  }
+
+  html { font-size: 10px; }
+  body { 
+    margin: 0; 
+    font-family: var(--body-font); 
+    color: var(--text); 
+    background: var(--bg); 
+  }
+
+  section.s { 
+    width: 1122px; 
+    height: 631px; 
+    overflow: hidden; 
+    display: flex; 
+    flex-direction: column; 
+    background: var(--bg); 
+    page-break-after: always; 
+    padding: 4rem 5rem; 
+    box-sizing: border-box; 
+    position: relative; 
+  }
+
+  @media print { 
+    body { margin: 0; } 
+    @page { size: 1122px 631px; margin: 0; } 
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } 
+  }
+
+  * { box-sizing: border-box; }
+
+  h1, h2, h3 { font-family: var(--heading-font); margin: 0; line-height: 1; text-transform: uppercase; }
+  h1 { font-size: 8rem; letter-spacing: -0.03em; }
+  h2 { font-size: 5.5rem; letter-spacing: -0.02em; }
+  h3 { font-size: 2.2rem; letter-spacing: 0.02em; }
+
+  p { font-size: 1.5rem; line-height: 1.6; color: var(--text-dim); margin: 0; }
+
+  .tag { 
+    font-size: 1.1rem; 
+    font-weight: 700; 
+    color: var(--accent); 
+    text-transform: uppercase; 
+    letter-spacing: 0.2rem; 
+    display: flex; 
+    align-items: center; 
+    gap: 1rem; 
+    margin-bottom: 1.5rem;
+  }
+  .tag::before { content: ''; width: 2.5rem; height: 1px; background: var(--accent); }
+
+  .img-slot { position: relative; overflow: hidden; background: var(--surface); }
+  .img-slot .img-bg1 { position: absolute; inset: 0; z-index: 0; background: linear-gradient(135deg, var(--bg), #1a1a1f); }
+  .img-slot .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.65); z-index: 1; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); padding: 2.5rem; display: flex; flex-direction: column; gap: 1rem; }
+  .card.accent { border-left: 4px solid var(--accent); }
+
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.5rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+  
+  .counter { 
+    position: absolute; 
+    bottom: 3rem; 
+    right: 5rem; 
+    font-family: var(--mono-font); 
+    font-size: 1.1rem; 
+    color: var(--text-dim); 
+    opacity: 0.5; 
+    z-index: 5; 
+  }
+
+  .icon-wrapper { 
+    width: 32px; 
+    height: 32px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    margin-bottom: 1rem;
+  }
+  .icon-wrapper i { width: 24px; height: 24px; stroke: var(--accent); fill: none; }
+
+  .accent-text { color: var(--accent); }
+  .dim-text { color: var(--text-dim); }
+
+/* aedos-layout-safety-net */
+section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(3)) {
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    align-content:start !important;
+}
+section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(5)) {
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+}
+section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(3)) > .card {
+    min-width:0 !important;
+}
+
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <!-- SLIDE 1: COVER -->
+  <section class="s" style="justify-content: center; align-items: flex-start; text-align: left;">
+    <div class="img-slot" data-image-slot="1" data-image-keyword="Kendrick Lamar portrait photo" style="position:absolute; inset:0; z-index:0;">
+      <div class="overlay" style="background: linear-gradient(to right, rgba(13,13,16,0.95) 20%, rgba(13,13,16,0.4));"></div>
+    </div>
+    
+    <div style="position:absolute; top:0; left:0; right:0; height:5px; background:var(--accent); z-index:2;"></div>
+    
+    <div style="position:relative; z-index:2; max-width:80rem;">
+      <div class="tag">Kendrick Lamar</div>
+      <h1 style="font-size:12rem; line-height:0.85;">Kendrick<br><span class="accent-text" style="font-style:italic;">Lamar</span></h1>
+      <p style="font-size:1.8rem; margin-top:2.5rem; max-width:45rem; color:var(--text);">An Exploration of Influence and Artistry</p>
+    </div>
+    
+    <p class="counter">01 / 08</p>
+  </section>
+
+  <!-- SLIDE 2: ROOTS IN COMPTON -->
+  <section class="s" style="padding:0; flex-direction:row;">
+    <div style="position:absolute; left:0; top:0; width:4px; height:100%; background:linear-gradient(to bottom, var(--accent), var(--accent-2) 50%, transparent); z-index:10;"></div>
+    
+    <div class="img-slot" data-image-slot="2" data-image-keyword="Compton street scene 2000s" style="flex:0 0 400px; border-radius:0;">
+      <div class="img-bg1"></div>
+    </div>
+    
+    <div style="flex:1; padding:6rem 5rem; display:flex; flex-direction:column; justify-content:center; min-width:0;">
+      <div class="tag">Roots</div>
+      <h2 style="margin-bottom:1rem;"><span class="accent-text">Roots</span> in Compton</h2>
+      <p style="font-size:1.8rem; color:var(--text); margin-bottom:4rem;">Shaping an Artist's Perspective</p>
+      
+      <div style="display:flex; flex-direction:column; gap:2.5rem;">
+        <div style="display:flex; gap:2rem; align-items:flex-start;">
+          <div style="font-family:var(--mono-font); color:var(--accent); font-size:1.2rem; margin-top:0.4rem;">[01]</div>
+          <p style="font-size:1.4rem;"><strong class="accent-text" style="font-size:1.4rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.4rem;">Socio-economic realities</strong> Born and raised amidst the realities of gang culture, poverty, and systemic inequality in Compton.</p>
+        </div>
+        <div style="display:flex; gap:2rem; align-items:flex-start;">
+          <div style="font-family:var(--mono-font); color:var(--accent); font-size:1.2rem; margin-top:0.4rem;">[02]</div>
+          <p style="font-size:1.4rem;"><strong class="accent-text" style="font-size:1.4rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.4rem;">Storytelling & community</strong> Early exposure to community narratives shaped a worldview rooted in authentic lived experience.</p>
+        </div>
+        <div style="display:flex; gap:2rem; align-items:flex-start;">
+          <div style="font-family:var(--mono-font); color:var(--accent); font-size:1.2rem; margin-top:0.4rem;">[03]</div>
+          <p style="font-size:1.4rem;"><strong class="accent-text" style="font-size:1.4rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.4rem;">Youngest In Charge</strong> Released his first mixtape in 2004, beginning a journey of lyrical documentation.</p>
+        </div>
+      </div>
+    </div>
+    
+    <p class="counter">02 / 08</p>
+  </section>
+
+  <!-- SLIDE 3: THE ASCENT BEGINS -->
+  <section class="s">
+    <div class="tag">Process</div>
+    <h2 style="margin-bottom:1rem;">The <span class="accent-text">Ascent</span> Begins</h2>
+    <p style="font-size:1.6rem; margin-bottom:4rem;">Early Projects and Defining Sound</p>
+    
+    <div style="flex:1; min-height:0; display:flex; gap:2.5rem; overflow:hidden;">
+      <div class="img-slot" data-image-slot="3" data-image-keyword="good kid m.A.A.d city album cover" style="flex:0 0 320px; border-radius:8px;">
+        <div class="img-bg1"></div>
+      </div>
+      
+      <div style="flex:1; display:grid; grid-template-rows: repeat(3, 1fr); gap:1.5rem; min-width:0;">
+        <div class="card" style="padding:1.5rem 2rem; flex-direction:row; align-items:center; gap:2.5rem;">
+          <div style="font-size:2.8rem; font-family:var(--heading-font); color:var(--accent); width:6rem; flex-shrink:0;">2009</div>
+          <div>
+            <h3 class="accent-text" style="font-size:2rem;">Kendrick Lamar EP</h3>
+            <p style="font-size:1.3rem;">Showcased raw talent and lyrical precision.</p>
+          </div>
+        </div>
+        <div class="card" style="padding:1.5rem 2rem; flex-direction:row; align-items:center; gap:2.5rem;">
+          <div style="font-size:2.8rem; font-family:var(--heading-font); color:var(--accent); width:6rem; flex-shrink:0;">2011</div>
+          <div>
+            <h3 class="accent-text" style="font-size:2rem;">Section.80</h3>
+            <p style="font-size:1.3rem;">Explored complex themes of race and societal issues.</p>
+          </div>
+        </div>
+        <div class="card accent" style="padding:1.5rem 2rem; flex-direction:row; align-items:center; gap:2.5rem;">
+          <div style="font-size:2.8rem; font-family:var(--heading-font); color:var(--accent); width:6rem; flex-shrink:0;">2012</div>
+          <div>
+            <h3 class="accent-text" style="font-size:2rem;">good kid, m.A.A.d city</h3>
+            <p style="font-size:1.3rem;">Established him as a master storyteller with a compelling concept album.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <p style="margin-top:2.5rem; font-size:1.2rem; font-style:italic; border-top:1px solid var(--border); padding-top:1.5rem;">
+      Praised for intricate lyricism, conceptual depth, and an authentic voice that redefined contemporary rap.
+    </p>
+    
+    <p class="counter">03 / 08</p>
+  </section>
+
+  <!-- SLIDE 4: TO PIMP A BUTTERFLY -->
+  <section class="s" style="justify-content: center; align-items: center; text-align: center;">
+    <div class="img-slot" data-image-slot="4" data-image-keyword="To Pimp a Butterfly album cover" style="position:absolute; inset:0; z-index:0;">
+      <div class="overlay" style="background: rgba(0,0,0,0.8);"></div>
+    </div>
+    
+    <div style="position:absolute; inset:28px; border:1px solid rgba(197, 160, 40, 0.2); pointer-events:none; z-index:1;"></div>
+    
+    <div style="position:relative; z-index:2; max-width:85rem;">
+      <div class="tag" style="justify-content:center;">Concept</div>
+      <h1 class="accent-text" style="font-size:10rem; margin-bottom:1rem;">To Pimp a Butterfly</h1>
+      <p style="font-size:1.8rem; color:var(--text); margin-bottom:5rem;">A Landmark of Genre Fusion and Social Commentary</p>
+      
+      <div class="grid-3" style="text-align:left;">
+        <div>
+          <h3 class="accent-text" style="margin-bottom:1rem;">Genre Fusion</h3>
+          <p style="font-size:1.3rem;">Incorporated jazz, funk, soul, and spoken word into a seamless sonic tapestry.</p>
+        </div>
+        <div style="border-left:1px solid var(--border); padding-left:2rem;">
+          <h3 class="accent-text" style="margin-bottom:1rem;">Social Commentary</h3>
+          <p style="font-size:1.3rem;">Delved into themes of Black identity, institutional racism, and self-love.</p>
+        </div>
+        <div style="border-left:1px solid var(--border); padding-left:2rem;">
+          <h3 class="accent-text" style="margin-bottom:1rem;">Cultural Impact</h3>
+          <p style="font-size:1.3rem;">Garnered universal acclaim, winning the Grammy for Best Rap Album.</p>
+        </div>
+      </div>
+    </div>
+    
+    <p class="counter">04 / 08</p>
+  </section>
+
+  <!-- SLIDE 5: DAMN. -->
+  <section class="s" style="justify-content: space-between;">
+    <div class="img-slot" data-image-slot="5" data-image-keyword="DAMN. album cover" style="position:absolute; inset:0; z-index:0;">
+      <div class="overlay" style="background: linear-gradient(to top, rgba(13,13,16,1), rgba(13,13,16,0.7));"></div>
+    </div>
+    
+    <div style="position:absolute; top:0; left:0; right:0; height:5px; background:var(--accent); z-index:2;"></div>
+    
+    <div style="position:relative; z-index:2;">
+      <div class="tag">Concept</div>
+      <h2 class="accent-text" style="font-size:9rem;">DAMN.</h2>
+      <p style="font-size:1.8rem; color:var(--text);">Commercial Acclaim and Historic Recognition</p>
+    </div>
+    
+    <div style="position:relative; z-index:2; flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:4rem;">
+      <div style="text-align:center;">
+        <div style="font-family:var(--heading-font); font-size:11rem; color:var(--accent); line-height:0.9;">PULITZER PRIZE</div>
+        <div style="font-family:var(--mono-font); font-size:1.4rem; letter-spacing:0.3em; margin-top:1rem; opacity:0.8;">FOR MUSIC (2018)</div>
+      </div>
+      
+      <div style="width:100%; display:flex; justify-content:space-around;">
+        <div style="text-align:center;">
+          <div style="font-family:var(--heading-font); font-size:6rem; color:var(--text);">3X PLATINUM</div>
+          <div style="font-family:var(--mono-font); font-size:1.1rem; opacity:0.6;">RIAA CERTIFICATION</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-family:var(--heading-font); font-size:6rem; color:var(--text);">BILLBOARD #1</div>
+          <div style="font-family:var(--mono-font); font-size:1.1rem; opacity:0.6;">DEBUT ON TOP 200</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="position:relative; z-index:2; display:flex; justify-content:space-between; align-items:flex-end;">
+      <p style="font-family:var(--mono-font); font-size:0.9rem; opacity:0.3; text-transform:uppercase;">Source: Pulitzer Prize Board, RIAA</p>
+      <p class="counter" style="position:static;">05 / 08</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: ART OF LYRICAL MASTERY -->
+  <section class="s" style="padding:0; flex-direction:row;">
+    <div style="position:absolute; left:0; top:0; width:4px; height:100%; background:var(--accent); z-index:10;"></div>
+    
+    <div style="flex:0 0 35%; background:var(--bg); padding:6rem 4rem; border-right:1px solid var(--border); display:flex; flex-direction:column; justify-content:center;">
+      <div class="tag">Concept</div>
+      <h2 style="margin-bottom:2rem;"><span class="accent-text">Lyrical</span> Mastery</h2>
+      <p style="font-size:1.4rem; color:var(--text);">Kendrick's impact is rooted in mastery of metaphor, allegory, and complex narrative structures. He utilizes diverse vocal inflections to create character-driven perspectives that challenge listeners.</p>
+    </div>
+    
+    <div style="flex:1; padding:6rem 5rem; display:flex; flex-direction:column; justify-content:center;">
+      <p style="font-size:1.8rem; color:var(--text); margin-bottom:4rem;">Social Commentary and Narrative Craft</p>
+      
+      <div class="grid-2">
+        <div class="card">
+          <div class="icon-wrapper"><i data-lucide="target"></i></div>
+          <h3 class="accent-text">Metaphor & Allegory</h3>
+          <p style="font-size:1.1rem;">Intricate layers of meaning that reward deep listening.</p>
+        </div>
+        <div class="card">
+          <div class="icon-wrapper"><i data-lucide="shield"></i></div>
+          <h3 class="accent-text">Societal Issues</h3>
+          <p style="font-size:1.1rem;">Addressing systemic racism, brutality, and mental health.</p>
+        </div>
+        <div class="card">
+          <div class="icon-wrapper"><i data-lucide="mic-vocal"></i></div>
+          <h3 class="accent-text">Vocal Diversity</h3>
+          <p style="font-size:1.1rem;">Character-driven inflections that bring stories to life.</p>
+        </div>
+        <div class="card">
+          <div class="icon-wrapper"><i data-lucide="globe"></i></div>
+          <h3 class="accent-text">Cultural Influence</h3>
+          <p style="font-size:1.1rem;">Shaping discourse far beyond the boundaries of music.</p>
+        </div>
+      </div>
+    </div>
+    
+    <p class="counter">06 / 08</p>
+  </section>
+
+  <!-- SLIDE 7: MR. MORALE -->
+  <section class="s" style="padding:0; flex-direction:row;">
+    <div style="position:absolute; left:0; top:0; width:4px; height:100%; background:linear-gradient(to bottom, var(--accent), transparent); z-index:10;"></div>
+    
+    <div class="img-slot" data-image-slot="7" data-image-keyword="Mr. Morale & The Big Steppers album cover" style="flex:0 0 400px; border-radius:0;">
+      <div class="img-bg1"></div>
+    </div>
+    
+    <div style="flex:1; padding:6rem 5rem; display:flex; flex-direction:column; justify-content:center;">
+      <div class="tag">Concept</div>
+      <h2 style="margin-bottom:1rem;"><span class="accent-text">Mr.</span> Morale & The Big Steppers</h2>
+      <p style="font-size:1.8rem; color:var(--text); margin-bottom:4rem;"><span class="accent-text">Continued</span> Exploration and Personal Growth</p>
+      
+      <div style="display:flex; flex-direction:column; gap:2rem; max-width:50rem;">
+        <div style="padding-left:2rem; border-left:2px solid var(--accent-dim);">
+          <p style="font-size:1.4rem; color:var(--text);">Delves into themes of therapy, fatherhood, and evolving personal perspectives.</p>
+        </div>
+        <div style="padding-left:2rem; border-left:2px solid var(--accent-dim);">
+          <p style="font-size:1.4rem; color:var(--text);">Demonstrates a willingness to confront intimate and complex subjects openly.</p>
+        </div>
+        <div style="padding-left:2rem; border-left:2px solid var(--accent-dim);">
+          <p style="font-size:1.4rem; color:var(--text);">Reinforces his status as a visionary artist who constantly challenges conventions.</p>
+        </div>
+      </div>
+    </div>
+    
+    <p class="counter">07 / 08</p>
+  </section>
+
+  <!-- SLIDE 8: ENDURING LEGACY -->
+  <section class="s" style="justify-content: center; align-items: center; text-align: center;">
+    <div class="img-slot" data-image-slot="8" data-image-keyword="Kendrick Lamar live performance impactful shot" style="position:absolute; inset:0; z-index:0;">
+      <div class="overlay" style="background: rgba(13,13,16,0.85);"></div>
+    </div>
+    
+    <!-- Corner marks -->
+    <div style="position:absolute; top:40px; left:48px; width:32px; height:32px; border-top:1px solid var(--accent); border-left:1px solid var(--accent); opacity:.3; z-index:2;"></div>
+    <div style="position:absolute; bottom:60px; right:48px; width:32px; height:32px; border-bottom:1px solid var(--accent); border-right:1px solid var(--accent); opacity:.3; z-index:2;"></div>
+    
+    <div style="position:relative; z-index:2; max-width:80rem;">
+      <h1 class="accent-text" style="font-size:9rem; margin-bottom:1rem;">Enduring Legacy</h1>
+      <p style="font-size:2.2rem; color:var(--text); margin-bottom:5rem;">A Defining Voice of a Generation</p>
+      
+      <div style="display:flex; flex-direction:column; gap:1.5rem; align-items:center;">
+        <p style="font-size:1.6rem; color:var(--text); max-width:60rem;">Transcends genre to become a significant cultural commentator and artist.</p>
+        <div style="width:4rem; height:1px; background:var(--accent-dim);"></div>
+        <p style="font-size:1.6rem; color:var(--text); max-width:60rem;">His exploration of complex human experiences resonates on a global scale.</p>
+        <div style="width:4rem; height:1px; background:var(--accent-dim);"></div>
+        <p style="font-size:1.6rem; color:var(--text); max-width:60rem;">The Pulitzer Prize underscores his monumental contribution to art and literature.</p>
+      </div>
+    </div>
+    
+    <div style="position:absolute; bottom:0; left:0; right:0; height:8px; background:var(--accent); z-index:2;"></div>
+    <p class="counter" style="bottom:2.5rem; right:5rem;">08 / 08</p>
+  </section>
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>

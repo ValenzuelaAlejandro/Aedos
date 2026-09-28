@@ -1,4 +1,5 @@
 const zlib = require('zlib');
+const crypto = require('crypto');
 
 const EMU_PER_INCH = 914400;
 const PX_PER_INCH = 96;
@@ -338,7 +339,7 @@ function gradientXml(gradient, shape = {}) {
         : gradient;
     if (!parsed) return null;
     const fillOpacity = Math.max(0, Math.min(1, Number(shape.fillOpacity ?? shape.opacity ?? 1)));
-    const stops = parsed.stops.map(stop => {
+    const stops = parsed.stops.slice().sort((left, right) => left.position - right.position).map(stop => {
         const alpha = stop.alpha * fillOpacity;
         return `<a:gs pos="${Math.round(stop.position * 100000)}"><a:srgbClr val="${stop.hex}">${alpha < 0.999 ? `<a:alpha val="${Math.round(alpha * 100000)}"/>` : ''}</a:srgbClr></a:gs>`;
     }).join('');
@@ -469,11 +470,40 @@ function shapeXml(id, shape, { textBox = false, addHyperlink } = {}) {
 function imageXml(id, image, relationshipId) {
     const name = escapeXml(image.name || `Image ${id}`);
     const alpha = Number(image.opacity ?? 1) < 0.999 ? `<a:alphaModFix amt="${Math.round(Math.max(0, Math.min(1, Number(image.opacity))) * 100000)}"/>` : '';
+    const crop = image.crop && ['l', 't', 'r', 'b'].some(key => Number(image.crop[key]) > 0)
+        ? `<a:srcRect l="${Math.round(Number(image.crop.l) || 0)}" t="${Math.round(Number(image.crop.t) || 0)}" r="${Math.round(Number(image.crop.r) || 0)}" b="${Math.round(Number(image.crop.b) || 0)}"/>`
+        : '';
+    const descr = image.descr !== undefined ? ` descr="${escapeXml(image.descr)}"` : '';
     return `<p:pic>
-        <p:nvPicPr><p:cNvPr id="${id}" name="${name}"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>
-        <p:blipFill><a:blip r:embed="${relationshipId}">${alpha}</a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+        <p:nvPicPr><p:cNvPr id="${id}" name="${name}"${descr}/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>
+        <p:blipFill><a:blip r:embed="${relationshipId}">${alpha}</a:blip>${crop}<a:stretch><a:fillRect/></a:stretch></p:blipFill>
         <p:spPr>${xfrm(image.x, image.y, image.w, image.h)}${geometry(image)}<a:noFill/><a:ln><a:noFill/></a:ln></p:spPr>
     </p:pic>`;
+}
+
+function tableCellLineXml(side, width, colorValue, style = 'solid') {
+    const dash = style === 'dashed' ? 'dash' : style === 'dotted' ? 'sysDot' : 'solid';
+    return `<a:ln${side} w="${emu(Math.max(1, Number(width) || 1) * 12700)}"><a:solidFill>${colorXml(colorValue || '#B8C2CC')}</a:solidFill><a:prstDash val="${dash}"/></a:ln${side}>`;
+}
+
+function tableCellXml(cell = {}, rowIndex = 0, colIndex = 0) {
+    const paragraphs = Array.isArray(cell.paragraphs) && cell.paragraphs.length
+        ? cell.paragraphs.map(paragraph => paragraphXml(paragraph, { ...cell, textColor: paragraph.textColor || cell.textColor || '#111111', fontFace: paragraph.fontFace || cell.fontFace || 'Arial', fontSize: paragraph.fontSize || cell.fontSize || 16, align: paragraph.align || cell.align || 'left' })).join('')
+        : paragraphXml({ text: cell.text || '', runs: cell.runs || [{ text: cell.text || '', sizePx: cell.fontSize || 16, fontFamily: cell.fontFace || 'Arial', color: cell.textColor || '#111111', weight: cell.bold ? 700 : 400 }] }, { ...cell, textColor: cell.textColor || '#111111', fontFace: cell.fontFace || 'Arial', fontSize: cell.fontSize || 16, align: cell.align || 'left' });
+    const fill = cell.fill && !isTransparent(cell.fill) ? `<a:solidFill>${colorXml(cell.fill)}</a:solidFill>` : '';
+    const sides = cell.borders || {};
+    const lines = ['L', 'R', 'T', 'B'].map(side => tableCellLineXml(side, sides[side.toLowerCase()]?.width || 1, sides[side.toLowerCase()]?.color, sides[side.toLowerCase()]?.style)).join('');
+    const span = Number(cell.colSpan) > 1 ? ` gridSpan="${Math.round(cell.colSpan)}"` : '';
+    const rowSpan = Number(cell.rowSpan) > 1 ? ` rowSpan="${Math.round(cell.rowSpan)}"` : '';
+    const merge = cell.hMerge ? ' hMerge="1"' : cell.vMerge ? ' vMerge="1"' : '';
+    return `<a:tc${span}${rowSpan}${merge}><a:txBody><a:bodyPr lIns="${pxToEmu(cell.padding?.left || 0)}" rIns="${pxToEmu(cell.padding?.right || 0)}" tIns="${pxToEmu(cell.padding?.top || 0)}" bIns="${pxToEmu(cell.padding?.bottom || 0)}" anchor="${cell.valign === 'middle' ? 'ctr' : cell.valign === 'bottom' ? 'b' : 't'}"><a:noAutofit/></a:bodyPr><a:lstStyle/>${paragraphs}</a:txBody><a:tcPr>${fill}${lines}</a:tcPr></a:tc>`;
+}
+
+function tableXml(id, table) {
+    const columns = (table.columns || []).map(width => `<a:gridCol w="${emu(width)}"/>`).join('');
+    const rows = (table.rows || []).map((row, rowIndex) => `<a:tr h="${emu(row.height || 1)}">${(row.cells || []).map((cell, colIndex) => tableCellXml(cell, rowIndex, colIndex)).join('')}</a:tr>`).join('');
+    const name = escapeXml(table.name || `Table ${id}`);
+    return `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${id}" name="${name}"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr><p:xfrm>${xfrm(table.x, table.y, table.w, table.h).replace(/^<a:xfrm>|<\/a:xfrm>$/g, '')}</p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="${table.firstRow ? 1 : 0}" bandRow="0"><a:tableStyleId>{00000000-0000-0000-0000-000000000000}</a:tableStyleId></a:tblPr><a:tblGrid>${columns}</a:tblGrid>${rows}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
 }
 
 function groupStart() {
@@ -482,7 +512,7 @@ function groupStart() {
         <p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emu(SLIDE_WIDTH)}" cy="${emu(SLIDE_HEIGHT)}"/><a:chOff x="0" y="0"/><a:chExt cx="${emu(SLIDE_WIDTH)}" cy="${emu(SLIDE_HEIGHT)}"/></a:xfrm></p:grpSpPr>`;
 }
 
-function slideXml(model, slideNumber) {
+function slideXml(model, slideNumber, mediaRegistry = new Map()) {
     let id = 2;
     const relationships = [];
     const content = [];
@@ -504,7 +534,9 @@ function slideXml(model, slideNumber) {
 
     if (model.background) content.push(shapeXml(id++, model.background));
     if (model.backgroundImage) {
-        const mediaName = `slide${slideNumber}-image${mediaRelationships.length + 1}.png`;
+        const digest = crypto.createHash('sha256').update(model.backgroundImage.data).digest('hex');
+        const mediaName = mediaRegistry.get(digest) || `image-${mediaRegistry.size + 1}.png`;
+        mediaRegistry.set(digest, mediaName);
         const relId = addRelationship({ type: 'image', target: `../media/${mediaName}`, image: model.backgroundImage, mediaName });
         mediaRelationships.push(relId);
         content.push(imageXml(id++, model.backgroundImage, relId));
@@ -514,16 +546,21 @@ function slideXml(model, slideNumber) {
         : [
             ...(model.shapes || []).map(shape => ({ ...shape, kind: 'shape' })),
             ...(model.images || []).map(image => ({ ...image, kind: 'image' })),
-            ...(model.texts || []).map(text => ({ ...text, kind: 'text' }))
+            ...(model.texts || []).map(text => ({ ...text, kind: 'text' })),
+            ...(model.tables || []).map(table => ({ ...table, kind: 'table' }))
         ]).slice().sort(compareZKeys);
     for (const item of orderedItems) {
         if (item.kind === 'image' || item.image || item.data) {
-            const mediaName = `slide${slideNumber}-image${mediaRelationships.length + 1}.png`;
+            const digest = crypto.createHash('sha256').update(item.data).digest('hex');
+            const mediaName = mediaRegistry.get(digest) || `image-${mediaRegistry.size + 1}.png`;
+            mediaRegistry.set(digest, mediaName);
             const relId = addRelationship({ type: 'image', target: `../media/${mediaName}`, image: item, mediaName });
             mediaRelationships.push(relId);
             content.push(imageXml(id++, item, relId));
         } else if (item.kind === 'text' || item.text !== undefined || item.paragraphs) {
             content.push(shapeXml(id++, item, { textBox: true, addHyperlink }));
+        } else if (item.kind === 'table' || item.rows) {
+            content.push(tableXml(id++, item));
         } else {
             content.push(shapeXml(id++, item));
         }
@@ -582,6 +619,22 @@ function zip(entries) {
         u32(centralBuffer.length), u32(offset), u16(0)
     ]);
     return Buffer.concat([...local, centralBuffer, end]);
+}
+
+function validateGeneratedPackage(slides) {
+    slides.forEach((generated, slideIndex) => {
+        const ids = [...generated.slide.matchAll(/<p:cNvPr\s+id="([^"]+)"/g)].map(match => match[1]);
+        if (new Set(ids).size !== ids.length) throw new Error(`contract-violation: duplicate shape id on slide ${slideIndex + 1}`);
+        if (generated.slide.includes('<a:normAutofit')) throw new Error(`contract-violation: normAutofit on slide ${slideIndex + 1}`);
+        const relationshipIds = [...generated.rels.matchAll(/<Relationship\s+Id="([^"]+)"/g)].map(match => match[1]);
+        if (new Set(relationshipIds).size !== relationshipIds.length) throw new Error(`contract-violation: duplicate relationship id on slide ${slideIndex + 1}`);
+        const gradientLists = [...generated.slide.matchAll(/<a:gsLst>([\s\S]*?)<\/a:gsLst>/g)].map(match => match[1]);
+        gradientLists.forEach(list => {
+            const positions = [...list.matchAll(/<a:gs\s+pos="(\d+)"/g)].map(match => Number(match[1]));
+            if (positions.some((position, index) => index && position < positions[index - 1])) throw new Error(`contract-violation: unordered gradient stops on slide ${slideIndex + 1}`);
+        });
+    });
+    return true;
 }
 
 function relationshipsXml() {
@@ -684,17 +737,20 @@ async function createEditablePptx(slides, title) {
         { name: 'ppt/notesMasters/_rels/notesMaster1.xml.rels', data: '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme3.xml"/></Relationships>' }
     ];
 
+    const mediaRegistry = new Map();
     for (let index = 0; index < slides.length; index++) {
         const slideNumber = index + 1;
-        const generated = slideXml(slides[index], slideNumber);
+        const generated = slideXml(slides[index], slideNumber, mediaRegistry);
         entries.push({ name: `ppt/slides/slide${slideNumber}.xml`, data: generated.slide });
         entries.push({ name: `ppt/slides/_rels/slide${slideNumber}.xml.rels`, data: generated.rels });
         entries.push({ name: `ppt/notesSlides/notesSlide${slideNumber}.xml`, data: notesSlideXml() });
         entries.push({ name: `ppt/notesSlides/_rels/notesSlide${slideNumber}.xml.rels`, data: `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="../slides/slide${slideNumber}.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster" Target="../notesMasters/notesMaster1.xml"/></Relationships>` });
         generated.relationships.filter((relationship) => relationship.image).forEach((relationship) => {
-            entries.push({ name: `ppt/media/${relationship.mediaName}`, data: relationship.image.data });
+            if (!entries.some(entry => entry.name === `ppt/media/${relationship.mediaName}`)) entries.push({ name: `ppt/media/${relationship.mediaName}`, data: relationship.image.data });
         });
     }
+
+    validateGeneratedPackage(slides.map((slide, index) => slideXml(slide, index + 1, mediaRegistry)));
 
     return zip(entries);
 }
@@ -727,6 +783,8 @@ module.exports = {
     geometry,
     lineXml,
     imageXml,
+    tableXml,
+    validateGeneratedPackage,
     pxToEmu,
     pxToPt,
     color,
