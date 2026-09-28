@@ -26,6 +26,11 @@ const FONT_FALLBACKS = [
     { pattern: /mono|code|courier/i, family: 'Courier New' }
 ];
 const OFFICE_FONTS = new Set(['arial', 'calibri', 'aptos', 'georgia', 'times new roman', 'verdana', 'tahoma', 'trebuchet ms', 'arial narrow', 'arial black', 'courier new']);
+const CSS_COLOR_NAMES = {
+    black: '#000000', white: '#FFFFFF', red: '#FF0000', green: '#008000', blue: '#0000FF',
+    yellow: '#FFFF00', cyan: '#00FFFF', magenta: '#FF00FF', gray: '#808080', grey: '#808080',
+    orange: '#FFA500', purple: '#800080', transparent: 'rgba(0,0,0,0)'
+};
 
 function escapeXml(value) {
     return String(value ?? '')
@@ -88,7 +93,8 @@ function compareZKeys(left = {}, right = {}) {
 }
 
 function colorParts(value, fallback = 'FFFFFF') {
-    const raw = String(value || '');
+    const rawValue = String(value || '').trim();
+    const raw = CSS_COLOR_NAMES[rawValue.toLowerCase()] || rawValue;
     const match = raw.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?/i);
     if (match) {
         return {
@@ -102,6 +108,130 @@ function colorParts(value, fallback = 'FFFFFF') {
     if (/^[0-9a-f]{6}$/i.test(hex)) return { hex: hex.toUpperCase(), alpha: 1 };
     if (/^[0-9a-f]{3}$/i.test(hex)) return { hex: hex.split('').map(part => part + part).join('').toUpperCase(), alpha: 1 };
     return { hex: fallback, alpha: 1 };
+}
+
+function splitTopLevel(value) {
+    const parts = [];
+    let current = '';
+    let depth = 0;
+    for (const character of String(value || '')) {
+        if (character === '(') depth++;
+        if (character === ')') depth--;
+        if (character === ',' && depth === 0) {
+            parts.push(current.trim());
+            current = '';
+        } else {
+            current += character;
+        }
+    }
+    if (current.trim()) parts.push(current.trim());
+    return parts;
+}
+
+function parseCssAngle(value, width = 1, height = 1) {
+    const raw = String(value || '').trim().toLowerCase();
+    const direction = raw.match(/^to\s+(.+)$/);
+    if (direction) {
+        const tokens = direction[1].split(/\s+/);
+        const vertical = tokens.find(token => ['top', 'bottom'].includes(token));
+        const horizontal = tokens.find(token => ['left', 'right'].includes(token));
+        if (vertical && horizontal) {
+            const diagonal = Math.atan2(height, width) * 180 / Math.PI;
+            if (vertical === 'bottom' && horizontal === 'right') return 90 + diagonal;
+            if (vertical === 'bottom' && horizontal === 'left') return 270 - diagonal;
+            if (vertical === 'top' && horizontal === 'right') return 90 - diagonal;
+            if (vertical === 'top' && horizontal === 'left') return 270 + diagonal;
+        }
+        return ({ top: 0, right: 90, bottom: 180, left: 270 })[vertical || horizontal] ?? 180;
+    }
+    const match = raw.match(/^(-?[\d.]+)(deg|grad|rad|turn)$/);
+    if (!match) return null;
+    const amount = Number(match[1]);
+    const factor = ({ deg: 1, grad: 0.9, rad: 180 / Math.PI, turn: 360 })[match[2]];
+    return ((amount * factor) % 360 + 360) % 360;
+}
+
+function splitStopToken(value) {
+    const match = String(value || '').trim().match(/^(rgba?\([^)]*\)|hsla?\([^)]*\)|#[0-9a-f]{3,8}|[a-z]+)(?:\s+(.+))?$/i);
+    if (!match) return null;
+    return { color: match[1], position: match[2] || null };
+}
+
+function parseStopPosition(value, size) {
+    if (!value) return null;
+    const match = String(value).trim().match(/^(-?[\d.]+)(%|px)?$/i);
+    if (!match) return null;
+    const amount = Number(match[1]);
+    return match[2] === '%' ? amount / 100 : amount / Math.max(1, size);
+}
+
+function normalizeGradientStops(stopTokens, size) {
+    const parsed = stopTokens.map(splitStopToken).filter(Boolean).map(stop => ({
+        ...stop,
+        transparentKeyword: stop.color.toLowerCase() === 'transparent',
+        position: parseStopPosition(stop.position, size)
+    }));
+    if (parsed.length < 2) return null;
+    const step = 1 / (parsed.length - 1);
+    if (parsed[0].position === null) parsed[0].position = 0;
+    if (parsed.at(-1).position === null) parsed.at(-1).position = 1;
+    let index = 0;
+    while (index < parsed.length) {
+        if (parsed[index].position !== null) {
+            index++;
+            continue;
+        }
+        const start = index - 1;
+        let end = index;
+        while (end < parsed.length && parsed[end].position === null) end++;
+        const from = parsed[start]?.position ?? 0;
+        const to = parsed[end]?.position ?? Math.min(1, from + step * (end - start));
+        for (let offset = 0; offset < end - index; offset++) parsed[index + offset].position = from + (to - from) * (offset + 1) / (end - start);
+        index = end;
+    }
+    for (index = 1; index < parsed.length; index++) {
+        if (parsed[index].position < parsed[index - 1].position) parsed[index].position = parsed[index - 1].position;
+    }
+    const nearestSolid = (index) => {
+        for (let distance = 1; distance < parsed.length; distance++) {
+            for (const candidate of [index - distance, index + distance]) {
+                if (candidate >= 0 && candidate < parsed.length && !parsed[candidate].transparentKeyword) return parsed[candidate].color;
+            }
+        }
+        return '#000000';
+    };
+    return parsed.map(stop => {
+        const parts = colorParts(stop.transparentKeyword ? nearestSolid(parsed.indexOf(stop)) : stop.color);
+        return {
+            ...parts,
+            alpha: stop.transparentKeyword ? 0 : parts.alpha,
+            position: Math.max(0, Math.min(1, stop.position)),
+            source: stop.color
+        };
+    });
+}
+
+function parseCssGradient(value, { width = 1, height = 1 } = {}) {
+    const css = String(value || '').trim();
+    const match = css.match(/^(linear-gradient|radial-gradient)\((.*)\)$/i);
+    if (!match || /repeating-|conic-gradient/i.test(css) || splitTopLevel(css).length > 1) return null;
+    const parts = splitTopLevel(match[2]);
+    const type = match[1].toLowerCase().startsWith('radial') ? 'radial' : 'linear';
+    let angle = 180;
+    let stopStart = 0;
+    if (type === 'linear' && parts[0] && (parseCssAngle(parts[0], width, height) !== null)) {
+        angle = parseCssAngle(parts[0], width, height);
+        stopStart = 1;
+    }
+    if (type === 'radial' && parts[0] && !splitStopToken(parts[0])) stopStart = 1;
+    const stops = normalizeGradientStops(parts.slice(stopStart), Math.max(width, height));
+    if (!stops) return null;
+    return {
+        type,
+        angle: ((angle % 360) + 360) % 360,
+        stops,
+        radialShape: type === 'radial' ? (parts[0] || 'ellipse').toLowerCase() : null
+    };
 }
 
 function color(value, fallback = 'FFFFFF') {
@@ -127,7 +257,21 @@ function geometry(shape = {}) {
     return `<a:prstGeom prst="${Number(shape.borderRadius) > 0 ? 'roundRect' : 'rect'}"><a:avLst/></a:prstGeom>`;
 }
 
-function fillXml(fill) {
+function gradientXml(gradient, shape = {}) {
+    const parsed = typeof gradient === 'string'
+        ? parseCssGradient(gradient, { width: Number(shape.w) || 1, height: Number(shape.h) || 1 })
+        : gradient;
+    if (!parsed) return null;
+    const stops = parsed.stops.map(stop => `<a:gs pos="${Math.round(stop.position * 100000)}"><a:srgbClr val="${stop.hex}">${stop.alpha < 0.999 ? `<a:alpha val="${Math.round(stop.alpha * 100000)}"/>` : ''}</a:srgbClr></a:gs>`).join('');
+    if (parsed.type === 'radial') return `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst><a:path path="circle"><a:fillToRect l="0" t="0" r="0" b="0"/></a:path></a:gradFill>`;
+    const angle = Math.round((((parsed.angle - 90 + 360) % 360) * 60000));
+    return `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst><a:lin ang="${angle}" scaled="0"/></a:gradFill>`;
+}
+
+function fillXml(fill, shape = {}) {
+    const gradient = shape.gradient || shape.backgroundImage;
+    const gradientMarkup = gradientXml(gradient, shape);
+    if (gradientMarkup) return gradientMarkup;
     return isTransparent(fill) ? '<a:noFill/>' : `<a:solidFill>${colorXml(fill)}</a:solidFill>`;
 }
 
@@ -196,7 +340,7 @@ function paragraphXml(paragraph, shape, addHyperlink) {
 }
 
 function shapeXml(id, shape, { textBox = false, addHyperlink } = {}) {
-    const fill = textBox ? '<a:noFill/>' : fillXml(shape.fill);
+    const fill = textBox ? '<a:noFill/>' : fillXml(shape.fill, shape);
     const line = textBox ? '<a:ln><a:noFill/></a:ln>' : lineXml(shape.borderColor, shape.borderWidth);
     const name = escapeXml(shape.name || `${textBox ? 'Text' : 'Shape'} ${id}`);
 
@@ -488,6 +632,7 @@ module.exports = {
     resolveFontFamily,
     createFontWarningCollector,
     compareZKeys,
+    parseCssGradient,
     pxToEmu,
     pxToPt,
     color,

@@ -40,6 +40,7 @@ const {
     resolveFontFamily,
     createFontWarningCollector,
     compareZKeys,
+    parseCssGradient,
     pxToEmu
 } = require('./utils/pptx-export');
 
@@ -3145,6 +3146,7 @@ async function renderEditablePptx(html, title, requestId) {
                         ...orderMeta(el, 0, 0),
                         fill: colorWithOpacity(style.backgroundColor, effectiveOpacity(el)),
                         borderColor: colorWithOpacity(style.borderTopColor, effectiveOpacity(el)),
+                        gradient: style.backgroundImage && style.backgroundImage !== 'none' ? style.backgroundImage : null,
                         borderWidth: parseFloat(style.borderTopWidth) || 0,
                         borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
                         z: parseInt(style.zIndex, 10) || 0
@@ -3198,6 +3200,7 @@ async function renderEditablePptx(html, title, requestId) {
                             w: width,
                             h: height,
                             fill,
+                            gradient: style.backgroundImage && style.backgroundImage !== 'none' ? style.backgroundImage : null,
                             borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
                             z: parseInt(getComputedStyle(el).zIndex, 10) || 1,
                             name: `${record.pseudo === 'before' ? 'Before' : 'After'} decoration`
@@ -3260,7 +3263,9 @@ async function renderEditablePptx(html, title, requestId) {
                     clone.style.width = `${rect.width}px`;
                     clone.style.height = `${rect.height}px`;
                     clone.style.margin = '0';
-                    clone.style.zIndex = '-1000';
+                    // Capture the clone above the document background. A negative
+                    // z-index makes the screenshot contain only body/slide paint.
+                    clone.style.zIndex = '2147483647';
                     clone.style.pointerEvents = 'none';
                     clone.querySelectorAll('*').forEach((element) => {
                         element.style.visibility = 'hidden';
@@ -3297,15 +3302,26 @@ async function renderEditablePptx(html, title, requestId) {
                         }
                     });
                 }
+                const backgroundFallbacks = new Set();
+                const isNativeGradient = (item) => {
+                    if (!item.backgroundImage || item.backgroundImage === 'none' || /url\(/i.test(item.backgroundImage)) return false;
+                    return Boolean(parseCssGradient(item.backgroundImage, { width: item.w, height: item.h }));
+                };
                 const decorativeShapes = [
                     ...model.backgroundElements
-                        .filter((item) => !/url\(/i.test(item.backgroundImage || '') && item.gradientColor)
-                        .map((item) => ({ ...item, fill: item.gradientColor, borderColor: 'transparent', borderWidth: 0 })),
+                        .filter((item) => {
+                            if (/url\(/i.test(item.backgroundImage || '')) return false;
+                            const native = isNativeGradient(item);
+                            if (!native && item.backgroundImage) backgroundFallbacks.add(item);
+                            return native && item.gradientColor;
+                        })
+                        .map((item) => ({ ...item, fill: item.gradientColor, gradient: item.backgroundImage, borderColor: 'transparent', borderWidth: 0 })),
                     ...model.pseudoDecorations.map((item) => ({ ...item, borderColor: 'transparent', borderWidth: 0 }))
                 ];
                 for (let backgroundIndex = 0; backgroundIndex < model.backgroundElements.length; backgroundIndex++) {
                     const backgroundElement = model.backgroundElements[backgroundIndex];
-                    if (!/url\(/i.test(backgroundElement.backgroundImage || '')) continue;
+                    const shouldRasterize = /url\(/i.test(backgroundElement.backgroundImage || '') || backgroundFallbacks.has(backgroundElement);
+                    if (!shouldRasterize) continue;
                     const elementClip = await page.evaluate(({ slideIndex: currentSlide, elementIndex }) => {
                         const slide = document.querySelectorAll('section.s, section')[currentSlide];
                         if (!slide) return null;
@@ -3328,7 +3344,9 @@ async function renderEditablePptx(html, title, requestId) {
                         clone.style.width = `${rect.width}px`;
                         clone.style.height = `${rect.height}px`;
                         clone.style.margin = '0';
-                        clone.style.zIndex = '-999';
+                        // Keep unsupported background regions above the page while
+                        // their original element is hidden for the clip capture.
+                        clone.style.zIndex = '2147483647';
                         clone.style.pointerEvents = 'none';
                         clone.querySelectorAll('*').forEach((child) => {
                             child.style.visibility = 'hidden';
@@ -3354,6 +3372,18 @@ async function renderEditablePptx(html, title, requestId) {
                         z: backgroundElement.z,
                         name: `Slide ${slideIndex + 1} background region ${backgroundIndex + 1}`
                     });
+                    if (backgroundFallbacks.has(backgroundElement)) {
+                        puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint gradient fallback (non-fatal)', {
+                            requestId,
+                            warning: {
+                                slide: slideIndex + 1,
+                                selector: backgroundElement.selector || backgroundElement.name || 'background',
+                                tipo: 'gradient-fallback',
+                                motivo: 'gradiente CSS no representable como fill nativo',
+                                fallback: 'rasterized-region'
+                            }
+                        });
+                    }
                     await page.evaluate(() => {
                         document.querySelector('[data-aedos-background-clone]')?.remove();
                         const source = document.querySelector('[data-aedos-background-source-hidden]');
@@ -3412,6 +3442,28 @@ async function renderEditablePptx(html, title, requestId) {
                 ...image,
                 name: image.name || `Image: ${image.alt || 'untitled'}`
             }));
+            const gradientWarnings = new Set();
+            scaledShapes.forEach((item) => {
+                if (!item.gradient || /url\(/i.test(item.gradient)) return;
+                if (!parseCssGradient(item.gradient, { width: item.w, height: item.h })) {
+                    const key = String(item.gradient);
+                    if (gradientWarnings.has(key)) return;
+                    gradientWarnings.add(key);
+                    // Background elements are rasterized above. This branch is intentionally
+                    // limited to pseudo decorations and future shape sources that cannot be
+                    // mapped back to a DOM node without risking duplicate rasterization.
+                    puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint gradient fallback (non-fatal)', {
+                        requestId,
+                        warning: {
+                            slide: slideIndex + 1,
+                            selector: item.selector || item.name || 'shape',
+                            tipo: 'gradient-fallback',
+                            motivo: 'gradiente CSS no representable como fill nativo',
+                            fallback: 'solid-color-for-unsupported-decoration'
+                        }
+                    });
+                }
+            });
             const items = [...scaledShapes, ...scaledImages, ...scaledTexts]
                 .sort(compareZKeys);
             slides.push({
