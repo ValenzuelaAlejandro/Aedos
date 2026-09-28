@@ -30,6 +30,17 @@ const upload = multer({
     }
 });
 const mammoth = require('mammoth');
+const {
+    createEditablePptx,
+    SLIDE_W_PX,
+    SLIDE_H_PX,
+    SLIDE_WIDTH,
+    SLIDE_HEIGHT,
+    TEXT_WIDTH_SAFETY,
+    resolveFontFamily,
+    createFontWarningCollector,
+    pxToEmu
+} = require('./utils/pptx-export');
 
 const { runPipeline, buildLegacyPrompt, extractJson } = require('./prompts/pipeline');
 const buildPrompt = require('./prompts/base'); // kept for fallback
@@ -458,7 +469,10 @@ app.use((req, res, next) => {
             "script-src 'self' https://unpkg.com https://cdnjs.cloudflare.com",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
             "font-src 'self' https://fonts.gstatic.com",
-            "img-src 'self' data: blob:",
+            // Generated presentations intentionally use remote image URLs.  The
+            // preview iframe must be allowed to load them or the image layout can
+            // remain unsettled while the carousel/editor is being initialized.
+            "img-src 'self' data: blob: https:",
             "connect-src 'self' https://unpkg.com",
             "frame-src 'self'",
             "worker-src 'none'",
@@ -481,7 +495,7 @@ if ((process.env.NODE_ENV || 'development') === 'production') {
 
         // IMPORTANT: Do NOT redirect API routes or health checks.
         // Vercel proxies these routes to Render, and they must be served directly.
-        const isApiRoute = /^\/(generate|finalize|download|health|__dev__)/.test(path);
+        const isApiRoute = /^\/(generate|finalize(?:-pptx)?|download|health|__dev__)/.test(path);
 
         if (host.includes('onrender.com') && !isApiRoute) {
             const target = 'https://aedoslab.xyz' + req.originalUrl;
@@ -2137,6 +2151,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
             let fullHtml = '';
             let hasStartedValidContent = false;
             let streamSlideCount = 0;
+            const maxStreamChars = 2_000_000;
             const slideTagRegex = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
 
             function cleanSSEChunk(text) {
@@ -2198,6 +2213,13 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                     }
 
                     fullHtml += chunkText;
+                    if (fullHtml.length > maxStreamChars) {
+                        log.warn(ErrorCategory.VALIDATION, 'Generation stream exceeded HTML size limit', {
+                            requestId,
+                            maxStreamChars
+                        });
+                        throw new Error('GENERATION_OUTPUT_TOO_LARGE');
+                    }
 
                     let cleanChunk = cleanSSEChunk(chunkText);
 
@@ -2554,6 +2576,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
             error.message.startsWith('CONTENT_REJECTED')
         );
         const isFlashNoCss = error.message && error.message.startsWith('FLASH_NO_DESIGN_CSS');
+        const isOutputTooLarge = error.message === 'GENERATION_OUTPUT_TOO_LARGE';
 
         let userMessage;
         if (isQuotaError) {
@@ -2588,6 +2611,11 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
                 requestId,
                 details: error.message
             });
+        } else if (isOutputTooLarge) {
+            userMessage = 'The generated presentation is too large. Please use fewer slides or a shorter description.';
+            log.warn(ErrorCategory.VALIDATION, 'Generation rejected because the streamed HTML exceeded the size limit', {
+                requestId
+            });
         } else {
             userMessage = 'Something went wrong. Please try again.';
             log.error(classifyError(error, ErrorCategory.UNKNOWN), 'Unhandled generation failure', {
@@ -2615,6 +2643,707 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
             });
             processQueue();
         }
+    }
+});
+
+// Render the edited slide DOM as an editable PowerPoint. Text remains text
+// boxes, images remain image objects, and solid fills/borders become shapes.
+function normalizePptxFontFamily(fontFace) {
+    return resolveFontFamily(fontFace);
+}
+
+async function renderEditablePptx(html, title, requestId) {
+    const exportDpr = Math.min(3, Math.max(1, Number(process.env.EXPORT_DPR) || 2));
+    if (!browser || !browser.isConnected()) await initBrowser();
+    if (!browser) throw new Error('PowerPoint generation is unavailable: the browser could not be started.');
+
+    const metadataTags = `
+        <meta name="author" content="Aedos (aedoslab.xyz)">
+        <meta name="generator" content="Aedos (aedoslab.xyz)">
+        <meta name="creator" content="Aedos (aedoslab.xyz)">
+    `;
+    let processedHtml = html.replace(/(<head[^>]*>)/i, `$1\n${metadataTags}`);
+    const baseTag = `<base href="http://localhost:${PORT}/">`;
+    if (!processedHtml.includes('<base')) processedHtml = processedHtml.replace(/(<head[^>]*>)/i, `$1\n${baseTag}`);
+
+    const page = await browser.newPage();
+    try {
+        await page.setViewport({ width: SLIDE_W_PX, height: SLIDE_H_PX, deviceScaleFactor: exportDpr });
+        await page.setContent(processedHtml, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForNetworkIdle({ idleTime: 500, timeout: 12000 }).catch(() => {
+            puppeteerLog.warn(ErrorCategory.NETWORK, 'PowerPoint export network idle timeout (non-fatal)', { requestId });
+        });
+        await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {});
+        await page.addStyleTag({ content: `
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+            .editor-selection-box, .editor-toolbar, .editor-guide, .editor-color-picker, .img-replace-overlay { display: none !important; }
+            body { margin: 0 !important; padding: 0 !important; }
+        `});
+        const assetWarnings = await page.evaluate(async ({ timeoutMs }) => {
+            const warnings = [];
+            const withTimeout = (promise, label) => new Promise((resolve) => {
+                let settled = false;
+                const timer = setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    warnings.push({ asset: label, reason: `timeout after ${timeoutMs}ms` });
+                    resolve(false);
+                }, timeoutMs);
+                Promise.resolve(promise).then(() => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    resolve(true);
+                }).catch(() => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    warnings.push({ asset: label, reason: 'load/decode failed' });
+                    resolve(false);
+                });
+            });
+
+            await Promise.all(Array.from(document.images).map(async (img) => {
+                const label = img.currentSrc || img.src || '<img>';
+                if (img.complete && img.naturalWidth > 0) {
+                    await withTimeout(img.decode ? img.decode() : Promise.resolve(), label);
+                    return;
+                }
+                await withTimeout(new Promise((resolve, reject) => {
+                    img.addEventListener('load', resolve, { once: true });
+                    img.addEventListener('error', reject, { once: true });
+                }), label);
+                if (img.decode) await withTimeout(img.decode(), label);
+            }));
+
+            const urls = new Set();
+            const urlPattern = /url\(\s*(['"]?)(.*?)\1\s*\)/g;
+            document.querySelectorAll('*').forEach((element) => {
+                const background = getComputedStyle(element).backgroundImage || '';
+                let match;
+                while ((match = urlPattern.exec(background))) {
+                    if (match[2]) urls.add(match[2]);
+                }
+            });
+            await Promise.all(Array.from(urls).map((url) => withTimeout(new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = resolve;
+                image.onerror = reject;
+                image.src = url;
+                if (image.complete) resolve();
+            }), url)));
+
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            return warnings;
+        }, { timeoutMs: 5000 }).catch((error) => {
+            puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint export asset readiness check failed (non-fatal)', {
+                requestId,
+                error: String(error && error.message || error)
+            });
+            return [];
+        });
+        assetWarnings.forEach((warning) => {
+            puppeteerLog.warn(ErrorCategory.NETWORK, 'PowerPoint export asset warning (non-fatal)', {
+                requestId,
+                asset: warning.asset,
+                reason: warning.reason
+            });
+        });
+
+        const slideData = await page.evaluate((textWidthSafety) => {
+            const textSelector = 'h1,h2,h3,h4,h5,h6,p,li,blockquote,cite,span,strong,b,em,i,small,mark,a,div';
+            const blockTextTags = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'LI', 'BLOCKQUOTE', 'CITE']);
+            const slides = Array.from(document.querySelectorAll('section.s, section'));
+            return slides.map((slide) => {
+                const slideRect = slide.getBoundingClientRect();
+                const relativeRect = (el) => {
+                    const rect = el.getBoundingClientRect();
+                    return {
+                        x: rect.left - slideRect.left,
+                        y: rect.top - slideRect.top,
+                        w: rect.width,
+                        h: rect.height
+                    };
+                };
+                const visible = (el, rect) => {
+                    const style = getComputedStyle(el);
+                    return rect.w > 1 && rect.h > 1 && style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0;
+                };
+                const candidates = Array.from(slide.querySelectorAll(textSelector)).filter((el) => {
+                    const text = (el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').trim();
+                    if (!text) return false;
+                    const rect = relativeRect(el);
+                    if (!visible(el, rect)) return false;
+                    const descendants = Array.from(el.querySelectorAll(textSelector)).filter((child) => {
+                        return (child.innerText || child.textContent || '').replace(/\u00a0/g, ' ').trim();
+                    });
+                    // Inline styling nodes belong to their nearest semantic
+                    // block. Exporting both the parent heading and its accent
+                    // span would duplicate and overlap words in PowerPoint.
+                    let owner = el.parentElement;
+                    while (owner && owner !== slide) {
+                        if (blockTextTags.has(owner.tagName) && !(el.tagName === 'LI' && owner.tagName === 'LI')) return false;
+                        owner = owner.parentElement;
+                    }
+                    // Keep complete semantic text blocks. Pro slides commonly
+                    // style one word with a nested span/strong and use <br> or
+                    // block-level labels inside a paragraph. Selecting only the
+                    // deepest node splits titles (for example "Kendrick" /
+                    // "Lamar") and drops direct text that has no child element.
+                    // A semantic block owns that full text; generic wrappers do
+                    // not, so they are excluded when they contain descendants.
+                    if (blockTextTags.has(el.tagName)) return true;
+                    return descendants.length === 0;
+                });
+                const textItems = candidates.flatMap((el) => {
+                    // Pro content cards use a block-level <strong> label
+                    // followed by paragraph copy. Export them as two editable
+                    // text boxes so PowerPoint preserves both the accent color
+                    // and the vertical separation.
+                    if (el.tagName === 'P') {
+                        const labelEl = Array.from(el.querySelectorAll('strong, b')).find((node) => {
+                            return getComputedStyle(node).display === 'block';
+                        });
+                        if (labelEl) {
+                            const labelText = (labelEl.innerText || labelEl.textContent || '').replace(/\u00a0/g, ' ').trim();
+                            const fullText = (el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').trim();
+                            const bodyText = fullText.replace(labelText, '').trim();
+                            const labelRect = relativeRect(labelEl);
+                            const bodyRect = relativeRect(el);
+                            bodyRect.y = labelRect.y + labelRect.h + 5;
+                            bodyRect.h = Math.max(1, bodyRect.h - labelRect.h - 5);
+                            return [
+                                { el: labelEl, textOverride: labelText, rectOverride: labelRect },
+                                { el, textOverride: bodyText, rectOverride: bodyRect }
+                            ].filter(item => item.textOverride);
+                        }
+                    }
+                    return [{ el }];
+                });
+
+                const transformText = (text, textTransform) => {
+                    if (textTransform === 'uppercase') return text.toUpperCase();
+                    if (textTransform === 'lowercase') return text.toLowerCase();
+                    if (textTransform === 'capitalize') return text.replace(/(^|\s)(\S)/g, (match, prefix, char) => `${prefix}${char.toUpperCase()}`);
+                    return text;
+                };
+                const extractRuns = (root) => {
+                    const runs = [];
+                    const visit = (node, inherited = {}) => {
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            const owner = node.parentElement || root;
+                            const style = getComputedStyle(owner);
+                            let text = node.nodeValue || '';
+                            if (style.whiteSpace !== 'pre' && style.whiteSpace !== 'pre-wrap' && style.whiteSpace !== 'break-spaces') {
+                                text = text.replace(/\s+/g, ' ');
+                            }
+                            text = transformText(text, style.textTransform);
+                            if (!text) return;
+                            runs.push({
+                                text,
+                                fontFamily: style.fontFamily,
+                                sizePx: parseFloat(style.fontSize) || 12,
+                                weight: parseInt(style.fontWeight, 10) || 400,
+                                italic: style.fontStyle === 'italic',
+                                underline: (style.textDecorationLine || '').includes('underline'),
+                                strike: (style.textDecorationLine || '').includes('line-through'),
+                                color: style.color,
+                                letterSpacingPx: Number.isFinite(parseFloat(style.letterSpacing)) ? parseFloat(style.letterSpacing) : 0,
+                                baseline: style.verticalAlign === 'sub' ? -25000 : style.verticalAlign === 'super' ? 30000 : (inherited.baseline || 0),
+                                href: inherited.href || owner.closest('a[href]')?.href || null
+                            });
+                            return;
+                        }
+                        if (node.nodeType !== Node.ELEMENT_NODE) return;
+                        if (root.tagName === 'LI' && node !== root && node.tagName === 'LI') return;
+                        if (node.tagName === 'BR') {
+                            const style = getComputedStyle(node.parentElement || root);
+                            runs.push({
+                                break: true,
+                                sizePx: parseFloat(style.fontSize) || 12,
+                                fontFamily: style.fontFamily,
+                                color: style.color,
+                                weight: parseInt(style.fontWeight, 10) || 400,
+                                italic: style.fontStyle === 'italic'
+                            });
+                            return;
+                        }
+                        const style = getComputedStyle(node);
+                        if (style.display === 'none' || style.visibility === 'hidden') return;
+                        const href = node.closest('a[href]')?.href || inherited.href || null;
+                        const baseline = style.verticalAlign === 'sub' ? -25000 : style.verticalAlign === 'super' ? 30000 : (inherited.baseline || 0);
+                        node.childNodes.forEach(child => visit(child, { href, baseline }));
+                    };
+                    visit(root);
+                    return runs;
+                };
+                const sliceRunsToText = (runs, targetText) => {
+                    if (!targetText) return runs;
+                    const plain = runs.filter(run => !run.break).map(run => run.text).join('');
+                    const start = plain.indexOf(targetText);
+                    if (start < 0) return runs;
+                    const end = start + targetText.length;
+                    let cursor = 0;
+                    return runs.flatMap((run) => {
+                        if (run.break) return [];
+                        const runStart = cursor;
+                        const runEnd = cursor + run.text.length;
+                        cursor = runEnd;
+                        const from = Math.max(start, runStart);
+                        const to = Math.min(end, runEnd);
+                        if (from >= to) return [];
+                        return [{ ...run, text: run.text.slice(from - runStart, to - runStart) }];
+                    });
+                };
+                const runsToParagraphs = (runs, style, bullet) => {
+                    const align = style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'right' : style.textAlign === 'justify' ? 'justify' : 'left';
+                    return [{
+                        runs,
+                        align,
+                        lineHeightPx: style.lineHeight === 'normal' ? null : parseFloat(style.lineHeight) || null,
+                        lineHeightNormal: style.lineHeight === 'normal',
+                        spaceBeforePx: parseFloat(style.marginTop) || 0,
+                        spaceAfterPx: parseFloat(style.marginBottom) || 0,
+                        bullet
+                    }];
+                };
+                const listInfoFor = (el) => {
+                    if (el.tagName !== 'LI') return null;
+                    const list = el.closest('ul,ol');
+                    if (!list) return null;
+                    const style = getComputedStyle(el);
+                    const listStyle = style.listStyleType || getComputedStyle(list).listStyleType || 'disc';
+                    if (listStyle === 'none') return null;
+                    let listDepth = 0;
+                    let ancestor = el.parentElement;
+                    while (ancestor && ancestor !== slide) {
+                        if (ancestor.tagName === 'UL' || ancestor.tagName === 'OL') listDepth++;
+                        ancestor = ancestor.parentElement;
+                    }
+                    const isNumbered = list.tagName === 'OL';
+                    const numberStyle = ({
+                        decimal: 'arabicPeriod',
+                        'lower-alpha': 'alphaLcPeriod',
+                        'upper-alpha': 'alphaUcPeriod',
+                        'lower-roman': 'romanLcPeriod',
+                        'upper-roman': 'romanUcPeriod'
+                    })[listStyle] || 'arabicPeriod';
+                    const marker = getComputedStyle(el, '::marker');
+                    const markerContent = (marker.content || '').replace(/^['"]|['"]$/g, '').trim();
+                    const start = Number(list.getAttribute('start')) || 1;
+                    const reversed = list.hasAttribute('reversed');
+                    const position = Array.from(list.children).filter(child => child.tagName === 'LI').indexOf(el) + 1;
+                    return {
+                        type: isNumbered ? 'number' : 'char',
+                        style: numberStyle,
+                        char: markerContent && !/^normal|auto$/i.test(markerContent) ? markerContent : '•',
+                        level: Math.max(0, listDepth - 1),
+                        marginLeftPx: parseFloat(getComputedStyle(list).paddingLeft) || parseFloat(style.paddingLeft) || 0,
+                        startAt: isNumbered
+                            ? (reversed ? Math.max(start, list.querySelectorAll(':scope > li').length) - position + 1 : start + position - 1)
+                            : null,
+                        reversed
+                    };
+                };
+
+                const texts = textItems.map(({ el, textOverride, rectOverride }) => {
+                    const style = getComputedStyle(el);
+                    const rect = rectOverride || relativeRect(el);
+                    const text = (el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').trim();
+                    const listBullet = listInfoFor(el);
+                    const resolvedText = (textOverride || text).replace(listBullet ? /^[•◦▪●]\s*/ : /^/, '');
+                    const runs = sliceRunsToText(extractRuns(el), textOverride || '');
+                    const isHeading = /^H[1-6]$/.test(el.tagName);
+                    if (isHeading) {
+                        // Web fonts such as Bebas Neue are narrower than their
+                        // Office fallback. Keep the explicit <br> line breaks,
+                        // but give PowerPoint enough horizontal room so a word
+                        // like "Kendrick" is not rewrapped into fragments.
+                        rect.w = Math.max(rect.w, Math.max(1, slideRect.width - rect.x - 40));
+                    }
+                    let fontSize = parseFloat(style.fontSize) || 12;
+                    if (/^H[2-6]$/.test(el.tagName) && resolvedText.length > 24) {
+                        // Long Pro headings should stay on one readable line in
+                        // the editable deck instead of overflowing the right
+                        // edge or colliding with the subtitle below.
+                        const availableWidth = Math.max(120, slideRect.width - rect.x - 40);
+                        fontSize = Math.min(fontSize, availableWidth / (resolvedText.length * 0.52));
+                    }
+                    const before = getComputedStyle(el, '::before');
+                    const beforeContent = before.content || '';
+                    const beforeWidth = parseFloat(before.width) || 0;
+                    const beforeGap = parseFloat(style.columnGap || style.gap) || 0;
+                    if (beforeContent && beforeContent !== 'none' && beforeContent !== 'normal' && beforeWidth > 1 && style.display.includes('flex')) {
+                        rect.x += beforeWidth + beforeGap;
+                        rect.w = Math.max(1, rect.w - beforeWidth - beforeGap);
+                    }
+                    const lineHeightPx = style.lineHeight === 'normal'
+                        ? fontSize * 1.2
+                        : (parseFloat(style.lineHeight) || fontSize * 1.2);
+                    const normalizedLength = resolvedText.replace(/\s+/g, ' ').trim().length;
+                    const estimatedCharsPerLine = Math.max(1, rect.w / Math.max(1, fontSize * 0.52));
+                    const estimatedLines = Math.max(1, Math.ceil(normalizedLength / estimatedCharsPerLine));
+                    const domLooksSingleLine = style.whiteSpace === 'nowrap' || rect.h <= lineHeightPx * 1.35;
+                    if (!domLooksSingleLine) {
+                        rect.h = Math.max(rect.h, estimatedLines * lineHeightPx * 1.08);
+                    }
+                    // Keep the DOM anchor stable while giving PowerPoint a small
+                    // metric-safety margin. Center/right aligned boxes expand
+                    // around their alignment axis instead of shifting the text.
+                    const widthDelta = Math.max(0, rect.w * (textWidthSafety - 1));
+                    if (style.textAlign === 'center') {
+                        rect.x -= widthDelta / 2;
+                        rect.w += widthDelta;
+                    } else if (style.textAlign === 'right') {
+                        rect.x -= widthDelta;
+                        rect.w += widthDelta;
+                    } else {
+                        rect.w += widthDelta;
+                    }
+                    return {
+                        ...rect,
+                        selector: `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().split(/\s+/).join('.')}` : ''}`,
+                        text: resolvedText,
+                        runs,
+                        paragraphs: runsToParagraphs(runs, style, listBullet),
+                        fontSize,
+                        fontFace: (style.fontFamily || 'Arial').split(',')[0].replace(/["']/g, '').trim(),
+                        textColor: style.color,
+                        bold: parseInt(style.fontWeight, 10) >= 600 || style.fontWeight === 'bold',
+                        italic: style.fontStyle === 'italic',
+                        bullet: listBullet,
+                        align: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'right' : 'left',
+                        valign: style.display === 'flex' && style.alignItems === 'center' ? 'middle' : 'top',
+                        noWrap: domLooksSingleLine,
+                        paragraphGap: false,
+                        z: parseInt(style.zIndex, 10) || 10
+                    };
+                });
+                const shapes = Array.from(slide.querySelectorAll('*')).filter((el) => {
+                    if (el.tagName === 'IMG' || el.tagName === 'SVG' || el === slide) return false;
+                    const style = getComputedStyle(el);
+                    const rect = relativeRect(el);
+                    const hasFill = style.backgroundColor && style.backgroundColor !== 'transparent' && style.backgroundColor !== 'rgba(0, 0, 0, 0)';
+                    const hasBorder = parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== 'none';
+                    return visible(el, rect) && (hasFill || hasBorder);
+                }).map((el) => {
+                    const style = getComputedStyle(el);
+                    const rect = relativeRect(el);
+                    return {
+                        ...rect,
+                        fill: style.backgroundColor,
+                        borderColor: style.borderTopColor,
+                        borderWidth: parseFloat(style.borderTopWidth) || 0,
+                        borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
+                        z: parseInt(style.zIndex, 10) || 0
+                    };
+                });
+                const images = Array.from(slide.querySelectorAll('img')).map((el) => {
+                    const rect = relativeRect(el);
+                    const style = getComputedStyle(el);
+                    return { ...rect, visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
+                }).filter(image => image.visible);
+                const svgs = Array.from(slide.querySelectorAll('svg')).map((el) => {
+                    const rect = relativeRect(el);
+                    const style = getComputedStyle(el);
+                    return { ...rect, visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
+                }).filter(svg => svg.visible);
+                const backgroundElements = Array.from(slide.querySelectorAll('*')).map((el, index) => {
+                    const rect = relativeRect(el);
+                    const style = getComputedStyle(el);
+                    const gradientColor = (style.backgroundImage || '').match(/(?:rgba?\([^)]*\)|#[0-9a-f]{3,8})/i)?.[0] || style.backgroundColor;
+                    return {
+                        index,
+                        ...rect,
+                        backgroundImage: style.backgroundImage,
+                        gradientColor,
+                        borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
+                        visible: visible(el, rect),
+                        z: parseInt(style.zIndex, 10) || 1
+                    };
+                }).filter(item => item.visible && item.backgroundImage && item.backgroundImage !== 'none');
+                const pseudoDecorations = [];
+                Array.from(slide.querySelectorAll('*')).forEach((el) => {
+                    const parentRect = relativeRect(el);
+                    ['::before', '::after'].forEach((pseudo, pseudoIndex) => {
+                        const style = getComputedStyle(el, pseudo);
+                        const content = style.content || '';
+                        const width = parseFloat(style.width) || 0;
+                        const height = parseFloat(style.height) || 0;
+                        const fill = style.backgroundColor && style.backgroundColor !== 'transparent'
+                            ? style.backgroundColor
+                            : ((style.backgroundImage || '').match(/(?:rgba?\([^)]*\)|#[0-9a-f]{3,8})/i)?.[0] || 'transparent');
+                        if (!visible(el, parentRect) || !content || content === 'none' || content === 'normal' || width <= 1 || height <= 1 || fill === 'transparent') return;
+                        pseudoDecorations.push({
+                            x: parentRect.x + (pseudoIndex === 1 ? Math.max(0, parentRect.w - width) : 0),
+                            y: parentRect.y + Math.max(0, (parentRect.h - height) / 2),
+                            w: width,
+                            h: height,
+                            fill,
+                            borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
+                            z: parseInt(getComputedStyle(el).zIndex, 10) || 1
+                        });
+                    });
+                });
+                const style = getComputedStyle(slide);
+                return {
+                    left: slideRect.left,
+                    top: slideRect.top,
+                    width: slideRect.width,
+                    height: slideRect.height,
+                    background: style.backgroundColor,
+                    texts,
+                    shapes,
+                    images,
+                    svgs,
+                    backgroundElements,
+                    pseudoDecorations
+                };
+            }).filter(slide => slide.width > 10 && slide.height > 10);
+        }, TEXT_WIDTH_SAFETY);
+
+        const slides = [];
+        for (let slideIndex = 0; slideIndex < slideData.length; slideIndex++) {
+            const model = slideData[slideIndex];
+            const scaleRect = (item) => ({
+                ...item,
+                x: pxToEmu(item.x * SLIDE_W_PX / model.width, 'x'),
+                y: pxToEmu(item.y * SLIDE_H_PX / model.height, 'y'),
+                w: pxToEmu(item.w * SLIDE_W_PX / model.width, 'x'),
+                h: pxToEmu(item.h * SLIDE_H_PX / model.height, 'y')
+            });
+                const images = [];
+                let backgroundImage = null;
+                const backgroundClip = await page.evaluate((slideIndex) => {
+                    const slide = document.querySelectorAll('section.s, section')[slideIndex];
+                    if (!slide) return null;
+                    const style = getComputedStyle(slide);
+                    if (!style.backgroundImage || style.backgroundImage === 'none') return null;
+                    const rect = slide.getBoundingClientRect();
+                    const clone = slide.cloneNode(true);
+                    slide.setAttribute('data-aedos-background-source-style', slide.getAttribute('style') || '');
+                    slide.style.visibility = 'hidden';
+                    slide.setAttribute('data-aedos-background-source-hidden', 'true');
+                    clone.setAttribute('data-aedos-background-clone', 'true');
+                    clone.style.visibility = 'visible';
+                    clone.style.position = 'fixed';
+                    clone.style.left = `${rect.left}px`;
+                    clone.style.top = `${rect.top}px`;
+                    clone.style.width = `${rect.width}px`;
+                    clone.style.height = `${rect.height}px`;
+                    clone.style.margin = '0';
+                    clone.style.zIndex = '-1000';
+                    clone.style.pointerEvents = 'none';
+                    clone.querySelectorAll('*').forEach((element) => {
+                        element.style.visibility = 'hidden';
+                    });
+                    document.body.appendChild(clone);
+                    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+                }, slideIndex);
+                if (backgroundClip) {
+                    const data = await page.screenshot({
+                        type: 'png',
+                        clip: {
+                            x: Math.max(0, backgroundClip.left),
+                            y: Math.max(0, backgroundClip.top),
+                            width: Math.max(1, backgroundClip.width),
+                            height: Math.max(1, backgroundClip.height)
+                        },
+                        captureBeyondViewport: true
+                    });
+                    backgroundImage = {
+                        x: 0,
+                        y: 0,
+                        w: SLIDE_WIDTH,
+                        h: SLIDE_HEIGHT,
+                        data,
+                        name: `Slide ${slideIndex + 1} background`
+                    };
+                    await page.evaluate(() => {
+                        document.querySelector('[data-aedos-background-clone]')?.remove();
+                        const source = document.querySelector('[data-aedos-background-source-hidden]');
+                        if (source) {
+                            source.setAttribute('style', source.getAttribute('data-aedos-background-source-style') || '');
+                            source.removeAttribute('data-aedos-background-source-style');
+                            source.removeAttribute('data-aedos-background-source-hidden');
+                        }
+                    });
+                }
+                const decorativeShapes = [
+                    ...model.backgroundElements
+                        .filter((item) => !/url\(/i.test(item.backgroundImage || '') && item.gradientColor)
+                        .map((item) => ({ ...item, fill: item.gradientColor, borderColor: 'transparent', borderWidth: 0 })),
+                    ...model.pseudoDecorations.map((item) => ({ ...item, borderColor: 'transparent', borderWidth: 0 }))
+                ];
+                for (let backgroundIndex = 0; backgroundIndex < model.backgroundElements.length; backgroundIndex++) {
+                    const backgroundElement = model.backgroundElements[backgroundIndex];
+                    if (!/url\(/i.test(backgroundElement.backgroundImage || '')) continue;
+                    const elementClip = await page.evaluate(({ slideIndex: currentSlide, elementIndex }) => {
+                        const slide = document.querySelectorAll('section.s, section')[currentSlide];
+                        if (!slide) return null;
+                        const candidates = Array.from(slide.querySelectorAll('*')).filter((element) => {
+                            const style = getComputedStyle(element);
+                            return style.backgroundImage && style.backgroundImage !== 'none';
+                        });
+                        const element = candidates[elementIndex];
+                        if (!element) return null;
+                        const rect = element.getBoundingClientRect();
+                        const clone = element.cloneNode(true);
+                        element.setAttribute('data-aedos-background-source-style', element.getAttribute('style') || '');
+                        element.style.visibility = 'hidden';
+                        element.setAttribute('data-aedos-background-source-hidden', 'true');
+                        clone.setAttribute('data-aedos-background-clone', 'true');
+                        clone.style.visibility = 'visible';
+                        clone.style.position = 'fixed';
+                        clone.style.left = `${rect.left}px`;
+                        clone.style.top = `${rect.top}px`;
+                        clone.style.width = `${rect.width}px`;
+                        clone.style.height = `${rect.height}px`;
+                        clone.style.margin = '0';
+                        clone.style.zIndex = '-999';
+                        clone.style.pointerEvents = 'none';
+                        clone.querySelectorAll('*').forEach((child) => {
+                            child.style.visibility = 'hidden';
+                        });
+                        document.body.appendChild(clone);
+                        return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+                    }, { slideIndex, elementIndex: backgroundIndex });
+                    if (!elementClip) continue;
+                    const data = await page.screenshot({
+                        type: 'png',
+                        clip: {
+                            x: Math.max(0, elementClip.left),
+                            y: Math.max(0, elementClip.top),
+                            width: Math.max(1, elementClip.width),
+                            height: Math.max(1, elementClip.height)
+                        },
+                        captureBeyondViewport: true
+                    });
+                    images.push({
+                        ...scaleRect(backgroundElement),
+                        data,
+                        z: backgroundElement.z,
+                        name: `Slide ${slideIndex + 1} background region ${backgroundIndex + 1}`
+                    });
+                    await page.evaluate(() => {
+                        document.querySelector('[data-aedos-background-clone]')?.remove();
+                        const source = document.querySelector('[data-aedos-background-source-hidden]');
+                        if (source) {
+                            source.setAttribute('style', source.getAttribute('data-aedos-background-source-style') || '');
+                            source.removeAttribute('data-aedos-background-source-style');
+                            source.removeAttribute('data-aedos-background-source-hidden');
+                        }
+                    });
+                }
+                for (let imageIndex = 0; imageIndex < model.images.length; imageIndex++) {
+                const image = model.images[imageIndex];
+                const absolute = {
+                    x: Math.max(0, model.left + image.x),
+                    y: Math.max(0, model.top + image.y),
+                    width: Math.max(1, image.w),
+                    height: Math.max(1, image.h)
+                };
+                const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
+                    images.push({ ...scaleRect(image), data, name: `Slide ${slideIndex + 1} image ${imageIndex + 1}` });
+                }
+                for (let svgIndex = 0; svgIndex < model.svgs.length; svgIndex++) {
+                    const svg = model.svgs[svgIndex];
+                    const absolute = {
+                        x: Math.max(0, model.left + svg.x),
+                        y: Math.max(0, model.top + svg.y),
+                        width: Math.max(1, svg.w),
+                        height: Math.max(1, svg.h)
+                    };
+                    const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
+                    images.push({ ...scaleRect(svg), data, name: `Slide ${slideIndex + 1} icon ${svgIndex + 1}` });
+                }
+            const normalizeTextItem = (item) => {
+                const warnFont = createFontWarningCollector({
+                    slide: slideIndex + 1,
+                    onWarning: (warning) => puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint export font substitution (non-fatal)', {
+                        requestId,
+                        warning: { ...warning, selector: warning.selector || item.selector || 'text' }
+                    })
+                });
+                const normalized = { ...item, fontFace: warnFont(item.fontFace) };
+                normalized.runs = (item.runs || []).map(run => ({ ...run, fontFamily: warnFont(run.fontFamily || item.fontFace) }));
+                normalized.paragraphs = (item.paragraphs || []).map(paragraph => ({
+                    ...paragraph,
+                    runs: (paragraph.runs || []).map(run => ({ ...run, fontFamily: warnFont(run.fontFamily || item.fontFace) }))
+                }));
+                return normalized;
+            };
+            slides.push({
+                background: { x: 0, y: 0, w: SLIDE_WIDTH, h: SLIDE_HEIGHT, fill: model.background || '#FFFFFF', borderWidth: 0 },
+                backgroundImage,
+                shapes: [...model.shapes, ...decorativeShapes].sort((a, b) => a.z - b.z).map(scaleRect),
+                texts: model.texts.sort((a, b) => a.z - b.z).map(item => scaleRect(normalizeTextItem(item))),
+                images
+            });
+        }
+        return await createEditablePptx(slides, title || 'Presentation');
+    } finally {
+        await page.close();
+    }
+}
+
+app.post('/finalize-pptx', express.json({ limit: '50mb' }), checkFinalizePressure, checkFinalizeLimits, async (req, res) => {
+    const requestId = req.requestId || 'n/a';
+    res.on('error', (err) => {
+        puppeteerLog.warn(ErrorCategory.STREAM, 'PowerPoint response stream error (non-fatal)', {
+            requestId,
+            error: String((err && err.message) || err)
+        });
+    });
+
+    if (activeFinalize >= PUPPETEER_MAX_CONCURRENT) {
+        const obtainedSlot = await new Promise((resolve) => {
+            const item = { resolve: () => resolve(true) };
+            finalizeQueue.push(item);
+            req.on('close', () => {
+                const index = finalizeQueue.indexOf(item);
+                if (index !== -1) {
+                    finalizeQueue.splice(index, 1);
+                    resolve(false);
+                }
+            });
+        });
+        if (!obtainedSlot) return;
+    } else {
+        activeFinalize++;
+    }
+
+    try {
+        const { html, title } = req.body || {};
+        if (!html || typeof html !== 'string') return res.status(400).json({ error: 'HTML content is required' });
+        if (html.length > 2 * 1024 * 1024) return res.status(400).json({ error: 'Payload too large' });
+
+        const pptxFilename = `pptx_${crypto.randomBytes(16).toString('hex')}.pptx`;
+        const pptxPath = path.join(TMP_DIR, pptxFilename);
+        const pptxBuffer = await renderEditablePptx(html, title, requestId);
+        fs.writeFileSync(pptxPath, pptxBuffer);
+
+        const safeTitle = title ? title.replace(/[\/\\?%*:|<|>]/g, '-').trim() : 'Presentacion';
+        res.set('Cache-Control', 'no-store');
+        res.json({ pptxUrl: `/download/${pptxFilename}?name=${encodeURIComponent(safeTitle)}` });
+        log.success(ErrorCategory.PUPPETEER, 'Editable PowerPoint generated successfully', {
+            requestId,
+            pptxFilename,
+            slideCount: (html.match(/<section\b/gi) || []).length
+        });
+
+        setTimeout(() => {
+            if (fs.existsSync(pptxPath)) fs.unlink(pptxPath, () => {});
+        }, 10 * 60 * 1000);
+    } catch (error) {
+        log.error(classifyError(error, ErrorCategory.PUPPETEER), 'Failed to finalize editable PowerPoint', {
+            requestId,
+            error
+        });
+        if (!res.headersSent) res.status(500).json({ error: 'Error generating PowerPoint: ' + (error.message || error) });
+    } finally {
+        activeFinalize--;
+        processFinalizeQueue();
     }
 });
 
@@ -2910,10 +3639,9 @@ app.get('/download/:filename', (req, res) => {
 
     // Send it with res.download() and delete it afterwards
     res.set('Cache-Control', 'no-store');
+    const extension = path.extname(filename).toLowerCase() || '.pdf';
     let downloadName = req.query.name ? req.query.name : filename;
-    if (!downloadName.toLowerCase().endsWith('.pdf')) {
-        downloadName += '.pdf';
-    }
+    if (!downloadName.toLowerCase().endsWith(extension)) downloadName += extension;
 
     res.download(filePath, downloadName, (err) => {
         if (err) {
