@@ -5,6 +5,9 @@ PowerPoint COM 16.0.10417.20208; cada slide final se exportó con
 `Slide.Export(..., 'PNG', 1122, 631)`. Los baseline/final usan el mismo HTML y
 los hashes de `tests/fixtures/HASHES.json`.
 
+Commits de esta pasada: `7742a45` (código, fixtures y tests) y `87bb317`
+(documentación, observabilidad y reproducción COM).
+
 ## Estado
 
 | Bloque | Estado | Evidencia |
