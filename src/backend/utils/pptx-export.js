@@ -182,7 +182,7 @@ function analyzeCssShadow(value) {
     return { shadows, dominant, ring, warnings };
 }
 
-function shadowEffectXml(value) {
+function shadowEffectXml(value, opacity = 1) {
     const analysis = typeof value === 'string' ? analyzeCssShadow(value) : value;
     const shadow = analysis?.dominant;
     if (!shadow || analysis.ring === shadow) return '';
@@ -190,7 +190,7 @@ function shadowEffectXml(value) {
     const direction = ((Math.atan2(shadow.yPx, shadow.xPx) * 180 / Math.PI) % 360 + 360) % 360;
     const dir = Math.round(direction * 60000);
     const blurRad = Math.round(pxToEmu(shadow.blurPx, 'x') * CSS_BLUR_TO_SHADOW_RAD);
-    const alpha = Math.round(Math.max(0, Math.min(1, shadow.alpha)) * 100000);
+    const alpha = Math.round(Math.max(0, Math.min(1, shadow.alpha * (Number(opacity) || 0))) * 100000);
     return `<a:effectLst><a:outerShdw blurRad="${blurRad}" dist="${dist}" dir="${dir}" algn="ctr" rotWithShape="0"><a:srgbClr val="${shadow.hex}"><a:alpha val="${alpha}"/></a:srgbClr></a:outerShdw></a:effectLst>`;
 }
 
@@ -323,7 +323,13 @@ function xfrm(x, y, w, h) {
 }
 
 function geometry(shape = {}) {
-    return `<a:prstGeom prst="${Number(shape.borderRadius) > 0 ? 'roundRect' : 'rect'}"><a:avLst/></a:prstGeom>`;
+    if (shape.geometryType === 'ellipse') return '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>';
+    const radiusPx = Number(shape.borderRadiusPx ?? shape.borderRadius) || 0;
+    if (radiusPx <= 0 && shape.geometryType !== 'roundRect') return '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
+    const widthPx = Number(shape.widthPx) || Number(shape.w || 0) / PX_TO_EMU_X;
+    const heightPx = Number(shape.heightPx) || Number(shape.h || 0) / PX_TO_EMU_Y;
+    const adj = Math.max(0, Math.min(50000, Math.round(radiusPx / Math.max(1, Math.min(widthPx, heightPx)) * 100000)));
+    return `<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val ${adj}"/></a:avLst></a:prstGeom>`;
 }
 
 function gradientXml(gradient, shape = {}) {
@@ -331,7 +337,11 @@ function gradientXml(gradient, shape = {}) {
         ? parseCssGradient(gradient, { width: Number(shape.w) || 1, height: Number(shape.h) || 1 })
         : gradient;
     if (!parsed) return null;
-    const stops = parsed.stops.map(stop => `<a:gs pos="${Math.round(stop.position * 100000)}"><a:srgbClr val="${stop.hex}">${stop.alpha < 0.999 ? `<a:alpha val="${Math.round(stop.alpha * 100000)}"/>` : ''}</a:srgbClr></a:gs>`).join('');
+    const fillOpacity = Math.max(0, Math.min(1, Number(shape.fillOpacity ?? shape.opacity ?? 1)));
+    const stops = parsed.stops.map(stop => {
+        const alpha = stop.alpha * fillOpacity;
+        return `<a:gs pos="${Math.round(stop.position * 100000)}"><a:srgbClr val="${stop.hex}">${alpha < 0.999 ? `<a:alpha val="${Math.round(alpha * 100000)}"/>` : ''}</a:srgbClr></a:gs>`;
+    }).join('');
     if (parsed.type === 'radial') return `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst><a:path path="circle"><a:fillToRect l="0" t="0" r="0" b="0"/></a:path></a:gradFill>`;
     const angle = Math.round((((parsed.angle - 90 + 360) % 360) * 60000));
     return `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst><a:lin ang="${angle}" scaled="0"/></a:gradFill>`;
@@ -344,9 +354,10 @@ function fillXml(fill, shape = {}) {
     return isTransparent(fill) ? '<a:noFill/>' : `<a:solidFill>${colorXml(fill)}</a:solidFill>`;
 }
 
-function lineXml(lineColor, lineWidth = 0) {
+function lineXml(lineColor, lineWidth = 0, style = 'solid') {
     if (isTransparent(lineColor) || !lineWidth) return '<a:ln><a:noFill/></a:ln>';
-    return `<a:ln w="${emu(Math.max(1, lineWidth) * 12700)}"><a:solidFill>${colorXml(lineColor)}</a:solidFill></a:ln>`;
+    const dash = style === 'dashed' ? 'dash' : style === 'dotted' ? 'sysDot' : 'solid';
+    return `<a:ln w="${emu(Math.max(1, lineWidth) * 12700)}" cmpd="sng"><a:solidFill>${colorXml(lineColor)}</a:solidFill><a:prstDash val="${dash}"/></a:ln>`;
 }
 
 function paragraphAlignment(value) {
@@ -371,7 +382,7 @@ function runPropertiesXml(run = {}, shape = {}, addHyperlink) {
     const hyperlinkId = run.href && addHyperlink ? addHyperlink(run.href) : null;
     const hyperlink = hyperlinkId ? `<a:hlinkClick r:id="${hyperlinkId}"/>` : '';
     const fill = `<a:solidFill>${colorXml(run.color || shape.textColor, '111111')}</a:solidFill>`;
-    const textShadow = shadowEffectXml(run.textShadow || shape.textShadow);
+    const textShadow = shadowEffectXml(run.textShadow || shape.textShadow, run.shadowOpacity ?? shape.shadowOpacity ?? 1);
     return `<a:rPr ${attrs}>${fill}${textShadow}<a:latin typeface="${fontFace}"/><a:ea typeface="${fontFace}"/><a:cs typeface="${fontFace}"/>${hyperlink}</a:rPr>`;
 }
 
@@ -414,8 +425,8 @@ function shapeXml(id, shape, { textBox = false, addHyperlink } = {}) {
     const shadow = textBox ? { warnings: [] } : analyzeCssShadow(shape.shadow);
     const ringColor = shadow.ring?.color || shape.borderColor;
     const ringWidth = shadow.ring ? Math.max(Number(shape.borderWidth) || 0, shadow.ring.spreadPx) : shape.borderWidth;
-    const line = textBox ? '<a:ln><a:noFill/></a:ln>' : lineXml(ringColor, ringWidth);
-    const effects = textBox ? '' : shadowEffectXml(shadow);
+    const line = textBox ? '<a:ln><a:noFill/></a:ln>' : lineXml(ringColor, ringWidth, shape.borderStyle || 'solid');
+    const effects = textBox ? '' : shadowEffectXml(shadow, shape.shadowOpacity ?? 1);
     const name = escapeXml(shape.name || `${textBox ? 'Text' : 'Shape'} ${id}`);
 
     let txBody = '';
@@ -457,9 +468,10 @@ function shapeXml(id, shape, { textBox = false, addHyperlink } = {}) {
 
 function imageXml(id, image, relationshipId) {
     const name = escapeXml(image.name || `Image ${id}`);
+    const alpha = Number(image.opacity ?? 1) < 0.999 ? `<a:alphaModFix amt="${Math.round(Math.max(0, Math.min(1, Number(image.opacity))) * 100000)}"/>` : '';
     return `<p:pic>
         <p:nvPicPr><p:cNvPr id="${id}" name="${name}"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>
-        <p:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+        <p:blipFill><a:blip r:embed="${relationshipId}">${alpha}</a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill>
         <p:spPr>${xfrm(image.x, image.y, image.w, image.h)}${geometry(image)}<a:noFill/><a:ln><a:noFill/></a:ln></p:spPr>
     </p:pic>`;
 }
@@ -712,6 +724,9 @@ module.exports = {
     parseCssShadows,
     analyzeCssShadow,
     shadowEffectXml,
+    geometry,
+    lineXml,
+    imageXml,
     pxToEmu,
     pxToPt,
     color,

@@ -2787,11 +2787,34 @@ async function renderEditablePptx(html, title, requestId) {
                         return `rgba(${rgba[1]}, ${rgba[2]}, ${rgba[3]}, ${alpha})`;
                     }
                     if (opacity >= 0.999) return raw;
+                    const hex = raw.match(/^#([0-9a-f]{3,8})$/i);
+                    if (hex) {
+                        const value = hex[1].length === 3
+                            ? hex[1].split('').map(part => part + part).join('')
+                            : hex[1].slice(0, 6);
+                        const alpha = (hex[1].length === 8 ? parseInt(hex[1].slice(6), 16) / 255 : 1) * opacity;
+                        return `rgba(${parseInt(value.slice(0, 2), 16)}, ${parseInt(value.slice(2, 4), 16)}, ${parseInt(value.slice(4, 6), 16)}, ${alpha})`;
+                    }
                     return raw;
                 };
                 const selectorFor = (el) => {
                     const classes = typeof el.className === 'string' ? el.className.trim().split(/\s+/).filter(Boolean).slice(0, 2) : [];
                     return `${el.tagName.toLowerCase()}${classes.map(name => `.${name}`).join('')}`;
+                };
+                const borderInfoFor = (style) => {
+                    const sides = ['Top', 'Right', 'Bottom', 'Left'].map(side => ({
+                        width: parseFloat(style[`border${side}Width`]) || 0,
+                        color: style[`border${side}Color`] || 'transparent',
+                        style: style[`border${side}Style`] || 'none'
+                    }));
+                    const radiusRaw = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'].map(corner => String(style[`border${corner}Radius`] || '0px').trim());
+                    const radiusPx = radiusRaw.map(value => parseFloat(value.split(/\s+/)[0]) || 0);
+                    const hasRadius = radiusPx.some(value => value > 0);
+                    const borderVisible = sides.some(side => side.width > 0 && side.style !== 'none');
+                    const borderUniform = sides.every(side => side.width === sides[0].width && side.color === sides[0].color && side.style === sides[0].style);
+                    const radiusUniform = radiusPx.every(value => value === radiusPx[0]) && radiusRaw.every(value => value.split(/\s+/).length === 1);
+                    const unsupportedStyle = sides.some(side => ['double', 'groove', 'ridge', 'inset', 'outset'].includes(side.style));
+                    return { sides, radiusRaw, radiusPx, hasRadius, borderVisible, borderUniform, radiusUniform, unsupportedStyle, distinct: !borderUniform };
                 };
                 const splitShadowList = (value) => {
                     const parts = [];
@@ -2825,6 +2848,12 @@ async function renderEditablePptx(html, title, requestId) {
                         return numbers.length >= 4 && Number.parseFloat(numbers[3]) !== 0 && !(Number.parseFloat(numbers[0]) === 0 && Number.parseFloat(numbers[1]) === 0 && Number.parseFloat(numbers[2] || 0) === 0);
                     })) pushWarning('shadow-fallback', 'spread CSS no tiene equivalente directo en outerShdw', 'aproximar con outerShdw sin spread');
                     if (style.filter !== 'none' && /(drop-shadow|blur)\(/i.test(style.filter)) pushWarning('filter-fallback', 'filter CSS no tiene equivalente editable estable', 'rasterizar el nodo completo a PNG');
+                    const border = borderInfoFor(style);
+                    if (border.unsupportedStyle) pushWarning('border-fallback', 'border-style complejo no tiene equivalente estable', 'conservar color/ancho y usar prstDash solid');
+                    if (border.hasRadius && !border.radiusUniform) pushWarning('radius-approx', 'esquinas elípticas o radios distintos', 'roundRect con radio máximo; se rasteriza si también hay lados distintos');
+                    if (border.hasRadius && border.distinct) pushWarning('border-fallback', 'lados distintos combinados con border-radius', 'rasterizar nodo completo');
+                    if (border.hasRadius && style.overflow === 'hidden' && el.children.length) pushWarning('radius-approx', 'border-radius con overflow hidden contiene hijos', 'rasterizar nodo completo con clipping redondeado');
+                    if (parseFloat(style.outlineOffset) !== 0) pushWarning('border-fallback', 'outline-offset no tiene contorno editable equivalente', 'mapear outline al borde del shape conservando el ancho');
                 };
                 const filterOwnerFor = (el) => {
                     let current = el;
@@ -2835,6 +2864,17 @@ async function renderEditablePptx(html, title, requestId) {
                     }
                     return null;
                 };
+                const borderRasterOwnerFor = (el) => {
+                    let current = el;
+                    while (current && current !== slide) {
+                        const style = getComputedStyle(current);
+                        const border = borderInfoFor(style);
+                        if ((border.hasRadius && border.distinct) || (border.hasRadius && style.overflow === 'hidden' && current.children.length)) return current;
+                        current = current.parentElement;
+                    }
+                    return null;
+                };
+                const rasterOwnerFor = (el) => filterOwnerFor(el) || borderRasterOwnerFor(el);
                 const visible = (el, rect) => {
                     const style = getComputedStyle(el);
                     warnUnsupportedEffects(el, style);
@@ -3177,7 +3217,8 @@ async function renderEditablePptx(html, title, requestId) {
                         noWrap: domLooksSingleLine,
                         textShadow: style.textShadow !== 'none' ? style.textShadow : null,
                         filter: style.filter !== 'none' ? style.filter : null,
-                        rasterize: Boolean(filterOwnerFor(el)),
+                        rasterize: Boolean(rasterOwnerFor(el)),
+                        shadowOpacity: effectiveOpacity(el),
                         paragraphGap: false,
                         z: parseInt(style.zIndex, 10) || 10
                     };
@@ -3186,38 +3227,54 @@ async function renderEditablePptx(html, title, requestId) {
                     if (el.tagName === 'IMG' || el.tagName === 'SVG' || el === slide) return false;
                     const style = getComputedStyle(el);
                     const rect = relativeRect(el);
+                    const border = borderInfoFor(style);
                     const hasFill = style.backgroundColor && style.backgroundColor !== 'transparent' && style.backgroundColor !== 'rgba(0, 0, 0, 0)';
-                    const hasBorder = parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== 'none';
+                    const hasBorder = border.borderVisible || (parseFloat(style.outlineWidth) > 0 && style.outlineStyle !== 'none');
                     const hasShadow = style.boxShadow && style.boxShadow !== 'none';
                     const hasFilter = style.filter !== 'none' && /(drop-shadow|blur)\(/i.test(style.filter);
                     return visible(el, rect) && (hasFill || hasBorder || hasShadow || hasFilter);
                 }).map((el) => {
                     const style = getComputedStyle(el);
                     const rect = relativeRect(el);
+                    const border = borderInfoFor(style);
+                    const outlineWidth = parseFloat(style.outlineWidth) || 0;
+                    const useOutline = !border.borderVisible && outlineWidth > 0 && style.outlineStyle !== 'none';
                     return {
                         ...rect,
                         kind: 'shape',
                         ...orderMeta(el, 0, 0),
                         fill: colorWithOpacity(style.backgroundColor, effectiveOpacity(el)),
-                        borderColor: colorWithOpacity(style.borderTopColor, effectiveOpacity(el)),
+                        fillOpacity: effectiveOpacity(el),
+                        borderColor: colorWithOpacity(useOutline ? style.outlineColor : style.borderTopColor, effectiveOpacity(el)),
                         gradient: style.backgroundImage && style.backgroundImage !== 'none' ? style.backgroundImage : null,
-                        borderWidth: parseFloat(style.borderTopWidth) || 0,
+                        borderWidth: useOutline ? outlineWidth : (parseFloat(style.borderTopWidth) || 0),
+                        borderStyle: useOutline ? style.outlineStyle : (border.borderUniform ? border.sides[0].style : 'solid'),
+                        outlineOffset: parseFloat(style.outlineOffset) || 0,
                         borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
                         shadow: style.boxShadow !== 'none' ? style.boxShadow : null,
+                        shadowOpacity: effectiveOpacity(el),
                         filter: style.filter !== 'none' ? style.filter : null,
-                        rasterize: Boolean(filterOwnerFor(el)),
+                        rasterize: Boolean(rasterOwnerFor(el)),
+                        widthPx: rect.w,
+                        heightPx: rect.h,
+                        borderInfo: border,
+                        borderSides: border.sides.map(side => ({ ...side, color: colorWithOpacity(side.color, effectiveOpacity(el)) })),
+                        borderCompensate: !useOutline && border.borderUniform && border.sides[0].width > 0,
+                        borderRadiusPx: parseFloat(style.borderTopLeftRadius) || 0,
+                        radiusUniform: borderInfoFor(style).radiusUniform,
+                        geometryType: borderInfoFor(style).radiusUniform && borderInfoFor(style).radiusPx[0] >= Math.min(rect.w, rect.h) / 2 && Math.abs(rect.w - rect.h) < 0.5 ? 'ellipse' : (borderInfoFor(style).hasRadius ? 'roundRect' : 'rect'),
                         z: parseInt(style.zIndex, 10) || 0
                     };
                 });
                 const images = Array.from(slide.querySelectorAll('img')).map((el) => {
                     const rect = relativeRect(el);
                     const style = getComputedStyle(el);
-                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
+                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), opacity: effectiveOpacity(el), rasterize: Boolean(rasterOwnerFor(el)), visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
                 }).filter(image => image.visible);
                 const svgs = Array.from(slide.querySelectorAll('svg')).map((el) => {
                     const rect = relativeRect(el);
                     const style = getComputedStyle(el);
-                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
+                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), opacity: effectiveOpacity(el), rasterize: Boolean(rasterOwnerFor(el)), visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
                 }).filter(svg => svg.visible);
                 const backgroundElements = Array.from(slide.querySelectorAll('*')).map((el, index) => {
                     const rect = relativeRect(el);
@@ -3230,8 +3287,11 @@ async function renderEditablePptx(html, title, requestId) {
                         ...rect,
                         backgroundImage: style.backgroundImage,
                         gradientColor,
+                        fillOpacity: effectiveOpacity(el),
                         filter: style.filter !== 'none' ? style.filter : null,
-                        rasterize: Boolean(filterOwnerFor(el)),
+                        rasterize: Boolean(rasterOwnerFor(el)),
+                        borderInfo: borderInfoFor(style),
+                        borderRadiusPx: parseFloat(style.borderTopLeftRadius) || 0,
                         borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
                         visible: visible(el, rect),
                         z: parseInt(style.zIndex, 10) || 1
@@ -3259,10 +3319,11 @@ async function renderEditablePptx(html, title, requestId) {
                             w: width,
                             h: height,
                             fill,
+                            fillOpacity: effectiveOpacity(el),
                             gradient: style.backgroundImage && style.backgroundImage !== 'none' ? style.backgroundImage : null,
                             shadow: style.boxShadow !== 'none' ? style.boxShadow : null,
                             filter: style.filter !== 'none' ? style.filter : null,
-                            rasterize: Boolean(filterOwnerFor(el)),
+                            rasterize: Boolean(rasterOwnerFor(el)),
                             borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
                             z: parseInt(getComputedStyle(el).zIndex, 10) || 1,
                             name: `${record.pseudo === 'before' ? 'Before' : 'After'} decoration`
@@ -3272,8 +3333,13 @@ async function renderEditablePptx(html, title, requestId) {
                 const filteredElements = Array.from(slide.querySelectorAll('*')).map((el) => {
                     const style = getComputedStyle(el);
                     const rect = relativeRect(el);
-                    if (style.filter === 'none' || !/(drop-shadow|blur)\(/i.test(style.filter) || filterOwnerFor(el) !== el || !visible(el, rect)) return null;
-                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), z: parseInt(style.zIndex, 10) || 5, name: `Rasterized filter ${selectorFor(el)}` };
+                    const owner = rasterOwnerFor(el);
+                    if (owner !== el || !visible(el, rect)) return null;
+                    const isFilter = style.filter !== 'none' && /(drop-shadow|blur)\(/i.test(style.filter);
+                    const border = borderInfoFor(style);
+                    const isRadiusFallback = border.hasRadius && (border.distinct || (style.overflow === 'hidden' && el.children.length));
+                    if (!isFilter && !isRadiusFallback) return null;
+                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), opacity: 1, z: parseInt(style.zIndex, 10) || 5, name: `${isFilter ? 'Rasterized filter' : 'Rasterized border'} ${selectorFor(el)}` };
                 }).filter(Boolean);
                 const style = getComputedStyle(slide);
                 return {
@@ -3307,10 +3373,10 @@ async function renderEditablePptx(html, title, requestId) {
             const model = slideData[slideIndex];
             const scaleRect = (item) => ({
                 ...item,
-                x: pxToEmu(item.x * SLIDE_W_PX / model.width, 'x'),
-                y: pxToEmu(item.y * SLIDE_H_PX / model.height, 'y'),
-                w: pxToEmu(item.w * SLIDE_W_PX / model.width, 'x'),
-                h: pxToEmu(item.h * SLIDE_H_PX / model.height, 'y')
+                x: pxToEmu(item.x * SLIDE_W_PX / model.width, 'x') + (item.borderCompensate ? pxToEmu((item.borderWidth / 2) * SLIDE_W_PX / model.width, 'x') : 0),
+                y: pxToEmu(item.y * SLIDE_H_PX / model.height, 'y') + (item.borderCompensate ? pxToEmu((item.borderWidth / 2) * SLIDE_H_PX / model.height, 'y') : 0),
+                w: pxToEmu(item.w * SLIDE_W_PX / model.width, 'x') - (item.borderCompensate ? pxToEmu(item.borderWidth * SLIDE_W_PX / model.width, 'x') : 0),
+                h: pxToEmu(item.h * SLIDE_H_PX / model.height, 'y') - (item.borderCompensate ? pxToEmu(item.borderWidth * SLIDE_H_PX / model.height, 'y') : 0)
             });
                 const images = [];
                 let backgroundImage = null;
@@ -3388,6 +3454,20 @@ async function renderEditablePptx(html, title, requestId) {
                         .map((item) => ({ ...item, fill: item.gradientColor, gradient: item.backgroundImage, borderColor: 'transparent', borderWidth: 0 })),
                     ...model.pseudoDecorations.map((item) => ({ ...item, borderColor: 'transparent', borderWidth: 0 }))
                 ];
+                const sideBorderShapes = model.shapes.flatMap((shape) => {
+                    const border = shape.borderInfo;
+                    if (!border || border.borderUniform || border.hasRadius || shape.rasterize || !border.borderVisible) return [];
+                    const [top, right, bottom, left] = shape.borderSides || border.sides;
+                    const sides = [];
+                    const base = { kind: 'shape', borderColor: 'transparent', borderWidth: 0, borderStyle: 'solid', borderRadiusPx: 0, geometryType: 'rect', zKey: shape.zKey, domIndex: shape.domIndex, contextId: shape.contextId };
+                    if (top.width > 0) sides.push({ ...base, x: shape.x, y: shape.y, w: shape.w, h: top.width, fill: top.color, name: `${shape.name || 'Shape'} border-top` });
+                    if (bottom.width > 0) sides.push({ ...base, x: shape.x, y: shape.y + shape.h - bottom.width, w: shape.w, h: bottom.width, fill: bottom.color, name: `${shape.name || 'Shape'} border-bottom` });
+                    const middleY = shape.y + top.width;
+                    const middleH = Math.max(0, shape.h - top.width - bottom.width);
+                    if (left.width > 0 && middleH > 0) sides.push({ ...base, x: shape.x, y: middleY, w: left.width, h: middleH, fill: left.color, name: `${shape.name || 'Shape'} border-left` });
+                    if (right.width > 0 && middleH > 0) sides.push({ ...base, x: shape.x + shape.w - right.width, y: middleY, w: right.width, h: middleH, fill: right.color, name: `${shape.name || 'Shape'} border-right` });
+                    return sides;
+                });
                 for (let backgroundIndex = 0; backgroundIndex < model.backgroundElements.length; backgroundIndex++) {
                     const backgroundElement = model.backgroundElements[backgroundIndex];
                     const shouldRasterize = !backgroundElement.rasterize && (/url\(/i.test(backgroundElement.backgroundImage || '') || backgroundFallbacks.has(backgroundElement));
@@ -3439,6 +3519,7 @@ async function renderEditablePptx(html, title, requestId) {
                         ...scaleRect(backgroundElement),
                         kind: 'image',
                         data,
+                        rasterize: false,
                         z: backgroundElement.z,
                         name: `Slide ${slideIndex + 1} background region ${backgroundIndex + 1}`
                     });
@@ -3473,7 +3554,7 @@ async function renderEditablePptx(html, title, requestId) {
                     height: Math.max(1, image.h)
                 };
                 const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
-                    images.push({ ...scaleRect(image), kind: 'image', data, name: `Slide ${slideIndex + 1} image ${imageIndex + 1}` });
+                    images.push({ ...scaleRect(image), kind: 'image', data, rasterize: false, name: `Slide ${slideIndex + 1} image ${imageIndex + 1}` });
                 }
                 for (let svgIndex = 0; svgIndex < model.svgs.length; svgIndex++) {
                     const svg = model.svgs[svgIndex];
@@ -3484,7 +3565,7 @@ async function renderEditablePptx(html, title, requestId) {
                         height: Math.max(1, svg.h)
                     };
                     const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
-                    images.push({ ...scaleRect(svg), kind: 'image', data, name: `Slide ${slideIndex + 1} icon ${svgIndex + 1}` });
+                    images.push({ ...scaleRect(svg), kind: 'image', data, rasterize: false, name: `Slide ${slideIndex + 1} icon ${svgIndex + 1}` });
                 }
                 for (let filterIndex = 0; filterIndex < (model.filteredElements || []).length; filterIndex++) {
                     const filtered = model.filteredElements[filterIndex];
@@ -3514,12 +3595,16 @@ async function renderEditablePptx(html, title, requestId) {
                 }));
                 return normalized;
             };
-            const scaledShapes = [...model.shapes.filter(item => !item.rasterize), ...decorativeShapes.filter(item => !item.rasterize)].map((shape) => ({
+            const editableShapes = model.shapes.filter(item => !item.rasterize).map((shape) => {
+                const distinctBorder = shape.borderInfo && !shape.borderInfo.borderUniform && shape.borderInfo.borderVisible && !shape.borderInfo.hasRadius;
+                return distinctBorder ? { ...shape, borderColor: 'transparent', borderWidth: 0, borderCompensate: false } : shape;
+            });
+            const scaledShapes = [...editableShapes, ...sideBorderShapes, ...decorativeShapes.filter(item => !item.rasterize)].map((shape) => ({
                 ...scaleRect(shape),
                 name: shape.name || `Shape: ${shape.selector || 'background'}`
             }));
             const scaledTexts = model.texts.filter(item => !item.rasterize).map(item => scaleRect(normalizeTextItem(item)));
-            const scaledImages = images.map(image => ({
+            const scaledImages = images.filter(image => !image.rasterize).map(image => ({
                 ...image,
                 name: image.name || `Image: ${image.alt || 'untitled'}`
             }));

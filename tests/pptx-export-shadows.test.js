@@ -55,7 +55,7 @@ test('ring shadow becomes an editable border and is not emitted as outerShdw', a
     const xml = readSlide(await createEditablePptx([baseSlide({ shapes: [{
         x: 0, y: 0, w: 1000000, h: 1000000, fill: '#FFFFFF', shadow: '0 0 0 3px rgba(255, 0, 0, .7)'
     }] })], 'ring'));
-    assert.match(xml, /<a:ln w="[1-9]\d*"><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="70000"\/><\/a:srgbClr><\/a:solidFill><\/a:ln>/);
+    assert.match(xml, /<a:ln w="[1-9]\d*" cmpd="sng"><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="70000"\/><\/a:srgbClr><\/a:solidFill><a:prstDash val="solid"\/><\/a:ln>/);
     assert.doesNotMatch(xml, /outerShdw/);
 });
 
