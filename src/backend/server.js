@@ -39,6 +39,7 @@ const {
     TEXT_WIDTH_SAFETY,
     resolveFontFamily,
     createFontWarningCollector,
+    compareZKeys,
     pxToEmu
 } = require('./utils/pptx-export');
 
@@ -2751,11 +2752,13 @@ async function renderEditablePptx(html, title, requestId) {
         });
 
         const slideData = await page.evaluate((textWidthSafety) => {
-            const textSelector = 'h1,h2,h3,h4,h5,h6,p,li,blockquote,cite,span,strong,b,em,i,small,mark,a,div';
-            const blockTextTags = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'LI', 'BLOCKQUOTE', 'CITE']);
-            const slides = Array.from(document.querySelectorAll('section.s, section'));
-            return slides.map((slide) => {
-                const slideRect = slide.getBoundingClientRect();
+                const textSelector = 'h1,h2,h3,h4,h5,h6,p,li,blockquote,cite,span,strong,b,em,i,small,mark,a,div';
+                const blockTextTags = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'LI', 'BLOCKQUOTE', 'CITE']);
+                const slides = Array.from(document.querySelectorAll('section.s, section'));
+                return slides.map((slide) => {
+                    const slideRect = slide.getBoundingClientRect();
+                const exportWarnings = [];
+                const warningKeys = new Set();
                 const relativeRect = (el) => {
                     const rect = el.getBoundingClientRect();
                     return {
@@ -2767,7 +2770,92 @@ async function renderEditablePptx(html, title, requestId) {
                 };
                 const visible = (el, rect) => {
                     const style = getComputedStyle(el);
-                    return rect.w > 1 && rect.h > 1 && style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0;
+                    const intersectsSlide = rect.x < slideRect.width && rect.y < slideRect.height && rect.x + rect.w > 0 && rect.y + rect.h > 0;
+                    if (intersectsSlide && Number(style.opacity || 1) > 0 && Number(style.opacity || 1) < 1 && el.children.length) {
+                        const key = `opacity:${el.tagName}:${rect.x}:${rect.y}`;
+                        if (!warningKeys.has(key)) {
+                            warningKeys.add(key);
+                            exportWarnings.push({ tipo: 'opacity-group', selector: el.tagName.toLowerCase(), decision: 'preserve-dom-opacity-for-rasterized-clips; native children are not grouped in PPTX' });
+                        }
+                    }
+                    if (intersectsSlide && style.overflow === 'hidden' && el.children.length) {
+                        const clipsChild = Array.from(el.children).some(child => {
+                            const childRect = relativeRect(child);
+                            return childRect.x < rect.x || childRect.y < rect.y || childRect.x + childRect.w > rect.x + rect.w || childRect.y + childRect.h > rect.y + rect.h;
+                        });
+                        const key = `overflow:${el.tagName}:${rect.x}:${rect.y}`;
+                        if (clipsChild && !warningKeys.has(key)) {
+                            warningKeys.add(key);
+                            exportWarnings.push({ tipo: 'overflow-clipping', selector: el.tagName.toLowerCase(), decision: 'preserve-slide-clip; editable children are not rasterized' });
+                        }
+                    }
+                    return rect.w > 1 && rect.h > 1 && intersectsSlide && style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0;
+                };
+                const parseZIndex = (style) => {
+                    const value = Number(style.zIndex);
+                    return Number.isFinite(value) ? value : 0;
+                };
+                const createsStackingContext = (el, style) => {
+                    if (el === slide) return true;
+                    if (style.position !== 'static' && style.zIndex !== 'auto') return true;
+                    if (Number(style.opacity || 1) < 1) return true;
+                    if (style.transform !== 'none' || style.filter !== 'none' || style.isolation === 'isolate') return true;
+                    if (/(transform|opacity|filter|perspective|isolation)/i.test(style.willChange || '')) return true;
+                    const parentStyle = el.parentElement ? getComputedStyle(el.parentElement) : null;
+                    const parentIsFlexOrGrid = parentStyle && /flex|grid/.test(parentStyle.display || '');
+                    return Boolean(parentIsFlexOrGrid && style.zIndex !== 'auto');
+                };
+                const rootContext = { id: 'ctx-0', parent: null, z: 0, domIndex: 0 };
+                const orderByElement = new Map([[slide, { domIndex: 0, context: rootContext }]]);
+                const pseudoOrder = [];
+                let orderCounter = 1;
+                let contextCounter = 1;
+                const walkPaintOrder = (el, inheritedContext) => {
+                    const style = getComputedStyle(el);
+                    const domIndex = orderByElement.has(el) ? orderByElement.get(el).domIndex : orderCounter++;
+                    const context = el === slide
+                        ? rootContext
+                        : createsStackingContext(el, style)
+                            ? { id: `ctx-${contextCounter++}`, parent: inheritedContext, z: parseZIndex(style), domIndex }
+                            : inheritedContext;
+                    orderByElement.set(el, { domIndex, context });
+                    if (el !== slide) {
+                        const before = getComputedStyle(el, '::before');
+                        if (before.content && before.content !== 'none' && before.content !== 'normal') {
+                            pseudoOrder.push({ el, pseudo: 'before', domIndex: orderCounter++, context });
+                        }
+                    }
+                    Array.from(el.children).forEach(child => walkPaintOrder(child, context));
+                    if (el !== slide) {
+                        const after = getComputedStyle(el, '::after');
+                        if (after.content && after.content !== 'none' && after.content !== 'normal') {
+                            pseudoOrder.push({ el, pseudo: 'after', domIndex: orderCounter++, context });
+                        }
+                    }
+                };
+                walkPaintOrder(slide, rootContext);
+                const zGroup = (z) => z < 0 ? -1 : z > 0 ? 1 : 0;
+                const contextChain = (context) => {
+                    const chain = [];
+                    let current = context;
+                    while (current && current !== rootContext) {
+                        chain.unshift(current);
+                        current = current.parent;
+                    }
+                    return chain;
+                };
+                const orderMeta = (el, phase = 2, part = 0) => {
+                    const meta = orderByElement.get(el) || { domIndex: orderCounter++, context: rootContext };
+                    const elementCreatesContext = meta.context && meta.context.domIndex === meta.domIndex && el !== slide;
+                    const key = contextChain(meta.context).flatMap(context => [zGroup(context.z), context.z, context.domIndex]);
+                    if (elementCreatesContext) key.push(zGroup(meta.context.z), meta.context.z, meta.context.domIndex);
+                    key.push(phase, meta.domIndex, part);
+                    return { domIndex: meta.domIndex, zKey: key, contextId: meta.context?.id || rootContext.id };
+                };
+                const pseudoMeta = (record) => {
+                    const key = contextChain(record.context).flatMap(context => [zGroup(context.z), context.z, context.domIndex]);
+                    key.push(record.pseudo === 'before' ? 1 : 3, record.domIndex, 0);
+                    return { domIndex: record.domIndex, zKey: key, contextId: record.context?.id || rootContext.id };
                 };
                 const candidates = Array.from(slide.querySelectorAll(textSelector)).filter((el) => {
                     const text = (el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').trim();
@@ -3002,6 +3090,8 @@ async function renderEditablePptx(html, title, requestId) {
                     }
                     return {
                         ...rect,
+                        kind: 'text',
+                        ...orderMeta(el, 2, 1),
                         selector: `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().split(/\s+/).join('.')}` : ''}`,
                         text: resolvedText,
                         runs,
@@ -3031,6 +3121,8 @@ async function renderEditablePptx(html, title, requestId) {
                     const rect = relativeRect(el);
                     return {
                         ...rect,
+                        kind: 'shape',
+                        ...orderMeta(el, 0, 0),
                         fill: style.backgroundColor,
                         borderColor: style.borderTopColor,
                         borderWidth: parseFloat(style.borderTopWidth) || 0,
@@ -3041,12 +3133,12 @@ async function renderEditablePptx(html, title, requestId) {
                 const images = Array.from(slide.querySelectorAll('img')).map((el) => {
                     const rect = relativeRect(el);
                     const style = getComputedStyle(el);
-                    return { ...rect, visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
+                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
                 }).filter(image => image.visible);
                 const svgs = Array.from(slide.querySelectorAll('svg')).map((el) => {
                     const rect = relativeRect(el);
                     const style = getComputedStyle(el);
-                    return { ...rect, visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
+                    return { ...rect, kind: 'image', ...orderMeta(el, 2, 2), visible: visible(el, rect), z: parseInt(style.zIndex, 10) || 5 };
                 }).filter(svg => svg.visible);
                 const backgroundElements = Array.from(slide.querySelectorAll('*')).map((el, index) => {
                     const rect = relativeRect(el);
@@ -3054,6 +3146,8 @@ async function renderEditablePptx(html, title, requestId) {
                     const gradientColor = (style.backgroundImage || '').match(/(?:rgba?\([^)]*\)|#[0-9a-f]{3,8})/i)?.[0] || style.backgroundColor;
                     return {
                         index,
+                        kind: 'shape',
+                        ...orderMeta(el, 0, 0),
                         ...rect,
                         backgroundImage: style.backgroundImage,
                         gradientColor,
@@ -3062,10 +3156,12 @@ async function renderEditablePptx(html, title, requestId) {
                         z: parseInt(style.zIndex, 10) || 1
                     };
                 }).filter(item => item.visible && item.backgroundImage && item.backgroundImage !== 'none');
-                const pseudoDecorations = [];
-                Array.from(slide.querySelectorAll('*')).forEach((el) => {
+                const pseudoDecorations = pseudoOrder.map((record) => {
+                    const el = record.el;
                     const parentRect = relativeRect(el);
-                    ['::before', '::after'].forEach((pseudo, pseudoIndex) => {
+                    const pseudo = `::${record.pseudo}`;
+                    const pseudoIndex = record.pseudo === 'after' ? 1 : 0;
+                    {
                         const style = getComputedStyle(el, pseudo);
                         const content = style.content || '';
                         const width = parseFloat(style.width) || 0;
@@ -3073,18 +3169,21 @@ async function renderEditablePptx(html, title, requestId) {
                         const fill = style.backgroundColor && style.backgroundColor !== 'transparent'
                             ? style.backgroundColor
                             : ((style.backgroundImage || '').match(/(?:rgba?\([^)]*\)|#[0-9a-f]{3,8})/i)?.[0] || 'transparent');
-                        if (!visible(el, parentRect) || !content || content === 'none' || content === 'normal' || width <= 1 || height <= 1 || fill === 'transparent') return;
-                        pseudoDecorations.push({
+                        if (!visible(el, parentRect) || !content || content === 'none' || content === 'normal' || width <= 1 || height <= 1 || fill === 'transparent') return null;
+                        return {
+                            kind: 'shape',
+                            ...pseudoMeta(record),
                             x: parentRect.x + (pseudoIndex === 1 ? Math.max(0, parentRect.w - width) : 0),
                             y: parentRect.y + Math.max(0, (parentRect.h - height) / 2),
                             w: width,
                             h: height,
                             fill,
                             borderRadius: parseFloat(style.borderTopLeftRadius) || 0,
-                            z: parseInt(getComputedStyle(el).zIndex, 10) || 1
-                        });
-                    });
-                });
+                            z: parseInt(getComputedStyle(el).zIndex, 10) || 1,
+                            name: `${record.pseudo === 'before' ? 'Before' : 'After'} decoration`
+                        };
+                    }
+                }).filter(Boolean);
                 const style = getComputedStyle(slide);
                 return {
                     left: slideRect.left,
@@ -3097,12 +3196,21 @@ async function renderEditablePptx(html, title, requestId) {
                     images,
                     svgs,
                     backgroundElements,
-                    pseudoDecorations
+                    pseudoDecorations,
+                    warnings: exportWarnings
                 };
             }).filter(slide => slide.width > 10 && slide.height > 10);
         }, TEXT_WIDTH_SAFETY);
 
         const slides = [];
+        slideData.forEach((model, slideIndex) => {
+            (model.warnings || []).forEach((warning) => {
+                puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint export fallback decision (non-fatal)', {
+                    requestId,
+                    warning: { ...warning, slide: slideIndex + 1 }
+                });
+            });
+        });
         for (let slideIndex = 0; slideIndex < slideData.length; slideIndex++) {
             const model = slideData[slideIndex];
             const scaleRect = (item) => ({
@@ -3221,6 +3329,7 @@ async function renderEditablePptx(html, title, requestId) {
                     });
                     images.push({
                         ...scaleRect(backgroundElement),
+                        kind: 'image',
                         data,
                         z: backgroundElement.z,
                         name: `Slide ${slideIndex + 1} background region ${backgroundIndex + 1}`
@@ -3244,7 +3353,7 @@ async function renderEditablePptx(html, title, requestId) {
                     height: Math.max(1, image.h)
                 };
                 const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
-                    images.push({ ...scaleRect(image), data, name: `Slide ${slideIndex + 1} image ${imageIndex + 1}` });
+                    images.push({ ...scaleRect(image), kind: 'image', data, name: `Slide ${slideIndex + 1} image ${imageIndex + 1}` });
                 }
                 for (let svgIndex = 0; svgIndex < model.svgs.length; svgIndex++) {
                     const svg = model.svgs[svgIndex];
@@ -3255,17 +3364,18 @@ async function renderEditablePptx(html, title, requestId) {
                         height: Math.max(1, svg.h)
                     };
                     const data = await page.screenshot({ type: 'png', clip: absolute, captureBeyondViewport: true });
-                    images.push({ ...scaleRect(svg), data, name: `Slide ${slideIndex + 1} icon ${svgIndex + 1}` });
+                    images.push({ ...scaleRect(svg), kind: 'image', data, name: `Slide ${slideIndex + 1} icon ${svgIndex + 1}` });
                 }
+            const warnFont = createFontWarningCollector({
+                slide: slideIndex + 1,
+                onWarning: (warning) => puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint export font substitution (non-fatal)', {
+                    requestId,
+                    warning
+                })
+            });
             const normalizeTextItem = (item) => {
-                const warnFont = createFontWarningCollector({
-                    slide: slideIndex + 1,
-                    onWarning: (warning) => puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint export font substitution (non-fatal)', {
-                        requestId,
-                        warning: { ...warning, selector: warning.selector || item.selector || 'text' }
-                    })
-                });
                 const normalized = { ...item, fontFace: warnFont(item.fontFace) };
+                normalized.name = normalized.name || `Text: ${String(normalized.text || '').replace(/\s+/g, ' ').trim().slice(0, 48)}`;
                 normalized.runs = (item.runs || []).map(run => ({ ...run, fontFamily: warnFont(run.fontFamily || item.fontFace) }));
                 normalized.paragraphs = (item.paragraphs || []).map(paragraph => ({
                     ...paragraph,
@@ -3273,12 +3383,24 @@ async function renderEditablePptx(html, title, requestId) {
                 }));
                 return normalized;
             };
+            const scaledShapes = [...model.shapes, ...decorativeShapes].map((shape) => ({
+                ...scaleRect(shape),
+                name: shape.name || `Shape: ${shape.selector || 'background'}`
+            }));
+            const scaledTexts = model.texts.map(item => scaleRect(normalizeTextItem(item)));
+            const scaledImages = images.map(image => ({
+                ...image,
+                name: image.name || `Image: ${image.alt || 'untitled'}`
+            }));
+            const items = [...scaledShapes, ...scaledImages, ...scaledTexts]
+                .sort(compareZKeys);
             slides.push({
                 background: { x: 0, y: 0, w: SLIDE_WIDTH, h: SLIDE_HEIGHT, fill: model.background || '#FFFFFF', borderWidth: 0 },
                 backgroundImage,
-                shapes: [...model.shapes, ...decorativeShapes].sort((a, b) => a.z - b.z).map(scaleRect),
-                texts: model.texts.sort((a, b) => a.z - b.z).map(item => scaleRect(normalizeTextItem(item))),
-                images
+                items,
+                shapes: items.filter(item => item.kind === 'shape'),
+                texts: items.filter(item => item.kind === 'text'),
+                images: items.filter(item => item.kind === 'image')
             });
         }
         return await createEditablePptx(slides, title || 'Presentation');

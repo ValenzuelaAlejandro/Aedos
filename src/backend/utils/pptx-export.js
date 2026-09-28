@@ -75,6 +75,18 @@ function createFontWarningCollector({ slide, onWarning } = {}) {
     };
 }
 
+function compareZKeys(left = {}, right = {}) {
+    const a = Array.isArray(left.zKey) ? left.zKey : [0, Number(left.domIndex) || 0, 0];
+    const b = Array.isArray(right.zKey) ? right.zKey : [0, Number(right.domIndex) || 0, 0];
+    const length = Math.max(a.length, b.length);
+    for (let index = 0; index < length; index++) {
+        const av = Number(a[index] ?? 0);
+        const bv = Number(b[index] ?? 0);
+        if (av !== bv) return av - bv;
+    }
+    return (Number(left.domIndex) || 0) - (Number(right.domIndex) || 0);
+}
+
 function colorParts(value, fallback = 'FFFFFF') {
     const raw = String(value || '');
     const match = raw.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?/i);
@@ -267,14 +279,25 @@ function slideXml(model, slideNumber) {
         mediaRelationships.push(relId);
         content.push(imageXml(id++, model.backgroundImage, relId));
     }
-    for (const shape of model.shapes || []) content.push(shapeXml(id++, shape));
-    for (const image of model.images || []) {
-        const mediaName = `slide${slideNumber}-image${mediaRelationships.length + 1}.png`;
-        const relId = addRelationship({ type: 'image', target: `../media/${mediaName}`, image, mediaName });
-        mediaRelationships.push(relId);
-        content.push(imageXml(id++, image, relId));
+    const orderedItems = (Array.isArray(model.items)
+        ? model.items
+        : [
+            ...(model.shapes || []).map(shape => ({ ...shape, kind: 'shape' })),
+            ...(model.images || []).map(image => ({ ...image, kind: 'image' })),
+            ...(model.texts || []).map(text => ({ ...text, kind: 'text' }))
+        ]).slice().sort(compareZKeys);
+    for (const item of orderedItems) {
+        if (item.kind === 'image' || item.image || item.data) {
+            const mediaName = `slide${slideNumber}-image${mediaRelationships.length + 1}.png`;
+            const relId = addRelationship({ type: 'image', target: `../media/${mediaName}`, image: item, mediaName });
+            mediaRelationships.push(relId);
+            content.push(imageXml(id++, item, relId));
+        } else if (item.kind === 'text' || item.text !== undefined || item.paragraphs) {
+            content.push(shapeXml(id++, item, { textBox: true, addHyperlink }));
+        } else {
+            content.push(shapeXml(id++, item));
+        }
     }
-    for (const text of model.texts || []) content.push(shapeXml(id++, text, { textBox: true, addHyperlink }));
 
     const slide = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
@@ -464,6 +487,7 @@ module.exports = {
     OFFICE_FONTS,
     resolveFontFamily,
     createFontWarningCollector,
+    compareZKeys,
     pxToEmu,
     pxToPt,
     color,
