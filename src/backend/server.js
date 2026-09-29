@@ -26,6 +26,14 @@ const {
     DOWNLOAD_TTL_MS,
 } = require('./contracts/limits');
 const { ENV_NAMES, DEFAULTS } = require('./contracts/config-defaults');
+const {
+    queueFullGeneration,
+    queueFullFinalize,
+    proTemporarilyPaused,
+    validationFailed,
+    invalidTopic,
+    ERROR_TEXT,
+} = require('./contracts/errors');
 
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
@@ -147,11 +155,7 @@ function checkFinalizePressure(req, res, next) {
             activeFinalize,
             queueDepth: finalizeQueue.length
         });
-        return res.status(429).json({
-            error: 'QUEUE_FULL',
-            retryAfterSec: PRESSURE_RETRY_AFTER_SEC,
-            message: 'The PDF generation server is at capacity. Please try again in a few seconds.'
-        });
+        return res.status(429).json(queueFullFinalize(PRESSURE_RETRY_AFTER_SEC));
     }
     next();
 }
@@ -185,11 +189,7 @@ function checkGenerationPressure(req, res, next) {
             proPauseActiveThreshold: PRO_PAUSE_ACTIVE_GENERATIONS,
             proPauseQueueThreshold: PRO_PAUSE_QUEUE_DEPTH
         });
-        return res.status(503).json({
-            error: 'PRO_TEMPORARILY_PAUSED',
-            retryAfterSec: PRESSURE_RETRY_AFTER_SEC,
-            message: 'Pro mode is temporarily paused due to high system load. Please retry shortly or use Flash mode.'
-        });
+        return res.status(503).json(proTemporarilyPaused(PRESSURE_RETRY_AFTER_SEC));
     }
 
     if (
@@ -205,11 +205,7 @@ function checkGenerationPressure(req, res, next) {
             maxConcurrent: MAX_CONCURRENT_GENERATIONS,
             maxQueueDepth: MAX_QUEUE_DEPTH
         });
-        return res.status(429).json({
-            error: 'QUEUE_FULL',
-            retryAfterSec: PRESSURE_RETRY_AFTER_SEC,
-            message: 'The generation queue is full. Please try again in a few seconds.'
-        });
+        return res.status(429).json(queueFullGeneration(PRESSURE_RETRY_AFTER_SEC));
     }
 
     next();
@@ -1605,7 +1601,7 @@ app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_FILES), express.
         const rawTema = opciones.tema || '';
         const sanitizeResult = sanitizeTema(String(rawTema));
         if (!sanitizeResult.valid) {
-            return res.status(400).json({ error: `Invalid topic: ${sanitizeResult.reason}` });
+            return res.status(400).json(invalidTopic(sanitizeResult.reason));
         }
 
         const targetLang = requestedLanguage;
@@ -1742,7 +1738,7 @@ app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_FILES), express.
     } catch (err) {
         log.error(ErrorCategory.PIPELINE, 'Failed to generate skeleton', { requestId, error: err.message });
         if (!res.headersSent) {
-            res.status(500).json({ error: 'Failed to generate outline. Please try again.' });
+            res.status(500).json({ error: ERROR_TEXT.OUTLINE_FAILED });
         } else {
             try {
                 res.write(`data: ${JSON.stringify({ error: 'Failed to generate outline. Please try again.' })}\n\n`);
@@ -1763,7 +1759,7 @@ app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkGenerati
         } else if (type === 'point') {
             prompt = buildAddPointPrompt(topic, context.slideTitle, context.slideSubtitle, context.existingPoints);
         } else {
-            return res.status(400).json({ error: 'Invalid item type' });
+            return res.status(400).json({ error: ERROR_TEXT.INVALID_ITEM_TYPE });
         }
 
         // For outline items, we use flash lite to make it fast
@@ -1791,7 +1787,7 @@ app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkGenerati
         res.json({ item: itemJson });
     } catch (err) {
         log.error(ErrorCategory.PIPELINE, 'Failed to generate outline item', { requestId, error: err.message });
-        res.status(500).json({ error: 'Failed to generate item. Please try again.' });
+        res.status(500).json({ error: ERROR_TEXT.ITEM_FAILED });
     }
 });
 
@@ -1841,11 +1837,11 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ li
         // Bug #15: Validate that the skeleton is not empty before skipping Stage 1
         if (opciones.skeleton && typeof opciones.skeleton === 'object') {
             if (opciones.skeleton.action === 'proceed') {
-                return res.status(400).json({ error: 'SKELETON_EMPTY: The outline has no slides. Please add at least one slide before generating.' });
+                return res.status(400).json({ error: ERROR_TEXT.SKELETON_EMPTY });
             }
             const skeletonSlides = opciones.skeleton.slides;
             if (!Array.isArray(skeletonSlides) || skeletonSlides.length === 0) {
-                return res.status(400).json({ error: 'SKELETON_EMPTY: The outline has no slides. Please add at least one slide before generating.' });
+                return res.status(400).json({ error: ERROR_TEXT.SKELETON_EMPTY });
             }
         }
         
@@ -1863,7 +1859,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ li
                 requestId,
                 reason: sanitizeResult.reason
             });
-            return res.status(400).json({ error: `Invalid topic: ${sanitizeResult.reason}` });
+            return res.status(400).json(invalidTopic(sanitizeResult.reason));
         }
 
         const targetLang = requestedLanguage;
@@ -1879,10 +1875,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ li
                 requestId,
                 slides: req.body.slides
             });
-            return res.status(422).json({
-                error: 'Validation failed',
-                fields: { slides: 'must be integer between 1 and 15' }
-            });
+            return res.status(422).json(validationFailed({ slides: 'must be integer between 1 and 15' }));
         }
 
         // Cap the actual slides requested to the AI based on the mode
@@ -1904,17 +1897,14 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ li
                 requestId,
                 idioma: idiomaVal
             });
-            return res.status(422).json({
-                error: 'Validation failed',
-                fields: { idioma: 'must be one of: es, en, fr, pt, de' }
-            });
+            return res.status(422).json(validationFailed({ idioma: 'must be one of: es, en, fr, pt, de' }));
         }
 
         if (!process.env.OPENROUTER_API_KEY && !process.env.GEMINI_API_KEY) {
             log.error(ErrorCategory.CONFIG, 'Generation blocked: OpenRouter/Gemini key missing', {
                 requestId
             });
-            return res.status(500).json({ error: 'API Key is not configured in .env' });
+            return res.status(500).json({ error: ERROR_TEXT.API_KEY_MISSING });
         }
 
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
