@@ -21,3 +21,16 @@ También existen `.catch(() => {})` explícitos en esperas de Puppeteer
 (`server.js:2710, 2713, 2734, 4074, 4081, 4090, 4161`) que absorben timeouts
 de red, fonts, iconos o screenshots no críticos. No se tocaron porque cambiar
 su observabilidad o timing afectaría PDF/PPTX.
+
+## Cambios de ubicación en Fase 3b
+
+La lógica se movió sin cambiar su política de absorción ni sus mensajes:
+
+| Nuevo archivo | Catches movidos | Responsabilidad |
+|---|---|---|
+| `src/backend/browser/manager.js` | búsqueda/extracción/instalación de Chrome y diagnóstico de `puppeteer.launch` | Recuperación y ciclo de vida del singleton Puppeteer. |
+| `src/backend/export/pdf.js` | esperas de red, fonts, iconos, normalización de layout y metadata `pdf-lib` | Render y postprocesado PDF. |
+| `src/backend/export/pptx-finalize.js` | No añade catches; la captura HTTP continúa en `server.js` | Validación, respuesta y TTL de `finalize-pptx`. |
+
+Los handlers de ruta y los catches de errores HTTP permanecen en `server.js` para
+conservar el orden observable y la forma de respuesta.
