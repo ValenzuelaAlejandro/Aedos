@@ -552,26 +552,7 @@ if (IS_DEVELOPMENT) {
 }
 
 // Sanitizer implementation moved to sanitization/html.js.
-function sanitizeGeneratedHtmlLegacy(html) {
-    return sanitizeGeneratedHtmlMoved(html);
-    if (typeof html !== 'string') return html;
-    // Remove all <script>...</script> blocks — server re-injects only known-safe ones
-    html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
-    // Remove orphan opening script tags
-    html = html.replace(/<script[^>]*>/gi, '');
-    // Remove inline event handlers (onclick, onload, onerror, onmouseover, …)
-    html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
-    html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
-    // Remove javascript: URLs in href / src / action attributes
-    html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
-    // Remove malformed Google Fonts <link> tags such as href="url('https://...')".
-    // Valid AI-provided font links are preserved so the final deck keeps the
-    // original typography chosen during generation.
-    html = html.replace(/<link[^>]*href\s*=\s*["']\s*url\(\s*['"]?https:\/\/fonts\.googleapis\.com[\s\S]*?\/?>/gi, '');
-    return html;
-}
-
-const sanitizeGeneratedHtml = sanitizeGeneratedHtmlLegacy;
+const sanitizeGeneratedHtml = sanitizeGeneratedHtmlMoved;
 
 function injectLayoutSafetyNet(html) {
     if (typeof html !== 'string' || /aedos-layout-safety-net/.test(html)) return html;
