@@ -34,6 +34,7 @@ const {
     invalidTopic,
     ERROR_TEXT,
 } = require('./contracts/errors');
+const { writeSse, setSseHeaders } = require('./contracts/sse');
 
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
@@ -1663,17 +1664,14 @@ app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_FILES), express.
         // enabled so the chat UI can stream the model's internal thinking.
         const stage1Response = await tryModelsStage1Thinking(stage1Prompt, fileContext);
 
-        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
+        setSseHeaders(res);
 
         // Emit provider metadata so the client can show "Powered by X" on the
         // thinking panel if it wants. Skipped silently if the model isn't
         // exposed (legacy call shape).
         if (stage1Response && stage1Response.provider && stage1Response.model) {
             try {
-                res.write(`data: ${JSON.stringify({ metadata: { provider: stage1Response.provider, model: stage1Response.model } })}\n\n`);
+                writeSse(res, { metadata: { provider: stage1Response.provider, model: stage1Response.model } });
             } catch (_) {}
         }
 
@@ -1687,14 +1685,14 @@ app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_FILES), express.
             // structured {type,text} iterator (this endpoint). Normalize.
             if (item && typeof item === 'object' && typeof item.text === 'string') {
                 if (item.type === 'reasoning') {
-                    res.write(`data: ${JSON.stringify({ reasoning: item.text })}\n\n`);
+                    writeSse(res, { reasoning: item.text });
                 } else {
                     stage1Raw += item.text;
-                    res.write(`data: ${JSON.stringify({ chunk: item.text })}\n\n`);
+                    writeSse(res, { chunk: item.text });
                 }
             } else if (typeof item === 'string') {
                 stage1Raw += item;
-                res.write(`data: ${JSON.stringify({ chunk: item })}\n\n`);
+                writeSse(res, { chunk: item });
             }
         }
 
@@ -1722,7 +1720,7 @@ app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_FILES), express.
         }
 
         if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
-            res.write(`data: ${JSON.stringify({ error: 'STAGE1_INVALID: AI output has no slides array' })}\n\n`);
+            writeSse(res, { error: 'STAGE1_INVALID: AI output has no slides array' });
             res.end();
             return;
         }
@@ -1733,7 +1731,7 @@ app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_FILES), express.
             contentJson.slide_count = maxSlides;
         }
 
-        res.write(`data: ${JSON.stringify({ done: true, skeleton: contentJson })}\n\n`);
+        writeSse(res, { done: true, skeleton: contentJson });
         res.end();
     } catch (err) {
         log.error(ErrorCategory.PIPELINE, 'Failed to generate skeleton', { requestId, error: err.message });
@@ -1741,7 +1739,7 @@ app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_FILES), express.
             res.status(500).json({ error: ERROR_TEXT.OUTLINE_FAILED });
         } else {
             try {
-                res.write(`data: ${JSON.stringify({ error: 'Failed to generate outline. Please try again.' })}\n\n`);
+                writeSse(res, { error: ERROR_TEXT.OUTLINE_FAILED });
                 res.end();
             } catch (e) {}
         }
@@ -1907,10 +1905,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ li
             return res.status(500).json({ error: ERROR_TEXT.API_KEY_MISSING });
         }
 
-        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
+        setSseHeaders(res);
 
         // Keep the SSE stream alive during slow model responses so the browser/proxy
         // does not assume the request stalled while OpenRouter is still generating.
@@ -1932,7 +1927,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ li
                     maxConcurrent: MAX_CONCURRENT_GENERATIONS,
                     maxQueueDepth: MAX_QUEUE_DEPTH
                 });
-                res.write(`data: ${JSON.stringify({ error: 'QUEUE_FULL', retryAfterSec: PRESSURE_RETRY_AFTER_SEC })}\n\n`);
+                writeSse(res, { error: 'QUEUE_FULL', retryAfterSec: PRESSURE_RETRY_AFTER_SEC });
                 completed = true;
                 res.end();
                 return;
@@ -1952,7 +1947,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ li
                     proPauseActiveThreshold: PRO_PAUSE_ACTIVE_GENERATIONS,
                     proPauseQueueThreshold: PRO_PAUSE_QUEUE_DEPTH
                 });
-                res.write(`data: ${JSON.stringify({ error: 'PRO_TEMPORARILY_PAUSED', retryAfterSec: PRESSURE_RETRY_AFTER_SEC })}\n\n`);
+                writeSse(res, { error: 'PRO_TEMPORARILY_PAUSED', retryAfterSec: PRESSURE_RETRY_AFTER_SEC });
                 completed = true;
                 res.end();
                 return;
@@ -1964,7 +1959,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ li
                 queueDepth: queue.length,
                 maxConcurrent: MAX_CONCURRENT_GENERATIONS
             });
-            res.write(`data: ${JSON.stringify({ queued: true, position: queue.length + 1 })}\n\n`);
+                    writeSse(res, { queued: true, position: queue.length + 1 });
             const obtainedSlot = await new Promise((resolve) => {
                 const item = { resolve: () => resolve(true) };
                 queue.push(item);
@@ -1985,7 +1980,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ li
                 return;
             }
             hasGenerationSlot = true;
-            res.write(`data: ${JSON.stringify({ queued: false })}\n\n`);
+            writeSse(res, { queued: false });
             queueLog.info(ErrorCategory.QUEUE, 'Queued request resumed', {
                 requestId,
                 activeGenerations,
