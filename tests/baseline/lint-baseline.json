@@ -1,15 +1,15 @@
 {
-  "totalWarnings": 285,
+  "totalWarnings": 278,
   "byRule": {
     "no-undef": 75,
-    "no-empty": 14,
-    "complexity": 57,
-    "max-lines-per-function": 36,
+    "no-empty": 13,
+    "complexity": 53,
+    "max-lines-per-function": 35,
     "max-lines": 12,
     "no-unused-vars": 33,
     "no-shadow": 28,
-    "eqeqeq": 3,
-    "prefer-const": 27
+    "prefer-const": 27,
+    "eqeqeq": 2
   },
   "byFile": {
     "scripts\\capture-baseline.js": 4,
@@ -19,7 +19,7 @@
     "src\\backend\\prompts\\stage1-content.js": 1,
     "src\\backend\\prompts\\stage2-design.js": 2,
     "src\\backend\\prompts\\stage3-compositor.js": 2,
-    "src\\backend\\server.js": 111,
+    "src\\backend\\server.js": 104,
     "src\\backend\\utils\\logger.js": 1,
     "src\\backend\\utils\\pptx-export.js": 11,
     "src\\backend\\utils\\rate-limiter.js": 2,
@@ -38,7 +38,7 @@
   "topFiles": [
     [
       "src\\backend\\server.js",
-      111
+      104
     ],
     [
       "src\\frontend\\scripts\\app.js",
