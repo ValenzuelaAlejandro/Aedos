@@ -8,6 +8,7 @@ const fixtureDir = path.join(root, 'tests', 'fixtures');
 const outputDir = path.join(root, 'tmp', 'verify-pptx');
 const hashes = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'HASHES.json'), 'utf8'));
 const port = 3000;
+const skipCom = process.argv.includes('--skip-com');
 
 function sha256(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -49,11 +50,11 @@ async function main() {
   } finally {
     if (server) server.kill('SIGINT');
   }
-  if (process.platform === 'win32') {
+  if (process.platform === 'win32' && !skipCom) {
     const check = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'validate-pptx-package.ps1'), '-InputDir', outputDir], { cwd: root, stdio: 'inherit' });
     if (check.status !== 0) process.exit(check.status || 1);
   }
-  if (process.platform === 'win32') {
+  if (process.platform === 'win32' && !skipCom) {
     const ps = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'render-pptx-com.ps1'), '-InputDir', outputDir, '-OutputDir', path.join(outputDir, 'com')], { cwd: root, stdio: 'inherit' });
     if (ps.status !== 0) process.exit(ps.status || 1);
   } else {

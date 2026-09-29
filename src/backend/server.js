@@ -1,4 +1,6 @@
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'test') {
+    require('dotenv').config();
+}
 const express = require('express');
 const crypto = require('crypto');
 const cors = require('cors');
@@ -1190,6 +1192,9 @@ async function callGeminiDirectWithRetry(prompt, stageName, geminiModel, fileCon
  * structured (reasoning-aware) output for the chat UX.
  */
 async function callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext = null, options = null) {
+    if (process.env.AEDOS_TEST_STUB_PROVIDERS === '1') {
+        return createTestProviderResponse(stageName, options);
+    }
     if (process.env.GEMINI_API_KEY) {
         try {
             return await callGeminiDirectWithRetry(prompt, stageName, geminiModel, fileContext, options);
@@ -2653,6 +2658,31 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
 // boxes, images remain image objects, and solid fills/borders become shapes.
 function normalizePptxFontFamily(fontFace) {
     return resolveFontFamily(fontFace);
+}
+
+// Deterministic, network-free provider used only by contract tests. It is
+// activated explicitly by AEDOS_TEST_STUB_PROVIDERS=1 and is never enabled in
+// normal development or production.
+function createTestProviderResponse(stageName, options = null) {
+    const structured = Boolean(options && options.includeReasoning);
+    let output;
+    if (stageName === 'Stage1') {
+        output = structured
+            ? JSON.stringify({
+                slide_count: 1,
+                slides: [{ title: 'Test slide', subtitle: 'Test subtitle', role: 'concept', key_points: ['Test point'] }]
+            })
+            : JSON.stringify({ title: 'Test slide', role: 'concept', key_points: ['Test point'] });
+    } else if (stageName === 'Stage2') {
+        output = JSON.stringify({ palette: { background: '#ffffff', text: '#111111', accent: '#3366ff' }, typography: { heading: 'Arial', body: 'Arial' } });
+    } else {
+        output = '<!doctype html><html><head><meta charset="utf-8"><style>section.s{width:1280px;height:720px}</style></head><body><section class="s"><h1>Test presentation</h1></section></body></html>';
+    }
+    async function* stream() {
+        if (structured) yield { type: 'reasoning', text: 'test reasoning' };
+        yield structured ? { type: 'text', text: output } : output;
+    }
+    return { provider: 'test', model: 'stub', stream: stream() };
 }
 
 async function renderEditablePptx(html, title, requestId, { debug = false } = {}) {
@@ -4298,4 +4328,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { sanitizeTema, buildPrompt };
+module.exports = { app, sanitizeTema, buildPrompt };

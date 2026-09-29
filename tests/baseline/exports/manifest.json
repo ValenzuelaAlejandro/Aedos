@@ -1,0 +1,811 @@
+[
+  {
+    "file": "borders-radius-opacity.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/media/image-1.png",
+      "ppt/media/image-2.png",
+      "ppt/media/image-3.png",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "c0f21259450fc1607a5efab7a909f505efd999e7db25f6c11642e38d1e023167"
+      }
+    ]
+  },
+  {
+    "file": "edge-effects.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/media/image-1.png",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "a34a36e9939d3afe3b36da50f3fa1b9f5b7aa28765dc2b7a4f8ab3f10a3d16b5"
+      }
+    ]
+  },
+  {
+    "file": "generality-dark.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "484d5848b7a739d80bd167178b5bc7d85baea59e48e7b2efbd9cafb3ca1c35f6"
+      }
+    ]
+  },
+  {
+    "file": "generality-light.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "9a1d01afdf08c1eaa13853b269c1cdacd4dc6aeea7c229b84443d605f9edc309"
+      }
+    ]
+  },
+  {
+    "file": "images.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/media/image-1.png",
+      "ppt/media/image-10.png",
+      "ppt/media/image-11.png",
+      "ppt/media/image-12.png",
+      "ppt/media/image-13.png",
+      "ppt/media/image-14.png",
+      "ppt/media/image-15.png",
+      "ppt/media/image-2.png",
+      "ppt/media/image-3.png",
+      "ppt/media/image-4.png",
+      "ppt/media/image-5.png",
+      "ppt/media/image-6.png",
+      "ppt/media/image-7.png",
+      "ppt/media/image-8.png",
+      "ppt/media/image-9.png",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "6a1b721178459c317d0c16efa250503fdb67d4feaa122d81cd31d8666fe178e3"
+      }
+    ]
+  },
+  {
+    "file": "kendrick.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/media/image-1.png",
+      "ppt/media/image-2.png",
+      "ppt/media/image-3.png",
+      "ppt/media/image-4.png",
+      "ppt/media/image-5.png",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide2.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide3.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide4.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide5.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide6.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide7.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide8.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/notesSlides/notesSlide2.xml",
+      "ppt/notesSlides/notesSlide3.xml",
+      "ppt/notesSlides/notesSlide4.xml",
+      "ppt/notesSlides/notesSlide5.xml",
+      "ppt/notesSlides/notesSlide6.xml",
+      "ppt/notesSlides/notesSlide7.xml",
+      "ppt/notesSlides/notesSlide8.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/_rels/slide2.xml.rels",
+      "ppt/slides/_rels/slide3.xml.rels",
+      "ppt/slides/_rels/slide4.xml.rels",
+      "ppt/slides/_rels/slide5.xml.rels",
+      "ppt/slides/_rels/slide6.xml.rels",
+      "ppt/slides/_rels/slide7.xml.rels",
+      "ppt/slides/_rels/slide8.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/slides/slide2.xml",
+      "ppt/slides/slide3.xml",
+      "ppt/slides/slide4.xml",
+      "ppt/slides/slide5.xml",
+      "ppt/slides/slide6.xml",
+      "ppt/slides/slide7.xml",
+      "ppt/slides/slide8.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "38e3bd7e75928eab6526df3c43374f28e196a80573fda63171fe108b814fb565"
+      },
+      {
+        "part": "ppt/slides/slide2.xml",
+        "normalizedHash": "28e2996d36dfd0b06f8e840b6bc658336adfe4c858c757623360770cb3eba659"
+      },
+      {
+        "part": "ppt/slides/slide3.xml",
+        "normalizedHash": "0f87d776a479142527bcd8980c707207ed5f52e6e402a3fe7e1a280293c07fa0"
+      },
+      {
+        "part": "ppt/slides/slide4.xml",
+        "normalizedHash": "617a40b2ab0302408fb20301064d067ff97ea6cade5eb4486e3f77f2c95ed605"
+      },
+      {
+        "part": "ppt/slides/slide5.xml",
+        "normalizedHash": "c999dcb96ede5b5f906e64c04a3846071321f4b28f01b9aceccdbf7f1ca606b9"
+      },
+      {
+        "part": "ppt/slides/slide6.xml",
+        "normalizedHash": "0b3d6467a93d3d4a0ed2a63571079b8530d9da4add91fe465ec448978b02fd4d"
+      },
+      {
+        "part": "ppt/slides/slide7.xml",
+        "normalizedHash": "e32f7b06d426e18c411ea89de6f14e3bd293f56c8e27d595ee9d89df65f5e363"
+      },
+      {
+        "part": "ppt/slides/slide8.xml",
+        "normalizedHash": "736b084e906afb98f65ce837b81e1b7f4d594007a9e4cf24d9fdd2fdbb8b518f"
+      }
+    ]
+  },
+  {
+    "file": "layer-edge.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "1cc55c9ffb87e9b94c4117e52282bdacf058242aeb358ac2c465c09a1edad848"
+      }
+    ]
+  },
+  {
+    "file": "minimal.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "da72f03adec7ef460a0779899bad6dc30dea6fd5b1e5d2b9cc5ac7c259f7f4ac"
+      }
+    ]
+  },
+  {
+    "file": "pseudo.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "93677a823194e4c33923d484c003b8dc42655a69735b3203ff21fb069905dd7c"
+      }
+    ]
+  },
+  {
+    "file": "regression-dark.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "bf016468b193a5ff5ab65da1d611b4a47f50d65139e11d39cc194ce48d1b7d45"
+      }
+    ]
+  },
+  {
+    "file": "regression-light.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "8e1d4c585820eebe6d638a053719275bf45d3ec9641ab663a24842b159b66f47"
+      }
+    ]
+  },
+  {
+    "file": "shadows.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/media/image-1.png",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "742c7b9621bba1668941150dbd94ab4876be4a7fe03e8a6f2b7baea6086c31ad"
+      }
+    ]
+  },
+  {
+    "file": "stress.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/media/image-1.png",
+      "ppt/media/image-10.png",
+      "ppt/media/image-11.png",
+      "ppt/media/image-12.png",
+      "ppt/media/image-13.png",
+      "ppt/media/image-14.png",
+      "ppt/media/image-15.png",
+      "ppt/media/image-16.png",
+      "ppt/media/image-17.png",
+      "ppt/media/image-18.png",
+      "ppt/media/image-19.png",
+      "ppt/media/image-2.png",
+      "ppt/media/image-20.png",
+      "ppt/media/image-21.png",
+      "ppt/media/image-22.png",
+      "ppt/media/image-23.png",
+      "ppt/media/image-24.png",
+      "ppt/media/image-25.png",
+      "ppt/media/image-26.png",
+      "ppt/media/image-27.png",
+      "ppt/media/image-28.png",
+      "ppt/media/image-29.png",
+      "ppt/media/image-3.png",
+      "ppt/media/image-30.png",
+      "ppt/media/image-31.png",
+      "ppt/media/image-32.png",
+      "ppt/media/image-4.png",
+      "ppt/media/image-5.png",
+      "ppt/media/image-6.png",
+      "ppt/media/image-7.png",
+      "ppt/media/image-8.png",
+      "ppt/media/image-9.png",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide10.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide11.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide12.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide13.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide14.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide15.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide16.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide17.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide18.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide19.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide2.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide20.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide21.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide22.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide23.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide24.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide25.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide26.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide27.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide28.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide29.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide3.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide30.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide31.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide32.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide4.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide5.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide6.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide7.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide8.xml.rels",
+      "ppt/notesSlides/_rels/notesSlide9.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/notesSlides/notesSlide10.xml",
+      "ppt/notesSlides/notesSlide11.xml",
+      "ppt/notesSlides/notesSlide12.xml",
+      "ppt/notesSlides/notesSlide13.xml",
+      "ppt/notesSlides/notesSlide14.xml",
+      "ppt/notesSlides/notesSlide15.xml",
+      "ppt/notesSlides/notesSlide16.xml",
+      "ppt/notesSlides/notesSlide17.xml",
+      "ppt/notesSlides/notesSlide18.xml",
+      "ppt/notesSlides/notesSlide19.xml",
+      "ppt/notesSlides/notesSlide2.xml",
+      "ppt/notesSlides/notesSlide20.xml",
+      "ppt/notesSlides/notesSlide21.xml",
+      "ppt/notesSlides/notesSlide22.xml",
+      "ppt/notesSlides/notesSlide23.xml",
+      "ppt/notesSlides/notesSlide24.xml",
+      "ppt/notesSlides/notesSlide25.xml",
+      "ppt/notesSlides/notesSlide26.xml",
+      "ppt/notesSlides/notesSlide27.xml",
+      "ppt/notesSlides/notesSlide28.xml",
+      "ppt/notesSlides/notesSlide29.xml",
+      "ppt/notesSlides/notesSlide3.xml",
+      "ppt/notesSlides/notesSlide30.xml",
+      "ppt/notesSlides/notesSlide31.xml",
+      "ppt/notesSlides/notesSlide32.xml",
+      "ppt/notesSlides/notesSlide4.xml",
+      "ppt/notesSlides/notesSlide5.xml",
+      "ppt/notesSlides/notesSlide6.xml",
+      "ppt/notesSlides/notesSlide7.xml",
+      "ppt/notesSlides/notesSlide8.xml",
+      "ppt/notesSlides/notesSlide9.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/_rels/slide10.xml.rels",
+      "ppt/slides/_rels/slide11.xml.rels",
+      "ppt/slides/_rels/slide12.xml.rels",
+      "ppt/slides/_rels/slide13.xml.rels",
+      "ppt/slides/_rels/slide14.xml.rels",
+      "ppt/slides/_rels/slide15.xml.rels",
+      "ppt/slides/_rels/slide16.xml.rels",
+      "ppt/slides/_rels/slide17.xml.rels",
+      "ppt/slides/_rels/slide18.xml.rels",
+      "ppt/slides/_rels/slide19.xml.rels",
+      "ppt/slides/_rels/slide2.xml.rels",
+      "ppt/slides/_rels/slide20.xml.rels",
+      "ppt/slides/_rels/slide21.xml.rels",
+      "ppt/slides/_rels/slide22.xml.rels",
+      "ppt/slides/_rels/slide23.xml.rels",
+      "ppt/slides/_rels/slide24.xml.rels",
+      "ppt/slides/_rels/slide25.xml.rels",
+      "ppt/slides/_rels/slide26.xml.rels",
+      "ppt/slides/_rels/slide27.xml.rels",
+      "ppt/slides/_rels/slide28.xml.rels",
+      "ppt/slides/_rels/slide29.xml.rels",
+      "ppt/slides/_rels/slide3.xml.rels",
+      "ppt/slides/_rels/slide30.xml.rels",
+      "ppt/slides/_rels/slide31.xml.rels",
+      "ppt/slides/_rels/slide32.xml.rels",
+      "ppt/slides/_rels/slide4.xml.rels",
+      "ppt/slides/_rels/slide5.xml.rels",
+      "ppt/slides/_rels/slide6.xml.rels",
+      "ppt/slides/_rels/slide7.xml.rels",
+      "ppt/slides/_rels/slide8.xml.rels",
+      "ppt/slides/_rels/slide9.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/slides/slide10.xml",
+      "ppt/slides/slide11.xml",
+      "ppt/slides/slide12.xml",
+      "ppt/slides/slide13.xml",
+      "ppt/slides/slide14.xml",
+      "ppt/slides/slide15.xml",
+      "ppt/slides/slide16.xml",
+      "ppt/slides/slide17.xml",
+      "ppt/slides/slide18.xml",
+      "ppt/slides/slide19.xml",
+      "ppt/slides/slide2.xml",
+      "ppt/slides/slide20.xml",
+      "ppt/slides/slide21.xml",
+      "ppt/slides/slide22.xml",
+      "ppt/slides/slide23.xml",
+      "ppt/slides/slide24.xml",
+      "ppt/slides/slide25.xml",
+      "ppt/slides/slide26.xml",
+      "ppt/slides/slide27.xml",
+      "ppt/slides/slide28.xml",
+      "ppt/slides/slide29.xml",
+      "ppt/slides/slide3.xml",
+      "ppt/slides/slide30.xml",
+      "ppt/slides/slide31.xml",
+      "ppt/slides/slide32.xml",
+      "ppt/slides/slide4.xml",
+      "ppt/slides/slide5.xml",
+      "ppt/slides/slide6.xml",
+      "ppt/slides/slide7.xml",
+      "ppt/slides/slide8.xml",
+      "ppt/slides/slide9.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "ec1c334d211422d996fe9cfe97b4150fb686b93ee0f65615a0b410286df53de7"
+      },
+      {
+        "part": "ppt/slides/slide10.xml",
+        "normalizedHash": "67b28dba828c3538d4ca118349500a4e969c3667b939f06af5970863a31ca9a8"
+      },
+      {
+        "part": "ppt/slides/slide11.xml",
+        "normalizedHash": "d4dc37f499dba2f33de18569303f7b8f6b405b91438fb2fcee2b6dc779ffe396"
+      },
+      {
+        "part": "ppt/slides/slide12.xml",
+        "normalizedHash": "776a9d69ca555eea3f883a278d602b2bcc91eb9bdd4875827195199323e81c87"
+      },
+      {
+        "part": "ppt/slides/slide13.xml",
+        "normalizedHash": "11d52a0fec3d3bd1e6c2b820f3ad1e2cd888c7ddd6a572ca9fbfd6966337d408"
+      },
+      {
+        "part": "ppt/slides/slide14.xml",
+        "normalizedHash": "85372a6953426c1dd780a1ebedbf22215952d5d53a6d49d697f16df7c5321eec"
+      },
+      {
+        "part": "ppt/slides/slide15.xml",
+        "normalizedHash": "624fa92e0c68ac9906c55a7a0cb04d7580ee0d5488a3f7c3d1a18187d044175a"
+      },
+      {
+        "part": "ppt/slides/slide16.xml",
+        "normalizedHash": "327eea54bae4a65d96a422c333defcaf038d5ebb558880333a6d1539c2450046"
+      },
+      {
+        "part": "ppt/slides/slide17.xml",
+        "normalizedHash": "88b67b7087069c49c397fe5bc773ab02659ab3514c31f286d34c99c8645042e2"
+      },
+      {
+        "part": "ppt/slides/slide18.xml",
+        "normalizedHash": "1cb8c68b0840c5dd4dc97b676632dde38e0d6209b98bb364a21fd5db86ec806c"
+      },
+      {
+        "part": "ppt/slides/slide19.xml",
+        "normalizedHash": "b75df3fe91e9b8ce353a8d04f227a1f0334347d6dd6c5c2663525d90203d0473"
+      },
+      {
+        "part": "ppt/slides/slide2.xml",
+        "normalizedHash": "fe4b1ae5c31e7c11e87eeae58e3461499d0f55da4e2f4a5a9b501f0d40324977"
+      },
+      {
+        "part": "ppt/slides/slide20.xml",
+        "normalizedHash": "25e3e3467fbc9f53c44ac8b2b47d807ba3cf2a9e5f60568cea352a13e663b3e7"
+      },
+      {
+        "part": "ppt/slides/slide21.xml",
+        "normalizedHash": "9df0da25138cc77bbffc4a167308bf81a160313774d725556fc55a965ae98a2a"
+      },
+      {
+        "part": "ppt/slides/slide22.xml",
+        "normalizedHash": "c9fbe37e7df84992edc0f4431bc81f1134123e62a9594fbfae3e86eb09964545"
+      },
+      {
+        "part": "ppt/slides/slide23.xml",
+        "normalizedHash": "dd9740fc74f3b68a049d54e8954f2a078e1fcba7e40a507e7467c04696ca6a41"
+      },
+      {
+        "part": "ppt/slides/slide24.xml",
+        "normalizedHash": "806f5f7ac93a28b5678b32142a69b50a8ff2138178f781282dce757c95169495"
+      },
+      {
+        "part": "ppt/slides/slide25.xml",
+        "normalizedHash": "6c5646fbba0d2de0caa32dd5b9ed67e1b2b12dc39e4bf62738e864eb054b573d"
+      },
+      {
+        "part": "ppt/slides/slide26.xml",
+        "normalizedHash": "0e7cc2e2021d1f1cf700cb33b1e5d10dcb6c5b3c2767e222f543926c335592d6"
+      },
+      {
+        "part": "ppt/slides/slide27.xml",
+        "normalizedHash": "83377c281e3932d88114c6e5ff1bc20a63cbe6fadd7e4ad923f0a1503d6b672e"
+      },
+      {
+        "part": "ppt/slides/slide28.xml",
+        "normalizedHash": "d8974ecea103ff8ec2c40f50d043614111051f3ef127fbb1c521a3a2e860ee6f"
+      },
+      {
+        "part": "ppt/slides/slide29.xml",
+        "normalizedHash": "4d2661148251b6ae068bbdeca3ba27cb661c0b994b445eda0a7ed295fd92844c"
+      },
+      {
+        "part": "ppt/slides/slide3.xml",
+        "normalizedHash": "7741bb82d53db3d54e916962074ae133205708064f99f3e2732c5ac73a3d882e"
+      },
+      {
+        "part": "ppt/slides/slide30.xml",
+        "normalizedHash": "ef2e34f95f3456cce1c13cef1218f9472e9354a02d258c12a094c846e7bb6baa"
+      },
+      {
+        "part": "ppt/slides/slide31.xml",
+        "normalizedHash": "844a86a4231bc709b22f19c3658fd3e73e233214dfa39e0ebc3af0dd4fa11d0a"
+      },
+      {
+        "part": "ppt/slides/slide32.xml",
+        "normalizedHash": "44fd2d1bf4dc312c065d81b9e767d3043ba1dec229295b8994662838ab46072d"
+      },
+      {
+        "part": "ppt/slides/slide4.xml",
+        "normalizedHash": "29c031492a69893f8f64d548d283dfaa32be2930187cbc2e4440bbe3985198e0"
+      },
+      {
+        "part": "ppt/slides/slide5.xml",
+        "normalizedHash": "e515ca592310fbb37ee3c038f17ec49837e3674c688401c987ebb126b888a0a8"
+      },
+      {
+        "part": "ppt/slides/slide6.xml",
+        "normalizedHash": "e5731ba1592e6a89d9d096a802767cad203b1a770be5f0915e0e0c69c7ff3a6b"
+      },
+      {
+        "part": "ppt/slides/slide7.xml",
+        "normalizedHash": "8180aa66e4141a414e439d6881b130c84fa10ef5b4336265a05296cf5adc3067"
+      },
+      {
+        "part": "ppt/slides/slide8.xml",
+        "normalizedHash": "2943589554fbfd34cc70b13ecc5fbd857dc1179384134e4b3a8a5abd41a6f01f"
+      },
+      {
+        "part": "ppt/slides/slide9.xml",
+        "normalizedHash": "0700ba32d0ab771197cc00ca837e9a415f1e7f9dc8a8bdec81e76ac15d96335f"
+      }
+    ]
+  },
+  {
+    "file": "tables.pptx",
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+      "ppt/notesMasters/notesMaster1.xml",
+      "ppt/notesMasters/theme/theme3.xml",
+      "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+      "ppt/notesSlides/notesSlide1.xml",
+      "ppt/presProps.xml",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slideMasters/theme/theme2.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/tableStyles.xml",
+      "ppt/theme/theme1.xml"
+    ],
+    "slideXml": [
+      {
+        "part": "ppt/slides/slide1.xml",
+        "normalizedHash": "40123d699c5b26a39d3f3d69aa4001be63f2887e79cf3673b1e76c643441aebc"
+      }
+    ]
+  }
+]
