@@ -8,7 +8,7 @@
     "dev": "node --watch src/backend/server.js",
     "test": "node --test tests/frontend-preview-transition.test.js tests/pptx-export-text.test.js tests/pptx-export-layers.test.js tests/pptx-export-styles.test.js tests/pptx-export-shadows.test.js tests/pptx-export-appearance.test.js tests/pptx-export-advanced.test.js",
     "test:safe": "node --test --test-isolation=none tests/frontend-preview-transition.test.js tests/pptx-export-text.test.js tests/pptx-export-layers.test.js tests/pptx-export-styles.test.js tests/pptx-export-shadows.test.js tests/pptx-export-appearance.test.js tests/pptx-export-advanced.test.js",
-    "test:contract": "node --test --test-isolation=none --test-force-exit tests/contracts/backend-contract.test.js tests/contracts/errors.test.js tests/contracts/sse.test.js tests/contracts/request-normalizers.test.js tests/contracts/router-order.test.js tests/contracts/provider-seam.test.js",
+    "test:contract": "node --test --test-isolation=none --test-force-exit tests/contracts/backend-contract.test.js tests/contracts/errors.test.js tests/contracts/sse.test.js tests/contracts/request-normalizers.test.js tests/contracts/router-order.test.js tests/contracts/provider-seam.test.js tests/contracts/env-config.test.js",
     "test:pressure": "node --test --test-isolation=none --test-force-exit tests/contracts/pressure-preconditions.test.js",
     "test:sanitization": "node --test --test-isolation=none --test-force-exit tests/sanitization/sanitization.test.js",
     "test:stub-guard": "node --test tests/contracts/stub-guard.test.js",

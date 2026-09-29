@@ -15,11 +15,6 @@ const {
     MAX_UPLOAD_FILES,
     MAX_UPLOAD_ARRAY_FIELDS,
     ALLOWED_UPLOAD_EXTENSIONS,
-    DEFAULT_MAX_CONCURRENT_GENERATIONS,
-    DEFAULT_MAX_QUEUE_DEPTH,
-    DEFAULT_PRESSURE_RETRY_AFTER_SEC,
-    DEFAULT_PUPPETEER_MAX_CONCURRENT,
-    DEFAULT_PUPPETEER_MAX_QUEUE,
     MAX_TOPIC_CHARACTERS,
     MAX_FLASH_SLIDES,
     MAX_PRO_SLIDES,
@@ -27,6 +22,7 @@ const {
     DOWNLOAD_TTL_MS,
 } = require('./contracts/limits');
 const { ENV_NAMES, DEFAULTS } = require('./contracts/config-defaults');
+const { loadEnvConfig } = require('./config/env');
 const {
     queueFullGeneration,
     queueFullFinalize,
@@ -87,6 +83,7 @@ const sanitizerLog = log.child('SANITIZER');
 const devLog = log.child('DEV');
 const imageLog = log.child('IMAGES');
 const puppeteerLog = log.child('PUPPETEER');
+const runtimeConfig = loadEnvConfig(process.env);
 let testProviderOverride = null;
 
 function setTestProviderOverride(provider) {
@@ -115,8 +112,8 @@ const app = express();
 app.disable('x-powered-by');
 // Trust proxies to get real client IPs for rate limiting
 app.set('trust proxy', true);
-const PORT = process.env[ENV_NAMES.PORT] || DEFAULTS.PORT;
-const RUNTIME_ENV = (process.env[ENV_NAMES.NODE_ENV] || DEFAULTS.NODE_ENV).toLowerCase();
+const PORT = runtimeConfig.port;
+const RUNTIME_ENV = runtimeConfig.runtimeEnv;
 const IS_DEVELOPMENT = RUNTIME_ENV === 'development';
 const TMP_DIR = path.join(__dirname, '..', '..', 'tmp');
 const EXAMPLES_DIR = path.join(__dirname, '..', '..', 'examples');
@@ -128,23 +125,17 @@ let requestSequence = 0;
 let activeGenerations = 0;
 const queue = [];
 // Max concurrent generations 
-const MAX_CONCURRENT_GENERATIONS = parsePositiveInt(process.env[ENV_NAMES.MAX_CONCURRENT_GENERATIONS], DEFAULT_MAX_CONCURRENT_GENERATIONS);
-const MAX_QUEUE_DEPTH = parsePositiveInt(process.env[ENV_NAMES.MAX_QUEUE_DEPTH], DEFAULT_MAX_QUEUE_DEPTH);
-const PRO_PAUSE_QUEUE_DEPTH = parsePositiveInt(
-    process.env[ENV_NAMES.PRO_PAUSE_QUEUE_DEPTH],
-    Math.max(8, Math.floor(MAX_QUEUE_DEPTH * 0.6))
-);
-const PRO_PAUSE_ACTIVE_GENERATIONS = parsePositiveInt(
-    process.env[ENV_NAMES.PRO_PAUSE_ACTIVE_GENERATIONS],
-    Math.max(1, MAX_CONCURRENT_GENERATIONS - 2)
-);
-const PRESSURE_RETRY_AFTER_SEC = parsePositiveInt(process.env[ENV_NAMES.PRESSURE_RETRY_AFTER_SEC], DEFAULT_PRESSURE_RETRY_AFTER_SEC);
+const MAX_CONCURRENT_GENERATIONS = runtimeConfig.maxConcurrentGenerations;
+const MAX_QUEUE_DEPTH = runtimeConfig.maxQueueDepth;
+const PRO_PAUSE_QUEUE_DEPTH = runtimeConfig.proPauseQueueDepth;
+const PRO_PAUSE_ACTIVE_GENERATIONS = runtimeConfig.proPauseActiveGenerations;
+const PRESSURE_RETRY_AFTER_SEC = runtimeConfig.pressureRetryAfterSec;
 
 // Puppeteer System State
 let activeFinalize = 0;
 const finalizeQueue = [];
-const PUPPETEER_MAX_CONCURRENT = parsePositiveInt(process.env[ENV_NAMES.PUPPETEER_MAX_CONCURRENT], DEFAULT_PUPPETEER_MAX_CONCURRENT);
-const PUPPETEER_MAX_QUEUE = parsePositiveInt(process.env[ENV_NAMES.PUPPETEER_MAX_QUEUE], DEFAULT_PUPPETEER_MAX_QUEUE);
+const PUPPETEER_MAX_CONCURRENT = runtimeConfig.puppeteerMaxConcurrent;
+const PUPPETEER_MAX_QUEUE = runtimeConfig.puppeteerMaxQueue;
 
 function processFinalizeQueue() {
     if (finalizeQueue.length > 0 && activeFinalize < PUPPETEER_MAX_CONCURRENT) {
@@ -172,11 +163,6 @@ function checkFinalizePressure(req, res, next) {
         return res.status(429).json(queueFullFinalize(PRESSURE_RETRY_AFTER_SEC));
     }
     next();
-}
-
-function parsePositiveInt(value, fallback) {
-    const parsed = parseInt(value || '', 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function normalizeGenerationMode(body) {
@@ -1145,7 +1131,7 @@ const GEMINI_503_RETRY_BASE_DELAY_MS = 500;
 // GEMINI_ACCEPT_TIMEOUT → fallback → timeout → QUOTA_EXHAUSTED in production.
 // Now configurable via env; 30s default gives providers room to queue without
 // letting the request hang forever.
-const PROVIDER_ACCEPT_TIMEOUT_MS = parsePositiveInt(process.env[ENV_NAMES.PROVIDER_ACCEPT_TIMEOUT_MS], DEFAULTS.PROVIDER_ACCEPT_TIMEOUT_MS);
+const PROVIDER_ACCEPT_TIMEOUT_MS = runtimeConfig.providerAcceptTimeoutMs;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
