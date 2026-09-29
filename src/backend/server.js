@@ -87,6 +87,18 @@ const sanitizerLog = log.child('SANITIZER');
 const devLog = log.child('DEV');
 const imageLog = log.child('IMAGES');
 const puppeteerLog = log.child('PUPPETEER');
+let testProviderOverride = null;
+
+function setTestProviderOverride(provider) {
+    if (process.env.NODE_ENV !== 'test' || process.env.AEDOS_TEST_STUB_PROVIDERS !== '1') {
+        throw new Error('Test provider override is only available in test mode');
+    }
+    testProviderOverride = provider;
+}
+
+function clearTestProviderOverride() {
+    testProviderOverride = null;
+}
 
 const AEDOS_LOGO = [
     '  █████╗  ███████╗ ██████╗   ██████╗  ███████╗',
@@ -1205,6 +1217,9 @@ async function callGeminiDirectWithRetry(prompt, stageName, geminiModel, fileCon
  * structured (reasoning-aware) output for the chat UX.
  */
 async function callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext = null, options = null) {
+    if (process.env.NODE_ENV === 'test' && process.env.AEDOS_TEST_STUB_PROVIDERS === '1' && testProviderOverride) {
+        return testProviderOverride({ prompt, stageName, geminiModel, openrouterModels, fileContext, options });
+    }
     if (process.env.NODE_ENV !== 'production' && process.env.AEDOS_TEST_STUB_PROVIDERS === '1') {
         return createTestProviderResponse(stageName, options);
     }
@@ -4329,4 +4344,11 @@ if (require.main === module) {
     });
 }
 
-module.exports = { app, sanitizeTema, sanitizeGeneratedHtml, buildPrompt };
+module.exports = {
+    app,
+    sanitizeTema,
+    sanitizeGeneratedHtml,
+    buildPrompt,
+    setTestProviderOverride,
+    clearTestProviderOverride,
+};
