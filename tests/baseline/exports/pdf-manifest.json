@@ -2,8 +2,55 @@
   "urlShape": "/download/*.pdf?name=pdf%20baseline",
   "contentType": "application/pdf",
   "signature": "%PDF-",
-  "bytes": 132840,
-  "pages": 8,
-  "width": 841.91998,
-  "height": 474
+  "pdfVersion": "1.7",
+  "pages": [
+    {
+      "width": 841.91998,
+      "height": 474,
+      "textLength": 486,
+      "textSha256": "3c02ef82b5145ad5b7fe08a6277aff627db1f14a06e611a0ccfa959a34e53f69"
+    },
+    {
+      "width": 841.91998,
+      "height": 474,
+      "textLength": 1835,
+      "textSha256": "92a4de809a98c641b86bb76220c04f08892f84f75a98736250d612f93cfeb950"
+    },
+    {
+      "width": 841.91998,
+      "height": 474,
+      "textLength": 1739,
+      "textSha256": "658331bc07c439c1f92f191b6da456fb7540dffa9135254d8e08775326933692"
+    },
+    {
+      "width": 841.91998,
+      "height": 474,
+      "textLength": 889,
+      "textSha256": "eaa1e2dfab3516905b11108d31e0d3eacfcf348dfa96af27091eec2b51549c36"
+    },
+    {
+      "width": 841.91998,
+      "height": 474,
+      "textLength": 1728,
+      "textSha256": "8b2af203a7e003b46f610587b303215b625469a588b40182721ec8a8ca1e51a9"
+    },
+    {
+      "width": 841.91998,
+      "height": 474,
+      "textLength": 1333,
+      "textSha256": "1c0fda4d1838f535f952682c7f63e940139e3cabe600ba1fadf046724191084d"
+    },
+    {
+      "width": 841.91998,
+      "height": 474,
+      "textLength": 1341,
+      "textSha256": "6a7e5998f73338194cb34afcee51de6f8d79c51498589400b1f4561c88e46ecd"
+    },
+    {
+      "width": 841.91998,
+      "height": 474,
+      "textLength": 768,
+      "textSha256": "71ecbb3a52453252dd7b229162485f6e6fd552c9f3440ddcf2e86243d73ddc1c"
+    }
+  ]
 }
