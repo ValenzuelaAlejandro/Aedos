@@ -19,7 +19,8 @@ window.initEditorUI = function (iframe) {
         if (window.nextSlide) window.nextSlide();
     });
     iframeWin.addEventListener('duplicate-slide', () => {
-        const slidesCount = iframeDoc.querySelectorAll('section[class*="s"]').length;
+        const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"], section'));
+        const slidesCount = slides.length;
         if (slidesCount >= 15) return;
         if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         if (slides.length === 0) return;

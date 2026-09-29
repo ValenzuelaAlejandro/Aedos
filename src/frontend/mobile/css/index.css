@@ -304,10 +304,19 @@
         display: none !important;
     }
 
-    #finalize-btn, #preview-reset-btn {
+    #finalize-btn, #export-menu-trigger, #preview-reset-btn {
         background: transparent !important;
         border: none !important;
         color: var(--muted) !important;
+    }
+
+    #export-menu-trigger {
+        padding: 0.35rem 0.4rem !important;
+    }
+
+    .export-dropdown .export-menu {
+        right: 0;
+        min-width: 235px;
     }
 
     /* Fix centering for complex buttons with wrappers */

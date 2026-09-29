@@ -150,6 +150,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewHeader = document.querySelector('.preview-unified-header');
     const finalizeBtn = document.getElementById('finalize-btn');
     const progressBarEl = document.getElementById('loading-progress-bar');
+    const previewStreamStatus = document.getElementById('preview-stream-status');
+    const previewStreamStatusText = document.getElementById('preview-stream-status-text');
+
+    function setPreviewStreamStatus(text) {
+        if (!previewStreamStatusText || typeof text !== 'string' || !text.trim()) return;
+        previewStreamStatusText.textContent = text;
+        if (previewStreamStatus) previewStreamStatus.setAttribute('aria-label', text);
+    }
 
     // State
     let currentSlide = 0;
@@ -169,6 +177,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Tracks the active settling GSAP tween so we can kill it before a new generation
     // starts (prevents the previous onComplete from firing showFloatingPills mid-stream).
     let _settlingAnimation = null;
+    // Generation/iframe identity used to ignore late messages and callbacks from
+    // a previous stream after the preview iframe has been replaced.
+    let _generationSequence = 0;
+    let _activeGeneration = null;
 
     function clearStageInlinePadding() {
         const stageEl = document.getElementById('preview-stage');
@@ -211,6 +223,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const modeMenu = document.getElementById('mode-dropdown-menu');
     const langBtn = document.getElementById('btn-lang-dropdown');
     const langMenu = document.getElementById('lang-dropdown-menu');
+    const exportMenuBtn = document.getElementById('export-menu-trigger');
+    const exportMenu = document.getElementById('export-dropdown-menu');
+    const exportPptxBtn = document.getElementById('export-pptx-btn');
+    let requestedExportFormat = 'pdf';
     const currentModeLabel = document.getElementById('current-mode-label');
     const currentLangLabel = document.getElementById('current-lang-label');
     const chatInputWrapper = document.querySelector('.chat-input-wrapper');
@@ -218,8 +234,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeAllDropdowns() {
         if (modeMenu) modeMenu.classList.add('hidden');
         if (langMenu) langMenu.classList.add('hidden');
+        if (exportMenu) exportMenu.classList.add('hidden');
         if (modeBtn) modeBtn.setAttribute('aria-expanded', 'false');
         if (langBtn) langBtn.setAttribute('aria-expanded', 'false');
+        if (exportMenuBtn) exportMenuBtn.setAttribute('aria-expanded', 'false');
     }
 
     if (modeBtn && modeMenu) {
@@ -277,6 +295,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (exportMenuBtn && exportMenu) {
+        exportMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isHidden = exportMenu.classList.contains('hidden');
+            closeAllDropdowns();
+            if (isHidden) {
+                exportMenu.classList.remove('hidden');
+                exportMenuBtn.setAttribute('aria-expanded', 'true');
+            }
+        });
+
+        exportMenu.addEventListener('click', (e) => {
+            if (e.target.closest('#finalize-btn')) {
+                closeAllDropdowns();
+            }
+        });
+
+        if (exportPptxBtn) {
+            exportPptxBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (finalizeBtn && finalizeBtn.disabled) return;
+                requestedExportFormat = 'pptx';
+                closeAllDropdowns();
+                finalizeBtn?.click();
+            });
+        }
+    }
+
     document.addEventListener('click', closeAllDropdowns);
 
     // Auto-lock pro mode when files are attached
@@ -307,6 +353,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Listen for messages from iframe during skeleton generation
     window.addEventListener('message', (e) => {
         if (!e.data) return;
+        // A removed streaming iframe may still have a queued postMessage. Never
+        // let that stale event advance the current generation's UI state.
+        if (e.source && previewIframe && previewIframe.contentWindow && e.source !== previewIframe.contentWindow) return;
         if (e.data.type === 'slideUpdate') {
             const count = e.data.count;
             totalSlides = count;
@@ -315,13 +364,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
             }
             currentSlide = count - 1;
-
-            // Trigger chat→preview transition on the first real slide
-            if (_pendingTransitionFn) {
-                const fn = _pendingTransitionFn;
-                _pendingTransitionFn = null;
-                setTimeout(() => fn(), 670);
+            if (previewContainer && previewContainer.classList.contains('is-generating')) {
+                setPreviewStreamStatus(`Generando presentación… ${count} slide${count === 1 ? '' : 's'} recibida${count === 1 ? '' : 's'}`);
             }
+
+            // The preview is now entered optimistically when /generate starts;
+            // slideUpdate only advances the live progress indicator and dots.
 
             // Rebuild dots and minimap skeletons during generation.
             // During soft-regen the minimap stays frozen on the old thumbnails until
@@ -535,6 +583,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // STATE ROUTER
     // =========================================================
     window.navigateToHome = function() {
+        // Invalidate any queued slide messages/callbacks before tearing down
+        // the current preview. This is the equivalent of unmount cleanup for
+        // the vanilla iframe-based editor.
+        _activeGeneration = null;
+        _pendingTransitionFn = null;
+
         if (window.location.hash !== '#home') {
             window.history.replaceState(null, '', '#home');
         }
@@ -2019,7 +2073,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.startFinalGeneration = async function (skeleton) {
-        // Keep hash as #chat during loading, we will only transition to #editor when the first chunk arrives!
+        // Enter the live preview immediately. The server emits real SSE progress
+        // before its first HTML chunk (especially in Pro mode), so waiting for
+        // parsed.chunk makes the UI look frozen during the pipeline stages.
+        const generation = {
+            id: ++_generationSequence,
+            finalPreviewMounted: false,
+            transitionStarted: false
+        };
+        _activeGeneration = generation;
+        _pendingTransitionFn = null;
 
         generatedHtml = ''; // Reset state for a fresh start
         currentSlide = 0;
@@ -2039,11 +2102,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.removeEventListener('resize', scaleIframe); // evita acumulación
 
-        // Transition: called once on first AI chunk, slides from chat → live skeleton
+        // Transition: called once when the final generation request starts, then
+        // the iframe is filled incrementally as SSE HTML chunks arrive.
         let _hasTransitioned = false;
         function doTransitionToPreview() {
             if (_hasTransitioned) return;
+            if (_activeGeneration !== generation || generation.finalPreviewMounted) return;
             _hasTransitioned = true;
+            generation.transitionStarted = true;
             stopBtnMessages();
 
             // Only transition the URL to #editor now that the editor has actually loaded!
@@ -2121,6 +2187,44 @@ document.addEventListener('DOMContentLoaded', () => {
         if (slideDots) slideDots.innerHTML = '';
 
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+        setPreviewStreamStatus(proModeEnabled ? 'Analizando contenido…' : 'Generando presentación…');
+        doTransitionToPreview();
+        // Writing every model token directly into a live iframe forces a full
+        // document/layout pass for each chunk. On slower machines that can make
+        // the tab unresponsive while Pro mode is composing Stage 3. Buffer the
+        // stream and flush it at a short cadence instead of waiting for a large
+        // byte threshold or for the final response.
+        const MAX_STREAM_HTML_CHARS = 2_000_000;
+        const STREAM_FLUSH_INTERVAL_MS = 80;
+        let streamedHtmlChars = 0;
+        let pendingPreviewMarkup = '';
+        let previewFlushTimer = null;
+        let previewStreamClosed = false;
+        const flushPreviewMarkup = () => {
+            if (!pendingPreviewMarkup || previewStreamClosed) return;
+            iframeDoc.write(pendingPreviewMarkup);
+            pendingPreviewMarkup = '';
+        };
+        const schedulePreviewMarkupFlush = () => {
+            if (previewFlushTimer !== null || previewStreamClosed) return;
+            previewFlushTimer = setTimeout(() => {
+                previewFlushTimer = null;
+                flushPreviewMarkup();
+            }, STREAM_FLUSH_INTERVAL_MS);
+        };
+        const queuePreviewMarkup = (markup) => {
+            if (!markup) return;
+            streamedHtmlChars += markup.length;
+            if (streamedHtmlChars > MAX_STREAM_HTML_CHARS) {
+                throw new Error('GENERATION_OUTPUT_TOO_LARGE');
+            }
+            pendingPreviewMarkup += markup;
+            // Flush roughly every frame budget, while allowing a larger chunk
+            // to be written immediately. This keeps the first slide visible
+            // during a long generation without doing one layout pass per token.
+            if (pendingPreviewMarkup.length >= 24000) flushPreviewMarkup();
+            else schedulePreviewMarkupFlush();
+        };
         const G_FONTS = `
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2327,10 +2431,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                     design: 'Resolving design...',
                                     compositing: 'Composing slides...'
                                 };
-                                const i18nKey = stageI18nKeys[parsed.stage];
-                                stageText = i18nKey
-                                    ? (window.__t ? window.__t(i18nKey, stageFallbacks[parsed.stage]) : stageFallbacks[parsed.stage])
-                                    : parsed.stage;
+                            const i18nKey = stageI18nKeys[parsed.stage];
+                            stageText = i18nKey
+                                ? (window.__t ? window.__t(i18nKey, stageFallbacks[parsed.stage]) : stageFallbacks[parsed.stage])
+                                : parsed.stage;
+                            }
+                            if (previewContainer && previewContainer.classList.contains('is-generating')) {
+                                setPreviewStreamStatus(stageText);
                             }
                             // Update hero title animation
                             if (typeof animateHeroTitle === 'function') animateHeroTitle(stageText);
@@ -2354,10 +2461,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             continue;
                         }
 
-                        if (parsed.chunk) {
-                            if (firstWrite) {
-                                firstWrite = false;
-                                _pendingTransitionFn = doTransitionToPreview;
+                            if (parsed.chunk) {
+                                if (firstWrite) {
+                                    firstWrite = false;
+                                    setPreviewStreamStatus(proModeEnabled ? 'Componiendo slides…' : 'Recibiendo slides…');
                                 // Collapse the thinking panel into a "Thought
                                 // for Ns" pill now that the slides are about
                                 // to render. The user can still re-expand
@@ -2401,7 +2508,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // Only AI chunks go through sanitizeModelOutput.
                                 iframeDoc.write(skelStyle);
                             }
-                            iframeDoc.write(sanitizeModelOutput(parsed.chunk));
+                                queuePreviewMarkup(sanitizeModelOutput(parsed.chunk));
                         }
                         if (parsed.refused) {
                             _pendingTransitionFn = null;
@@ -2466,7 +2573,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dataStr = rLine.substring(6);
                         try {
                             const parsed = JSON.parse(dataStr);
-                            if (parsed.chunk) iframeDoc.write(sanitizeModelOutput(parsed.chunk));
+                            if (parsed.chunk) queuePreviewMarkup(sanitizeModelOutput(parsed.chunk));
                             if (parsed.done && parsed.html) generatedHtml = parsed.html;
                         } catch (e) { }
                     }
@@ -2477,7 +2584,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(window.__t ? window.__t('error_generation_failed', "Sorry, could not generate the presentation correctly.") : "Sorry, could not generate the presentation correctly.");
             }
 
+            if (previewFlushTimer !== null) {
+                clearTimeout(previewFlushTimer);
+                previewFlushTimer = null;
+            }
+            flushPreviewMarkup();
             iframeDoc.close();
+            previewStreamClosed = true;
 
             // Fix malformed <link href="url('...')"> that may have slipped through per-chunk
             // sanitization (the tag could be split across two chunks). Uses DOM manipulation
@@ -2513,15 +2626,23 @@ document.addEventListener('DOMContentLoaded', () => {
             previewIframe = rawIframe;
 
             initPreview(generatedHtml, () => {
+                if (_activeGeneration !== generation) return;
+                generation.finalPreviewMounted = true;
+                _pendingTransitionFn = null;
+
                 // Restore visibility only after setup is truly complete
                 setTimeout(() => {
+                    if (_activeGeneration !== generation) return;
                     if (stage) stage.classList.remove('flicker-mask');
                     if (minimapPanel) minimapPanel.classList.remove('flicker-mask');
 
                     // Revealed the UI chrome with a cinematic sequence.
                     // Keep chrome hidden via is-settling during the GSAP shrink so
                     // panels only appear once the slide has fully settled.
-                    previewContainer.classList.remove('is-generating');
+                    // The final render is authoritative. This also covers the
+                    // case where the first-slide event was delayed or never
+                    // delivered while the tab was backgrounded.
+                    previewContainer.classList.remove('hidden', 'is-generating');
                     previewContainer.classList.add('is-settling');
 
                     // CINEMATIC SHRINK: Tween _editorInsets from 0 to settled values.
@@ -2577,6 +2698,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     function showFloatingPills() {
+                        if (previewContainer.classList.contains('is-generating')) {
+                            console.error('[Aedos] Preview chrome state conflict: final editor mounted while is-generating remained active.', {
+                                generationId: generation.id,
+                                transitionStarted: generation.transitionStarted
+                            });
+                            previewContainer.classList.remove('is-generating');
+                        }
                         previewContainer.classList.remove('is-settling');
                         previewContainer.classList.add('is-editor-ready');
                         // Reveal minimap via GSAP for a reliable, explicit opacity fade
@@ -2596,6 +2724,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } catch (error) {
+            if (previewFlushTimer !== null) {
+                clearTimeout(previewFlushTimer);
+                previewFlushTimer = null;
+            }
+            previewStreamClosed = true;
+            if (_activeGeneration === generation) {
+                _activeGeneration = null;
+                _pendingTransitionFn = null;
+            }
             if (_activeGenController && _activeGenController.signal.aborted) {
                 return;
             }
@@ -2674,6 +2811,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (msg.includes('SKELETON_EMPTY')) {
                 if (errTitle) errTitle.textContent = window.__t ? window.__t('outline_empty_title', "Outline is empty") : "Outline is empty";
                 if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('outline_empty_msg', "Please add at least one slide to your outline before generating.") : "Please add at least one slide to your outline before generating.";
+            } else if (msg.includes('GENERATION_OUTPUT_TOO_LARGE')) {
+                if (errTitle) errTitle.textContent = window.__t ? window.__t('generation_too_large_title', "The presentation is too large") : "The presentation is too large";
+                if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('generation_too_large_msg', "Try fewer slides or a shorter description, then generate it again.") : "Try fewer slides or a shorter description, then generate it again.";
             } else {
                 // Try to extract "Please retry in X seconds" from Gemini standard errors
                 let retryMsg = "";
@@ -2824,7 +2964,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // the poll retry — do NOT set setupDone so the real load can win.
             const iDoc = previewIframe.contentDocument ||
                 (previewIframe.contentWindow && previewIframe.contentWindow.document);
-            if (iDoc && iDoc.body && findSlides(iDoc).length === 0) return;
+            if (!iDoc || !iDoc.body || findSlides(iDoc).length === 0) return;
             setupDone = true;
 
             // Safari iOS: safe repaint trigger using rAF + transform nudge.
@@ -3022,6 +3162,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
         if (!iframeDoc || !iframeDoc.body) return;
 
+        // Images and web fonts can change slide geometry after the iframe load
+        // event.  Initialize the carousel/editor only after the layout has had a
+        // chance to settle; otherwise the first setup can measure zero-sized
+        // slides and leave the editor apparently blank.
+        const settlePreviewLayout = () => {
+            const images = Array.from(iframeDoc.images || []);
+            const imageLoads = images.map((image) => {
+                if (image.complete) return Promise.resolve();
+                return new Promise(resolve => {
+                    const done = () => resolve();
+                    image.addEventListener('load', done, { once: true });
+                    image.addEventListener('error', done, { once: true });
+                    setTimeout(done, 2500);
+                });
+            });
+            const fontsReady = iframeDoc.fonts && iframeDoc.fonts.ready
+                ? Promise.race([iframeDoc.fonts.ready, new Promise(resolve => setTimeout(resolve, 2500))])
+                : Promise.resolve();
+            return Promise.all([Promise.all(imageLoads), fontsReady]);
+        };
+
+        // Do not block the rest of setup on a third-party asset forever.  The
+        // carousel is functional even when one image/CDN request fails.
+        if (!iframeDoc.documentElement.dataset.aedosLayoutSettled) {
+            iframeDoc.documentElement.dataset.aedosLayoutSettled = 'pending';
+            const finishPreviewLayout = () => {
+                iframeDoc.documentElement.dataset.aedosLayoutSettled = 'ready';
+                try {
+                    setupPreviewInteractions(targetIndex);
+                } catch (error) {
+                    console.error('[Aedos] Preview layout setup failed after assets settled.', error);
+                }
+            };
+            settlePreviewLayout().then(finishPreviewLayout, (error) => {
+                console.error('[Aedos] Preview asset settling failed; continuing with available layout.', error);
+                finishPreviewLayout();
+            });
+            return;
+        }
+
         // ── INJECT GOOGLE FONTS INTO LIVE PREVIEW IFRAME ──
         // The AI-generated HTML only imports the theme fonts (e.g. Syne + DM Sans via @import).
         // Font picker options like Playfair Display, Bebas Neue, etc. are NOT loaded in this document,
@@ -3150,8 +3330,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (iframeDoc.body) iframeDoc.body.scrollLeft = 0;
 
         // Init React-like declarative UI binding for Editor Panels
-        if (typeof window.initEditorUI === 'function') {
-            window.initEditorUI(previewIframe);
+        if (typeof window.initEditorUI === 'function' && !iframeDoc._aedosEditorUIReady) {
+            try {
+                window.initEditorUI(previewIframe);
+                iframeDoc._aedosEditorUIReady = true;
+            } catch (error) {
+                // A panel failure must not prevent the carousel from becoming
+                // usable. It can be retried on the next preview refresh.
+                iframeDoc._aedosEditorUIError = error;
+                uiLog.warn('PREVIEW', 'Editor UI initialization failed; keeping carousel active', {
+                    message: error && error.message ? error.message : String(error)
+                });
+            }
         }
 
         // On mobile: canvas is read-only. Image-slot overlays (parent-frame labels) are
@@ -3175,13 +3365,39 @@ document.addEventListener('DOMContentLoaded', () => {
             _stabilizeMinimapOnNextPreviewInit = false;
         }
 
-        if (typeof window.initMinimap === 'function' && !minimapAlreadyInit) {
-            minimapAlreadyInit = true;
-            window.initMinimap(previewIframe);
-        }
-        if (typeof window.initTools === 'function' && !toolsAlreadyInit) {
-            toolsAlreadyInit = true;
-            window.initTools(previewIframe);
+        // Building all thumbnail iframes is the heaviest synchronous step in
+        // preview setup.  Do not hold the editor reveal on it: on a deck with
+        // remote images/fonts, the browser can spend several seconds doing
+        // layout and parsing while the finished slide is already visible.
+        // Schedule it after the first paint so the carousel remains responsive.
+        if (!iframeDoc._aedosEditorSubsystemsScheduled) {
+            iframeDoc._aedosEditorSubsystemsScheduled = true;
+            const initializeEditorSubsystems = () => {
+                try {
+                    if (typeof window.initMinimap === 'function' && !iframeDoc._aedosMinimapReady) {
+                        window.initMinimap(previewIframe);
+                        iframeDoc._aedosMinimapReady = true;
+                        minimapAlreadyInit = true;
+                    }
+                    if (typeof window.initTools === 'function' && !iframeDoc._aedosToolsReady) {
+                        window.initTools(previewIframe);
+                        iframeDoc._aedosToolsReady = true;
+                        toolsAlreadyInit = true;
+                    }
+                } catch (error) {
+                    uiLog.warn('PREVIEW', 'Editor subsystem initialization failed; keeping carousel active', {
+                        message: error && error.message ? error.message : String(error)
+                    });
+                } finally {
+                    iframeDoc._aedosEditorSubsystemsScheduled = false;
+                }
+            };
+
+            if (typeof window.requestIdleCallback === 'function') {
+                window.requestIdleCallback(initializeEditorSubsystems, { timeout: 250 });
+            } else {
+                setTimeout(initializeEditorSubsystems, 0);
+            }
         }
 
         // Fix #4/#5/#6: After Ctrl+Z, restoreState replaces body.innerHTML, creating NEW
@@ -4391,9 +4607,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================
-    // 9. FINALIZE — Download PDF
+    // 9. FINALIZE — Download PDF or editable PowerPoint
     // =========================================================
     finalizeBtn.addEventListener('click', async () => {
+        const exportFormat = requestedExportFormat;
+        requestedExportFormat = 'pdf';
         finalizeBtn.disabled = true;
         finalizeBtn.classList.add('loading');
 
@@ -4535,7 +4753,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const finalHtml = '<!DOCTYPE html>' + clone.outerHTML;
 
-            const response = await fetch('/finalize', {
+            const response = await fetch(exportFormat === 'pptx' ? '/finalize-pptx' : '/finalize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ html: finalHtml, title: currentTitle })
@@ -4543,11 +4761,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await response.json();
 
-            if (response.ok && data.pdfUrl) {
+            const downloadUrl = exportFormat === 'pptx' ? data.pptxUrl : data.pdfUrl;
+            if (response.ok && downloadUrl) {
                 if (progressFill) progressFill.style.width = '100%';
 
                 const link = document.createElement('a');
-                link.href = data.pdfUrl;
+                link.href = downloadUrl;
                 link.setAttribute('download', '');
                 document.body.appendChild(link);
                 link.click();
@@ -4557,12 +4776,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         } catch (error) {
-            // PDF error: overlay the preview WITHOUT hiding it
+            // Export error: overlay the preview WITHOUT hiding it
             errorMessage.textContent = error.message;
             const errTitleEl = document.getElementById('t-error-title');
             const errSubtitleEl = document.getElementById('t-error-subtitle');
-            if (errTitleEl) errTitleEl.textContent = window.__t ? window.__t('pdf_error_title', 'PDF could not be generated') : 'PDF could not be generated';
-            if (errSubtitleEl) errSubtitleEl.textContent = window.__t ? window.__t('pdf_error_subtitle', 'Something went wrong while creating the file. Your presentation is still there — you can try again.') : 'Something went wrong while creating the file. Your presentation is still there — you can try again.';
+            const errorTitle = exportFormat === 'pptx' ? 'PowerPoint could not be generated' : 'PDF could not be generated';
+            const errorSubtitle = exportFormat === 'pptx' ? 'Something went wrong while creating the editable file. Your presentation is still there — you can try again.' : 'Something went wrong while creating the file. Your presentation is still there — you can try again.';
+            if (errTitleEl) errTitleEl.textContent = window.__t ? window.__t(exportFormat === 'pptx' ? 'pptx_error_title' : 'pdf_error_title', errorTitle) : errorTitle;
+            if (errSubtitleEl) errSubtitleEl.textContent = window.__t ? window.__t(exportFormat === 'pptx' ? 'pptx_error_subtitle' : 'pdf_error_subtitle', errorSubtitle) : errorSubtitle;
             // Dismiss just closes the modal — the user stays in the editor
             showErrorModal(null);
         } finally {

@@ -407,13 +407,15 @@ function initMinimap(iframe) {
     const minimapObserver = new MutationObserver((mutationsList) => {
         triggerMinimapUpdate();
     });
-    minimapObserver.observe(iframeDoc.body, {
-        attributes: true,
-        attributeFilter: ['class'],
-        childList: true,
-        subtree: true,
-        characterData: true
-    });
+    if (iframeDoc.body) {
+        minimapObserver.observe(iframeDoc.body, {
+            attributes: true,
+            attributeFilter: ['class'],
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
+    }
 
     const activeSlideObserver = new MutationObserver((mutations) => {
         let activeChanged = false;
@@ -430,11 +432,13 @@ function initMinimap(iframe) {
         }
     });
 
-    activeSlideObserver.observe(iframeDoc.body, {
-        attributes: true,
-        subtree: true,
-        attributeFilter: ['class']
-    });
+    if (iframeDoc.body) {
+        activeSlideObserver.observe(iframeDoc.body, {
+            attributes: true,
+            subtree: true,
+            attributeFilter: ['class']
+        });
+    }
 
     function getDragAfterElement(container, y) {
         const draggableElements = [...container.querySelectorAll('.minimap-item:not(.is-dragging)')];

@@ -2602,6 +2602,84 @@ section.s.active>* {
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+.export-dropdown {
+    position: relative;
+    margin-left: 0.5rem;
+}
+
+.export-menu-trigger {
+    margin-left: 0;
+    gap: 0.45rem;
+}
+
+.export-menu-trigger[aria-expanded="true"] {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.32);
+}
+
+.export-menu-chevron {
+    transition: transform 0.2s ease;
+}
+
+.export-menu-trigger[aria-expanded="true"] .export-menu-chevron {
+    transform: rotate(180deg);
+}
+
+.dropdown-menu.export-menu {
+    top: calc(100% + 10px);
+    bottom: auto;
+    left: auto;
+    right: 0;
+    min-width: 260px;
+    padding: 6px;
+    transform-origin: top right;
+    z-index: 100;
+}
+
+.dropdown-item.export-option {
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 54px;
+    overflow: hidden;
+}
+
+.export-option-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.export-option-check {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.dropdown-item.export-option .btn-progress-fill {
+    z-index: 0;
+    opacity: 0.18;
+}
+
+.dropdown-item.export-option.loading {
+    pointer-events: none;
+}
+
+.dropdown-item.export-option.loading .export-option-copy,
+.dropdown-item.export-option.loading .export-option-check {
+    opacity: 0.35;
+}
+
+.dropdown-item.export-option .export-option-copy,
+.dropdown-item.export-option .export-option-check {
+    position: relative;
+    z-index: 1;
+}
+
 
 
 .action-btn.ghost {
@@ -2662,6 +2740,50 @@ section.s.active>* {
     /* Allow shrinking below content size */
     position: relative;
     background: var(--bg);
+}
+
+/* Live status shown while the final HTML is being generated. It is owned by
+   the parent document so it can appear before the first HTML chunk arrives. */
+.preview-stream-status {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(1.25rem, 5vh, 3rem);
+    z-index: 120;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    max-width: min(90vw, 28rem);
+    padding: 0.7rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface2) 82%, transparent);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
+    color: var(--text);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 0.5rem);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#preview-container.is-generating .preview-stream-status {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.preview-stream-spinner {
+    width: 0.8rem;
+    height: 0.8rem;
+    flex: 0 0 auto;
+    border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: preview-stream-spin 0.8s linear infinite;
+}
+
+@keyframes preview-stream-spin {
+    to { transform: rotate(360deg); }
 }
 
 .preview-stage:fullscreen,

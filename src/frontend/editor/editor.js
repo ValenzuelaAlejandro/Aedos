@@ -156,7 +156,13 @@ function initEditor() {
     const slideStructureObserver = new MutationObserver(() => {
         observeSlides();
     });
-    slideStructureObserver.observe(document.body, { childList: true, subtree: true });
+    // The script can be injected while the generated document is still being
+    // parsed.  Guard the target so a missing body does not abort the entire
+    // editor bootstrap with "parameter 1 is not of type Node".
+    const structureObservationTarget = document.body || document.documentElement;
+    if (structureObservationTarget) {
+        slideStructureObserver.observe(structureObservationTarget, { childList: true, subtree: true });
+    }
 
 
     // Toolbar content
