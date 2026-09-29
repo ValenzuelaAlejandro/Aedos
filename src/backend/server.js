@@ -11,10 +11,7 @@ const path = require('path');
 const zlib = require('zlib');
 const { execSync } = require('child_process');
 const {
-    MAX_UPLOAD_BYTES,
-    MAX_UPLOAD_FILES,
     MAX_UPLOAD_ARRAY_FIELDS,
-    ALLOWED_UPLOAD_EXTENSIONS,
     MAX_TOPIC_CHARACTERS,
     MAX_FLASH_SLIDES,
     MAX_PRO_SLIDES,
@@ -33,27 +30,15 @@ const {
 } = require('./contracts/errors');
 const { writeSse, setSseHeaders } = require('./contracts/sse');
 const { sanitizeGeneratedHtml: sanitizeGeneratedHtmlMoved } = require('./sanitization/html');
+const { TMP_DIR, upload } = require('./files/upload');
+const { ensureBackendDirectories } = require('./files/directories');
+const { registerDownloadRoute } = require('./files/download-route');
+const { buildSkeletonFileContext, buildGenerationFileContext } = require('./files/attachments');
 
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
 process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '..', '..', 'puppeteer-cache');
 const puppeteer = require('puppeteer');
-const multer = require('multer');
-const upload = multer({
-    dest: path.join(__dirname, '..', '..', 'tmp'),
-    limits: {
-        fileSize: MAX_UPLOAD_BYTES,
-        files: MAX_UPLOAD_FILES
-    },
-    fileFilter: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        if (!ALLOWED_UPLOAD_EXTENSIONS.includes(ext)) {
-            return cb(new Error('Invalid file type. Only PDF, Office Word, and images are allowed.'), false);
-        }
-        cb(null, true);
-    }
-});
-const mammoth = require('mammoth');
 const {
     createEditablePptx,
     SLIDE_W_PX,
@@ -116,7 +101,6 @@ app.set('trust proxy', true);
 const PORT = runtimeConfig.port;
 const RUNTIME_ENV = runtimeConfig.runtimeEnv;
 const IS_DEVELOPMENT = RUNTIME_ENV === 'development';
-const TMP_DIR = path.join(__dirname, '..', '..', 'tmp');
 const EXAMPLES_DIR = path.join(__dirname, '..', '..', 'examples');
 const EXAMPLES_FLASH_DIR = path.join(EXAMPLES_DIR, 'flash');
 const EXAMPLES_PRO_DIR = path.join(EXAMPLES_DIR, 'pro');
@@ -544,12 +528,14 @@ function ensureDirectory(dirPath, description) {
 }
 
 // Create output folders used for local debug artifacts.
-ensureDirectory(TMP_DIR, 'Temporary');
-if (IS_DEVELOPMENT) {
-    ensureDirectory(EXAMPLES_DIR, 'Examples');
-    ensureDirectory(EXAMPLES_FLASH_DIR, 'Examples flash');
-    ensureDirectory(EXAMPLES_PRO_DIR, 'Examples pro');
-}
+ensureBackendDirectories({
+    tmpDir: TMP_DIR,
+    examplesDir: EXAMPLES_DIR,
+    examplesFlashDir: EXAMPLES_FLASH_DIR,
+    examplesProDir: EXAMPLES_PRO_DIR,
+    isDevelopment: IS_DEVELOPMENT,
+    ensureDirectory
+});
 
 // Sanitizer implementation moved to sanitization/html.js.
 const sanitizeGeneratedHtml = sanitizeGeneratedHtmlMoved;
@@ -1592,46 +1578,7 @@ app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), e
 
         const targetLang = requestedLanguage;
         
-        let fileContext = null;
-        if (req.files && req.files.length > 0) {
-            fileContext = [];
-            const MIME_BY_EXT = {
-                '.pdf':  'application/pdf',
-                '.doc':  'application/msword',
-                '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                '.png':  'image/png',
-                '.jpg':  'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.webp': 'image/webp'
-            };
-
-            for (const file of req.files) {
-                try {
-                    const ext = path.extname(file.originalname).toLowerCase();
-                    const mimeType = MIME_BY_EXT[ext] || file.mimetype;
-
-                    if (ext === '.docx' || ext === '.doc') {
-                        const extracted = await mammoth.extractRawText({ path: file.path });
-                        fileContext.push({ type: 'text', text: `Content from ${file.originalname}:\n\n${extracted.value}` });
-                        continue;
-                    }
-
-                    const fileData = fs.readFileSync(file.path);
-                    const base64Data = fileData.toString('base64');
-                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-                    if (mimeType.startsWith('image/')) {
-                        fileContext.push({ type: 'image_url', image_url: { url: dataUrl } });
-                    } else {
-                        fileContext.push({ type: 'file', file_url: { url: dataUrl } });
-                    }
-                } catch (e) {
-                    // ignore individual file errors
-                } finally {
-                    fs.unlink(file.path, () => {});
-                }
-            }
-        }
+        const fileContext = await buildSkeletonFileContext(req.files);
         
         let currentSkeleton = opciones.currentSkeleton;
         if (currentSkeleton && typeof currentSkeleton === 'string') {
@@ -1982,78 +1929,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.js
         }
 
         // Choose generation path: Flash (single-prompt) or Pro (3-stage pipeline)
-        let fileContext = null;
-
-        if (req.files && req.files.length > 0) {
-            fileContext = [];
-
-            // MIME type map — multer may report 'application/octet-stream' for some
-            // file types, which Gemini's API would reject. Resolve from extension instead.
-            const MIME_BY_EXT = {
-                '.pdf':  'application/pdf',
-                '.doc':  'application/msword',
-                '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                '.png':  'image/png',
-                '.jpg':  'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.webp': 'image/webp'
-            };
-
-            for (const file of req.files) {
-                try {
-                    const ext = path.extname(file.originalname).toLowerCase();
-                    const mimeType = MIME_BY_EXT[ext] || file.mimetype;
-
-                    // Extract text from DOCX/DOC via mammoth (text works across all providers)
-                    if (ext === '.docx' || ext === '.doc') {
-                        const extracted = await mammoth.extractRawText({ path: file.path });
-                        fileContext.push({
-                            type: 'text',
-                            text: `Content from ${file.originalname}:\n\n${extracted.value}`
-                        });
-                        log.info(ErrorCategory.PIPELINE, 'Extracted DOCX as text via mammoth', {
-                            requestId,
-                            file: file.originalname,
-                            chars: extracted.value.length
-                        });
-                        continue;
-                    }
-
-                    const fileData = fs.readFileSync(file.path);
-                    const base64Data = fileData.toString('base64');
-                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-                    if (mimeType.startsWith('image/')) {
-                        fileContext.push({
-                            type: 'image_url',
-                            image_url: { url: dataUrl }
-                        });
-                    } else {
-                        // For PDFs: Gemini supports inlineData with application/pdf
-                        // OpenRouter uses 'file' type — the dataUrl format works for both
-                        fileContext.push({
-                            type: 'file',
-                            file_url: { url: dataUrl }
-                        });
-                    }
-                    log.info(ErrorCategory.PIPELINE, 'File encoded as base64', {
-                        requestId,
-                        file: file.originalname,
-                        mimeType,
-                        sizeKB: Math.round(fileData.length / 1024)
-                    });
-                } catch (e) {
-                    log.warn(ErrorCategory.FILESYSTEM, 'Failed to read uploaded file', {
-                        requestId,
-                        file: file.originalname,
-                        error: e.message
-                    });
-                } finally {
-                    fs.unlink(file.path, () => { });
-                }
-            }
-            log.info(ErrorCategory.PIPELINE, 'File context ready for generation', { requestId, count: fileContext.length });
-        }
+        const fileContext = await buildGenerationFileContext(req.files, { requestId, log, ErrorCategory });
 
         // ── Flash mode retry helper ─────────────────────────────────────────────
         // Flash mode is a single streaming call (no staged pipeline), so the
@@ -4203,65 +4079,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
     }
 });
 
-app.get('/download/:filename', (req, res) => {
-    const requestId = req.requestId || 'n/a';
-
-    // If the client aborts mid-download, res emits 'error' on the response
-    // stream. res.download already routes errors to its callback, but the
-    // socket-level 'error' still needs a listener or Node dies.
-    res.on('error', (err) => {
-        log.warn(ErrorCategory.DOWNLOAD, 'Download response stream error (non-fatal)', {
-            requestId,
-            error: String((err && err.message) || err)
-        });
-    });
-    const filename = req.params.filename;
-
-    // Security: avoid path traversal
-    if (filename.includes('/') || filename.includes('..')) {
-        log.warn(ErrorCategory.SECURITY, 'Blocked download path traversal attempt', {
-            requestId,
-            filename
-        });
-        return res.status(400).send('Invalid file');
-    }
-
-    const filePath = path.join(TMP_DIR, filename);
-
-    // Stop if file doesn't exist
-    if (!fs.existsSync(filePath)) {
-        log.warn(ErrorCategory.DOWNLOAD, 'Download failed: file not found', {
-            requestId,
-            filename
-        });
-        return res.status(404).send('File not found');
-    }
-
-    // Send it with res.download() and delete it afterwards
-    res.set('Cache-Control', 'no-store');
-    const extension = path.extname(filename).toLowerCase() || '.pdf';
-    let downloadName = req.query.name ? req.query.name : filename;
-    if (!downloadName.toLowerCase().endsWith(extension)) downloadName += extension;
-
-    res.download(filePath, downloadName, (err) => {
-        if (err) {
-            log.error(classifyError(err, ErrorCategory.DOWNLOAD), 'Error sending download file', {
-                requestId,
-                filename,
-                error: err
-            });
-        } else {
-            log.success(ErrorCategory.DOWNLOAD, 'File downloaded successfully', {
-                requestId,
-                filename,
-                downloadName
-            });
-            // Do NOT delete the file here — the auto-delete timer (10 min) handles cleanup.
-            // Deleting immediately causes a 404 on any second request (retry, double-click,
-            // browser pre-fetch) even though the file was delivered successfully.
-        }
-    });
-});
+registerDownloadRoute(app, { tmpDir: TMP_DIR, log, classifyError, ErrorCategory });
 
 // ── Global process safety net ─────────────────────────────────────────────
 // Long-lived SSE responses make socket-level failures (EPIPE / aborted /
