@@ -2,7 +2,6 @@ if (process.env.NODE_ENV !== 'test') {
     require('dotenv').config();
 }
 const express = require('express');
-const crypto = require('crypto');
 const cors = require('cors');
 const fs = require('fs');
 const http = require('http');
@@ -35,6 +34,8 @@ const { registerDownloadRoute } = require('./files/download-route');
 const { buildSkeletonFileContext, buildGenerationFileContext } = require('./files/attachments');
 const { createGenerationQueue } = require('./queues/generation');
 const { createFinalizeQueue } = require('./queues/finalize');
+const { createPdfExporter } = require('./export/pdf');
+const { createPptxFinalizer } = require('./export/pptx-finalize');
 
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
@@ -128,6 +129,22 @@ app.disable('x-powered-by');
 app.set('trust proxy', true);
 const PORT = runtimeConfig.port;
 const RUNTIME_ENV = runtimeConfig.runtimeEnv;
+const pdfExporter = createPdfExporter({
+    browserManager,
+    tmpDir: TMP_DIR,
+    port: PORT,
+    puppeteerLog,
+    log,
+    ErrorCategory
+});
+const pptxFinalizer = createPptxFinalizer({
+    tmpDir: TMP_DIR,
+    maxExportHtmlBytes: MAX_EXPORT_HTML_BYTES,
+    downloadTtlMs: DOWNLOAD_TTL_MS,
+    renderEditablePptx,
+    log,
+    ErrorCategory
+});
 const IS_DEVELOPMENT = RUNTIME_ENV === 'development';
 const EXAMPLES_DIR = path.join(__dirname, '..', '..', 'examples');
 const EXAMPLES_FLASH_DIR = path.join(EXAMPLES_DIR, 'flash');
@@ -2801,28 +2818,7 @@ app.post('/finalize-pptx', express.json({ limit: '50mb' }), checkFinalizePressur
     if (!obtainedSlot) return;
 
     try {
-        const { html, title } = req.body || {};
-        if (!html || typeof html !== 'string') return res.status(400).json({ error: 'HTML content is required' });
-        if (html.length > MAX_EXPORT_HTML_BYTES) return res.status(400).json({ error: 'Payload too large' });
-
-        const pptxFilename = `pptx_${crypto.randomBytes(16).toString('hex')}.pptx`;
-        const pptxPath = path.join(TMP_DIR, pptxFilename);
-        const pptxBuffer = await renderEditablePptx(html, title, requestId, { debug: req.query.debug === '1' });
-        fs.writeFileSync(pptxPath, pptxBuffer);
-
-        const safeTitle = title ? title.replace(/[\/\\?%*:|<|>]/g, '-').trim() : 'Presentacion';
-        res.set('Cache-Control', 'no-store');
-        res.set('X-Export-Warnings', JSON.stringify(pptxBuffer.exportWarningCounts || {}));
-        res.json({ pptxUrl: `/download/${pptxFilename}?name=${encodeURIComponent(safeTitle)}` });
-        log.success(ErrorCategory.PUPPETEER, 'Editable PowerPoint generated successfully', {
-            requestId,
-            pptxFilename,
-            slideCount: (html.match(/<section\b/gi) || []).length
-        });
-
-        setTimeout(() => {
-            if (fs.existsSync(pptxPath)) fs.unlink(pptxPath, () => {});
-        }, DOWNLOAD_TTL_MS);
+        await pptxFinalizer.finalizePptx(req, res, requestId);
     } catch (error) {
         log.error(classifyError(error, ErrorCategory.PUPPETEER), 'Failed to finalize editable PowerPoint', {
             requestId,
@@ -2874,175 +2870,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
             return res.status(400).json({ error: 'Payload too large' });
         }
 
-        const pdfFilename = `pdf_${crypto.randomBytes(16).toString('hex')}.pdf`;
-        const pdfPath = path.join(TMP_DIR, pdfFilename);
-
-        // Restart / check browser
-        if (!browserManager.getBrowser() || !browserManager.getBrowser().isConnected()) {
-            await browserManager.initBrowser();
-        }
-        if (!browserManager.getBrowser()) {
-            throw new Error('PDF generation is unavailable: the browser could not be started. Please try again shortly.');
-        }
-
-        // Replace animated GIFs with a 1×1 transparent placeholder so Puppeteer
-        // doesn't time-out or crash while trying to load/decode animation frames.
-        const TRANSPARENT_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
-        
-        // Option B: Inject invisible PDF metadata tags (Author, Generator, Creator)
-        // Chromium's print-to-pdf engine automatically reads these and populates the PDF metadata.
-        const metadataTags = `
-            <meta name="author" content="Aedos (aedoslab.xyz)">
-            <meta name="generator" content="Aedos (aedoslab.xyz)">
-            <meta name="creator" content="Aedos (aedoslab.xyz)">
-        `;
-        let processedHtml = html.replace(/(<head[^>]*>)/i, `$1\n${metadataTags}`);
-
-        // Add a <base> tag so root-relative paths like /features/shared/lucide-init.js resolve to this server.
-        // Puppeteer uses page.setContent() which has no inherent base URL.
-        const baseTag = `<base href="http://localhost:${PORT}/">`;
-        if (!processedHtml.includes('<base')) {
-            processedHtml = processedHtml.replace(/(<head[^>]*>)/i, `$1\n${baseTag}`);
-        }
-        // Replace animated GIFs with a 1×1 transparent placeholder
-        processedHtml = processedHtml
-            // img src pointing to a .gif URL (not already a data-URI)
-            .replace(/(<img\b[^>]*?)\bsrc\s*=\s*(["'])(?!data:)[^"']*\.gif[^"']*\2/gi,
-                `$1src="${TRANSPARENT_GIF}"`)
-            // CSS background-image / content url() pointing to a .gif
-            .replace(/url\s*\(\s*(["']?)(?!data:)[^)"'\s]*\.gif[^)"'\s]*\1\s*\)/gi,
-                `url("${TRANSPARENT_GIF}")`);
-
-        const page = await browserManager.getBrowser().newPage();
-        try {
-            // Step 1: parse the DOM immediately (never hangs on slow/unavailable resources)
-            await page.setContent(processedHtml, { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-            // Step 2: wait up to 12s for network (CSS @import + .woff2 font files) to settle.
-            // Using a separate waitForNetworkIdle with .catch() instead of 'networkidle2' in
-            // setContent so it NEVER hangs the request — it gracefully skips on timeout.
-            await page.waitForNetworkIdle({ idleTime: 500, timeout: 12000 }).catch(() => {
-                puppeteerLog.warn(ErrorCategory.NETWORK, 'Network did not reach idle before timeout', {
-                    requestId
-                });
-            });
-
-            // Step 3: wait for FontFaceSet to confirm fonts are ready after the network settled
-            await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {
-                puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Font loading check failed (non-fatal)', {
-                    requestId
-                });
-            });
-            // Wait for Lucide icons to render
-            await page.waitForFunction(() => {
-                const pendingIcons = document.querySelectorAll('i[data-lucide]');
-                return pendingIcons.length === 0;
-            }, { timeout: 8000 }).catch(() => {
-                puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Lucide icons may not have fully rendered (timeout)', {
-                    requestId
-                });
-            });
-            // Prevent trailing blank page; also lock big-number against wrapping
-            // (font metrics in Puppeteer can differ enough to push '30%' to 2 lines)
-            await page.addStyleTag({
-                content: `
-                    @media print {
-                        @page { size: 29.7cm 16.7cm; margin: 0; }
-                        body, html { 
-                            width: 29.7cm !important; 
-                            height: auto !important; 
-                            margin: 0 !important; 
-                            padding: 0 !important; 
-                            overflow: visible !important; 
-                        }
-                        section.s {
-                            width: 29.7cm !important;
-                            height: 16.7cm !important;
-                            page-break-after: always !important;
-                            page-break-inside: avoid !important;
-                            break-inside: avoid !important;
-                            overflow: hidden !important;
-                            margin: 0 !important;
-                            padding: 0;
-                            box-sizing: border-box !important;
-                        }
-                        section.s:last-of-type { page-break-after: avoid !important; }
-                        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    }
-                    body { overflow: hidden; margin: 0; padding: 0; }
-                    body > script { display: none; }
-                    .big-number { white-space: nowrap !important; overflow: visible !important; text-overflow: clip !important; word-break: normal !important; overflow-wrap: normal !important; }
-                `
-            });
-
-            // Step 5: Puppeteer-side layout normalization.
-            // Runs AFTER fonts are loaded, using Puppeteer's own metrics — immune to
-            // browser-vs-Puppeteer font-metric drift.
-            // - Locks every text element's font-size/line-height to computed px values
-            //   (eliminates cqi / rem / min() re-computation during PDF render).
-            // - Applies white-space:nowrap to elements that render as a single line
-            //   in Puppeteer, so they cannot reflow during the print pass.
-            await page.evaluate(() => {
-                const CONTAINERS = [
-                    '[data-container="true"]',
-                    'div.stat-box', 'div.card', 'div.step-item', 'div.timeline-item',
-                    '.stat-grid', '.grid-2', '.grid-3', '.flex-col', '.flex-row',
-                    '.quote-block', 'blockquote', 'ul', 'ol',
-                    '[class*="card"]', '[class*="box"]'
-                ].join(',');
-                const TEXT = 'h1,h2,h3,h4,p,span,blockquote,li,cite,.big-number,.big-label,.tag,.subtitle,.step-num,.timeline-year';
-                document.querySelectorAll(CONTAINERS).forEach(container => {
-                    container.querySelectorAll(TEXT).forEach(el => {
-                        const comp = window.getComputedStyle(el);
-                        const rect = el.getBoundingClientRect();
-                        if (!rect.width || !rect.height) return;
-                        // Lock font-size and line-height to absolute px (removes cqi/rem/min())
-                        el.style.setProperty('font-size', comp.fontSize, 'important');
-                        el.style.setProperty('line-height', comp.lineHeight, 'important');
-                        // If it renders as a single line in Puppeteer, prevent wrapping
-                        const lh = parseFloat(comp.lineHeight) || parseFloat(comp.fontSize) * 1.2;
-                        if (rect.height <= lh * 1.8) {
-                            el.style.setProperty('white-space', 'nowrap', 'important');
-                            el.style.setProperty('word-break', 'normal', 'important');
-                            el.style.setProperty('overflow-wrap', 'normal', 'important');
-                        }
-                    });
-                });
-            }).catch(() => {
-                puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Puppeteer layout normalization failed (non-fatal)', {
-                    requestId
-                });
-            });
-
-            await page.pdf({
-                path: pdfPath,
-                width: '29.7cm',
-                height: '16.7cm',
-                printBackground: true,
-                margin: { top: 0, right: 0, bottom: 0, left: 0 },
-                timeout: 45000 // 45 seconds hard limit per PDF render
-            });
-
-            // Option B: Inject invisible metadata to PDF securely using pdf-lib
-            try {
-                const { PDFDocument } = require('pdf-lib');
-                const pdfBuffer = fs.readFileSync(pdfPath);
-                const pdfDoc = await PDFDocument.load(pdfBuffer);
-                pdfDoc.setTitle(title || 'Presentation');
-                pdfDoc.setAuthor('Aedos (aedoslab.xyz)');
-                pdfDoc.setCreator('Aedos (aedoslab.xyz)');
-                pdfDoc.setProducer('Aedos (aedoslab.xyz)');
-                const pdfBytes = await pdfDoc.save();
-                fs.writeFileSync(pdfPath, pdfBytes);
-                log.info(ErrorCategory.PUPPETEER, 'Injected PDF metadata successfully');
-            } catch (metaErr) {
-                log.warn(ErrorCategory.PUPPETEER, 'PDF metadata injection failed (non-fatal)', {
-                    error: metaErr.message
-                });
-            }
-        } finally {
-            await page.close();
-        }
+        const { pdfFilename, pdfPath } = await pdfExporter.renderPdf({ html, title, requestId });
 
         const safeTitle = title ? title.replace(/[\/\\?%*:|<|>]/g, '-').trim() : 'Presentacion';
         res.set('Cache-Control', 'no-store');
