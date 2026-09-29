@@ -9,7 +9,6 @@ const http = require('http');
 const https = require('https');
 const path = require('path');
 const zlib = require('zlib');
-const { execSync } = require('child_process');
 const {
     MAX_UPLOAD_ARRAY_FIELDS,
     MAX_TOPIC_CHARACTERS,
@@ -40,7 +39,7 @@ const { createFinalizeQueue } = require('./queues/finalize');
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
 process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '..', '..', 'puppeteer-cache');
-const puppeteer = require('puppeteer');
+const { createBrowserManager } = require('./browser/manager');
 const {
     createEditablePptx,
     SLIDE_W_PX,
@@ -73,6 +72,11 @@ const imageLog = log.child('IMAGES');
 const puppeteerLog = log.child('PUPPETEER');
 const runtimeConfig = loadEnvConfig(process.env);
 let testProviderOverride = null;
+const browserManager = createBrowserManager({
+    rootDir: path.join(__dirname, '..', '..'),
+    puppeteerLog,
+    ErrorCategory
+});
 
 const generationQueue = createGenerationQueue({
     runtimeConfig,
@@ -581,250 +585,12 @@ const tryModelsStage2Thinking = (prompt, fileContext) => tryModelsStage2(prompt,
 const tryModelsStage3Thinking = (prompt, fileContext) => tryModelsStage3(prompt, fileContext, { includeReasoning: true });
 const tryModels = tryModelsFlash;
 
-// Global Puppeteer Browser Instance
-let browser;
-
-/**
- * Tentatively finds the Chrome executable in the cache directory.
- * Puppeteer's default resolution can fail on Render's filesystem structure.
- */
-function findChromeExecutable(cacheDir) {
-    if (!fs.existsSync(cacheDir)) return null;
-
-    /**
-     * Guard: ensure the resolved path is an actual file, not a directory.
-     * `readdirSync({ recursive: true })` on Linux returns the top-level
-     * `chrome-headless-shell` *directory* before the binary inside it, which
-     * causes an EACCES error when Puppeteer tries to spawn it as a process.
-     */
-    function isFile(fullPath) {
-        try {
-            return fs.statSync(fullPath).isFile();
-        } catch (_) {
-            return false;
-        }
-    }
-
-    // Deep search if known paths fail
-    try {
-        // readdirSync with recursive returns relative paths (POSIX separators on Linux)
-        const files = fs.readdirSync(cacheDir, { recursive: true });
-
-        // Priority 1: Find chrome-headless-shell binary (modern Puppeteer preference).
-        // On Windows the binary is chrome-headless-shell.exe and on POSIX it has
-        // no extension, so match by base name with the optional .exe suffix.
-        const shell = files.find(f => {
-            const base = path.basename(String(f));
-            if (base !== 'chrome-headless-shell' && base !== 'chrome-headless-shell.exe') return false;
-            if (String(f).includes('.zip')) return false;
-            return isFile(path.join(cacheDir, String(f)));
-        });
-        if (shell) return path.join(cacheDir, String(shell));
-
-        // Priority 2: Find standard chrome binary (chrome.exe on Windows).
-        const chrome = files.find(f => {
-            const base = path.basename(String(f));
-            if (base !== 'chrome' && base !== 'chrome.exe') return false;
-            if (String(f).includes('.zip')) return false;
-            if (String(f).includes('chrome-headless-shell')) return false;
-            return isFile(path.join(cacheDir, String(f)));
-        });
-        if (chrome) return path.join(cacheDir, String(chrome));
-    } catch (e) {
-        return null;
-    }
-    return null;
-}
-
-/**
- * When Render restores `puppeteer-cache` from its disk cache it preserves the
- * directory structure and small files, but silently omits large binaries
- * (~140 MB). The ZIP archive, however, IS kept in the cache. This function
- * detects the missing-binary scenario and extracts directly from the cached
- * ZIP — no network download required.
- *
- * Safe no-op on Windows (dev machines) and when the binary already exists.
- */
-function extractChromeFromZip(cacheDir) {
-    if (process.platform === 'win32') return;
-    if (!fs.existsSync(cacheDir)) return;
-
-    // Only act if the binary is already absent
-    if (findChromeExecutable(cacheDir)) return;
-
-    // Look for a chrome-headless-shell ZIP in the cache
-    const shellCacheDir = path.join(cacheDir, 'chrome-headless-shell');
-    if (!fs.existsSync(shellCacheDir)) return;
-
-    let zipFile;
-    try {
-        zipFile = fs.readdirSync(shellCacheDir).find(
-            f => f.endsWith('.zip') && f.includes('chrome-headless-shell')
-        );
-    } catch (_) { return; }
-    if (!zipFile) return;
-
-    // Derive the expected extract target from the ZIP name:
-    // "146.0.7680.76-chrome-headless-shell-linux64.zip" → linux-146.0.7680.76
-    const versionMatch = zipFile.match(/^([\d.]+)-chrome-headless-shell-linux64\.zip$/);
-    if (!versionMatch) return;
-
-    const version = versionMatch[1];
-    const zipPath = path.join(shellCacheDir, zipFile);
-    const extractTo = path.join(shellCacheDir, `linux-${version}`);
-
-    puppeteerLog.warn(ErrorCategory.PUPPETEER,
-        'Chrome binary missing from cache — extracting from cached ZIP', {
-        zip: zipPath,
-        extractTo
-    }
-    );
-
-    try {
-        execSync(`unzip -o "${zipPath}" -d "${extractTo}"`, { stdio: 'pipe', timeout: 60000 });
-        // Use separate find calls — Render uses /bin/sh (dash), which rejects
-        // the bash-only \( ... -o ... \) compound expression.
-        execSync(
-            `find "${extractTo}" -type f -name 'chrome-headless-shell' -exec chmod +x {} +`,
-            { stdio: 'pipe', timeout: 10000 }
-        );
-        execSync(
-            `find "${extractTo}" -type f -name 'chrome' -exec chmod +x {} +`,
-            { stdio: 'pipe', timeout: 10000 }
-        );
-        puppeteerLog.info(ErrorCategory.PUPPETEER, 'Chrome binary extracted and made executable', {
-            version,
-            path: extractTo
-        });
-    } catch (err) {
-        puppeteerLog.error(ErrorCategory.PUPPETEER, 'Failed to extract Chrome binary from ZIP', {
-            error: err.message
-        });
-    }
-}
-
-async function installChrome(cacheDir) {
-    // Install into the visible cache dir, using an explicit env map so the
-    // command is cross-platform (a bash-style `VAR=value cmd` prefix does not
-    // work on Windows cmd.exe).
-    puppeteerLog.warn(ErrorCategory.PUPPETEER, 'Chrome binary not found — attempting runtime install', { cacheDir });
-    try {
-        const { execSync: execSyncInstall } = require('child_process');
-
-        // Remove stale directories so Puppeteer doesn't skip the download.
-        // Render restores the cache structure without large binaries, causing
-        // the installer to see the directory and assume Chrome is already installed.
-        const staleHeadless = path.join(cacheDir, 'chrome-headless-shell');
-        const staleChrome = path.join(cacheDir, 'chrome');
-        if (fs.existsSync(staleHeadless)) {
-            fs.rmSync(staleHeadless, { recursive: true, force: true });
-            puppeteerLog.info(ErrorCategory.PUPPETEER, 'Removed stale chrome-headless-shell dir before reinstall');
-        }
-        if (fs.existsSync(staleChrome)) {
-            fs.rmSync(staleChrome, { recursive: true, force: true });
-            puppeteerLog.info(ErrorCategory.PUPPETEER, 'Removed stale chrome dir before reinstall');
-        }
-
-        execSyncInstall(
-            'npx puppeteer browsers install chrome-headless-shell',
-            {
-                stdio: 'pipe',
-                timeout: 5 * 60 * 1000,
-                cwd: path.join(__dirname, '..', '..'),
-                env: { ...process.env, PUPPETEER_CACHE_DIR: cacheDir }
-            }
-        );
-        puppeteerLog.info(ErrorCategory.PUPPETEER, 'Chrome runtime install completed');
-    } catch (installErr) {
-        puppeteerLog.error(ErrorCategory.PUPPETEER, 'Chrome runtime install failed', { error: installErr.message });
-    }
-}
-
-async function initBrowser() {
-    try {
-        const cacheDir = process.env.PUPPETEER_CACHE_DIR || path.join(__dirname, '..', '..', 'puppeteer-cache');
-
-        // Self-heal: extract from cached ZIP if the binary was dropped by Render's cache
-        extractChromeFromZip(cacheDir);
-
-        let autoExecutablePath = findChromeExecutable(cacheDir);
-
-        // Self-heal: if Chrome still not found and no explicit path is set, download it now
-        if (!autoExecutablePath && !process.env.PUPPETEER_EXECUTABLE_PATH) {
-            await installChrome(cacheDir);
-            autoExecutablePath = findChromeExecutable(cacheDir);
-        }
-
-        const launchOptions = {
-            headless: 'new',
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || autoExecutablePath || undefined,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--disable-ipv6',
-                '--no-first-run',
-                '--no-zygote',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-infobars',
-                '--disable-extensions',
-                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                '--lang=es-ES,es;q=0.9,en;q=0.8'
-            ]
-        };
-
-        if (launchOptions.executablePath) {
-            puppeteerLog.info(ErrorCategory.PUPPETEER, 'Launching Puppeteer with explicit path', {
-                path: launchOptions.executablePath
-            });
-            // Ensure the binary is executable at runtime — Render can strip the execute
-            // bit from downloaded binaries when restoring from cache between deploys.
-            try {
-                fs.chmodSync(launchOptions.executablePath, 0o755);
-                puppeteerLog.info(ErrorCategory.PUPPETEER, 'Chrome binary chmod 755 applied');
-            } catch (chmodErr) {
-                puppeteerLog.warn(ErrorCategory.PUPPETEER, 'chmod on Chrome binary failed (non-fatal)', {
-                    error: chmodErr.message
-                });
-            }
-        }
-
-        browser = await puppeteer.launch(launchOptions);
-        puppeteerLog.success(ErrorCategory.PUPPETEER, 'Puppeteer browser initialized');
-    } catch (error) {
-        // Deep debug of the cache directory if initialization fails
-        let cacheDebug = {};
-        try {
-            const cachePath = process.env.PUPPETEER_CACHE_DIR || path.join(__dirname, '..', '..', 'puppeteer-cache');
-            cacheDebug.configuredPath = cachePath;
-            if (fs.existsSync(cachePath)) {
-                cacheDebug.exists = true;
-                cacheDebug.contents = fs.readdirSync(cachePath, { recursive: true }).slice(0, 30);
-            } else {
-                cacheDebug.exists = false;
-                cacheDebug.oldPathExists = fs.existsSync(path.join(__dirname, '..', '..', '.cache', 'puppeteer'));
-            }
-        } catch (e) {
-            cacheDebug.error = e.message;
-        }
-
-        puppeteerLog.error(ErrorCategory.PUPPETEER, 'Failed to initialize Puppeteer browser', {
-            error,
-            cacheDebug,
-            envExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH
-        });
-    }
-}
-initBrowser();
+browserManager.initBrowser();
 
 // Close Puppeteer securely when the server terminates
 process.on('SIGINT', async () => {
     log.info(ErrorCategory.BOOT, 'SIGINT received, shutting down gracefully');
-    if (browser) {
-        await browser.close();
-        puppeteerLog.info(ErrorCategory.PUPPETEER, 'Puppeteer browser closed');
-    }
+    await browserManager.close();
     process.exit();
 });
 
@@ -1806,7 +1572,10 @@ function normalizePptxFontFamily(fontFace) {
 
 async function renderEditablePptx(html, title, requestId, { debug = false } = {}) {
     const exportDpr = Math.min(3, Math.max(1, Number(process.env.EXPORT_DPR) || 2));
-    if (!browser || !browser.isConnected()) await initBrowser();
+    if (!browserManager.getBrowser() || !browserManager.getBrowser().isConnected()) {
+        await browserManager.initBrowser();
+    }
+    const browser = browserManager.getBrowser();
     if (!browser) throw new Error('PowerPoint generation is unavailable: the browser could not be started.');
 
     const metadataTags = `
@@ -3109,10 +2878,10 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
         const pdfPath = path.join(TMP_DIR, pdfFilename);
 
         // Restart / check browser
-        if (!browser || !browser.isConnected()) {
-            await initBrowser();
+        if (!browserManager.getBrowser() || !browserManager.getBrowser().isConnected()) {
+            await browserManager.initBrowser();
         }
-        if (!browser) {
+        if (!browserManager.getBrowser()) {
             throw new Error('PDF generation is unavailable: the browser could not be started. Please try again shortly.');
         }
 
@@ -3144,7 +2913,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
             .replace(/url\s*\(\s*(["']?)(?!data:)[^)"'\s]*\.gif[^)"'\s]*\1\s*\)/gi,
                 `url("${TRANSPARENT_GIF}")`);
 
-        const page = await browser.newPage();
+        const page = await browserManager.getBrowser().newPage();
         try {
             // Step 1: parse the DOM immediately (never hangs on slow/unavailable resources)
             await page.setContent(processedHtml, { waitUntil: 'domcontentloaded', timeout: 60000 });
