@@ -1,0 +1,86 @@
+[
+  {
+    "type": "middleware",
+    "name": "query",
+    "regexp": "/^\\/?(?=\\/|$)/i"
+  },
+  {
+    "type": "middleware",
+    "name": "expressInit",
+    "regexp": "/^\\/?(?=\\/|$)/i"
+  },
+  {
+    "type": "middleware",
+    "name": "corsMiddleware",
+    "regexp": "/^\\/?(?=\\/|$)/i"
+  },
+  {
+    "type": "middleware",
+    "name": "<anonymous>",
+    "regexp": "/^\\/?(?=\\/|$)/i"
+  },
+  {
+    "type": "middleware",
+    "name": "<anonymous>",
+    "regexp": "/^\\/?(?=\\/|$)/i"
+  },
+  {
+    "type": "middleware",
+    "name": "serveStatic",
+    "regexp": "/^\\/?(?=\\/|$)/i"
+  },
+  {
+    "type": "route",
+    "path": "/health",
+    "methods": ["get"],
+    "stack": ["<anonymous>"]
+  },
+  {
+    "type": "route",
+    "path": "/",
+    "methods": ["get"],
+    "stack": ["<anonymous>"]
+  },
+  {
+    "type": "route",
+    "path": "/__dev__/last-generated",
+    "methods": ["get"],
+    "stack": ["<anonymous>"]
+  },
+  {
+    "type": "route",
+    "path": "/generate-skeleton",
+    "methods": ["post"],
+    "stack": ["multerMiddleware", "jsonParser", "checkGenerationPressure", "checkRateLimits", "<anonymous>"]
+  },
+  {
+    "type": "route",
+    "path": "/generate-outline-item",
+    "methods": ["post"],
+    "stack": ["jsonParser", "checkGenerationPressure", "checkRateLimits", "<anonymous>"]
+  },
+  {
+    "type": "route",
+    "path": "/generate",
+    "methods": ["post"],
+    "stack": ["multerMiddleware", "jsonParser", "checkGenerationPressure", "checkRateLimits", "<anonymous>"]
+  },
+  {
+    "type": "route",
+    "path": "/finalize-pptx",
+    "methods": ["post"],
+    "stack": ["jsonParser", "checkFinalizePressure", "checkFinalizeLimits", "<anonymous>"]
+  },
+  {
+    "type": "route",
+    "path": "/finalize",
+    "methods": ["post"],
+    "stack": ["jsonParser", "checkFinalizePressure", "checkFinalizeLimits", "<anonymous>"]
+  },
+  {
+    "type": "route",
+    "path": "/download/:filename",
+    "methods": ["get"],
+    "stack": ["<anonymous>"]
+  }
+]
