@@ -22,6 +22,15 @@
     "verify:pptx:baseline": "node scripts/verify-pptx-export.js --skip-com",
     "verify:baseline": "npm run test:safe && npm run test:contract && npm run test:sanitization && npm run test:stub-guard && npm run check:dom && npm run check:baseline:visual && npm run verify:pptx:baseline && npm run baseline:export && npm run check:baseline:export && npm run check:baseline:pdf",
     "verify:pptx": "node scripts/verify-pptx-export.js",
+    "lint": "eslint .",
+    "lint:report": "node scripts/lint-ratchet.js",
+    "lint:ratchet": "node scripts/lint-ratchet.js",
+    "typecheck": "node scripts/typecheck-ratchet.js",
+    "typecheck:ratchet": "node scripts/typecheck-ratchet.js",
+    "format:check": "node scripts/format-files.js",
+    "format:write": "node scripts/format-files.js --write",
+    "verify:quality": "npm run lint:ratchet && npm run typecheck:ratchet && npm run format:check",
+    "verify:all": "npm run verify:baseline && npm run verify:quality",
     "build": "node scripts/install-chrome.js",
     "postinstall": "node scripts/install-chrome.js"
   },
@@ -44,7 +53,14 @@
     "yauzl": "^3.2.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.3",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
     "pixelmatch": "^7.2.0",
-    "pngjs": "^7.0.0"
+    "pngjs": "^7.0.0",
+    "prettier": "^3.9.9",
+    "typescript": "^7.0.2"
   }
 }

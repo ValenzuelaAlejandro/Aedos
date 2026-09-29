@@ -1,0 +1,28 @@
+name: CI
+
+on:
+    push:
+    pull_request:
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                node: [20, 22]
+        env:
+            PUPPETEER_SKIP_DOWNLOAD: 'true'
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ matrix.node }}
+                  cache: npm
+            - run: npm ci --ignore-scripts
+            - run: npm test
+            - run: npm run test:contract
+            - run: npm run check:dom
+            - run: npm run verify:quality
+            - run: npm run check:baseline:export
+            # Visual and PDF baselines are intentionally excluded: their fonts,
+            # Chromium rendering, and generated output are Windows-specific here.

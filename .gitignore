@@ -11,4 +11,6 @@ examples/*
 puppeteer-cache/
 tests/baseline/diffs/
 tmp/baseline-current/
+tmp/lint-report.json
+tmp/typecheck-report.json
 

@@ -1,0 +1,8 @@
+package-lock.json
+examples/
+docs/generated/
+tests/fixtures/
+tests/baseline/
+src/
+tmp/
+puppeteer-cache/
