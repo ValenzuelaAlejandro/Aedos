@@ -1,6 +1,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const pixelmatchModule = require('pixelmatch');
+const pixelmatch = pixelmatchModule.default || pixelmatchModule;
+const { PNG } = require('pngjs');
 const puppeteer = require('puppeteer');
 
 process.env.NODE_ENV = 'test';
@@ -10,6 +13,8 @@ process.env.AEDOS_TEST_STUB_PROVIDERS = '1';
 const root = path.resolve(__dirname, '..');
 const compare = process.argv.includes('--compare');
 const outputDir = compare ? path.join(root, 'tmp', 'baseline-current') : path.join(root, 'tests', 'baseline', 'screenshots');
+const diffDir = path.join(root, 'tests', 'baseline', 'diffs');
+const visualConfig = JSON.parse(fs.readFileSync(path.join(root, 'tests', 'baseline', 'visual-config.json'), 'utf8'));
 const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || path.join(root, 'puppeteer-cache', 'chrome-headless-shell', 'win64-146.0.7680.76', 'chrome-headless-shell-win64', 'chrome-headless-shell.exe');
 
 async function capture() {
@@ -31,6 +36,8 @@ async function capture() {
         await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
         await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ content: '*{animation:none!important;transition:none!important;}' });
+        await page.evaluate(() => document.fonts && document.fonts.ready);
+        await new Promise((resolve) => setTimeout(resolve, 250));
         await page.screenshot({ path: path.join(outputDir, 'desktop-light.png'), fullPage: true });
 
         await page.evaluate(() => document.body.classList.toggle('dark-mode'));
@@ -50,14 +57,33 @@ async function capture() {
             for (const name of names) {
                 const expectedBuffer = fs.readFileSync(path.join(expectedDir, name));
                 const actualBuffer = fs.readFileSync(path.join(outputDir, name));
-                const expected = crypto.createHash('sha256').update(expectedBuffer).digest('hex');
-                const actual = crypto.createHash('sha256').update(actualBuffer).digest('hex');
-                if (expected === actual) continue;
-                const drift = Math.abs(actualBuffer.length - expectedBuffer.length) / expectedBuffer.length;
-                if (drift > 0.15) throw new Error(`Visual baseline differs: ${name} (size drift ${(drift * 100).toFixed(1)}%)`);
-                console.warn(`Visual hash changed within size tolerance: ${name} (${(drift * 100).toFixed(1)}%)`);
+                const expected = PNG.sync.read(expectedBuffer);
+                const actual = PNG.sync.read(actualBuffer);
+                if (expected.width !== actual.width || expected.height !== actual.height) throw new Error(`Visual dimensions differ: ${name}`);
+                const masks = visualConfig[name] || [];
+                for (const mask of masks) {
+                    for (let y = mask.y; y < Math.min(actual.height, mask.y + mask.height); y++) {
+                        for (let x = mask.x; x < Math.min(actual.width, mask.x + mask.width); x++) {
+                            const offset = (y * actual.width + x) * 4;
+                            actual.data[offset] = expected.data[offset];
+                            actual.data[offset + 1] = expected.data[offset + 1];
+                            actual.data[offset + 2] = expected.data[offset + 2];
+                            actual.data[offset + 3] = expected.data[offset + 3];
+                        }
+                    }
+                }
+                const diff = new PNG({ width: expected.width, height: expected.height });
+                const differentPixels = pixelmatch(expected.data, actual.data, diff.data, expected.width, expected.height, { threshold: 0.1 });
+                const ratio = differentPixels / (expected.width * expected.height);
+                if (ratio > 0.001) {
+                    fs.mkdirSync(diffDir, { recursive: true });
+                    fs.writeFileSync(path.join(diffDir, name), PNG.sync.write(diff));
+                    throw new Error(`Visual baseline differs: ${name} (${differentPixels} pixels, ${(ratio * 100).toFixed(3)}%)`);
+                }
+                const hash = crypto.createHash('sha256').update(expectedBuffer).digest('hex');
+                if (hash !== crypto.createHash('sha256').update(actualBuffer).digest('hex')) console.warn(`Visual baseline passed pixel tolerance: ${name} (${differentPixels} pixels)`);
             }
-            console.log('Visual baseline OK: 4 screenshots matched by hash or documented size tolerance.');
+            console.log('Visual baseline OK: 4 screenshots passed pixel diff (threshold=0.1, max ratio=0.1%).');
         } else {
             console.log(`Baseline screenshots written to ${path.relative(root, outputDir)}`);
         }
@@ -67,7 +93,7 @@ async function capture() {
     }
 }
 
-capture().catch((error) => {
+capture().then(() => process.exit(0)).catch((error) => {
     console.error(error.stack || error);
     process.exitCode = 1;
 });

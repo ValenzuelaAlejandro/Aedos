@@ -45,6 +45,13 @@ function json(body) {
     return { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
 }
 
+function multipart(fields, files) {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) form.append(key, String(value));
+    for (const file of files) form.append('files', new Blob([file.content], { type: file.type || 'application/octet-stream' }), file.name);
+    return { method: 'POST', body: form };
+}
+
 test('GET /health and GET / expose the current public entry points', async () => {
     const health = await request('/health');
     assert.equal(health.status, 200);
@@ -103,4 +110,85 @@ test('finalize validation and missing downloads are reachable without launching 
     assert.notEqual(pptx.status, 200);
     const download = await request('/download/not-a-real-file.pdf');
     assert.equal(download.status, 404);
+});
+
+test('download path traversal attempts remain rejected', async () => {
+    for (const pathname of ['/download/..%2Fsecret.pdf', '/download/%2e%2e%2fsecret.pdf', '/download/C:%5Csecret.pdf']) {
+        const response = await request(pathname);
+        assert.ok([400, 404].includes(response.status), `${pathname}: ${response.status}`);
+        await response.text();
+    }
+});
+
+test('multipart accepts one and three supported files', async () => {
+    const one = await request('/generate-skeleton', multipart(
+        { tema: 'Multipart', mode: 'pro', language: 'en' },
+        [{ name: 'notes.txt.pdf', type: 'application/pdf', content: 'fixture' }]
+    ));
+    assert.equal(one.status, 200);
+    assert.equal((await collectSse(one)).at(-1).done, true);
+
+    const three = await request('/generate', multipart(
+        { tema: 'Multipart', mode: 'pro', idioma: 'es', slides: 1 },
+        [
+            { name: 'a.pdf', type: 'application/pdf', content: 'a' },
+            { name: 'b.doc', type: 'application/msword', content: 'b' },
+            { name: 'c.webp', type: 'image/webp', content: 'c' }
+        ]
+    ));
+    assert.equal(three.status, 200);
+    const proEvents = await collectSse(three);
+    assert.ok(proEvents.some((event) => event.stage));
+    assert.ok(proEvents.some((event) => event.done === true));
+});
+
+test('multipart preserves the supported extension allowlist and filename handling', async () => {
+    for (const extension of ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp']) {
+        const response = await request('/generate-skeleton', multipart(
+            { tema: 'Extension', mode: 'flash', language: 'en' },
+            [{ name: `résumé (final)${extension}`, type: 'application/octet-stream', content: 'fixture' }]
+        ));
+        assert.equal(response.status, 200, extension);
+        assert.equal((await collectSse(response)).at(-1).done, true, extension);
+    }
+
+    const missingExtension = await request('/generate-skeleton', multipart(
+        { tema: 'Extension', mode: 'flash' },
+        [{ name: 'no-extension', type: 'application/octet-stream', content: 'fixture' }]
+    ));
+    assert.equal(missingExtension.status, 500);
+    assert.match(await missingExtension.text(), /Invalid file type/i);
+});
+
+test('multipart rejects the fourth file and unsupported extensions', async () => {
+    const four = await request('/generate-skeleton', multipart(
+        { tema: 'Multipart', mode: 'flash' },
+        [1, 2, 3, 4].map((index) => ({ name: `file-${index}.pdf`, type: 'application/pdf', content: String(index) }))
+    ));
+    assert.equal(four.status, 500);
+    assert.match(await four.text(), /MulterError|Unexpected field/i);
+
+    const unsupported = await request('/generate-skeleton', multipart(
+        { tema: 'Multipart', mode: 'flash' },
+        [{ name: 'malware.exe', type: 'application/octet-stream', content: 'x' }]
+    ));
+    assert.equal(unsupported.status, 500);
+    assert.match(await unsupported.text(), /Invalid file type/i);
+});
+
+test('multipart enforces the ten megabyte file limit', async () => {
+    const exact = await request('/generate-skeleton', multipart(
+        { tema: 'Size', mode: 'flash' },
+        [{ name: 'exact.pdf', type: 'application/pdf', content: Buffer.alloc(10 * 1024 * 1024) }]
+    ));
+    const exactBody = await exact.text();
+    assert.equal(exact.status, 500);
+    assert.match(exactBody, /MulterError: File too large/);
+
+    const over = await request('/generate-skeleton', multipart(
+        { tema: 'Size', mode: 'flash' },
+        [{ name: 'over.pdf', type: 'application/pdf', content: Buffer.alloc(10 * 1024 * 1024 + 1) }]
+    ));
+    assert.equal(over.status, 500);
+    assert.match(await over.text(), /LIMIT_FILE_SIZE|File too large/i);
 });

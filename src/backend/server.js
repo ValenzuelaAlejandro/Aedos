@@ -1192,7 +1192,7 @@ async function callGeminiDirectWithRetry(prompt, stageName, geminiModel, fileCon
  * structured (reasoning-aware) output for the chat UX.
  */
 async function callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext = null, options = null) {
-    if (process.env.AEDOS_TEST_STUB_PROVIDERS === '1') {
+    if (process.env.NODE_ENV !== 'production' && process.env.AEDOS_TEST_STUB_PROVIDERS === '1') {
         return createTestProviderResponse(stageName, options);
     }
     if (process.env.GEMINI_API_KEY) {
@@ -2674,7 +2674,7 @@ function createTestProviderResponse(stageName, options = null) {
             })
             : JSON.stringify({ title: 'Test slide', role: 'concept', key_points: ['Test point'] });
     } else if (stageName === 'Stage2') {
-        output = JSON.stringify({ palette: { background: '#ffffff', text: '#111111', accent: '#3366ff' }, typography: { heading: 'Arial', body: 'Arial' } });
+        output = JSON.stringify({ palette: { background: '#ffffff', text: '#111111', accent: '#3366ff', colors_hex: ['#3366ff', '#111111'] }, typography: { heading: 'Arial', body: 'Arial' }, slides: [] });
     } else {
         output = '<!doctype html><html><head><meta charset="utf-8"><style>section.s{width:1280px;height:720px}</style></head><body><section class="s"><h1>Test presentation</h1></section></body></html>';
     }
@@ -4328,4 +4328,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { app, sanitizeTema, buildPrompt };
+module.exports = { app, sanitizeTema, sanitizeGeneratedHtml, buildPrompt };
