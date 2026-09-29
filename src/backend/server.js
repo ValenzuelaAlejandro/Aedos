@@ -13,6 +13,7 @@ const { execSync } = require('child_process');
 const {
     MAX_UPLOAD_BYTES,
     MAX_UPLOAD_FILES,
+    MAX_UPLOAD_ARRAY_FIELDS,
     ALLOWED_UPLOAD_EXTENSIONS,
     DEFAULT_MAX_CONCURRENT_GENERATIONS,
     DEFAULT_MAX_QUEUE_DEPTH,
@@ -1570,7 +1571,7 @@ function sanitizeTema(input) {
     return { valid: true, tema: cleanedString };
 }
 
-app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_FILES), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
+app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     const requestId = req.requestId || 'n/a';
     let cancelled = false;
 
@@ -1789,7 +1790,7 @@ app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkGenerati
     }
 });
 
-app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ limit: '50kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
+app.post('/generate', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.json({ limit: '50kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     let cancelled = false;
     let completed = false;
     let sseKeepAlive = null;

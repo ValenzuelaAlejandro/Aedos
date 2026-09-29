@@ -16,12 +16,34 @@ implementation or the generated HTML model.
 - `GET /download/:filename`: downloads a temporary generated file.
 - `GET /__dev__/last-generated`: development-only generated HTML inspection.
 
+Error response bodies are cataloged in `src/backend/contracts/errors.js`. The
+frontend consumes `QUEUE_FULL` and `PRO_TEMPORARILY_PAUSED` with
+`retryAfterSec`, displays `Validation failed.fields` for form errors, and
+consumes SSE `{ error }` events during generation. Download errors remain the
+plain-text `Invalid file` and `File not found` responses.
+
+Error response bodies are cataloged in `src/backend/contracts/errors.js`. The
+frontend consumes `QUEUE_FULL` and `PRO_TEMPORARILY_PAUSED` with
+`retryAfterSec`, displays `Validation failed.fields` for form errors, and
+consumes SSE `{ error }` events during generation. Download errors remain the
+plain-text `Invalid file` and `File not found` responses.
+
 ## Generation inputs
 
 Important fields are `tema`, `mode`, `slides`, `language`, legacy `idioma`,
 `skeleton`, and optional `files`. Topics are limited to 600 characters;
 uploads allow PDF, DOC/DOCX, PNG, JPG/JPEG and WEBP, with the implementation's
 file-count and byte limits.
+
+Limits and environment defaults live in `src/backend/contracts/limits.js` and
+`src/backend/contracts/config-defaults.js`. Pure request normalizers live in
+`src/backend/contracts/request-normalizers.js`; handler integration remains
+deferred until every legacy edge case is covered.
+
+Limits and environment defaults live in `src/backend/contracts/limits.js` and
+`src/backend/contracts/config-defaults.js`. Pure request normalizers live in
+`src/backend/contracts/request-normalizers.js`; handler integration remains
+deferred until every legacy edge case is covered.
 
 ## SSE event shapes
 
@@ -132,3 +154,18 @@ file-size drift and report that fallback explicitly. PPTX checks compare the
 ZIP part list and normalized slide XML hashes without hashing the ZIP container
 timestamps. PDF checks compare URL shape, content type/signature, page count,
 dimensions, and byte count in `tests/baseline/exports/pdf-manifest.json`.
+
+## Valores duplicados en el frontend
+
+The frontend currently repeats presentation limits independently: the SSE
+watchdog is 600000 ms in `src/frontend/scripts/app.js`; Flash/Pro slide limits
+are enforced in the generation UI and outline controls; attachment count and
+file-size affordances are also client-side. They remain unchanged because
+changing them would be observable behavior.
+
+The isolated pressure test characterizes `503 PRO_TEMPORARILY_PAUSED` with the
+existing local provider stub. The `429 QUEUE_FULL` route is documented by the
+error catalog, but a deterministic concurrent queue fixture would require a
+stable blocking seam. Mid-stream provider failure and Gemini-to-OpenRouter
+fallback likewise require provider-failure injection; these seams are
+intentionally deferred to Phase 3 rather than changing production behavior.

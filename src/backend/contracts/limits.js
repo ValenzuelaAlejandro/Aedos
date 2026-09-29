@@ -7,6 +7,8 @@
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 // server.js:24
 const MAX_UPLOAD_FILES = 3;
+// server.js:1561 / 1783; distinct from multer limits.files and intentionally preserved.
+const MAX_UPLOAD_ARRAY_FIELDS = 5;
 // server.js:19
 const ALLOWED_UPLOAD_EXTENSIONS = Object.freeze(['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp']);
 // server.js:94
@@ -33,6 +35,7 @@ const SSE_WATCHDOG_MS = 600000;
 module.exports = {
     MAX_UPLOAD_BYTES,
     MAX_UPLOAD_FILES,
+    MAX_UPLOAD_ARRAY_FIELDS,
     ALLOWED_UPLOAD_EXTENSIONS,
     DEFAULT_MAX_CONCURRENT_GENERATIONS,
     DEFAULT_MAX_QUEUE_DEPTH,
