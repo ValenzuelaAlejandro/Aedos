@@ -21,6 +21,8 @@ jobs:
             - run: npm ci --ignore-scripts
             - run: npm test
             - run: npm run test:contract
+            - run: npm run test:provider-network
+            - run: npm run test:provider-timeout
             - run: npm run check:dom
             - run: npm run verify:quality
             - run: npm run check:baseline:export
