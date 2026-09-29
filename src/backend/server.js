@@ -32,6 +32,7 @@ const {
     ERROR_TEXT,
 } = require('./contracts/errors');
 const { writeSse, setSseHeaders } = require('./contracts/sse');
+const { sanitizeGeneratedHtml: sanitizeGeneratedHtmlMoved } = require('./sanitization/html');
 
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
@@ -550,10 +551,9 @@ if (IS_DEVELOPMENT) {
     ensureDirectory(EXAMPLES_PRO_DIR, 'Examples pro');
 }
 
-// Strips <script> blocks, inline event handlers, and javascript: URLs from
-// AI-generated HTML before it is sent to the client. Defense-in-depth layer
-// complementing the identical sanitization already done on the client side.
-function sanitizeGeneratedHtml(html) {
+// Sanitizer implementation moved to sanitization/html.js.
+function sanitizeGeneratedHtmlLegacy(html) {
+    return sanitizeGeneratedHtmlMoved(html);
     if (typeof html !== 'string') return html;
     // Remove all <script>...</script> blocks — server re-injects only known-safe ones
     html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
@@ -570,6 +570,8 @@ function sanitizeGeneratedHtml(html) {
     html = html.replace(/<link[^>]*href\s*=\s*["']\s*url\(\s*['"]?https:\/\/fonts\.googleapis\.com[\s\S]*?\/?>/gi, '');
     return html;
 }
+
+const sanitizeGeneratedHtml = sanitizeGeneratedHtmlLegacy;
 
 function injectLayoutSafetyNet(html) {
     if (typeof html !== 'string' || /aedos-layout-safety-net/.test(html)) return html;
