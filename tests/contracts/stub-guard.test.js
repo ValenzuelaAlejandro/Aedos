@@ -5,7 +5,7 @@ const path = require('node:path');
 
 test('provider stub is explicitly restricted to non-production test mode', () => {
     const source = fs.readFileSync(
-        path.join(__dirname, '..', '..', 'src', 'backend', 'server.js'),
+        path.join(__dirname, '..', '..', 'src', 'backend', 'providers', 'fallback.js'),
         'utf8',
     );
     assert.match(
