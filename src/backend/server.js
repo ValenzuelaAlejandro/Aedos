@@ -10,22 +10,37 @@ const https = require('https');
 const path = require('path');
 const zlib = require('zlib');
 const { execSync } = require('child_process');
+const {
+    MAX_UPLOAD_BYTES,
+    MAX_UPLOAD_FILES,
+    ALLOWED_UPLOAD_EXTENSIONS,
+    DEFAULT_MAX_CONCURRENT_GENERATIONS,
+    DEFAULT_MAX_QUEUE_DEPTH,
+    DEFAULT_PRESSURE_RETRY_AFTER_SEC,
+    DEFAULT_PUPPETEER_MAX_CONCURRENT,
+    DEFAULT_PUPPETEER_MAX_QUEUE,
+    MAX_TOPIC_CHARACTERS,
+    MAX_FLASH_SLIDES,
+    MAX_PRO_SLIDES,
+    MAX_EXPORT_HTML_BYTES,
+    DOWNLOAD_TTL_MS,
+} = require('./contracts/limits');
+const { ENV_NAMES, DEFAULTS } = require('./contracts/config-defaults');
 
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
 process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '..', '..', 'puppeteer-cache');
 const puppeteer = require('puppeteer');
 const multer = require('multer');
-const allowedExtensions = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp'];
 const upload = multer({
     dest: path.join(__dirname, '..', '..', 'tmp'),
     limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB max per file
-        files: 3 // Max 3 files per request
+        fileSize: MAX_UPLOAD_BYTES,
+        files: MAX_UPLOAD_FILES
     },
     fileFilter: (req, file, cb) => {
         const ext = path.extname(file.originalname).toLowerCase();
-        if (!allowedExtensions.includes(ext)) {
+        if (!ALLOWED_UPLOAD_EXTENSIONS.includes(ext)) {
             return cb(new Error('Invalid file type. Only PDF, Office Word, and images are allowed.'), false);
         }
         cb(null, true);
@@ -78,8 +93,8 @@ const app = express();
 app.disable('x-powered-by');
 // Trust proxies to get real client IPs for rate limiting
 app.set('trust proxy', true);
-const PORT = process.env.PORT || 3000;
-const RUNTIME_ENV = (process.env.NODE_ENV || 'development').toLowerCase();
+const PORT = process.env[ENV_NAMES.PORT] || DEFAULTS.PORT;
+const RUNTIME_ENV = (process.env[ENV_NAMES.NODE_ENV] || DEFAULTS.NODE_ENV).toLowerCase();
 const IS_DEVELOPMENT = RUNTIME_ENV === 'development';
 const TMP_DIR = path.join(__dirname, '..', '..', 'tmp');
 const EXAMPLES_DIR = path.join(__dirname, '..', '..', 'examples');
@@ -91,23 +106,23 @@ let requestSequence = 0;
 let activeGenerations = 0;
 const queue = [];
 // Max concurrent generations 
-const MAX_CONCURRENT_GENERATIONS = parsePositiveInt(process.env.MAX_CONCURRENT_GENERATIONS, 10);
-const MAX_QUEUE_DEPTH = parsePositiveInt(process.env.MAX_QUEUE_DEPTH, 40);
+const MAX_CONCURRENT_GENERATIONS = parsePositiveInt(process.env[ENV_NAMES.MAX_CONCURRENT_GENERATIONS], DEFAULT_MAX_CONCURRENT_GENERATIONS);
+const MAX_QUEUE_DEPTH = parsePositiveInt(process.env[ENV_NAMES.MAX_QUEUE_DEPTH], DEFAULT_MAX_QUEUE_DEPTH);
 const PRO_PAUSE_QUEUE_DEPTH = parsePositiveInt(
-    process.env.PRO_PAUSE_QUEUE_DEPTH,
+    process.env[ENV_NAMES.PRO_PAUSE_QUEUE_DEPTH],
     Math.max(8, Math.floor(MAX_QUEUE_DEPTH * 0.6))
 );
 const PRO_PAUSE_ACTIVE_GENERATIONS = parsePositiveInt(
-    process.env.PRO_PAUSE_ACTIVE_GENERATIONS,
+    process.env[ENV_NAMES.PRO_PAUSE_ACTIVE_GENERATIONS],
     Math.max(1, MAX_CONCURRENT_GENERATIONS - 2)
 );
-const PRESSURE_RETRY_AFTER_SEC = parsePositiveInt(process.env.PRESSURE_RETRY_AFTER_SEC, 30);
+const PRESSURE_RETRY_AFTER_SEC = parsePositiveInt(process.env[ENV_NAMES.PRESSURE_RETRY_AFTER_SEC], DEFAULT_PRESSURE_RETRY_AFTER_SEC);
 
 // Puppeteer System State
 let activeFinalize = 0;
 const finalizeQueue = [];
-const PUPPETEER_MAX_CONCURRENT = parsePositiveInt(process.env.PUPPETEER_MAX_CONCURRENT, 3);
-const PUPPETEER_MAX_QUEUE = parsePositiveInt(process.env.PUPPETEER_MAX_QUEUE, 10);
+const PUPPETEER_MAX_CONCURRENT = parsePositiveInt(process.env[ENV_NAMES.PUPPETEER_MAX_CONCURRENT], DEFAULT_PUPPETEER_MAX_CONCURRENT);
+const PUPPETEER_MAX_QUEUE = parsePositiveInt(process.env[ENV_NAMES.PUPPETEER_MAX_QUEUE], DEFAULT_PUPPETEER_MAX_QUEUE);
 
 function processFinalizeQueue() {
     if (finalizeQueue.length > 0 && activeFinalize < PUPPETEER_MAX_CONCURRENT) {
@@ -211,28 +226,28 @@ function parseModelList(rawValue, fallbackCsv) {
 
 // OpenRouter fallback model lists (read from .env)
 const OPENROUTER_MODELS_FLASH = parseModelList(
-    process.env.OPENROUTER_MODELS_FLASH,
-    'google/gemini-2.5-flash-lite'
+    process.env[ENV_NAMES.OPENROUTER_MODELS_FLASH],
+    DEFAULTS.OPENROUTER_MODELS_FLASH
 );
 const OPENROUTER_MODELS_STAGE1 = parseModelList(
-    process.env.OPENROUTER_MODELS_STAGE1,
-    'google/gemini-2.5-flash-lite'
+    process.env[ENV_NAMES.OPENROUTER_MODELS_STAGE1],
+    DEFAULTS.OPENROUTER_MODELS_STAGE1
 );
 const OPENROUTER_MODELS_STAGE2 = parseModelList(
-    process.env.OPENROUTER_MODELS_STAGE2,
-    'google/gemini-2.5-flash-lite'
+    process.env[ENV_NAMES.OPENROUTER_MODELS_STAGE2],
+    DEFAULTS.OPENROUTER_MODELS_STAGE2
 );
 const OPENROUTER_MODELS_STAGE3 = parseModelList(
-    process.env.OPENROUTER_MODELS_STAGE3,
-    'google/gemini-3-flash-preview'
+    process.env[ENV_NAMES.OPENROUTER_MODELS_STAGE3],
+    DEFAULTS.OPENROUTER_MODELS_STAGE3
 );
 
 const OPENROUTER_MODEL_LIST = OPENROUTER_MODELS_FLASH;
 
 // Models that must never run outside Stage3 (configured in .env).
 const OPENROUTER_MODELS_STAGE3_ONLY = parseModelList(
-    process.env.OPENROUTER_MODELS_STAGE3_ONLY,
-    ''
+    process.env[ENV_NAMES.OPENROUTER_MODELS_STAGE3_ONLY],
+    DEFAULTS.OPENROUTER_MODELS_STAGE3_ONLY
 ).map(model => String(model).trim().toLowerCase());
 
 // Per-stage reasoning effort for OpenRouter fallback.
@@ -264,10 +279,10 @@ function reasoningForStage(stageName) {
 }
 
 // Gemini direct API primary models (read from .env)
-const GEMINI_MODEL_FLASH  = (process.env.GEMINI_MODELS_FLASH  || 'gemini-3-flash-preview').trim();
-const GEMINI_MODEL_STAGE1 = (process.env.GEMINI_MODELS_STAGE1 || 'gemini-2.5-flash-lite').trim();
-const GEMINI_MODEL_STAGE2 = (process.env.GEMINI_MODELS_STAGE2 || 'gemini-2.5-flash-lite').trim();
-const GEMINI_MODEL_STAGE3 = (process.env.GEMINI_MODELS_STAGE3 || 'gemini-3.5-flash').trim();
+const GEMINI_MODEL_FLASH  = (process.env[ENV_NAMES.GEMINI_MODELS_FLASH]  || DEFAULTS.GEMINI_MODELS_FLASH).trim();
+const GEMINI_MODEL_STAGE1 = (process.env[ENV_NAMES.GEMINI_MODELS_STAGE1] || DEFAULTS.GEMINI_MODELS_STAGE1).trim();
+const GEMINI_MODEL_STAGE2 = (process.env[ENV_NAMES.GEMINI_MODELS_STAGE2] || DEFAULTS.GEMINI_MODELS_STAGE2).trim();
+const GEMINI_MODEL_STAGE3 = (process.env[ENV_NAMES.GEMINI_MODELS_STAGE3] || DEFAULTS.GEMINI_MODELS_STAGE3).trim();
 
 function processQueue() {
     if (activeGenerations < MAX_CONCURRENT_GENERATIONS && queue.length > 0) {
@@ -1120,7 +1135,7 @@ const GEMINI_503_RETRY_BASE_DELAY_MS = 500;
 // GEMINI_ACCEPT_TIMEOUT → fallback → timeout → QUOTA_EXHAUSTED in production.
 // Now configurable via env; 30s default gives providers room to queue without
 // letting the request hang forever.
-const PROVIDER_ACCEPT_TIMEOUT_MS = parsePositiveInt(process.env.PROVIDER_ACCEPT_TIMEOUT_MS, 30000);
+const PROVIDER_ACCEPT_TIMEOUT_MS = parsePositiveInt(process.env[ENV_NAMES.PROVIDER_ACCEPT_TIMEOUT_MS], DEFAULTS.PROVIDER_ACCEPT_TIMEOUT_MS);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -1554,11 +1569,11 @@ function sanitizeTema(input) {
         }
     }
 
-    const cleanedString = input.trim().replace(/\s+/g, ' ').substring(0, 600);
+    const cleanedString = input.trim().replace(/\s+/g, ' ').substring(0, MAX_TOPIC_CHARACTERS);
     return { valid: true, tema: cleanedString };
 }
 
-app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
+app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_FILES), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     const requestId = req.requestId || 'n/a';
     let cancelled = false;
 
@@ -1716,7 +1731,7 @@ app.post('/generate-skeleton', upload.array('files', 5), express.json({ limit: '
             return;
         }
 
-        const maxSlides = req.body.mode === 'pro' ? 8 : 15;
+        const maxSlides = req.body.mode === 'pro' ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES;
         if (contentJson.slides.length > maxSlides) {
             contentJson.slides = contentJson.slides.slice(0, maxSlides);
             contentJson.slide_count = maxSlides;
@@ -1780,7 +1795,7 @@ app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkGenerati
     }
 });
 
-app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
+app.post('/generate', upload.array('files', MAX_UPLOAD_FILES), express.json({ limit: '50kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     let cancelled = false;
     let completed = false;
     let sseKeepAlive = null;
@@ -1871,7 +1886,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
         }
 
         // Cap the actual slides requested to the AI based on the mode
-        const slideHardLimit = usePipeline ? 8 : 15;
+        const slideHardLimit = usePipeline ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES;
         if (slidesNum > slideHardLimit) {
             log.warn(ErrorCategory.VALIDATION, 'Slides capped to mode hard limit', {
                 requestId,
@@ -2395,7 +2410,7 @@ app.post('/generate', upload.array('files', 5), express.json({ limit: '50kb' }),
             }
 
             // Safety net: hard cap slides (8 for Pro mode, 15 for Flash mode) — strip any section.s beyond the limit
-            const MAX_SLIDES = usePipeline ? 8 : 15;
+            const MAX_SLIDES = usePipeline ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES;
             const slideTagRe = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
             const slideMatches = [...cleanedOutput.matchAll(slideTagRe)];
             if (slideMatches.length > MAX_SLIDES) {
@@ -3929,7 +3944,7 @@ app.post('/finalize-pptx', express.json({ limit: '50mb' }), checkFinalizePressur
     try {
         const { html, title } = req.body || {};
         if (!html || typeof html !== 'string') return res.status(400).json({ error: 'HTML content is required' });
-        if (html.length > 2 * 1024 * 1024) return res.status(400).json({ error: 'Payload too large' });
+        if (html.length > MAX_EXPORT_HTML_BYTES) return res.status(400).json({ error: 'Payload too large' });
 
         const pptxFilename = `pptx_${crypto.randomBytes(16).toString('hex')}.pptx`;
         const pptxPath = path.join(TMP_DIR, pptxFilename);
@@ -3948,7 +3963,7 @@ app.post('/finalize-pptx', express.json({ limit: '50mb' }), checkFinalizePressur
 
         setTimeout(() => {
             if (fs.existsSync(pptxPath)) fs.unlink(pptxPath, () => {});
-        }, 10 * 60 * 1000);
+        }, DOWNLOAD_TTL_MS);
     } catch (error) {
         log.error(classifyError(error, ErrorCategory.PUPPETEER), 'Failed to finalize editable PowerPoint', {
             requestId,
@@ -4012,7 +4027,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
             });
             return res.status(400).json({ error: 'HTML content is required' });
         }
-        if (html.length > 2 * 1024 * 1024) { // 2MB
+        if (html.length > MAX_EXPORT_HTML_BYTES) { // 2MB
             log.warn(ErrorCategory.VALIDATION, 'Finalize rejected: payload too large', {
                 requestId,
                 htmlBytes: html.length
@@ -4205,7 +4220,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
                     pdfFilename
                 });
             }
-        }, 10 * 60 * 1000);
+        }, DOWNLOAD_TTL_MS);
     } catch (error) {
         log.error(classifyError(error, ErrorCategory.PUPPETEER), 'Failed to finalize PDF', {
             requestId,
@@ -4323,7 +4338,7 @@ if (require.main === module) {
         });
 
         // Allow long-running AI generations before Node gives up on the request.
-        server.requestTimeout = 10 * 60 * 1000;
+                server.requestTimeout = DOWNLOAD_TTL_MS;
         server.headersTimeout = 11 * 60 * 1000;
     });
 }
