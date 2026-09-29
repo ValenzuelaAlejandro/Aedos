@@ -34,6 +34,8 @@ const { TMP_DIR, upload } = require('./files/upload');
 const { ensureBackendDirectories } = require('./files/directories');
 const { registerDownloadRoute } = require('./files/download-route');
 const { buildSkeletonFileContext, buildGenerationFileContext } = require('./files/attachments');
+const { createGenerationQueue } = require('./queues/generation');
+const { createFinalizeQueue } = require('./queues/finalize');
 
 // Force Puppeteer to use a visible cache directory BEFORE requiring it.
 // This matches the PUPPETEER_CACHE_DIR set in package.json.
@@ -72,6 +74,28 @@ const puppeteerLog = log.child('PUPPETEER');
 const runtimeConfig = loadEnvConfig(process.env);
 let testProviderOverride = null;
 
+const generationQueue = createGenerationQueue({
+    runtimeConfig,
+    queueLog,
+    ErrorCategory,
+    queueFullGeneration,
+    proTemporarilyPaused,
+    writeSse
+});
+const finalizeQueueState = createFinalizeQueue({
+    runtimeConfig,
+    puppeteerLog,
+    ErrorCategory,
+    queueFullFinalize
+});
+function checkGenerationPressure(req, res, next) {
+    return generationQueue.checkPressure(req, res, next);
+}
+
+function checkFinalizePressure(req, res, next) {
+    return finalizeQueueState.checkPressure(req, res, next);
+}
+
 function setTestProviderOverride(provider) {
     if (process.env.NODE_ENV !== 'test' || process.env.AEDOS_TEST_STUB_PROVIDERS !== '1') {
         throw new Error('Test provider override is only available in test mode');
@@ -106,95 +130,6 @@ const EXAMPLES_FLASH_DIR = path.join(EXAMPLES_DIR, 'flash');
 const EXAMPLES_PRO_DIR = path.join(EXAMPLES_DIR, 'pro');
 let requestSequence = 0;
 
-// Queue System State
-let activeGenerations = 0;
-const queue = [];
-// Max concurrent generations 
-const MAX_CONCURRENT_GENERATIONS = runtimeConfig.maxConcurrentGenerations;
-const MAX_QUEUE_DEPTH = runtimeConfig.maxQueueDepth;
-const PRO_PAUSE_QUEUE_DEPTH = runtimeConfig.proPauseQueueDepth;
-const PRO_PAUSE_ACTIVE_GENERATIONS = runtimeConfig.proPauseActiveGenerations;
-const PRESSURE_RETRY_AFTER_SEC = runtimeConfig.pressureRetryAfterSec;
-
-// Puppeteer System State
-let activeFinalize = 0;
-const finalizeQueue = [];
-const PUPPETEER_MAX_CONCURRENT = runtimeConfig.puppeteerMaxConcurrent;
-const PUPPETEER_MAX_QUEUE = runtimeConfig.puppeteerMaxQueue;
-
-function processFinalizeQueue() {
-    if (finalizeQueue.length > 0 && activeFinalize < PUPPETEER_MAX_CONCURRENT) {
-        const item = finalizeQueue.shift();
-        activeFinalize++;
-        item.resolve();
-        puppeteerLog.info(ErrorCategory.QUEUE, 'Puppeteer queued request resumed', {
-            activeFinalize,
-            queueDepth: finalizeQueue.length
-        });
-    }
-}
-
-function checkFinalizePressure(req, res, next) {
-    if (
-        activeFinalize >= PUPPETEER_MAX_CONCURRENT &&
-        finalizeQueue.length >= PUPPETEER_MAX_QUEUE
-    ) {
-        puppeteerLog.warn(ErrorCategory.QUEUE, 'Puppeteer queue full - request rejected', {
-            requestId: req.requestId,
-            ip: req.ip,
-            activeFinalize,
-            queueDepth: finalizeQueue.length
-        });
-        return res.status(429).json(queueFullFinalize(PRESSURE_RETRY_AFTER_SEC));
-    }
-    next();
-}
-
-function normalizeGenerationMode(body) {
-    return body?.mode === 'pro' ? 'pro' : 'flash';
-}
-
-function checkGenerationPressure(req, res, next) {
-    const requestId = req.requestId || 'n/a';
-    const mode = normalizeGenerationMode(req.body);
-
-    if (
-        mode === 'pro' &&
-        (
-            activeGenerations >= PRO_PAUSE_ACTIVE_GENERATIONS ||
-            queue.length >= PRO_PAUSE_QUEUE_DEPTH
-        )
-    ) {
-        queueLog.warn(ErrorCategory.QUEUE, 'Pro mode temporarily paused due to high load', {
-            requestId,
-            ip: req.ip,
-            mode,
-            activeGenerations,
-            queueDepth: queue.length,
-            proPauseActiveThreshold: PRO_PAUSE_ACTIVE_GENERATIONS,
-            proPauseQueueThreshold: PRO_PAUSE_QUEUE_DEPTH
-        });
-        return res.status(503).json(proTemporarilyPaused(PRESSURE_RETRY_AFTER_SEC));
-    }
-
-    if (
-        activeGenerations >= MAX_CONCURRENT_GENERATIONS &&
-        queue.length >= MAX_QUEUE_DEPTH
-    ) {
-        queueLog.warn(ErrorCategory.QUEUE, 'Queue full - request rejected', {
-            requestId,
-            ip: req.ip,
-            mode,
-            activeGenerations,
-            queueDepth: queue.length,
-            maxConcurrent: MAX_CONCURRENT_GENERATIONS,
-            maxQueueDepth: MAX_QUEUE_DEPTH
-        });
-        return res.status(429).json(queueFullGeneration(PRESSURE_RETRY_AFTER_SEC));
-    }
-
-    next();
-}
 
 // Global fallback list for OpenRouter when callOpenRouter is invoked without
 // an explicit stage list. Keep Stage3-only models (like minimax) out of here.
@@ -264,18 +199,6 @@ const GEMINI_MODEL_FLASH  = (process.env[ENV_NAMES.GEMINI_MODELS_FLASH]  || DEFA
 const GEMINI_MODEL_STAGE1 = (process.env[ENV_NAMES.GEMINI_MODELS_STAGE1] || DEFAULTS.GEMINI_MODELS_STAGE1).trim();
 const GEMINI_MODEL_STAGE2 = (process.env[ENV_NAMES.GEMINI_MODELS_STAGE2] || DEFAULTS.GEMINI_MODELS_STAGE2).trim();
 const GEMINI_MODEL_STAGE3 = (process.env[ENV_NAMES.GEMINI_MODELS_STAGE3] || DEFAULTS.GEMINI_MODELS_STAGE3).trim();
-
-function processQueue() {
-    if (activeGenerations < MAX_CONCURRENT_GENERATIONS && queue.length > 0) {
-        const { resolve } = queue.shift();
-        activeGenerations++;
-        queueLog.debug(ErrorCategory.QUEUE, 'Generation dequeued', {
-            activeGenerations,
-            queueDepth: queue.length
-        });
-        resolve();
-    }
-}
 
 // Rate limiting is handled by Upstash Redis (see utils/rate-limiter.js).
 // checkRateLimits   → daily limits + cooldown for /generate
@@ -1285,83 +1208,16 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.js
         }, 25000);
 
         // Manage Entry to the Queue
-        if (activeGenerations >= MAX_CONCURRENT_GENERATIONS) {
-            if (queue.length >= MAX_QUEUE_DEPTH) {
-                queueLog.warn(ErrorCategory.QUEUE, 'Queue reached hard cap while request was entering queue', {
-                    requestId,
-                    activeGenerations,
-                    queueDepth: queue.length,
-                    maxConcurrent: MAX_CONCURRENT_GENERATIONS,
-                    maxQueueDepth: MAX_QUEUE_DEPTH
-                });
-                writeSse(res, { error: 'QUEUE_FULL', retryAfterSec: PRESSURE_RETRY_AFTER_SEC });
-                completed = true;
-                res.end();
-                return;
-            }
-
-            if (
-                usePipeline &&
-                (
-                    activeGenerations >= PRO_PAUSE_ACTIVE_GENERATIONS ||
-                    queue.length >= PRO_PAUSE_QUEUE_DEPTH
-                )
-            ) {
-                queueLog.warn(ErrorCategory.QUEUE, 'Pro mode request rejected while entering queue due to pressure', {
-                    requestId,
-                    activeGenerations,
-                    queueDepth: queue.length,
-                    proPauseActiveThreshold: PRO_PAUSE_ACTIVE_GENERATIONS,
-                    proPauseQueueThreshold: PRO_PAUSE_QUEUE_DEPTH
-                });
-                writeSse(res, { error: 'PRO_TEMPORARILY_PAUSED', retryAfterSec: PRESSURE_RETRY_AFTER_SEC });
-                completed = true;
-                res.end();
-                return;
-            }
-
-            queueLog.warn(ErrorCategory.QUEUE, 'Generation queued due to concurrency limit', {
-                requestId,
-                activeGenerations,
-                queueDepth: queue.length,
-                maxConcurrent: MAX_CONCURRENT_GENERATIONS
-            });
-                    writeSse(res, { queued: true, position: queue.length + 1 });
-            const obtainedSlot = await new Promise((resolve) => {
-                const item = { resolve: () => resolve(true) };
-                queue.push(item);
-                req.on('close', () => {
-                    const idx = queue.indexOf(item);
-                    if (idx !== -1) {
-                        queue.splice(idx, 1);
-                        queueLog.warn(ErrorCategory.QUEUE, 'Queued request removed because client disconnected', {
-                            requestId,
-                            queueDepth: queue.length
-                        });
-                        resolve(false);
-                    }
-                });
-            });
-            if (!obtainedSlot) {
-                completed = true;
-                return;
-            }
-            hasGenerationSlot = true;
-            writeSse(res, { queued: false });
-            queueLog.info(ErrorCategory.QUEUE, 'Queued request resumed', {
-                requestId,
-                activeGenerations,
-                queueDepth: queue.length
-            });
-        } else {
-            activeGenerations++;
-            hasGenerationSlot = true;
-            queueLog.debug(ErrorCategory.QUEUE, 'Generation started without queue wait', {
-                requestId,
-                activeGenerations,
-                queueDepth: queue.length
-            });
+        const queueResult = await generationQueue.enqueue(req, {
+            requestId,
+            usePipeline,
+            res
+        });
+        if (queueResult === 'rejected' || queueResult === 'disconnected') {
+            completed = true;
+            return;
         }
+        hasGenerationSlot = true;
 
         // Choose generation path: Flash (single-prompt) or Pro (3-stage pipeline)
         const fileContext = await buildGenerationFileContext(req.files, { requestId, log, ErrorCategory });
@@ -1938,15 +1794,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.js
         }
     } finally {
         if (sseKeepAlive) clearInterval(sseKeepAlive);
-        if (hasGenerationSlot) {
-            activeGenerations = Math.max(0, activeGenerations - 1);
-            queueLog.debug(ErrorCategory.QUEUE, 'Generation slot released', {
-                requestId,
-                activeGenerations,
-                queueDepth: queue.length
-            });
-            processQueue();
-        }
+        if (hasGenerationSlot) generationQueue.release();
     }
 });
 
@@ -3180,22 +3028,8 @@ app.post('/finalize-pptx', express.json({ limit: '50mb' }), checkFinalizePressur
         });
     });
 
-    if (activeFinalize >= PUPPETEER_MAX_CONCURRENT) {
-        const obtainedSlot = await new Promise((resolve) => {
-            const item = { resolve: () => resolve(true) };
-            finalizeQueue.push(item);
-            req.on('close', () => {
-                const index = finalizeQueue.indexOf(item);
-                if (index !== -1) {
-                    finalizeQueue.splice(index, 1);
-                    resolve(false);
-                }
-            });
-        });
-        if (!obtainedSlot) return;
-    } else {
-        activeFinalize++;
-    }
+    const obtainedSlot = await finalizeQueueState.enqueue(req, { requestId });
+    if (!obtainedSlot) return;
 
     try {
         const { html, title } = req.body || {};
@@ -3228,8 +3062,7 @@ app.post('/finalize-pptx', express.json({ limit: '50mb' }), checkFinalizePressur
         const status = error.code === 'CONTRACT_VIOLATION' ? 400 : 500;
         if (!res.headersSent) res.status(status).json({ error: 'Error generating PowerPoint: ' + (error.message || error), tipo: error.code === 'CONTRACT_VIOLATION' ? 'contract-violation' : undefined });
     } finally {
-        activeFinalize--;
-        processFinalizeQueue();
+        finalizeQueueState.release();
     }
 });
 
@@ -3247,27 +3080,8 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
         });
     });
 
-    if (activeFinalize >= PUPPETEER_MAX_CONCURRENT) {
-        puppeteerLog.warn(ErrorCategory.QUEUE, 'Puppeteer queued due to concurrency limit', {
-            requestId,
-            activeFinalize,
-            queueDepth: finalizeQueue.length
-        });
-        const obtainedSlot = await new Promise((resolve) => {
-            const item = { resolve: () => resolve(true) };
-            finalizeQueue.push(item);
-            req.on('close', () => {
-                const idx = finalizeQueue.indexOf(item);
-                if (idx !== -1) {
-                    finalizeQueue.splice(idx, 1);
-                    resolve(false);
-                }
-            });
-        });
-        if (!obtainedSlot) return; // Client disconnected
-    } else {
-        activeFinalize++;
-    }
+    const obtainedSlot = await finalizeQueueState.enqueue(req, { requestId, logQueued: true });
+    if (!obtainedSlot) return; // Client disconnected
 
     try {
         const { html, title } = req.body;
@@ -3484,8 +3298,7 @@ app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, ch
         });
         res.status(500).json({ error: 'Error generating PDF: ' + (error.message || error) });
     } finally {
-        activeFinalize--;
-        processFinalizeQueue();
+        finalizeQueueState.release();
     }
 });
 
