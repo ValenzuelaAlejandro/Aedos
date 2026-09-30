@@ -1,14 +1,14 @@
 {
-  "totalWarnings": 278,
+  "totalWarnings": 179,
   "byRule": {
-    "no-undef": 75,
-    "no-empty": 13,
-    "complexity": 53,
-    "max-lines-per-function": 35,
-    "max-lines": 12,
-    "no-unused-vars": 33,
-    "no-shadow": 28,
-    "prefer-const": 27,
+    "no-undef": 15,
+    "no-empty": 11,
+    "complexity": 37,
+    "max-lines-per-function": 27,
+    "max-lines": 11,
+    "no-unused-vars": 29,
+    "no-shadow": 22,
+    "prefer-const": 25,
     "eqeqeq": 2
   },
   "byFile": {
@@ -19,7 +19,7 @@
     "src\\backend\\prompts\\stage1-content.js": 1,
     "src\\backend\\prompts\\stage2-design.js": 2,
     "src\\backend\\prompts\\stage3-compositor.js": 2,
-    "src\\backend\\server.js": 104,
+    "src\\backend\\server.js": 5,
     "src\\backend\\utils\\logger.js": 1,
     "src\\backend\\utils\\pptx-export.js": 11,
     "src\\backend\\utils\\rate-limiter.js": 2,
@@ -36,10 +36,6 @@
     "tests\\pptx-export-advanced.test.js": 1
   },
   "topFiles": [
-    [
-      "src\\backend\\server.js",
-      104
-    ],
     [
       "src\\frontend\\scripts\\app.js",
       74
@@ -63,6 +59,10 @@
     [
       "src\\frontend\\features\\minimap\\minimap.js",
       6
+    ],
+    [
+      "src\\backend\\server.js",
+      5
     ],
     [
       "src\\frontend\\features\\tools\\tools.js",
