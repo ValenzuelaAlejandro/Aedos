@@ -56,6 +56,9 @@ const {
 } = require('./utils/pptx-export');
 
 const { runPipeline, buildLegacyPrompt, extractJson } = require('./prompts/pipeline');
+const { createSkeletonHandler } = require('./pipeline/skeleton');
+const { createOutlineItemHandler } = require('./pipeline/outline-item');
+const { consumeModelStream, runFlashGenerationWithRetry } = require('./pipeline/stream');
 const buildPrompt = require('./prompts/base'); // kept for fallback
 const { buildStage1Prompt, buildStage1RevisionPrompt } = require('./prompts/stage1-content');
 const { buildAddSlidePrompt, buildAddPointPrompt } = require('./prompts/skeleton_prompts');
@@ -602,6 +605,32 @@ const tryModelsStage2Thinking = (prompt, fileContext) => tryModelsStage2(prompt,
 const tryModelsStage3Thinking = (prompt, fileContext) => tryModelsStage3(prompt, fileContext, { includeReasoning: true });
 const tryModels = tryModelsFlash;
 
+const handleGenerateSkeleton = createSkeletonHandler({
+    sanitizeTema: (input) => sanitizeTema(input),
+    buildSkeletonFileContext,
+    buildStage1Prompt,
+    buildStage1RevisionPrompt,
+    tryModelsStage1Thinking,
+    extractJson,
+    setSseHeaders,
+    writeSse,
+    invalidTopic,
+    ERROR_TEXT,
+    MAX_PRO_SLIDES,
+    MAX_FLASH_SLIDES,
+    log,
+    ErrorCategory
+});
+const handleGenerateOutlineItem = createOutlineItemHandler({
+    buildAddSlidePrompt,
+    buildAddPointPrompt,
+    tryModelsStage1,
+    extractJson,
+    ERROR_TEXT,
+    log,
+    ErrorCategory
+});
+
 browserManager.initBrowser();
 
 // Close Puppeteer securely when the server terminates
@@ -682,185 +711,9 @@ function sanitizeTema(input) {
     return { valid: true, tema: cleanedString };
 }
 
-app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
-    const requestId = req.requestId || 'n/a';
-    let cancelled = false;
+app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => handleGenerateSkeleton(req, res));
 
-    // The 'close' event fires when the underlying connection is closed by EITHER
-    // side. When the server ends the response (success or error path) we must NOT
-    // mark the request as cancelled — the loop is either already done or about
-    // to bail out via the error path.
-    res.on('close', () => {
-        if (res.writableEnded) return;
-        cancelled = true;
-    });
-
-    // A crashed/closed browser tab (or a proxy that killed the connection during
-    // a long generation) makes the next res.write() emit an 'error' event on the
-    // response stream. Without a listener Node throws and restarts the whole
-    // process — the "random crash" on Render. Listen, log, and stop the loop.
-    res.on('error', (err) => {
-        log.warn(ErrorCategory.STREAM, 'Skeleton response stream error, marking request cancelled', {
-            requestId,
-            error: String((err && err.message) || err)
-        });
-        cancelled = true;
-    });
-
-    try {
-        const opciones = req.body;
-        const requestedLanguage = req.body.language || req.body.idioma || 'auto';
-        
-        const rawTema = opciones.tema || '';
-        const sanitizeResult = sanitizeTema(String(rawTema));
-        if (!sanitizeResult.valid) {
-            return res.status(400).json(invalidTopic(sanitizeResult.reason));
-        }
-
-        const targetLang = requestedLanguage;
-        
-        const fileContext = await buildSkeletonFileContext(req.files);
-        
-        let currentSkeleton = opciones.currentSkeleton;
-        if (currentSkeleton && typeof currentSkeleton === 'string') {
-            try {
-                currentSkeleton = JSON.parse(currentSkeleton);
-            } catch (e) {
-                // ignore parse errors
-            }
-        }
-
-        const stage1Prompt = currentSkeleton && typeof currentSkeleton === 'object'
-            ? buildStage1RevisionPrompt(sanitizeResult.tema, currentSkeleton, targetLang)
-            : buildStage1Prompt(sanitizeResult.tema, targetLang);
-        // Skeleton generation uses the same model as Stage 1, with reasoning
-        // enabled so the chat UI can stream the model's internal thinking.
-        const stage1Response = await tryModelsStage1Thinking(stage1Prompt, fileContext);
-
-        setSseHeaders(res);
-
-        // Emit provider metadata so the client can show "Powered by X" on the
-        // thinking panel if it wants. Skipped silently if the model isn't
-        // exposed (legacy call shape).
-        if (stage1Response && stage1Response.provider && stage1Response.model) {
-            try {
-                writeSse(res, { metadata: { provider: stage1Response.provider, model: stage1Response.model } });
-            } catch (_) {}
-        }
-
-        let stage1Raw = '';
-        for await (const item of stage1Response.stream) {
-            if (cancelled) {
-                log.warn(ErrorCategory.STREAM, 'Skeleton generation loop stopped because client disconnected', { requestId });
-                break;
-            }
-            // The stream may be a plain text iterator (legacy callers) or a
-            // structured {type,text} iterator (this endpoint). Normalize.
-            if (item && typeof item === 'object' && typeof item.text === 'string') {
-                if (item.type === 'reasoning') {
-                    writeSse(res, { reasoning: item.text });
-                } else {
-                    stage1Raw += item.text;
-                    writeSse(res, { chunk: item.text });
-                }
-            } else if (typeof item === 'string') {
-                stage1Raw += item;
-                writeSse(res, { chunk: item });
-            }
-        }
-
-        if (cancelled) return;
-
-        let contentJson;
-        try {
-            contentJson = extractJson(stage1Raw);
-        } catch (e) {
-            res.write(`data: ${JSON.stringify({ error: `Failed to parse AI output as JSON: ${e.message}` })}\n\n`);
-            res.end();
-            return;
-        }
-
-        if (contentJson.rejected) {
-            res.write(`data: ${JSON.stringify({ error: 'CONTENT_REJECTED: ' + (contentJson.reason || 'Invalid topic') })}\n\n`);
-            res.end();
-            return;
-        }
-
-        if (contentJson.action === 'proceed') {
-            res.write(`data: ${JSON.stringify({ done: true, skeleton: { action: 'proceed' } })}\n\n`);
-            res.end();
-            return;
-        }
-
-        if (!contentJson.slides || !Array.isArray(contentJson.slides) || contentJson.slides.length === 0) {
-            writeSse(res, { error: 'STAGE1_INVALID: AI output has no slides array' });
-            res.end();
-            return;
-        }
-
-        const maxSlides = req.body.mode === 'pro' ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES;
-        if (contentJson.slides.length > maxSlides) {
-            contentJson.slides = contentJson.slides.slice(0, maxSlides);
-            contentJson.slide_count = maxSlides;
-        }
-
-        writeSse(res, { done: true, skeleton: contentJson });
-        res.end();
-    } catch (err) {
-        log.error(ErrorCategory.PIPELINE, 'Failed to generate skeleton', { requestId, error: err.message });
-        if (!res.headersSent) {
-            res.status(500).json({ error: ERROR_TEXT.OUTLINE_FAILED });
-        } else {
-            try {
-                writeSse(res, { error: ERROR_TEXT.OUTLINE_FAILED });
-                res.end();
-            } catch (e) {}
-        }
-    }
-});
-
-app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
-    const requestId = req.requestId || 'n/a';
-    try {
-        const { type, topic, ...context } = req.body;
-        let prompt = '';
-        
-        if (type === 'slide') {
-            prompt = buildAddSlidePrompt(topic, context.existingSlides);
-        } else if (type === 'point') {
-            prompt = buildAddPointPrompt(topic, context.slideTitle, context.slideSubtitle, context.existingPoints);
-        } else {
-            return res.status(400).json({ error: ERROR_TEXT.INVALID_ITEM_TYPE });
-        }
-
-        // For outline items, we use flash lite to make it fast
-        const rawOutputResponse = await tryModelsStage1(prompt, null);
-        let rawOutput = '';
-        for await (const chunk of rawOutputResponse.stream) {
-            rawOutput += chunk;
-        }
-
-        let itemJson;
-        try {
-            itemJson = extractJson(rawOutput);
-        } catch (e) {
-            throw new Error(`Failed to parse AI output as JSON: ${e.message}`);
-        }
-
-        // Validate required fields before returning
-        if (!itemJson || typeof itemJson !== 'object') {
-            throw new Error('Invalid AI response format for outline item');
-        }
-        if (!itemJson.title) itemJson.title = '';
-        if (!itemJson.role) itemJson.role = 'concept';
-        if (!Array.isArray(itemJson.key_points)) itemJson.key_points = [];
-
-        res.json({ item: itemJson });
-    } catch (err) {
-        log.error(ErrorCategory.PIPELINE, 'Failed to generate outline item', { requestId, error: err.message });
-        res.status(500).json({ error: ERROR_TEXT.ITEM_FAILED });
-    }
-});
+app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => handleGenerateOutlineItem(req, res));
 
 app.post('/generate', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.json({ limit: '50kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
     let cancelled = false;
@@ -1005,201 +858,26 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.js
         // Choose generation path: Flash (single-prompt) or Pro (3-stage pipeline)
         const fileContext = await buildGenerationFileContext(req.files, { requestId, log, ErrorCategory });
 
-        // ── Flash mode retry helper ─────────────────────────────────────────────
-        // Flash mode is a single streaming call (no staged pipeline), so the
-        // per-stage retry used in Pro mode doesn't apply. Instead we wrap the
-        // whole "tryModels + stream + validation" sequence in a retry loop.
-        // The underlying callWithFallback already retries 503s and falls back to
-        // OpenRouter; this loop specifically targets the post-call failure mode
-        // where the model returns 200 OK but the output is unusable (no design
-        // CSS, parse error before any CSS was streamed, etc.). CONTENT_REJECTED
-        // / explicit refusals are NOT retried because re-prompting the same
-        // topic will just get rejected again.
-        const FLASH_MAX_RETRIES = 2;
-        async function runFlashGenerationWithRetry() {
-            let lastError;
-            for (let attempt = 1; attempt <= FLASH_MAX_RETRIES + 1; attempt++) {
-                if (cancelled) throw new Error('GENERATION_CANCELLED');
-
-                if (attempt > 1) {
-                    res.write(`data: ${JSON.stringify({
-                        pipeline: true,
-                        stage: 'flash',
-                        status: 'retrying',
-                        attempt: attempt - 1,
-                        maxAttempts: FLASH_MAX_RETRIES + 1,
-                        error: lastError ? lastError.message : 'AI returned bad output'
-                    })}\n\n`);
-                    await new Promise(r => setTimeout(r, 500 * (attempt - 1)));
-                    if (cancelled) throw new Error('GENERATION_CANCELLED');
-                }
-
-                const prompt = buildPrompt(opciones);
-                log.info(ErrorCategory.PIPELINE,
-                    `Running flash generation path (attempt ${attempt}/${FLASH_MAX_RETRIES + 1})`, {
-                    requestId
-                });
-                // Flash mode streams only the generated HTML/content. Unlike
-                // the staged chat flows, we intentionally hide model reasoning
-                // here to avoid exposing internal thinking in the UI.
-                const flashResult = await tryModelsFlash(prompt, fileContext);
-
-                // Consume the stream into a local buffer. The same cleanup/
-                // forwards-to-client logic used by Pro mode applies here; only
-                // the retry semantics differ. On the next attempt the iframe
-                // will receive a fresh batch of chunks appended to whatever
-                // it already had — the final `done` event carries the full
-                // HTML so the editor always uses the latest valid output.
-                const consumed = await consumeModelStream(
-                    flashResult, res, requestId,
-                    () => cancelled, slideHardLimit
-                );
-
-                const fullHtml = consumed.fullHtml;
-                const hasDesignCss = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(fullHtml)
-                    || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(fullHtml);
-
-                if (!hasDesignCss) {
-                    lastError = new Error('FLASH_NO_DESIGN_CSS: The AI generated a presentation without design CSS');
-                    log.warn(ErrorCategory.PIPELINE,
-                        `Flash attempt ${attempt}/${FLASH_MAX_RETRIES + 1}: no design CSS in output`, {
-                        requestId,
-                        outputChars: fullHtml.length
-                    });
-                    if (attempt > FLASH_MAX_RETRIES) throw lastError;
-                    continue;
-                }
-
-                // Success
-                return { result: flashResult, fullHtml, hasStartedValidContent: consumed.hasStartedValidContent };
-            }
-            // Unreachable (loop either returns or throws) but keep linter happy.
-            throw lastError;
-        }
-
-        // ── Shared stream consumer ──────────────────────────────────────────────
-        // Reads chunks from the model stream, strips backticks / <script> /
-        // <link> tags, and forwards them to the SSE response. Returns the
-        // accumulated raw HTML and a flag indicating whether the document
-        // body has started streaming. Throws if the underlying stream errors;
-        // parse-error recovery is handled by the caller (the Flash retry
-        // wrapper re-runs the generation; the Pro path can recover inline
-        // because it always starts from a validated Stage 3 prompt).
-        //
-        // Supports both legacy text-yielding streams and the structured
-        // {type:'content'|'reasoning', text} streams used by the chat UX.
-        // Reasoning tokens are forwarded as separate SSE `reasoning` events
-        // so the client can show the model's internal thinking in real time.
-        async function consumeModelStream(streamResult, res, requestId, cancelledRef, slideHardLimit) {
-            let fullHtml = '';
-            let hasStartedValidContent = false;
-            let streamSlideCount = 0;
-            const maxStreamChars = 2_000_000;
-            const slideTagRegex = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
-
-            function cleanSSEChunk(text) {
-                let c = text.replace(/```html\n?/g, '').replace(/```\n?/g, '');
-                c = c.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-                c = c.replace(/<script[^>]*>/gi, '');
-                c = c.replace(/<script\b[^>]*/gi, '');
-                c = c.replace(/<\/script>/gi, '');
-                c = c.replace(/<link[^>]*\/?>/gi, '');
-                c = c.replace(/<link\b[^>]*/gi, '');
-                return c;
-            }
-
-            if (streamResult.provider && streamResult.model) {
-                res.write(`data: ${JSON.stringify({ metadata: { provider: streamResult.provider, model: streamResult.model } })}\n\n`);
-            }
-
-            try {
-                for await (const item of streamResult.stream) {
-                    if (cancelledRef()) {
-                        log.warn(ErrorCategory.STREAM, 'Generation loop stopped because client disconnected', {
-                            requestId
-                        });
-                        break;
-                    }
-                    // Never write to a dead socket: prevents a pointless 'error'
-                    // event burst and lets the loop end gracefully.
-                    if (res.writableEnded || res.destroyed) break;
-
-                    // Normalize structured vs. plain-text stream shapes.
-                    let chunkText = null;
-                    if (item && typeof item === 'object' && typeof item.text === 'string') {
-                        if (item.type === 'reasoning') {
-                            // Forward reasoning tokens untouched — the client
-                            // decides how to display them. We don't accumulate
-                            // them into fullHtml because they aren't HTML.
-                            try {
-                                res.write(`data: ${JSON.stringify({ reasoning: item.text })}\n\n`);
-                            } catch (_) { /* ignore broken pipe mid-write */ }
-                            continue;
-                        }
-                        chunkText = item.text;
-                    } else if (typeof item === 'string') {
-                        chunkText = item;
-                    }
-                    if (!chunkText) continue;
-
-                    const matches = chunkText.match(slideTagRegex);
-                    if (matches) {
-                        streamSlideCount += matches.length;
-                        if (streamSlideCount > slideHardLimit) {
-                            log.warn(ErrorCategory.VALIDATION, 'Stream exceeded slide hard limit, stopping generation', {
-                                requestId,
-                                streamSlideCount,
-                                slideHardLimit
-                            });
-                            break;
-                        }
-                    }
-
-                    fullHtml += chunkText;
-                    if (fullHtml.length > maxStreamChars) {
-                        log.warn(ErrorCategory.VALIDATION, 'Generation stream exceeded HTML size limit', {
-                            requestId,
-                            maxStreamChars
-                        });
-                        throw new Error('GENERATION_OUTPUT_TOO_LARGE');
-                    }
-
-                    let cleanChunk = cleanSSEChunk(chunkText);
-
-                    if (!hasStartedValidContent) {
-                        const matchIdx = fullHtml.indexOf('<!-- CONFIG');
-                        const htmlIdx = fullHtml.indexOf('<html');
-
-                        if (matchIdx !== -1) {
-                            hasStartedValidContent = true;
-                            cleanChunk = cleanSSEChunk(fullHtml.substring(matchIdx));
-                            res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                        } else if (htmlIdx !== -1) {
-                            hasStartedValidContent = true;
-                            cleanChunk = cleanSSEChunk(fullHtml.substring(htmlIdx));
-                            res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                        } else if (fullHtml.length > 500) {
-                            hasStartedValidContent = true;
-                            cleanChunk = cleanSSEChunk(fullHtml);
-                            res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                        }
-                    } else {
-                        res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
-                    }
-                }
-            } catch (streamErr) {
-                throw streamErr;
-            }
-
-            return { fullHtml, hasStartedValidContent, streamSlideCount };
-        }
-
         let fullHtml = '';
         let hasStartedValidContent = false;
 
         if (!usePipeline) {
             // Flash mode — single-prompt path with retry on bad output
-            const flashOut = await runFlashGenerationWithRetry();
+            const flashOut = await runFlashGenerationWithRetry({
+                cancelledRef: () => cancelled,
+                res,
+                requestId,
+                opciones,
+                fileContext,
+                slideHardLimit,
+                tryModelsFlash,
+                buildPrompt,
+                log,
+                ErrorCategory,
+                consumeStream: (streamResult, response, id, cancelledRef, hardLimit) => consumeModelStream(
+                    { log, ErrorCategory }, streamResult, response, id, cancelledRef, hardLimit
+                )
+            });
             fullHtml = flashOut.fullHtml;
             hasStartedValidContent = flashOut.hasStartedValidContent;
         } else {
@@ -1269,6 +947,7 @@ app.post('/generate', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.js
             });
 
             const proStream = await consumeModelStream(
+                { log, ErrorCategory },
                 pipelineResult.stage3Stream,
                 res, requestId, () => cancelled, slideHardLimit
             );
