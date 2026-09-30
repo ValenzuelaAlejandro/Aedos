@@ -142,7 +142,7 @@ function sendJson(server, body) {
     });
 }
 
-test('HTTP request normalizers match current generation preflight in 48 cases', async () => {
+test('HTTP request normalizers match current generation preflight in 50 cases', async () => {
     const app = express();
     app.use(express.json({ limit: '50kb' }));
     app.post('/generate', (req, res) => {
