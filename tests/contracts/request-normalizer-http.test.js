@@ -6,7 +6,10 @@ const express = require('express');
 const { createGenerateHandler } = require('../../src/backend/http/routes/generate');
 const { sanitizeTema } = require('../../src/backend/server');
 const {
-    normalizeGenerationRequest,
+    normalizeValidatedLanguage,
+    normalizeSlides,
+    normalizeSkeletonValue,
+    normalizeTopic,
 } = require('../../src/backend/contracts/request-normalizers');
 
 const ERROR_TEXT = { SKELETON_EMPTY: 'SKELETON_EMPTY', API_KEY_MISSING: 'API_KEY_MISSING' };
@@ -47,21 +50,39 @@ function createHandler() {
         buildFileStemFromTitle: noop,
         resolveUniqueHtmlPath: noop,
         EXAMPLES_FLASH_DIR: '',
-        EXAMPLES_PRO_DIR: ''
+        EXAMPLES_PRO_DIR: '',
     });
 }
 
 function expectedResponse(body) {
-    const normalized = normalizeGenerationRequest(body, sanitizeTema);
+    const normalized = {
+        language: normalizeValidatedLanguage(body),
+        slides: normalizeSlides(body),
+        skeleton: normalizeSkeletonValue(body?.skeleton),
+        topic: normalizeTopic(body?.tema, sanitizeTema),
+    };
     const skeleton = normalized.skeleton;
     if (skeleton && typeof skeleton === 'object') {
-        if (skeleton.action === 'proceed' || !Array.isArray(skeleton.slides) || skeleton.slides.length === 0) {
+        if (
+            skeleton.action === 'proceed' ||
+            !Array.isArray(skeleton.slides) ||
+            skeleton.slides.length === 0
+        ) {
             return { status: 400, body: { error: ERROR_TEXT.SKELETON_EMPTY } };
         }
     }
-    if (!normalized.topic.valid) return { status: 400, body: { error: 'INVALID_TOPIC', reason: normalized.topic.reason } };
-    if (!normalized.slides.valid) return { status: 422, body: { error: 'VALIDATION_FAILED', fields: normalized.slides.fields } };
-    if (!normalized.language.valid) return { status: 422, body: { error: 'VALIDATION_FAILED', fields: normalized.language.fields } };
+    if (!normalized.topic.valid)
+        return { status: 400, body: { error: 'INVALID_TOPIC', reason: normalized.topic.reason } };
+    if (!normalized.slides.valid)
+        return {
+            status: 422,
+            body: { error: 'VALIDATION_FAILED', fields: normalized.slides.fields },
+        };
+    if (!normalized.language.valid)
+        return {
+            status: 422,
+            body: { error: 'VALIDATION_FAILED', fields: normalized.language.fields },
+        };
     return { status: 500, body: { error: ERROR_TEXT.API_KEY_MISSING } };
 }
 
@@ -116,7 +137,7 @@ function makeCases() {
         { tema: 'Tema', skeleton: '{"slides":[]}' },
         { tema: 'Tema', currentSkeleton: '{"slides":[1]}', slides: '2' },
         { tema: 'Tema', language: 'en', idioma: 'es', slides: '2' },
-        { tema: 'Tema', mode: 'other', slides: '2' }
+        { tema: 'Tema', mode: 'other', slides: '2' },
     ];
     assert.equal(cases.length, 50);
     return cases;
@@ -125,18 +146,23 @@ function makeCases() {
 function sendJson(server, body) {
     return new Promise((resolve, reject) => {
         const address = server.address();
-        const request = http.request({
-            hostname: '127.0.0.1',
-            port: address.port,
-            path: '/generate',
-            method: 'POST',
-            headers: { 'content-type': 'application/json' }
-        }, (response) => {
-            let data = '';
-            response.setEncoding('utf8');
-            response.on('data', (chunk) => { data += chunk; });
-            response.on('end', () => resolve({ status: response.statusCode, body: data }));
-        });
+        const request = http.request(
+            {
+                hostname: '127.0.0.1',
+                port: address.port,
+                path: '/generate',
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+            },
+            (response) => {
+                let data = '';
+                response.setEncoding('utf8');
+                response.on('data', (chunk) => {
+                    data += chunk;
+                });
+                response.on('end', () => resolve({ status: response.statusCode, body: data }));
+            },
+        );
         request.on('error', reject);
         request.end(JSON.stringify(body));
     });

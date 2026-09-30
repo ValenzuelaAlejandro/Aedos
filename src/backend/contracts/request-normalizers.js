@@ -43,20 +43,6 @@ function normalizeTopic(value, sanitizeTopic) {
     return { valid: true, tema: result.tema.substring(0, MAX_TOPIC_CHARACTERS) };
 }
 
-function normalizeGenerationRequest(body, sanitizeTopic) {
-    const input = body || {};
-    return {
-        mode: normalizeMode(input),
-        requestedLanguage: normalizeRequestedLanguage(input),
-        language: normalizeValidatedLanguage(input),
-        slides: normalizeSlides(input),
-        topic: normalizeTopic(input.tema, sanitizeTopic),
-        skeleton: normalizeSkeletonValue(input.skeleton),
-        currentSkeleton: normalizeSkeletonValue(input.currentSkeleton),
-        hasAttachments: Array.isArray(input.files) && input.files.length > 0,
-    };
-}
-
 module.exports = {
     VALID_LANGUAGES,
     normalizeMode,
@@ -65,5 +51,4 @@ module.exports = {
     normalizeSlides,
     normalizeSkeletonValue,
     normalizeTopic,
-    normalizeGenerationRequest,
 };

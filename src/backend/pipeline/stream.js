@@ -1,4 +1,5 @@
 /* eslint-disable max-lines-per-function, complexity */
+const { formatSseEvent } = require('../contracts/sse');
 /**
  * @typedef {object} StreamDependencies
  * @property {Function} tryModelsFlash flash provider caller
@@ -37,7 +38,7 @@ async function consumeModelStream(deps, streamResult, res, requestId, cancelledR
     }
 
     if (streamResult.provider && streamResult.model) {
-        res.write(`data: ${JSON.stringify({ metadata: { provider: streamResult.provider, model: streamResult.model } })}\n\n`);
+        res.write(formatSseEvent({ metadata: { provider: streamResult.provider, model: streamResult.model } }));
     }
 
     for await (const item of streamResult.stream) {
@@ -51,7 +52,7 @@ async function consumeModelStream(deps, streamResult, res, requestId, cancelledR
             if (item && typeof item === 'object' && typeof item.text === 'string') {
                 if (item.type === 'reasoning') {
                     try {
-                        res.write(`data: ${JSON.stringify({ reasoning: item.text })}\n\n`);
+                        res.write(formatSseEvent({ reasoning: item.text }));
                     } catch (_) { /* ignore broken pipe mid-write */ }
                     continue;
                 }
@@ -90,18 +91,18 @@ async function consumeModelStream(deps, streamResult, res, requestId, cancelledR
                 if (matchIdx !== -1) {
                     hasStartedValidContent = true;
                     cleanChunk = cleanSSEChunk(fullHtml.substring(matchIdx));
-                    res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                    res.write(formatSseEvent({ chunk: cleanChunk }));
                 } else if (htmlIdx !== -1) {
                     hasStartedValidContent = true;
                     cleanChunk = cleanSSEChunk(fullHtml.substring(htmlIdx));
-                    res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                    res.write(formatSseEvent({ chunk: cleanChunk }));
                 } else if (fullHtml.length > 500) {
                     hasStartedValidContent = true;
                     cleanChunk = cleanSSEChunk(fullHtml);
-                    res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                    res.write(formatSseEvent({ chunk: cleanChunk }));
                 }
             } else {
-                res.write(`data: ${JSON.stringify({ chunk: cleanChunk })}\n\n`);
+                res.write(formatSseEvent({ chunk: cleanChunk }));
             }
     }
     return { fullHtml, hasStartedValidContent, streamSlideCount };
@@ -122,14 +123,14 @@ async function runFlashGenerationWithRetry(deps) {
     for (let attempt = 1; attempt <= FLASH_MAX_RETRIES + 1; attempt++) {
         if (cancelledRef()) throw new Error('GENERATION_CANCELLED');
         if (attempt > 1) {
-            res.write(`data: ${JSON.stringify({
+            res.write(formatSseEvent({
                 pipeline: true,
                 stage: 'flash',
                 status: 'retrying',
                 attempt: attempt - 1,
                 maxAttempts: FLASH_MAX_RETRIES + 1,
                 error: lastError ? lastError.message : 'AI returned bad output'
-            })}\n\n`);
+            }));
             await new Promise(r => setTimeout(r, 500 * (attempt - 1)));
             if (cancelledRef()) throw new Error('GENERATION_CANCELLED');
         }

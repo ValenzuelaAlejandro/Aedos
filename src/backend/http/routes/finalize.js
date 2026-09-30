@@ -2,6 +2,7 @@
 
 const express = require('express');
 const fs = require('fs');
+const { powerPointError, pdfError } = require('../../contracts/errors');
 
 /**
  * Register PDF and editable PowerPoint finalization endpoints.
@@ -43,7 +44,7 @@ function registerFinalizeRoutes({
                 error
             });
             const status = error.code === 'CONTRACT_VIOLATION' ? 400 : 500;
-            if (!res.headersSent) res.status(status).json({ error: 'Error generating PowerPoint: ' + (error.message || error), tipo: error.code === 'CONTRACT_VIOLATION' ? 'contract-violation' : undefined });
+            if (!res.headersSent) res.status(status).json(powerPointError(error.message || error, error.code === 'CONTRACT_VIOLATION'));
         } finally {
             finalizeQueueState.release();
         }
@@ -105,7 +106,7 @@ function registerFinalizeRoutes({
                 requestId,
                 error
             });
-            res.status(500).json({ error: 'Error generating PDF: ' + (error.message || error) });
+            res.status(500).json(pdfError(error.message || error));
         } finally {
             finalizeQueueState.release();
         }

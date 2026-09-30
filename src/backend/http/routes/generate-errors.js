@@ -1,4 +1,6 @@
 /* eslint-disable complexity */
+const { sseError } = require('../../contracts/errors');
+const { formatSseEvent } = require('../../contracts/sse');
 
 /**
  * Preserve the generation endpoint's error classification and response map.
@@ -46,7 +48,7 @@ function handleGenerationError({ error, requestId, res, log, classifyError, Erro
         res.status(isQuotaError ? 429 : 500).json({ error: userMessage });
         markCompleted();
     } else {
-        res.write(`data: ${JSON.stringify({ error: userMessage })}\n\n`);
+        res.write(formatSseEvent(sseError(userMessage)));
         res.end();
         markCompleted();
     }
