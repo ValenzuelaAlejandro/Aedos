@@ -12,12 +12,17 @@ jobs:
                 node: [20, 22]
         env:
             PUPPETEER_SKIP_DOWNLOAD: 'true'
+            PUPPETEER_CACHE_DIR: ${{ github.workspace }}/puppeteer-cache
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
               with:
                   node-version: ${{ matrix.node }}
                   cache: npm
+            - uses: actions/cache@v4
+              with:
+                  path: puppeteer-cache
+                  key: ${{ runner.os }}-node-${{ matrix.node }}-puppeteer-${{ hashFiles('package-lock.json') }}
             - run: npm ci --ignore-scripts
             - run: npm test
             - run: npm run test:contract
