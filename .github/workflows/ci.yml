@@ -31,6 +31,10 @@ jobs:
             - run: npm run check:dom
             - run: npm run verify:quality
             - run: npm run verify:pptx:baseline
+              env:
+                  NODE_ENV: test
+                  GEMINI_API_KEY: ci-stub
+                  AEDOS_TEST_STUB_PROVIDERS: '1'
             - run: npm run check:baseline:export
             # Visual and PDF baselines are intentionally excluded: their fonts,
             # Chromium rendering, and generated output are Windows-specific here.
