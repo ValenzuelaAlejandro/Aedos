@@ -2,3 +2,4 @@
 *.json text eol=lf
 *.html text eol=lf
 *.yml text eol=lf
+* text=auto eol=lf
