@@ -14,7 +14,7 @@ const {
     MAX_EXPORT_HTML_BYTES,
     DOWNLOAD_TTL_MS,
 } = require('./contracts/limits');
-const { ENV_NAMES, DEFAULTS } = require('./contracts/config-defaults');
+const { createModelConfig } = require('./config/models');
 const { loadEnvConfig } = require('./config/env');
 const {
     queueFullGeneration,
@@ -154,75 +154,19 @@ const EXAMPLES_FLASH_DIR = path.join(EXAMPLES_DIR, 'flash');
 const EXAMPLES_PRO_DIR = path.join(EXAMPLES_DIR, 'pro');
 
 
-// Global fallback list for OpenRouter when callOpenRouter is invoked without
-// an explicit stage list. Keep Stage3-only models (like minimax) out of here.
-function parseModelList(rawValue, fallbackCsv) {
-    return (rawValue || fallbackCsv)
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
-}
-
-// OpenRouter fallback model lists (read from .env)
-const OPENROUTER_MODELS_FLASH = parseModelList(
-    process.env[ENV_NAMES.OPENROUTER_MODELS_FLASH],
-    DEFAULTS.OPENROUTER_MODELS_FLASH
-);
-const OPENROUTER_MODELS_STAGE1 = parseModelList(
-    process.env[ENV_NAMES.OPENROUTER_MODELS_STAGE1],
-    DEFAULTS.OPENROUTER_MODELS_STAGE1
-);
-const OPENROUTER_MODELS_STAGE2 = parseModelList(
-    process.env[ENV_NAMES.OPENROUTER_MODELS_STAGE2],
-    DEFAULTS.OPENROUTER_MODELS_STAGE2
-);
-const OPENROUTER_MODELS_STAGE3 = parseModelList(
-    process.env[ENV_NAMES.OPENROUTER_MODELS_STAGE3],
-    DEFAULTS.OPENROUTER_MODELS_STAGE3
-);
-
-const OPENROUTER_MODEL_LIST = OPENROUTER_MODELS_FLASH;
-
-// Models that must never run outside Stage3 (configured in .env).
-const OPENROUTER_MODELS_STAGE3_ONLY = parseModelList(
-    process.env[ENV_NAMES.OPENROUTER_MODELS_STAGE3_ONLY],
-    DEFAULTS.OPENROUTER_MODELS_STAGE3_ONLY
-).map(model => String(model).trim().toLowerCase());
-
-// Per-stage reasoning effort for OpenRouter fallback.
-// Accepted values: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
-// Not all models support all values — OpenRouter ignores unsupported efforts.
-// DeepSeek V4 Flash specifically supports 'high' and 'xhigh' only, but we
-// keep 'low' / 'medium' here because the user asked for them and the
-// upstream layer maps unsupported efforts to a sensible default.
-const OPENROUTER_REASONING_FLASH  = (process.env.OPENROUTER_REASONING_FLASH  || 'low').trim().toLowerCase();
-const OPENROUTER_REASONING_STAGE1 = (process.env.OPENROUTER_REASONING_STAGE1 || 'medium').trim().toLowerCase();
-const OPENROUTER_REASONING_STAGE2 = (process.env.OPENROUTER_REASONING_STAGE2 || 'medium').trim().toLowerCase();
-const OPENROUTER_REASONING_STAGE3 = (process.env.OPENROUTER_REASONING_STAGE3 || 'medium').trim().toLowerCase();
-
-const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
-
-function reasoningForStage(stageName) {
-    let effort;
-    switch (stageName) {
-        case 'Flash':  effort = OPENROUTER_REASONING_FLASH;  break;
-        case 'Stage1': effort = OPENROUTER_REASONING_STAGE1; break;
-        case 'Stage2': effort = OPENROUTER_REASONING_STAGE2; break;
-        case 'Stage3': effort = OPENROUTER_REASONING_STAGE3; break;
-        default:       effort = 'low';
-    }
-    if (!VALID_REASONING_EFFORTS.has(effort)) effort = 'low';
-    // 'none' maps to enabled:false in OpenRouter's reasoning object
-    if (effort === 'none') return null;
-    return { effort };
-}
-
-// Gemini direct API primary models (read from .env)
-const GEMINI_MODEL_FLASH  = (process.env[ENV_NAMES.GEMINI_MODELS_FLASH]  || DEFAULTS.GEMINI_MODELS_FLASH).trim();
-const GEMINI_MODEL_STAGE1 = (process.env[ENV_NAMES.GEMINI_MODELS_STAGE1] || DEFAULTS.GEMINI_MODELS_STAGE1).trim();
-const GEMINI_MODEL_STAGE2 = (process.env[ENV_NAMES.GEMINI_MODELS_STAGE2] || DEFAULTS.GEMINI_MODELS_STAGE2).trim();
-const GEMINI_MODEL_STAGE3 = (process.env[ENV_NAMES.GEMINI_MODELS_STAGE3] || DEFAULTS.GEMINI_MODELS_STAGE3).trim();
-
+const {
+    OPENROUTER_MODELS_FLASH,
+    OPENROUTER_MODELS_STAGE1,
+    OPENROUTER_MODELS_STAGE2,
+    OPENROUTER_MODELS_STAGE3,
+    OPENROUTER_MODEL_LIST,
+    OPENROUTER_MODELS_STAGE3_ONLY,
+    GEMINI_MODEL_FLASH,
+    GEMINI_MODEL_STAGE1,
+    GEMINI_MODEL_STAGE2,
+    GEMINI_MODEL_STAGE3,
+    reasoningForStage
+} = createModelConfig(process.env);
 // Rate limiting is handled by Upstash Redis (see utils/rate-limiter.js).
 // checkRateLimits   → daily limits + cooldown for /generate
 // checkFinalizeLimits → window limit for /finalize
