@@ -25,6 +25,7 @@ jobs:
             - run: npm run test:provider-timeout
             - run: npm run check:dom
             - run: npm run verify:quality
+            - run: npm run verify:pptx:baseline
             - run: npm run check:baseline:export
             # Visual and PDF baselines are intentionally excluded: their fonts,
             # Chromium rendering, and generated output are Windows-specific here.
