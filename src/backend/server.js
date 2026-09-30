@@ -2,7 +2,6 @@ if (process.env.NODE_ENV !== 'test') {
     require('dotenv').config();
 }
 const express = require('express');
-const cors = require('cors');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
@@ -62,6 +61,11 @@ const { consumeModelStream, runFlashGenerationWithRetry } = require('./pipeline/
 const buildPrompt = require('./prompts/base'); // kept for fallback
 const { buildStage1Prompt, buildStage1RevisionPrompt } = require('./prompts/stage1-content');
 const { buildAddSlidePrompt, buildAddPointPrompt } = require('./prompts/skeleton_prompts');
+const { createCorsMiddleware } = require('./http/middleware/cors');
+const { createRequestLoggingMiddleware } = require('./http/middleware/request-logging');
+const { createSecurityHeadersMiddleware } = require('./http/middleware/security-headers');
+const { createCanonicalRedirectMiddleware } = require('./http/middleware/canonical-redirect');
+const { createStaticFilesMiddleware } = require('./http/middleware/static-files');
 
 const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
 const { normalizeExportWarning, countExportWarnings } = require('./utils/export-warnings');
@@ -152,7 +156,6 @@ const IS_DEVELOPMENT = RUNTIME_ENV === 'development';
 const EXAMPLES_DIR = path.join(__dirname, '..', '..', 'examples');
 const EXAMPLES_FLASH_DIR = path.join(EXAMPLES_DIR, 'flash');
 const EXAMPLES_PRO_DIR = path.join(EXAMPLES_DIR, 'pro');
-let requestSequence = 0;
 
 
 // Global fallback list for OpenRouter when callOpenRouter is invoked without
@@ -232,65 +235,7 @@ if (SHOULD_PRINT_STARTUP_BANNER) {
     log.banner(AEDOS_LOGO, 'cyan');
 }
 
-// CORS Configuration
-function buildCorsOptions() {
-    const env = process.env.NODE_ENV || 'development';
-    const rawOrigins = process.env.ALLOWED_ORIGINS || '';
-
-    let allowedOrigins = [];
-
-    if (env === 'production') {
-        if (!rawOrigins) {
-            throw new Error(
-                'ALLOWED_ORIGINS environment variable is required in production.\n' +
-                'Example: ALLOWED_ORIGINS=https://aedos.app,https://www.aedos.app'
-            );
-        }
-        allowedOrigins = rawOrigins.split(',').map(o => o.trim()).filter(Boolean);
-
-        // Validate each origin
-        for (const origin of allowedOrigins) {
-            if (!origin.startsWith('https://') || origin.endsWith('/') || origin.includes('*')) {
-                throw new Error(
-                    `Invalid origin in ALLOWED_ORIGINS: "${origin}"\n` +
-                    'Each origin must start with https://, have no trailing slash, and no wildcards.'
-                );
-            }
-        }
-    } else {
-        // Development: allow localhost with a warning
-        allowedOrigins = [
-            'http://localhost:3000',
-            'http://localhost:5173',
-            'http://127.0.0.1:3000'
-        ];
-        log.warn(ErrorCategory.CONFIG, 'Using development fallback CORS origins', {
-            allowedOrigins
-        });
-    }
-
-    return {
-        origin: (origin, callback) => {
-            // Allow server-to-server (no origin header) only in development
-            if (!origin) {
-                // Allow requests with no origin (healthchecks, server-to-server, curl)
-                return callback(null, true);
-            }
-            if (allowedOrigins.includes(origin)) {
-                return callback(null, true);
-            }
-            log.warn(ErrorCategory.SECURITY, 'CORS origin rejected', { origin });
-            return callback(new Error('Not allowed by CORS'), false);
-        },
-        methods: ['GET', 'POST'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
-        credentials: false,
-        maxAge: 600,
-        optionsSuccessStatus: 204
-    };
-}
-
-app.use(cors(buildCorsOptions()));
+app.use(createCorsMiddleware({ log, ErrorCategory }));
 
 function validateEnvironment() {
     const checks = [
@@ -340,130 +285,20 @@ function validateEnvironment() {
 
 validateEnvironment();
 
-function shouldTraceRequest(req) {
-    const target = req.path || req.originalUrl || '';
-    return target === '/' ||
-        target.startsWith('/health') ||
-        target.startsWith('/generate') ||
-        target.startsWith('/finalize') ||
-        target.startsWith('/download') ||
-        target.startsWith('/__dev__');
-}
+app.use(createRequestLoggingMiddleware({ log, ErrorCategory }));
 
-app.use((req, res, next) => {
-    requestSequence += 1;
-    const requestId = `${Date.now().toString(36)}-${requestSequence.toString(36)}`;
-    const startedAt = process.hrtime.bigint();
-    req.requestId = requestId;
-    res.setHeader('X-Request-Id', requestId);
-
-    if (shouldTraceRequest(req)) {
-        log.http(ErrorCategory.HTTP, 'Request started', {
-            requestId,
-            method: req.method,
-            path: req.originalUrl,
-            ip: req.ip
-        });
-    }
-
-    res.on('finish', () => {
-        if (!shouldTraceRequest(req)) return;
-        const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
-        const payload = {
-            requestId,
-            method: req.method,
-            path: req.originalUrl,
-            status: res.statusCode,
-            durationMs: Number(elapsedMs.toFixed(1)),
-            ip: req.ip
-        };
-
-        if (res.statusCode >= 500) {
-            log.error(ErrorCategory.HTTP, 'Request failed', payload);
-            return;
-        }
-        if (res.statusCode >= 400) {
-            log.warn(ErrorCategory.HTTP, 'Request completed with client error', payload);
-            return;
-        }
-        log.http(ErrorCategory.HTTP, 'Request completed', payload);
-    });
-
-    next();
-});
-
-// Security Headers Middleware
-app.use((req, res, next) => {
-    // HSTS — only meaningful over HTTPS (Render/proxies set x-forwarded-proto)
-    if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
-        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    }
-    // Prevent clickjacking
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    // Prevent MIME-type sniffing
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    // Control referrer information
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    // Restrict browser features not used by the app
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
-    // Content Security Policy
-    // External resources used: Google Fonts, unpkg (Lucide, Motion, mobile-drag-drop), cdnjs (GSAP)
-    // NOTE: 'unsafe-inline' in style-src is required for AI-generated slide HTML loaded via
-    // iframe srcdoc — those slides contain extensive inline styles that cannot be pre-hashed.
-    res.setHeader(
-        'Content-Security-Policy',
-        [
-            "default-src 'self'",
-            "script-src 'self' https://unpkg.com https://cdnjs.cloudflare.com",
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
-            "font-src 'self' https://fonts.gstatic.com",
-            // Generated presentations intentionally use remote image URLs.  The
-            // preview iframe must be allowed to load them or the image layout can
-            // remain unsettled while the carousel/editor is being initialized.
-            "img-src 'self' data: blob: https:",
-            "connect-src 'self' https://unpkg.com",
-            "frame-src 'self'",
-            "worker-src 'none'",
-            "object-src 'none'",
-            "base-uri 'self'",
-            "form-action 'self'",
-            "frame-ancestors 'self'"
-        ].join('; ')
-    );
-    next();
-});
+app.use(createSecurityHeadersMiddleware());
 
 // Redirect the raw Render URL to the canonical domain BEFORE static files are
 // served. express.static intercepts GET / and sends index.html directly,
 // bypassing any app.get('/') route handler registered afterwards.
 if ((process.env.NODE_ENV || 'development') === 'production') {
-    app.use((req, res, next) => {
-        const host = req.headers.host || '';
-        const path = req.path || '';
-
-        // IMPORTANT: Do NOT redirect API routes or health checks.
-        // Vercel proxies these routes to Render, and they must be served directly.
-        const isApiRoute = /^\/(generate|finalize(?:-pptx)?|download|health|__dev__)/.test(path);
-
-        if (host.includes('onrender.com') && !isApiRoute) {
-            const target = 'https://aedoslab.xyz' + req.originalUrl;
-            return res.redirect(301, target);
-        }
-        next();
-    });
+    app.use(createCanonicalRedirectMiddleware());
 }
 
-app.use(express.static(path.join(__dirname, '..', 'frontend'), {
-    setHeaders: (res, filePath) => {
-        const lowerPath = String(filePath || '').toLowerCase();
-        const shouldDisableCache = IS_DEVELOPMENT || lowerPath.endsWith('.html');
-        if (!shouldDisableCache) return;
-
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.setHeader('Surrogate-Control', 'no-store');
-    }
+app.use(createStaticFilesMiddleware({
+    frontendDir: path.join(__dirname, '..', 'frontend'),
+    isDevelopment: IS_DEVELOPMENT
 }));
 
 
