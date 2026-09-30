@@ -35,7 +35,7 @@ La lógica se movió sin cambiar su política de absorción ni sus mensajes:
 Los handlers de ruta y los catches de errores HTTP permanecen en `server.js` para
 conservar el orden observable y la forma de respuesta.
 
-## Cambios de ubicación en Fase 3b.2
+## Cambios de ubicación en Fase 3c
 
 Las referencias de línea de la tabla histórica anterior corresponden a la
 versión de Fase 3a y pueden quedar desfasadas después de extraer módulos. La
@@ -48,6 +48,8 @@ referencia mantenible es ahora archivo + responsabilidad:
 | Finalización y descarga | `src/backend/http/routes/finalize.js`, `download.js` | Se mantiene la política de error, TTL y cierre de respuesta. |
 | Middleware | `src/backend/http/middleware/request-logging.js`, `cors.js`, `security-headers.js`, `canonical-redirect.js`, `static-files.js` | No se introdujeron catches nuevos ni se cambió la observabilidad. |
 
-La extracción 3b.2 no modificó el sanitizer, los errores 500 de Multer ni la
-semántica de `req.close`. El renderer PPTX restante tampoco se movió en 3b2.4
-porque no había un corte seguro que preservara inicialización y comportamiento.
+La extracción 3c movió el renderer PPTX entero a `export/pptx-renderer.js`, el
+runtime de providers, rutas y contratos. Los catches y sus políticas se
+conservaron; `utils/pptx-export.js` no se tocó. El sanitizer, los errores 500 de
+Multer y la semántica de `req.close` siguen sin corregirse por ser cambios de
+comportamiento reservados para otra fase.

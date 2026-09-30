@@ -1,7 +1,7 @@
 # Arquitectura del backend
 
 Este documento describe la forma actual del backend de Aedos después de la
-refactorización 3b.2. `src/backend/server.js` sigue siendo la fachada de
+refactorización 3c. `src/backend/server.js` sigue siendo la fachada de
 bootstrap: conserva la inicialización eager de Puppeteer, la construcción de
 dependencias, el orden de middleware/rutas y los exports públicos.
 
@@ -10,13 +10,13 @@ dependencias, el orden de middleware/rutas y los exports públicos.
 | Carpeta | Responsabilidad | Punto de entrada o contrato |
 |---|---|---|
 | `server.js` | Fachada HTTP, bootstrap y composición | `app`, exports públicos, orden observable |
-| `contracts/` | Límites, errores, SSE y normalización de requests | `limits.js`, `errors.js`, `sse.js`, `request-normalizers.js` |
-| `config/` | Lectura y resolución de configuración de entorno | `env.js` |
-| `providers/` | Adaptadores de proveedores IA y fallback | `gemini.js`, `openrouter.js`, `fallback.js` |
+| `contracts/` | Límites, errores, SSE, sanitización de temas y normalización de requests | `limits.js`, `errors.js`, `sse.js`, `topic-sanitizer.js`, `request-normalizers.js` |
+| `config/` | Lectura, modelos y validación de configuración de entorno | `env.js`, `models.js`, `environment.js` |
+| `providers/` | Adaptadores de proveedores IA, fallback y composición runtime | `gemini.js`, `openrouter.js`, `fallback.js`, `runtime.js` |
 | `queues/` | Concurrencia y colas de generación/finalización | `generation.js`, `finalize.js` |
 | `pipeline/` | Flujo de skeleton, outline-item y streaming | `skeleton.js`, `outline-item.js`, `stream.js` |
 | `http/middleware/` | CORS, logging, headers, redirect y estáticos | Fábricas registradas por `server.js` |
-| `http/routes/` | Registro y handlers HTTP | Entrada, generación, finalize y descarga |
+| `http/` | Ensamblaje y handlers HTTP | `register-routes.js` y `routes/` |
 | `export/` | Render y finalización de documentos | `pdf.js`, `pptx-finalize.js` |
 | `files/` | Uploads, adjuntos, directorios y descargas | Utilidades usadas por rutas |
 | `browser/` | Gestión del navegador Puppeteer | `manager.js` |
@@ -26,13 +26,14 @@ dependencias, el orden de middleware/rutas y los exports públicos.
 
 ## Flujo de una solicitud de generación
 
-1. El bootstrap de `server.js` resuelve entorno y defaults, inicializa el
-   navegador eager y crea la aplicación.
+1. El bootstrap de `server.js` resuelve entorno y defaults, crea las factories,
+   registra middleware y conserva la inicialización eager del navegador.
 2. La solicitud atraviesa CORS, logging/request-id, headers de seguridad,
    redirect canónico y estáticos, en el orden congelado por el snapshot de
    router.
-3. El registro de rutas aplica los parsers y middleware de cada endpoint. La
-   entrada se normaliza según el contrato existente, se validan límites y
+3. `http/register-routes.js` aplica las rutas en orden congelado. Los parsers y
+   middleware de cada endpoint permanecen dentro de sus fábricas. La entrada se
+   normaliza según el contrato existente, se validan límites y
    adjuntos, y la generación se entrega a `queues/generation.js`.
 4. La cola invoca el pipeline. `pipeline/skeleton.js` y
    `pipeline/outline-item.js` construyen las etapas; `pipeline/stream.js`
@@ -80,16 +81,16 @@ errores, TTL, headers y bytes; actualizar el snapshot sólo si el endpoint es
 intencionalmente nuevo. El renderer PPTX monolítico actual no se divide sin
 un corte seguro que preserve su inicialización y estado.
 
-## Límites de la fase 3b.2
+## Límites de la fase 3c
 
-La extracción 3b2.4 del renderer PPTX no se aplicó: el bloque restante en
-`server.js` es monolítico y supera el objetivo de 200 líneas; separarlo en
-módulos de 300/400 líneas requeriría reescribir lógica o cambiar el momento de
-inicialización. Se conserva el código para no alterar el comportamiento.
+El renderer PPTX se movió entero a `export/pptx-renderer.js` por la excepción de
+bloque monolítico; `utils/pptx-export.js` quedó intacto. `server.js` termina en
+424 LF, no alcanza el objetivo de 200 sin trasladar la composición de factories,
+los process handlers o el guard de arranque; las dos últimas extracciones se
+dejaron fuera cuando el ratchet detectó TS2322 y se documentan como no aplicadas.
 
-La comparación de normalizadores cubrió 18 casos. No se sustituyó ninguna
-validación inline: hubo una diferencia observable para `idioma: "ja"`, donde
-el normalizador también devuelve `fields.idioma`, mientras la proyección inline
-sólo devuelve `{ valid: false }`. Además, la selección Pro automática por
+La comparación de normalizadores cubrió 48 peticiones HTTP con igualdad exacta
+de status y cuerpo. Se integraron en `routes/generate.js`; la suite contractual
+ejecuta el probe para evitar código muerto. La selección Pro automática por
 adjuntos pertenece al frontend; el backend sólo expone la información de
 adjuntos existente.
