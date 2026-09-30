@@ -53,10 +53,7 @@ const { createRequestLoggingMiddleware } = require('./http/middleware/request-lo
 const { createSecurityHeadersMiddleware } = require('./http/middleware/security-headers');
 const { createCanonicalRedirectMiddleware } = require('./http/middleware/canonical-redirect');
 const { createStaticFilesMiddleware } = require('./http/middleware/static-files');
-const { registerEntryRoutes } = require('./http/routes/entry');
-const { registerGenerationRoutes } = require('./http/routes/generation-endpoints');
-const { registerFinalizeRoutes } = require('./http/routes/finalize');
-const { registerDownloadRoute } = require('./http/routes/download');
+const { registerBackendRoutes } = require('./http/register-routes');
 
 const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
 const { verifyConnection: verifyRedis, checkRateLimits, checkFinalizeLimits } = require('./utils/rate-limiter');
@@ -347,15 +344,11 @@ process.on('SIGINT', async () => {
     process.exit();
 });
 
-// Routes
-registerEntryRoutes({ app, tmpDir: TMP_DIR });
-
-
-
-registerGenerationRoutes({
+registerBackendRoutes({
     app,
+    TMP_DIR,
     upload,
-    maxUploadArrayFields: MAX_UPLOAD_ARRAY_FIELDS,
+    MAX_UPLOAD_ARRAY_FIELDS,
     checkGenerationPressure,
     checkRateLimits,
     handleGenerateSkeleton,
@@ -380,7 +373,6 @@ registerGenerationRoutes({
     ErrorCategory,
     fs,
     path,
-    TMP_DIR,
     devLog,
     classifyError,
     consumeModelStream,
@@ -392,25 +384,16 @@ registerGenerationRoutes({
     buildFileStemFromTitle,
     resolveUniqueHtmlPath,
     EXAMPLES_FLASH_DIR,
-    EXAMPLES_PRO_DIR
-});
-
-
-registerFinalizeRoutes({
-    app,
+    EXAMPLES_PRO_DIR,
     checkFinalizePressure,
     checkFinalizeLimits,
     finalizeQueueState,
     pptxFinalizer,
     pdfExporter,
-    maxExportHtmlBytes: MAX_EXPORT_HTML_BYTES,
-    downloadTtlMs: DOWNLOAD_TTL_MS,
-    log,
-    puppeteerLog,
-    classifyError,
-    ErrorCategory
+    MAX_EXPORT_HTML_BYTES,
+    DOWNLOAD_TTL_MS,
+    puppeteerLog
 });
-registerDownloadRoute({ app, tmpDir: TMP_DIR, log, classifyError, ErrorCategory });
 
 // ── Global process safety net ─────────────────────────────────────────────
 // Long-lived SSE responses make socket-level failures (EPIPE / aborted /
