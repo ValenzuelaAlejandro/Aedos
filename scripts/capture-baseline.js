@@ -30,6 +30,7 @@ const chromePath =
         'chrome-headless-shell.exe',
     );
 
+/* eslint-disable-next-line max-lines-per-function */
 async function capture() {
     fs.mkdirSync(outputDir, { recursive: true });
     const { app } = require('../src/backend/server');

@@ -21,8 +21,7 @@ fs.writeFileSync = function (file, data, options) {
     if (!isProtectedPath(file)) return originalWriteFileSync.call(this, file, data, options);
 
     const expected = originalReadFileSync.call(this, file);
-    const encoding = typeof options === 'string' ? options : options?.encoding;
-    const actual = Buffer.isBuffer(data) ? data : Buffer.from(data, encoding);
+    const actual = Buffer.isBuffer(data) ? data : Buffer.from(String(data));
     if (!actual.equals(expected))
         throw new Error(`Contract fixture differs: ${path.relative(fixtureDir, String(file))}`);
 };
