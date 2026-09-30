@@ -3,6 +3,14 @@
 const express = require('express');
 const { processGeneratedOutput } = require('./generate-output');
 const { handleGenerationError } = require('./generate-errors');
+const {
+    normalizeMode,
+    normalizeRequestedLanguage,
+    normalizeValidatedLanguage,
+    normalizeSlides,
+    normalizeSkeletonValue,
+    normalizeTopic
+} = require('../../contracts/request-normalizers');
 
 /**
  * Create the main generation endpoint handler.
@@ -33,11 +41,11 @@ function createGenerateHandler(deps) {
 
         try {
             const opciones = req.body;
-            const requestedLanguage = req.body.language || req.body.idioma || 'auto';
-            if (opciones.skeleton && typeof opciones.skeleton === 'string') {
-                try {
-                    opciones.skeleton = JSON.parse(opciones.skeleton);
-                } catch (e) {
+            const requestedLanguage = normalizeRequestedLanguage(req.body);
+            if (typeof opciones.skeleton === 'string') {
+                const originalSkeleton = opciones.skeleton;
+                opciones.skeleton = normalizeSkeletonValue(originalSkeleton);
+                if (opciones.skeleton === originalSkeleton && originalSkeleton) {
                     deps.log.warn(deps.ErrorCategory.VALIDATION, 'Failed to parse skeleton from FormData', { requestId });
                 }
             }
@@ -54,45 +62,44 @@ function createGenerateHandler(deps) {
 
             deps.log.info(deps.ErrorCategory.PIPELINE, 'Generation request accepted', {
                 requestId,
-                mode: req.body.mode === 'pro' ? 'pro' : 'flash',
+                mode: normalizeMode(req.body),
                 idioma: requestedLanguage,
                 requestedSlides: req.body.slides
             });
 
-            const rawTema = opciones.tema || '';
-            const sanitizeResult = deps.sanitizeTema(String(rawTema));
-            if (!sanitizeResult.valid) {
-                deps.log.warn(deps.ErrorCategory.VALIDATION, 'Topic rejected by sanitizer', { requestId, reason: sanitizeResult.reason });
-                return res.status(400).json(deps.invalidTopic(sanitizeResult.reason));
+            const topicResult = normalizeTopic(opciones.tema, deps.sanitizeTema);
+            if (!topicResult.valid) {
+                deps.log.warn(deps.ErrorCategory.VALIDATION, 'Topic rejected by sanitizer', { requestId, reason: topicResult.reason });
+                return res.status(400).json(deps.invalidTopic(topicResult.reason));
             }
 
             const targetLang = requestedLanguage;
             opciones.targetLanguage = targetLang;
-            opciones.tema = sanitizeResult.tema;
-            const usePipeline = req.body.mode === 'pro';
+            opciones.tema = topicResult.tema;
+            const usePipeline = normalizeMode(req.body) === 'pro';
 
-            let slidesNum = (req.body.slides !== undefined && req.body.slides !== 'undefined') ? parseInt(req.body.slides, 10) : 5;
-            if (isNaN(slidesNum) || slidesNum < 1 || slidesNum > 15) {
+            const slidesResult = normalizeSlides(req.body);
+            if (!slidesResult.valid) {
                 deps.log.warn(deps.ErrorCategory.VALIDATION, 'Slides validation failed', { requestId, slides: req.body.slides });
                 return res.status(422).json(deps.validationFailed({ slides: 'must be integer between 1 and 15' }));
             }
 
             const slideHardLimit = usePipeline ? deps.MAX_PRO_SLIDES : deps.MAX_FLASH_SLIDES;
-            if (slidesNum > slideHardLimit) {
+            let slidesNum = slidesResult.requestedSlides;
+            if (slidesResult.capped) {
                 deps.log.warn(deps.ErrorCategory.VALIDATION, 'Slides capped to mode hard limit', {
                     requestId,
                     requestedSlides: slidesNum,
                     appliedLimit: slideHardLimit
                 });
-                slidesNum = slideHardLimit;
+                slidesNum = slidesResult.slides;
                 opciones.slides = slidesNum;
             }
 
-            const VALID_IDIOMAS = ['es', 'en', 'fr', 'pt', 'de'];
-            const idiomaVal = req.body.idioma || 'es';
-            if (!VALID_IDIOMAS.includes(idiomaVal)) {
-                deps.log.warn(deps.ErrorCategory.VALIDATION, 'Language validation failed', { requestId, idioma: idiomaVal });
-                return res.status(422).json(deps.validationFailed({ idioma: 'must be one of: es, en, fr, pt, de' }));
+            const languageResult = normalizeValidatedLanguage(req.body);
+            if (!languageResult.valid) {
+                deps.log.warn(deps.ErrorCategory.VALIDATION, 'Language validation failed', { requestId, idioma: req.body.idioma || 'es' });
+                return res.status(422).json(deps.validationFailed(languageResult.fields));
             }
 
             if (!process.env.OPENROUTER_API_KEY && !process.env.GEMINI_API_KEY) {
