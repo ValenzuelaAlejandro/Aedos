@@ -34,3 +34,20 @@ La lógica se movió sin cambiar su política de absorción ni sus mensajes:
 
 Los handlers de ruta y los catches de errores HTTP permanecen en `server.js` para
 conservar el orden observable y la forma de respuesta.
+
+## Cambios de ubicación en Fase 3b.2
+
+Las referencias de línea de la tabla histórica anterior corresponden a la
+versión de Fase 3a y pueden quedar desfasadas después de extraer módulos. La
+referencia mantenible es ahora archivo + responsabilidad:
+
+| Área | Ubicación actual | Política conservada |
+|---|---|---|
+| Pipeline y streaming | `src/backend/pipeline/skeleton.js`, `outline-item.js`, `stream.js` | Reparación/parseo y forwarding SSE mantienen sus fall-throughs, reintentos y silencios existentes. |
+| Salida de generación | `src/backend/http/routes/generate-output.js`, `generate-errors.js`, `generate.js` | Los catches HTTP y de escritura SSE conservan status, payload, mensajes y orden. |
+| Finalización y descarga | `src/backend/http/routes/finalize.js`, `download.js` | Se mantiene la política de error, TTL y cierre de respuesta. |
+| Middleware | `src/backend/http/middleware/request-logging.js`, `cors.js`, `security-headers.js`, `canonical-redirect.js`, `static-files.js` | No se introdujeron catches nuevos ni se cambió la observabilidad. |
+
+La extracción 3b.2 no modificó el sanitizer, los errores 500 de Multer ni la
+semántica de `req.close`. El renderer PPTX restante tampoco se movió en 3b2.4
+porque no había un corte seguro que preservara inicialización y comportamiento.
