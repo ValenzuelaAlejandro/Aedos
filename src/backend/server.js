@@ -29,7 +29,6 @@ const { writeSse, setSseHeaders } = require('./contracts/sse');
 const { sanitizeGeneratedHtml: sanitizeGeneratedHtmlMoved } = require('./sanitization/html');
 const { TMP_DIR, upload } = require('./files/upload');
 const { ensureBackendDirectories } = require('./files/directories');
-const { registerDownloadRoute } = require('./files/download-route');
 const { buildSkeletonFileContext, buildGenerationFileContext } = require('./files/attachments');
 const { createGenerationQueue } = require('./queues/generation');
 const { createFinalizeQueue } = require('./queues/finalize');
@@ -66,6 +65,10 @@ const { createRequestLoggingMiddleware } = require('./http/middleware/request-lo
 const { createSecurityHeadersMiddleware } = require('./http/middleware/security-headers');
 const { createCanonicalRedirectMiddleware } = require('./http/middleware/canonical-redirect');
 const { createStaticFilesMiddleware } = require('./http/middleware/static-files');
+const { registerEntryRoutes } = require('./http/routes/entry');
+const { registerGenerationRoutes } = require('./http/routes/generation-endpoints');
+const { registerFinalizeRoutes } = require('./http/routes/finalize');
+const { registerDownloadRoute } = require('./http/routes/download');
 
 const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
 const { normalizeExportWarning, countExportWarnings } = require('./utils/export-warnings');
@@ -476,41 +479,7 @@ process.on('SIGINT', async () => {
 });
 
 // Routes
-// Health endpoint for warm-up requests
-app.get('/health', (req, res) => {
-    res.status(200).send('OK');
-});
-
-app.get('/', (req, res) => {
-    // Redirect requests hitting the raw onrender.com URL to the canonical domain.
-    // We check for 'onrender.com' specifically so that requests arriving via the
-    // custom domain (aedoslab.xyz) are served normally and not caught in a
-    // redirect loop.
-    const host = req.headers.host || '';
-    if (process.env.NODE_ENV === 'production' && host.includes('onrender.com')) {
-        return res.redirect(301, 'https://aedoslab.xyz');
-    }
-
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-    res.set('Surrogate-Control', 'no-store');
-    res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
-});
-
-if ((process.env.NODE_ENV || 'development') !== 'production') {
-    app.get('/__dev__/last-generated', (req, res) => {
-        const debugPath = path.join(TMP_DIR, 'last_generated.html');
-
-        if (!fs.existsSync(debugPath)) {
-            return res.status(404).json({ error: 'tmp/last_generated.html not found' });
-        }
-
-        res.set('Cache-Control', 'no-store');
-        res.type('html');
-        res.send(fs.readFileSync(debugPath, 'utf8'));
-    });
-}
+registerEntryRoutes({ app, tmpDir: TMP_DIR });
 
 
 
@@ -546,553 +515,47 @@ function sanitizeTema(input) {
     return { valid: true, tema: cleanedString };
 }
 
-app.post('/generate-skeleton', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => handleGenerateSkeleton(req, res));
-
-app.post('/generate-outline-item', express.json({ limit: '8kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => handleGenerateOutlineItem(req, res));
-
-app.post('/generate', upload.array('files', MAX_UPLOAD_ARRAY_FIELDS), express.json({ limit: '50kb' }), checkGenerationPressure, checkRateLimits, async (req, res) => {
-    let cancelled = false;
-    let completed = false;
-    let sseKeepAlive = null;
-    let hasGenerationSlot = false;
-    const requestId = req.requestId || 'n/a';
-
-    // The 'close' event fires when the underlying connection is closed by EITHER
-    // side — including when the server itself calls res.end() (e.g. after writing
-    // an error message via SSE). Without this guard, an AI failure would log a
-    // misleading "Client disconnected" warning even though the client never left.
-    res.on('close', () => {
-        if (res.writableEnded || completed) return;
-        log.warn(ErrorCategory.STREAM, 'Client disconnected before generation completed', {
-            requestId
-        });
-        cancelled = true;
-    });
-
-    // Same socket-defence as /generate-skeleton: a disconnected client turns the
-    // next res.write() into an 'error' event on the response stream. With no
-    // listener the process dies mid-stream and Render restarts the service.
-    // Swallow it, log it, and let the 'close' handler / cancelled flag unwind.
-    res.on('error', (err) => {
-        log.warn(ErrorCategory.STREAM, 'Generation response stream error, marking request cancelled', {
-            requestId,
-            error: String((err && err.message) || err)
-        });
-        cancelled = true;
-    });
-
-    try {
-        const opciones = req.body;
-        const requestedLanguage = req.body.language || req.body.idioma || 'auto';
-        
-        if (opciones.skeleton && typeof opciones.skeleton === 'string') {
-            try {
-                opciones.skeleton = JSON.parse(opciones.skeleton);
-            } catch (e) {
-                log.warn(ErrorCategory.VALIDATION, 'Failed to parse skeleton from FormData', { requestId });
-            }
-        }
-
-        // Bug #15: Validate that the skeleton is not empty before skipping Stage 1
-        if (opciones.skeleton && typeof opciones.skeleton === 'object') {
-            if (opciones.skeleton.action === 'proceed') {
-                return res.status(400).json({ error: ERROR_TEXT.SKELETON_EMPTY });
-            }
-            const skeletonSlides = opciones.skeleton.slides;
-            if (!Array.isArray(skeletonSlides) || skeletonSlides.length === 0) {
-                return res.status(400).json({ error: ERROR_TEXT.SKELETON_EMPTY });
-            }
-        }
-        
-        log.info(ErrorCategory.PIPELINE, 'Generation request accepted', {
-            requestId,
-            mode: req.body.mode === 'pro' ? 'pro' : 'flash',
-            idioma: requestedLanguage,
-            requestedSlides: req.body.slides
-        });
-
-        const rawTema = opciones.tema || '';
-        const sanitizeResult = sanitizeTema(String(rawTema));
-        if (!sanitizeResult.valid) {
-            log.warn(ErrorCategory.VALIDATION, 'Topic rejected by sanitizer', {
-                requestId,
-                reason: sanitizeResult.reason
-            });
-            return res.status(400).json(invalidTopic(sanitizeResult.reason));
-        }
-
-        const targetLang = requestedLanguage;
-        opciones.targetLanguage = targetLang;
-        opciones.tema = sanitizeResult.tema;
-
-        // Flash mode (single-prompt, default) vs Pro mode (3-stage pipeline)
-        const usePipeline = req.body.mode === 'pro';
-
-        let slidesNum = (req.body.slides !== undefined && req.body.slides !== 'undefined') ? parseInt(req.body.slides, 10) : 5;
-        if (isNaN(slidesNum) || slidesNum < 1 || slidesNum > 15) {
-            log.warn(ErrorCategory.VALIDATION, 'Slides validation failed', {
-                requestId,
-                slides: req.body.slides
-            });
-            return res.status(422).json(validationFailed({ slides: 'must be integer between 1 and 15' }));
-        }
-
-        // Cap the actual slides requested to the AI based on the mode
-        const slideHardLimit = usePipeline ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES;
-        if (slidesNum > slideHardLimit) {
-            log.warn(ErrorCategory.VALIDATION, 'Slides capped to mode hard limit', {
-                requestId,
-                requestedSlides: slidesNum,
-                appliedLimit: slideHardLimit
-            });
-            slidesNum = slideHardLimit;
-            opciones.slides = slidesNum;
-        }
-
-        const VALID_IDIOMAS = ['es', 'en', 'fr', 'pt', 'de'];
-        const idiomaVal = req.body.idioma || 'es';
-        if (!VALID_IDIOMAS.includes(idiomaVal)) {
-            log.warn(ErrorCategory.VALIDATION, 'Language validation failed', {
-                requestId,
-                idioma: idiomaVal
-            });
-            return res.status(422).json(validationFailed({ idioma: 'must be one of: es, en, fr, pt, de' }));
-        }
-
-        if (!process.env.OPENROUTER_API_KEY && !process.env.GEMINI_API_KEY) {
-            log.error(ErrorCategory.CONFIG, 'Generation blocked: OpenRouter/Gemini key missing', {
-                requestId
-            });
-            return res.status(500).json({ error: ERROR_TEXT.API_KEY_MISSING });
-        }
-
-        setSseHeaders(res);
-
-        // Keep the SSE stream alive during slow model responses so the browser/proxy
-        // does not assume the request stalled while OpenRouter is still generating.
-        sseKeepAlive = setInterval(() => {
-            if (!completed && !cancelled && !res.writableEnded && !res.destroyed) {
-                try {
-                    res.write(`data: ${JSON.stringify({ heartbeat: true })}\n\n`);
-                } catch (_) { /* socket already gone, loop will unwind via cancelled */ }
-            }
-        }, 25000);
-
-        // Manage Entry to the Queue
-        const queueResult = await generationQueue.enqueue(req, {
-            requestId,
-            usePipeline,
-            res
-        });
-        if (queueResult === 'rejected' || queueResult === 'disconnected') {
-            completed = true;
-            return;
-        }
-        hasGenerationSlot = true;
-
-        // Choose generation path: Flash (single-prompt) or Pro (3-stage pipeline)
-        const fileContext = await buildGenerationFileContext(req.files, { requestId, log, ErrorCategory });
-
-        let fullHtml = '';
-        let hasStartedValidContent = false;
-
-        if (!usePipeline) {
-            // Flash mode — single-prompt path with retry on bad output
-            const flashOut = await runFlashGenerationWithRetry({
-                cancelledRef: () => cancelled,
-                res,
-                requestId,
-                opciones,
-                fileContext,
-                slideHardLimit,
-                tryModelsFlash,
-                buildPrompt,
-                log,
-                ErrorCategory,
-                consumeStream: (streamResult, response, id, cancelledRef, hardLimit) => consumeModelStream(
-                    { log, ErrorCategory }, streamResult, response, id, cancelledRef, hardLimit
-                )
-            });
-            fullHtml = flashOut.fullHtml;
-            hasStartedValidContent = flashOut.hasStartedValidContent;
-        } else {
-            // Pro mode — 3-Stage Pipeline: Content → Design → HTML
-            // (per-stage retries are handled inside runPipeline in pipeline.js;
-            // here we only consume the resulting Stage 3 stream and feed it to
-            // the same sanitization path as Flash mode).
-            log.info(ErrorCategory.PIPELINE, 'Running pro pipeline path', { requestId });
-            res.write(`data: ${JSON.stringify({ pipeline: true, stage: 'content', status: 'running' })}\n\n`);
-
-            const pipelineResult = await runPipeline({
-                rawInput: opciones.tema,
-                targetLanguage: targetLang,
-                fileContext: fileContext,
-                skeleton: opciones.skeleton,
-                maxSlides: slideHardLimit,
-                // Use the *Thinking variants so Stages 1 & 2 emit reasoning
-                // tokens via onChunk. Stage 3 reuses the same stream shape
-                // through consumeModelStream, which also forwards reasoning.
-                tryModelsStage1: tryModelsStage1Thinking,
-                tryModelsStage2: tryModelsStage2Thinking,
-                tryModelsStage3: tryModelsStage3Thinking,
-                onStageUpdate: (stage, data) => {
-                    if (!cancelled && !res.writableEnded && !res.destroyed) {
-                        const stageNames = { stage1: 'content', stage2: 'design', stage3: 'compositing' };
-                        try {
-                            res.write(`data: ${JSON.stringify({ pipeline: true, stage: stageNames[stage] || stage, ...data })}\n\n`);
-                        } catch (_) { /* socket gone */ }
-                    }
-                },
-                onChunk: (item) => {
-                    // Forward Stage 1/2 reasoning tokens to the client.
-                    // Stage 3 reasoning is forwarded inside consumeModelStream
-                    // so we don't double-emit here.
-                    if (!cancelled && !res.writableEnded && !res.destroyed && item && item.type === 'reasoning' && item.stage !== 'stage3') {
-                        try {
-                            res.write(`data: ${JSON.stringify({ reasoning: item.text, stage: item.stage })}\n\n`);
-                        } catch (_) { /* ignore broken pipe */ }
-                    }
-                }
-            });
-
-            // Dev debug: persist Stage1/Stage2 outputs and the Stage3 prompt for inspection
-            if ((process.env.NODE_ENV || 'development') !== 'production') {
-                try {
-                    const now = Date.now();
-                    const debugBase = path.join(TMP_DIR, `pipeline_debug_${now}`);
-                    fs.writeFileSync(debugBase + '_content.json', JSON.stringify(pipelineResult.contentJson, null, 2), 'utf8');
-                    fs.writeFileSync(debugBase + '_design.json', JSON.stringify(pipelineResult.designJson, null, 2), 'utf8');
-                    if (pipelineResult.stage3Prompt) fs.writeFileSync(debugBase + '_stage3prompt.txt', pipelineResult.stage3Prompt, 'utf8');
-                    devLog.success(ErrorCategory.FILESYSTEM, 'Saved pipeline debug artifacts', {
-                        requestId,
-                        pathPrefix: `${debugBase}_*`
-                    });
-                } catch (e) {
-                    devLog.warn(classifyError(e, ErrorCategory.FILESYSTEM), 'Failed to save pipeline debug artifacts', {
-                        requestId,
-                        error: e
-                    });
-                }
-            }
-
-            if (cancelled) { res.end(); return; }
-
-            log.info(ErrorCategory.PIPELINE, 'Stage 3 stream ready, starting SSE forwarding', {
-                requestId
-            });
-
-            const proStream = await consumeModelStream(
-                { log, ErrorCategory },
-                pipelineResult.stage3Stream,
-                res, requestId, () => cancelled, slideHardLimit
-            );
-            fullHtml = proStream.fullHtml;
-            hasStartedValidContent = proStream.hasStartedValidContent;
-        }
-
-        if (cancelled) {
-            res.end();
-            return;
-        }
-
-        // 6. Clean the full response
-        let finalHtml = fullHtml.replace(/^```html\n?/m, '').replace(/^```\n?/m, '').replace(/```\n?$/m, '').trim();
-
-        // 6.5 Remove any existing CSP meta tags to avoid conflicts
-        finalHtml = finalHtml.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/gi, '');
-
-        // 6.6 Remote image search removed: it was unreachable from Render and the
-        //     feature is postponed until a VPS budget exists. img-slot placeholders
-        //     keep their gradient fallback.
-
-        // 7. Validate the response — detect refusals
-        const configRegex = /<!--\s*CONFIG[\s\S]*?-->/i;
-        const configMatch = finalHtml.match(configRegex);
-        let contentForCheck = finalHtml.toLowerCase();
-        let htmlStartIdx = contentForCheck.indexOf('<html');
-        if (htmlStartIdx === -1) htmlStartIdx = contentForCheck.indexOf('<style');
-        if (htmlStartIdx === -1) htmlStartIdx = contentForCheck.indexOf('<section');
-        if (htmlStartIdx === -1) htmlStartIdx = contentForCheck.indexOf('<!--');
-
-        const looksLikeHtml = htmlStartIdx !== -1;
-
-        let cleanedOutput = finalHtml;
-        if (!looksLikeHtml) {
-            log.warn(ErrorCategory.VALIDATION, 'Model response was not detected as valid HTML', {
-                requestId,
-                responseChars: finalHtml.length
-            });
-            res.write(`data: ${JSON.stringify({ refused: true, message: finalHtml })}\n\n`);
-        } else {
-            // Trim off any conversational garbage Gemini put *before* the first real HTML tag
-            cleanedOutput = finalHtml.substring(finalHtml.indexOf('<', htmlStartIdx));
-
-            // If model output has no <html> wrapper, add a proper document structure
-            if (!cleanedOutput.includes('<html') && !cleanedOutput.includes('<head')) {
-                cleanedOutput = [
-                    '<!DOCTYPE html>',
-                    '<html lang="es">',
-                    '<head>',
-                    '<meta charset="UTF-8">',
-                    '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-                    '</head>',
-                    '<body>',
-                    cleanedOutput,
-                    '</body>',
-                    '</html>'
-                ].join('\n');
-            }
-
-            // Safety net: hard cap slides (8 for Pro mode, 15 for Flash mode) — strip any section.s beyond the limit
-            const MAX_SLIDES = usePipeline ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES;
-            const slideTagRe = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
-            const slideMatches = [...cleanedOutput.matchAll(slideTagRe)];
-            if (slideMatches.length > MAX_SLIDES) {
-                const cutIndex = slideMatches[MAX_SLIDES].index;
-                const bodyClose = cleanedOutput.lastIndexOf('</body>');
-                const scripts = bodyClose !== -1 ? cleanedOutput.slice(bodyClose) : '</body></html>';
-                cleanedOutput = cleanedOutput.slice(0, cutIndex) + '\n' + scripts;
-                sanitizerLog.info(ErrorCategory.SANITIZER, 'Trimmed extra slides in sanitizer', {
-                    requestId,
-                    beforeSlides: slideMatches.length,
-                    maxSlides: MAX_SLIDES
-                });
-            }
-
-            // Safety net: strip overflow-y:auto/scroll from inner containers.
-            // Slides are static — scrollable inner regions produce invisible hidden content.
-            // Replace with overflow:hidden so the AI's scale-down rules apply instead.
-            const overflowScrollRe = /\boverflow-y\s*:\s*(auto|scroll)\b/gi;
-            const overflowShorthandRe = /\boverflow\s*:\s*(auto|scroll)\b/gi;
-            if (overflowScrollRe.test(cleanedOutput) || overflowShorthandRe.test(cleanedOutput)) {
-                cleanedOutput = cleanedOutput.replace(/\boverflow-y\s*:\s*(auto|scroll)\b/gi, 'overflow-y:hidden');
-                cleanedOutput = cleanedOutput.replace(/\boverflow\s*:\s*(auto|scroll)\b/gi, 'overflow:hidden');
-                sanitizerLog.info(ErrorCategory.SANITIZER, 'Replaced overflow auto/scroll with hidden');
-            }
-
-            // Safety net: fix collapsed flex siblings — a div with a custom class but no inline flex:
-            // sizing inside a flex-row collapses to 0px width (text renders one char per line).
-            // Detect the pattern: sibling of flex:1;min-width:0 that has only a class and width:100%.
-            // We can't fully fix the layout here, but we can add flex:1;min-width:0 to stabilize it.
-            cleanedOutput = cleanedOutput.replace(
-                /(<div\s+class="[^"]*slide-\d+-[^"]*"\s*>)/gi,
-                '<div style="flex:1;min-width:0;overflow:hidden;">'
-            );
-
-            // Safety net: fix @import placed as raw text outside <style>
-            const looseImportRe = />[ \t\n]*(@import\s+url\([^)]+\);)[ \t\n]*</;
-            const looseImport = cleanedOutput.match(looseImportRe);
-            if (looseImport) {
-                const importLine = looseImport[1];
-                cleanedOutput = cleanedOutput.replace(/[ \t\n]*@import\s+url\([^)]+\);[ \t\n]*/gi, '\n');
-                cleanedOutput = cleanedOutput.replace(/<style>/i, '<style>\n    ' + importLine);
-                sanitizerLog.info(ErrorCategory.SANITIZER, 'Moved loose @import into style block');
-            }
-
-            // Guard: reject HTML without design CSS
-            const hasDesignCss = /<style[\s\S]*?section\.s[\s\S]*?<\/style>/i.test(cleanedOutput)
-                || /<style[\s\S]*?--bg[\s\S]*?<\/style>/i.test(cleanedOutput);
-            if (!hasDesignCss) {
-                sanitizerLog.warn(ErrorCategory.SANITIZER, 'Rejected output without design CSS', {
-                    requestId,
-                    outputChars: cleanedOutput.length
-                });
-                res.write(`data: ${JSON.stringify({ error: 'The AI generated a presentation without CSS design. Please try again.' })}\n\n`);
-                res.end();
-                return;
-            }
-
-            // Server-side HTML sanitization
-            cleanedOutput = sanitizeGeneratedHtml(cleanedOutput);
-            cleanedOutput = injectLayoutSafetyNet(cleanedOutput);
-
-            const lucideSrc = 'https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js';
-            const lucideIntegrity = 'sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei';
-            const hasGoogleFontsReference = /fonts\.googleapis\.com/i.test(cleanedOutput);
-
-            // The editor's font picker injects its own broad font catalog in the live preview.
-            // Here on the server, only add the fallback catalog when the generated HTML does
-            // not already declare its own Google Fonts, so we preserve the original look.
-            const G_FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">`;
-            const headInjectionParts = [];
-            if (!hasGoogleFontsReference) headInjectionParts.push(G_FONTS);
-            if (!cleanedOutput.includes(lucideSrc)) {
-                headInjectionParts.push(`<script src="${lucideSrc}" integrity="${lucideIntegrity}" crossorigin="anonymous"></script>`);
-            }
-            const headInjection = headInjectionParts.join('\n');
-
-            if (headInjection) {
-                if (cleanedOutput.includes('</head>')) {
-                    cleanedOutput = cleanedOutput.replace(/<\/head>/i, `${headInjection}\n</head>`);
-                } else if (cleanedOutput.includes('<head>')) {
-                    cleanedOutput = cleanedOutput.replace(/<head>/i, `<head>\n${headInjection}`);
-                } else {
-                    cleanedOutput = `${headInjection}\n` + cleanedOutput;
-                }
-                sanitizerLog.info(ErrorCategory.SANITIZER, 'Injected sanitizer head dependencies', {
-                    requestId,
-                    injectedGoogleFonts: !hasGoogleFontsReference,
-                    injectedLucide: !cleanedOutput.includes(lucideSrc)
-                });
-            }
-
-            // 2. Ensure lucide.createIcons() call is present
-            if (!cleanedOutput.includes('lucide-init.js') && !cleanedOutput.includes('lucide.createIcons')) {
-                const call = '<script src="/features/shared/lucide-init.js"></script>';
-                if (cleanedOutput.includes('</body>')) {
-                    cleanedOutput = cleanedOutput.replace(/<\/body>/i, `${call}\n</body>`);
-                } else {
-                    cleanedOutput = cleanedOutput + `\n${call}`;
-                }
-                sanitizerLog.info(ErrorCategory.SANITIZER, 'Injected lucide-init bootstrap script');
-            }
-
-            // 3. Safety Closer: If the AI output ends abruptly (e.g. cut off in mid-comment or mid-tag),
-            // force-close them so they don't break the following scripts or icons.
-            let safetyCloser = "";
-            const openComments = (cleanedOutput.match(/<!--/g) || []).length;
-            const closedComments = (cleanedOutput.match(/-->/g) || []).length;
-            if (openComments > closedComments) safetyCloser += " -->";
-
-            const openSections = (cleanedOutput.match(/<section/g) || []).length;
-            const closedSections = (cleanedOutput.match(/<\/section>/g) || []).length;
-            if (openSections > closedSections) safetyCloser += "</section>";
-
-            if (!cleanedOutput.includes('</body>')) safetyCloser += "</body>";
-            if (!cleanedOutput.includes('</html>')) safetyCloser += "</html>";
-
-            if (safetyCloser) {
-                cleanedOutput += safetyCloser;
-                sanitizerLog.info(ErrorCategory.SANITIZER, 'Added safety closers to incomplete HTML', {
-                    requestId,
-                    closers: safetyCloser
-                });
-            }
-
-            // 4. Ensure DOCTYPE remains at the start
-            if (!cleanedOutput.trim().toLowerCase().startsWith('<!doctype html')) {
-                cleanedOutput = '<!DOCTYPE html>\n' + cleanedOutput;
-            }
-
-            // 4. Dev-only (NODE_ENV=development): save generated HTML artifacts.
-            if (IS_DEVELOPMENT) {
-                const debugPath = path.join(TMP_DIR, 'last_generated.html');
-                fs.writeFile(debugPath, cleanedOutput, 'utf8', (err) => {
-                    if (err) {
-                        devLog.warn(classifyError(err, ErrorCategory.FILESYSTEM), 'Failed to save generated debug HTML', {
-                            requestId,
-                            error: err
-                        });
-                        return;
-                    }
-                    devLog.success(ErrorCategory.FILESYSTEM, 'Saved generated debug HTML', {
-                        requestId,
-                        path: debugPath
-                    });
-                });
-
-                const titleForFile = extractPresentationTitle(cleanedOutput) || opciones.tema || 'presentation';
-                const stem = buildFileStemFromTitle(titleForFile);
-                const modeFolder = usePipeline ? 'pro' : 'flash';
-                const modeExamplesDir = usePipeline ? EXAMPLES_PRO_DIR : EXAMPLES_FLASH_DIR;
-                const examplePath = resolveUniqueHtmlPath(modeExamplesDir, stem);
-
-                fs.writeFile(examplePath, cleanedOutput, 'utf8', (err) => {
-                    if (err) {
-                        devLog.warn(classifyError(err, ErrorCategory.FILESYSTEM), 'Failed to save generated example HTML', {
-                            requestId,
-                            error: err,
-                            title: titleForFile,
-                            mode: modeFolder
-                        });
-                        return;
-                    }
-
-                    devLog.success(ErrorCategory.FILESYSTEM, 'Saved generated example HTML', {
-                        requestId,
-                        path: examplePath,
-                        title: titleForFile,
-                        mode: modeFolder
-                    });
-                });
-            }
-
-            res.write(`data: ${JSON.stringify({ done: true, html: cleanedOutput })}\n\n`);
-        }
-
-        completed = true;
-        res.end();
-
-    } catch (error) {
-        const isQuotaError = error.message === 'QUOTA_EXHAUSTED';
-        const isPipelineError = error.message && (
-            error.message.startsWith('STAGE1_') ||
-            error.message.startsWith('STAGE2_') ||
-            error.message.startsWith('STAGE_TIMEOUT') ||
-            error.message.startsWith('STAGE_EMPTY_OUTPUT') ||
-            error.message.startsWith('CONTENT_REJECTED')
-        );
-        const isFlashNoCss = error.message && error.message.startsWith('FLASH_NO_DESIGN_CSS');
-        const isOutputTooLarge = error.message === 'GENERATION_OUTPUT_TOO_LARGE';
-
-        let userMessage;
-        if (isQuotaError) {
-            userMessage = 'The AI service has reached its usage limit. Please try again in a few minutes.';
-            log.warn(ErrorCategory.QUOTA, 'All configured models are quota exhausted', {
-                requestId
-            });
-        } else if (error.message && error.message.startsWith('STAGE_TIMEOUT')) {
-            userMessage = 'The AI took too long to respond. Please try again in a moment.';
-            log.error(ErrorCategory.PIPELINE, 'Stage timed out', {
-                requestId,
-                details: error.message
-            });
-        } else if (error.message && error.message.startsWith('STAGE_EMPTY_OUTPUT')) {
-            userMessage = 'The AI returned an empty response. Please try again in a moment.';
-            log.error(ErrorCategory.PIPELINE, 'Stage returned empty output', {
-                requestId,
-                details: error.message
-            });
-        } else if (isPipelineError) {
-            userMessage = 'The AI had trouble understanding the request. Please try rephrasing or adding more detail.';
-            log.error(ErrorCategory.PIPELINE, 'Pipeline generation failed', {
-                requestId,
-                details: error.message
-            });
-        } else if (isFlashNoCss) {
-            // Flash mode's retry loop exhausted (3 attempts × 503-retry + OpenRouter
-            // fallback) and every attempt returned HTML without design CSS. The model
-            // is up but consistently misformatting — give the user actionable advice.
-            userMessage = 'The AI could not produce a valid design after several attempts. Please rephrase your topic with a bit more detail, or switch to Pro mode for better formatting.';
-            log.error(ErrorCategory.PIPELINE, 'Flash generation exhausted retries without design CSS', {
-                requestId,
-                details: error.message
-            });
-        } else if (isOutputTooLarge) {
-            userMessage = 'The generated presentation is too large. Please use fewer slides or a shorter description.';
-            log.warn(ErrorCategory.VALIDATION, 'Generation rejected because the streamed HTML exceeded the size limit', {
-                requestId
-            });
-        } else {
-            userMessage = 'Something went wrong. Please try again.';
-            log.error(classifyError(error, ErrorCategory.UNKNOWN), 'Unhandled generation failure', {
-                requestId,
-                error
-            });
-        }
-
-        if (!res.headersSent) {
-            res.status(isQuotaError ? 429 : 500).json({ error: userMessage });
-            completed = true;
-        } else {
-            res.write(`data: ${JSON.stringify({ error: userMessage })}\n\n`);
-            res.end();
-            completed = true;
-        }
-    } finally {
-        if (sseKeepAlive) clearInterval(sseKeepAlive);
-        if (hasGenerationSlot) generationQueue.release();
-    }
+registerGenerationRoutes({
+    app,
+    upload,
+    maxUploadArrayFields: MAX_UPLOAD_ARRAY_FIELDS,
+    checkGenerationPressure,
+    checkRateLimits,
+    handleGenerateSkeleton,
+    handleGenerateOutlineItem,
+    generationQueue,
+    runPipeline,
+    runFlashGenerationWithRetry,
+    tryModelsFlash,
+    tryModelsStage1Thinking,
+    tryModelsStage2Thinking,
+    tryModelsStage3Thinking,
+    buildPrompt,
+    buildGenerationFileContext,
+    sanitizeTema,
+    invalidTopic,
+    validationFailed,
+    ERROR_TEXT,
+    MAX_PRO_SLIDES,
+    MAX_FLASH_SLIDES,
+    setSseHeaders,
+    log,
+    ErrorCategory,
+    fs,
+    path,
+    TMP_DIR,
+    devLog,
+    classifyError,
+    consumeModelStream,
+    sanitizeGeneratedHtml,
+    injectLayoutSafetyNet,
+    sanitizerLog,
+    IS_DEVELOPMENT,
+    extractPresentationTitle,
+    buildFileStemFromTitle,
+    resolveUniqueHtmlPath,
+    EXAMPLES_FLASH_DIR,
+    EXAMPLES_PRO_DIR
 });
 
 // Render the edited slide DOM as an editable PowerPoint. Text remains text
@@ -2319,101 +1782,21 @@ async function renderEditablePptx(html, title, requestId, { debug = false } = {}
     }
 }
 
-app.post('/finalize-pptx', express.json({ limit: '50mb' }), checkFinalizePressure, checkFinalizeLimits, async (req, res) => {
-    const requestId = req.requestId || 'n/a';
-    res.on('error', (err) => {
-        puppeteerLog.warn(ErrorCategory.STREAM, 'PowerPoint response stream error (non-fatal)', {
-            requestId,
-            error: String((err && err.message) || err)
-        });
-    });
-
-    const obtainedSlot = await finalizeQueueState.enqueue(req, { requestId });
-    if (!obtainedSlot) return;
-
-    try {
-        await pptxFinalizer.finalizePptx(req, res, requestId);
-    } catch (error) {
-        log.error(classifyError(error, ErrorCategory.PUPPETEER), 'Failed to finalize editable PowerPoint', {
-            requestId,
-            error
-        });
-        const status = error.code === 'CONTRACT_VIOLATION' ? 400 : 500;
-        if (!res.headersSent) res.status(status).json({ error: 'Error generating PowerPoint: ' + (error.message || error), tipo: error.code === 'CONTRACT_VIOLATION' ? 'contract-violation' : undefined });
-    } finally {
-        finalizeQueueState.release();
-    }
+registerFinalizeRoutes({
+    app,
+    checkFinalizePressure,
+    checkFinalizeLimits,
+    finalizeQueueState,
+    pptxFinalizer,
+    pdfExporter,
+    maxExportHtmlBytes: MAX_EXPORT_HTML_BYTES,
+    downloadTtlMs: DOWNLOAD_TTL_MS,
+    log,
+    puppeteerLog,
+    classifyError,
+    ErrorCategory
 });
-
-// Finalize: receive (possibly modified) HTML, convert to PDF
-app.post('/finalize', express.json({ limit: '50mb' }), checkFinalizePressure, checkFinalizeLimits, async (req, res) => {
-    const requestId = req.requestId || 'n/a';
-
-    // PDF rendering can take tens of seconds; the tab often closes in the
-    // meantime. res.json() to a dead socket emits 'error' on the response
-    // stream — no listener = process crash. Keep it non-fatal.
-    res.on('error', (err) => {
-        puppeteerLog.warn(ErrorCategory.STREAM, 'Finalize response stream error (non-fatal)', {
-            requestId,
-            error: String((err && err.message) || err)
-        });
-    });
-
-    const obtainedSlot = await finalizeQueueState.enqueue(req, { requestId, logQueued: true });
-    if (!obtainedSlot) return; // Client disconnected
-
-    try {
-        const { html, title } = req.body;
-
-        log.info(ErrorCategory.PUPPETEER, 'Finalize request accepted', {
-            requestId,
-            title: title || null
-        });
-
-        if (!html || typeof html !== 'string') {
-            log.warn(ErrorCategory.VALIDATION, 'Finalize rejected: html missing or invalid type', {
-                requestId
-            });
-            return res.status(400).json({ error: 'HTML content is required' });
-        }
-        if (html.length > MAX_EXPORT_HTML_BYTES) { // 2MB
-            log.warn(ErrorCategory.VALIDATION, 'Finalize rejected: payload too large', {
-                requestId,
-                htmlBytes: html.length
-            });
-            return res.status(400).json({ error: 'Payload too large' });
-        }
-
-        const { pdfFilename, pdfPath } = await pdfExporter.renderPdf({ html, title, requestId });
-
-        const safeTitle = title ? title.replace(/[\/\\?%*:|<|>]/g, '-').trim() : 'Presentacion';
-        res.set('Cache-Control', 'no-store');
-        res.json({ pdfUrl: `/download/${pdfFilename}?name=${encodeURIComponent(safeTitle)}` });
-        log.success(ErrorCategory.PUPPETEER, 'PDF generated successfully', {
-            requestId,
-            pdfFilename
-        });
-
-        setTimeout(() => {
-            if (fs.existsSync(pdfPath)) {
-                fs.unlink(pdfPath, () => { });
-                log.info(ErrorCategory.FILESYSTEM, 'Auto-deleted unclaimed PDF', {
-                    pdfFilename
-                });
-            }
-        }, DOWNLOAD_TTL_MS);
-    } catch (error) {
-        log.error(classifyError(error, ErrorCategory.PUPPETEER), 'Failed to finalize PDF', {
-            requestId,
-            error
-        });
-        res.status(500).json({ error: 'Error generating PDF: ' + (error.message || error) });
-    } finally {
-        finalizeQueueState.release();
-    }
-});
-
-registerDownloadRoute(app, { tmpDir: TMP_DIR, log, classifyError, ErrorCategory });
+registerDownloadRoute({ app, tmpDir: TMP_DIR, log, classifyError, ErrorCategory });
 
 // ── Global process safety net ─────────────────────────────────────────────
 // Long-lived SSE responses make socket-level failures (EPIPE / aborted /
