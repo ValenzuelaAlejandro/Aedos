@@ -1,7 +1,7 @@
 # Contratos backend
 
 Esta carpeta contiene límites, defaults, errores, SSE, tipos JSDoc y
-normalizadores puros que describen contratos ya existentes. Cada archivo debe
+normalizadores y la sanitización pura de temas que describen contratos ya existentes. Cada archivo debe
 mantener una responsabilidad pequeña y no debe iniciar servicios ni leer
 `req`/`res` salvo en el punto de integración de `server.js`.
 

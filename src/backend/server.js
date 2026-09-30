@@ -8,7 +8,6 @@ const https = require('https');
 const path = require('path');
 const {
     MAX_UPLOAD_ARRAY_FIELDS,
-    MAX_TOPIC_CHARACTERS,
     MAX_FLASH_SLIDES,
     MAX_PRO_SLIDES,
     MAX_EXPORT_HTML_BYTES,
@@ -25,6 +24,7 @@ const {
     ERROR_TEXT,
 } = require('./contracts/errors');
 const { writeSse, setSseHeaders } = require('./contracts/sse');
+const { sanitizeTema } = require('./contracts/topic-sanitizer');
 const { sanitizeGeneratedHtml: sanitizeGeneratedHtmlMoved } = require('./sanitization/html');
 const { TMP_DIR, upload } = require('./files/upload');
 const { createDirectoryEnsurer, ensureBackendDirectories } = require('./files/directories');
@@ -351,38 +351,6 @@ process.on('SIGINT', async () => {
 registerEntryRoutes({ app, tmpDir: TMP_DIR });
 
 
-
-function sanitizeTema(input) {
-    if (typeof input !== 'string') return { valid: false, reason: "Topic must be a string" };
-
-    if (/<[^>]+>/.test(input) ||
-        /javascript:/i.test(input) ||
-        /onerror\s*=/i.test(input) ||
-        /onload\s*=/i.test(input) ||
-        /eval\s*\(/i.test(input) ||
-        /document\.cookie/i.test(input) ||
-        /window\.location/i.test(input) ||
-        /fetch\s*\(/i.test(input) ||
-        /innerHTML/i.test(input)) {
-        return { valid: false, reason: "HTML/script content not allowed" };
-    }
-
-    const restrictedPatterns = [
-        "ignore previous", "ignore all", "system prompt",
-        "you are now", "act as", "disregard", "reveal your",
-        "print your instructions", "forget your", "new instruction"
-    ];
-
-    const lowerInput = input.toLowerCase();
-    for (const pattern of restrictedPatterns) {
-        if (lowerInput.includes(pattern)) {
-            return { valid: false, reason: "Contains restricted patterns" };
-        }
-    }
-
-    const cleanedString = input.trim().replace(/\s+/g, ' ').substring(0, MAX_TOPIC_CHARACTERS);
-    return { valid: true, tema: cleanedString };
-}
 
 registerGenerationRoutes({
     app,
