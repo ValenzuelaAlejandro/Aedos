@@ -4,11 +4,22 @@ const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 
 const root = path.resolve(__dirname, '..');
-const inputDir = path.join(root, 'tmp', 'verify-pptx');
-const outputFile = path.join(root, 'tests', 'baseline', 'exports', 'manifest.json');
+function argumentValue(name) {
+    const index = process.argv.indexOf(name);
+    return index < 0 ? null : process.argv[index + 1];
+}
+
+const inputDir = path.resolve(
+    argumentValue('--input-dir') || path.join(root, 'tmp', 'verify-pptx'),
+);
+const outputFile = path.resolve(
+    argumentValue('--output-file') ||
+        path.join(root, 'tests', 'baseline', 'exports', 'manifest.json'),
+);
 
 function normalizedXml(buffer) {
-    return buffer.toString('utf8')
+    return buffer
+        .toString('utf8')
         .replace(/<dcterms:created>.*?<\/dcterms:created>/g, '')
         .replace(/<dcterms:modified>.*?<\/dcterms:modified>/g, '')
         .replace(/\s+/g, ' ')
@@ -19,7 +30,10 @@ function zipEntries(file) {
     const buffer = fs.readFileSync(file);
     let eocd = -1;
     for (let index = buffer.length - 22; index >= 0; index--) {
-        if (buffer.readUInt32LE(index) === 0x06054b50) { eocd = index; break; }
+        if (buffer.readUInt32LE(index) === 0x06054b50) {
+            eocd = index;
+            break;
+        }
     }
     if (eocd < 0) throw new Error(`Not a ZIP package: ${file}`);
     const count = buffer.readUInt16LE(eocd + 10);
@@ -27,7 +41,8 @@ function zipEntries(file) {
     const entries = [];
     let offset = directoryOffset;
     for (let index = 0; index < count; index++) {
-        if (buffer.readUInt32LE(offset) !== 0x02014b50) throw new Error(`Invalid central directory: ${file}`);
+        if (buffer.readUInt32LE(offset) !== 0x02014b50)
+            throw new Error(`Invalid central directory: ${file}`);
         const compressedSize = buffer.readUInt32LE(offset + 20);
         const nameLength = buffer.readUInt16LE(offset + 28);
         const extraLength = buffer.readUInt16LE(offset + 30);
@@ -43,7 +58,11 @@ function zipEntries(file) {
 function readEntry(file, targetName) {
     const buffer = fs.readFileSync(file);
     let eocd = -1;
-    for (let index = buffer.length - 22; index >= 0; index--) if (buffer.readUInt32LE(index) === 0x06054b50) { eocd = index; break; }
+    for (let index = buffer.length - 22; index >= 0; index--)
+        if (buffer.readUInt32LE(index) === 0x06054b50) {
+            eocd = index;
+            break;
+        }
     const count = buffer.readUInt16LE(eocd + 10);
     let offset = buffer.readUInt32LE(eocd + 16);
     for (let index = 0; index < count; index++) {
@@ -71,16 +90,29 @@ function manifestFor(file) {
     return {
         file: path.basename(file),
         parts: entries,
-        slideXml: entries.filter((entry) => /^ppt\/slides\/slide\d+\.xml$/.test(entry)).map((entry) => ({
-            part: entry,
-            normalizedHash: crypto.createHash('sha256').update(normalizedXml(readEntry(file, entry))).digest('hex')
-        }))
+        slideXml: entries
+            .filter((entry) => /^ppt\/slides\/slide\d+\.xml$/.test(entry))
+            .map((entry) => ({
+                part: entry,
+                normalizedHash: crypto
+                    .createHash('sha256')
+                    .update(normalizedXml(readEntry(file, entry)))
+                    .digest('hex'),
+            })),
     };
 }
 
-const files = fs.readdirSync(inputDir).filter((name) => name.endsWith('.pptx')).sort();
-if (!files.length) throw new Error(`No PPTX files found in ${path.relative(root, inputDir)}; run npm run verify:pptx first.`);
+const files = fs
+    .readdirSync(inputDir)
+    .filter((name) => name.endsWith('.pptx'))
+    .sort();
+if (!files.length)
+    throw new Error(
+        `No PPTX files found in ${path.relative(root, inputDir)}; run npm run verify:pptx first.`,
+    );
 const manifest = files.map((name) => manifestFor(path.join(inputDir, name)));
 fs.mkdirSync(path.dirname(outputFile), { recursive: true });
 fs.writeFileSync(outputFile, JSON.stringify(manifest, null, 2) + '\n');
-console.log(`Export baseline written to ${path.relative(root, outputFile)} (${manifest.length} packages).`);
+console.log(
+    `Export baseline written to ${path.relative(root, outputFile)} (${manifest.length} packages).`,
+);

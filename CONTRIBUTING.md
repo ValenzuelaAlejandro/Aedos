@@ -10,6 +10,11 @@
 - `npm run verify:quality`: lint, type-check y formato con ratchets.
 - `npm run verify:baseline`: red de seguridad funcional y visual existente.
 - `npm run verify:all`: ambas familias de verificación.
+- `npm run baseline:export`: regenera manualmente el manifiesto PPTX comprometido;
+  este comando escribe `tests/baseline/exports/manifest.json`.
+- `npm run check:baseline:export`: genera los paquetes y el manifiesto en un
+  directorio temporal y los compara con la baseline comprometida, sin escribir
+  en `tests/`.
 
 Si un ratchet falla, revisa el reporte generado en `tmp/`, determina si el
 cambio es intencional y actualiza la baseline correspondiente sólo después de
