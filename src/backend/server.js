@@ -15,6 +15,7 @@ const {
 } = require('./contracts/limits');
 const { createModelConfig } = require('./config/models');
 const { loadEnvConfig } = require('./config/env');
+const { createEnvironmentValidator } = require('./config/environment');
 const {
     queueFullGeneration,
     queueFullFinalize,
@@ -165,6 +166,20 @@ const {
     GEMINI_MODEL_STAGE3,
     reasoningForStage
 } = createModelConfig(process.env);
+const validateEnvironment = createEnvironmentValidator({
+    log,
+    ErrorCategory,
+    models: {
+        flash: GEMINI_MODEL_FLASH,
+        stage1: GEMINI_MODEL_STAGE1,
+        stage2: GEMINI_MODEL_STAGE2,
+        stage3: GEMINI_MODEL_STAGE3,
+        openRouterFlash: OPENROUTER_MODELS_FLASH,
+        openRouterStage1: OPENROUTER_MODELS_STAGE1,
+        openRouterStage2: OPENROUTER_MODELS_STAGE2,
+        openRouterStage3: OPENROUTER_MODELS_STAGE3
+    }
+});
 // Rate limiting is handled by Upstash Redis (see utils/rate-limiter.js).
 // checkRateLimits   → daily limits + cooldown for /generate
 // checkFinalizeLimits → window limit for /finalize
@@ -174,52 +189,6 @@ if (SHOULD_PRINT_STARTUP_BANNER) {
 }
 
 app.use(createCorsMiddleware({ log, ErrorCategory }));
-
-function validateEnvironment() {
-    const checks = [
-        { key: 'NODE_ENV', value: process.env.NODE_ENV, fallback: 'development' },
-        { key: 'PORT', value: process.env.PORT, fallback: '3000' },
-    ];
-
-    log.info(ErrorCategory.BOOT, 'Environment validation started');
-    checks.forEach(({ key, value, fallback }) => {
-        const val = value || fallback;
-        if (value) {
-            log.info(ErrorCategory.CONFIG, 'Environment variable detected', { key, value: val });
-            return;
-        }
-        log.warn(ErrorCategory.CONFIG, 'Environment variable missing, using fallback', {
-            key,
-            fallback: val
-        });
-    });
-
-    if (process.env.GEMINI_API_KEY) {
-        log.success(ErrorCategory.CONFIG, 'Gemini direct API key present (primary provider)', {
-            flash:  GEMINI_MODEL_FLASH,
-            stage1: GEMINI_MODEL_STAGE1,
-            stage2: GEMINI_MODEL_STAGE2,
-            stage3: GEMINI_MODEL_STAGE3
-        });
-    } else {
-        log.warn(ErrorCategory.CONFIG, 'GEMINI_API_KEY not set — direct Gemini calls will be skipped');
-    }
-
-    if (process.env.OPENROUTER_API_KEY) {
-        log.success(ErrorCategory.CONFIG, 'OpenRouter API key present (fallback provider)', {
-            flash:  OPENROUTER_MODELS_FLASH,
-            stage1: OPENROUTER_MODELS_STAGE1,
-            stage2: OPENROUTER_MODELS_STAGE2,
-            stage3: OPENROUTER_MODELS_STAGE3
-        });
-    } else {
-        log.warn(ErrorCategory.CONFIG, 'OPENROUTER_API_KEY not set — OpenRouter fallback disabled');
-    }
-
-    if (!process.env.GEMINI_API_KEY && !process.env.OPENROUTER_API_KEY) {
-        throw new Error('At least one of GEMINI_API_KEY or OPENROUTER_API_KEY is required.');
-    }
-}
 
 validateEnvironment();
 

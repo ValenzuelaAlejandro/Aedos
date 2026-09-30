@@ -8,3 +8,7 @@ registering its name/default in `contracts/config-defaults.js`, reading it in
 
 `models.js` resolves provider model lists and reasoning at the same bootstrap
 position where the server previously initialized them.
+
+`environment.js` creates the startup validator; the call remains after CORS
+registration and before request logging so startup order and failure behavior
+stay frozen.
