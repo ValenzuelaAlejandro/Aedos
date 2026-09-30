@@ -283,45 +283,34 @@ section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(3)) > .
 }
 
 // ── Gemini direct API (primary) ───────────────────────────────────────────────
-const { fetchWithAcceptTimeout } = require('./providers/common');
-const { createGeminiProvider } = require('./providers/gemini');
-const { createOpenRouterProvider } = require('./providers/openrouter');
-const { createProviderFallback, createTestProviderResponse } = require('./providers/fallback');
-
-const PROVIDER_ACCEPT_TIMEOUT_MS = runtimeConfig.providerAcceptTimeoutMs;
-const geminiProvider = createGeminiProvider({
-    fetchWithAcceptTimeout,
-    providerLog,
-    ErrorCategory,
-    providerAcceptTimeoutMs: PROVIDER_ACCEPT_TIMEOUT_MS
-});
-const openRouterProvider = createOpenRouterProvider({
-    fetchWithAcceptTimeout,
+const { createProviderRuntime } = require('./providers/runtime');
+const {
+    tryModelsFlash,
+    tryModelsStage1,
+    tryModelsFlashThinking,
+    tryModelsStage1Thinking,
+    tryModelsStage2Thinking,
+    tryModelsStage3Thinking
+} = createProviderRuntime({
+    runtimeConfig,
     providerLog,
     classifyError,
     ErrorCategory,
-    providerAcceptTimeoutMs: PROVIDER_ACCEPT_TIMEOUT_MS,
-    modelList: OPENROUTER_MODEL_LIST,
-    stage3Only: OPENROUTER_MODELS_STAGE3_ONLY,
-    reasoningForStage
+    modelConfig: {
+        OPENROUTER_MODEL_LIST,
+        OPENROUTER_MODELS_STAGE3_ONLY,
+        OPENROUTER_MODELS_FLASH,
+        OPENROUTER_MODELS_STAGE1,
+        OPENROUTER_MODELS_STAGE2,
+        OPENROUTER_MODELS_STAGE3,
+        GEMINI_MODEL_FLASH,
+        GEMINI_MODEL_STAGE1,
+        GEMINI_MODEL_STAGE2,
+        GEMINI_MODEL_STAGE3,
+        reasoningForStage
+    },
+    getTestProviderOverride: () => testProviderOverride
 });
-const providerFallback = createProviderFallback({
-    gemini: geminiProvider.call,
-    openrouter: openRouterProvider.call,
-    getOverride: () => testProviderOverride,
-    createStub: createTestProviderResponse,
-    providerLog,
-    ErrorCategory
-});
-const tryModelsFlash = providerFallback.makeCaller('Flash', GEMINI_MODEL_FLASH, OPENROUTER_MODELS_FLASH);
-const tryModelsStage1 = providerFallback.makeCaller('Stage1', GEMINI_MODEL_STAGE1, OPENROUTER_MODELS_STAGE1);
-const tryModelsStage2 = providerFallback.makeCaller('Stage2', GEMINI_MODEL_STAGE2, OPENROUTER_MODELS_STAGE2);
-const tryModelsStage3 = providerFallback.makeCaller('Stage3', GEMINI_MODEL_STAGE3, OPENROUTER_MODELS_STAGE3);
-const tryModelsFlashThinking = (prompt, fileContext) => tryModelsFlash(prompt, fileContext, { includeReasoning: true });
-const tryModelsStage1Thinking = (prompt, fileContext) => tryModelsStage1(prompt, fileContext, { includeReasoning: true });
-const tryModelsStage2Thinking = (prompt, fileContext) => tryModelsStage2(prompt, fileContext, { includeReasoning: true });
-const tryModelsStage3Thinking = (prompt, fileContext) => tryModelsStage3(prompt, fileContext, { includeReasoning: true });
-const tryModels = tryModelsFlash;
 
 const handleGenerateSkeleton = createSkeletonHandler({
     sanitizeTema: (input) => sanitizeTema(input),
