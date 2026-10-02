@@ -1,7 +1,6 @@
 {
-  "totalWarnings": 179,
+  "totalWarnings": 175,
   "byRule": {
-    "no-undef": 15,
     "no-empty": 11,
     "complexity": 37,
     "max-lines-per-function": 27,
@@ -9,10 +8,10 @@
     "no-unused-vars": 29,
     "no-shadow": 22,
     "prefer-const": 25,
-    "eqeqeq": 2
+    "eqeqeq": 2,
+    "no-undef": 11
   },
   "byFile": {
-    "scripts\\capture-baseline.js": 4,
     "scripts\\verify-pptx-export.js": 2,
     "src\\backend\\prompts\\base.js": 2,
     "src\\backend\\prompts\\pipeline.js": 3,
@@ -69,12 +68,12 @@
       5
     ],
     [
-      "scripts\\capture-baseline.js",
-      4
-    ],
-    [
       "src\\backend\\prompts\\pipeline.js",
       3
+    ],
+    [
+      "scripts\\verify-pptx-export.js",
+      2
     ]
   ]
 }
