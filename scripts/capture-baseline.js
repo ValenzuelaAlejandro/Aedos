@@ -1,17 +1,17 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
-const pixelmatchModule = require('pixelmatch');
-const pixelmatch = pixelmatchModule.default || pixelmatchModule;
-const { PNG } = require('pngjs');
 const puppeteer = require('puppeteer');
+const { comparePngBuffers } = require('./visual-baseline-utils');
+const browserSnippets = require('./visual/browser-snippets');
 
 process.env.NODE_ENV = 'test';
-process.env.GEMINI_API_KEY = 'baseline-stub';
+process.env.GEMINI_API_KEY = 'visual-baseline-test-stub';
 process.env.AEDOS_TEST_STUB_PROVIDERS = '1';
+require('dotenv').config = () => ({ parsed: {} });
 
 const root = path.resolve(__dirname, '..');
 const compare = process.argv.includes('--compare');
+const onlyScenarioArg = process.argv.find((arg) => arg.startsWith('--scenario='));
 const outputDir = compare
     ? path.join(root, 'tmp', 'baseline-current')
     : path.join(root, 'tests', 'baseline', 'screenshots');
@@ -30,114 +30,151 @@ const chromePath =
         'chrome-headless-shell.exe',
     );
 
-/* eslint-disable-next-line max-lines-per-function */
-async function capture() {
-    fs.mkdirSync(outputDir, { recursive: true });
+const scenarios = {
+    'desktop-light.png': { width: 1440, height: 900, theme: 'light', state: 'landing' },
+    'desktop-dark.png': { width: 1440, height: 900, theme: 'dark', state: 'landing' },
+    'mobile-light.png': { width: 390, height: 844, theme: 'light', state: 'landing' },
+    'modal-error-mobile.png': { width: 390, height: 844, theme: 'light', state: 'modal' },
+    'outline-editable-desktop.png': {
+        width: 1440,
+        height: 900,
+        theme: 'dark',
+        state: 'outline',
+    },
+    'presentation-iframe-desktop.png': {
+        width: 1440,
+        height: 900,
+        theme: 'dark',
+        state: 'preview',
+    },
+};
+
+async function startRuntime() {
     const { app } = require('../src/backend/server');
-    const server = app.listen(0);
+    const server = app.listen(0, '127.0.0.1');
     await new Promise((resolve) => server.once('listening', resolve));
-    const port = server.address().port;
+    const origin = `http://127.0.0.1:${server.address().port}`;
     const browser = await puppeteer.launch({ headless: true, executablePath: chromePath });
+    return {
+        browser,
+        origin,
+        async close() {
+            await browser.close();
+            server.closeAllConnections?.();
+            await new Promise((resolve) => server.close(resolve));
+        },
+    };
+}
+
+async function createScenarioPage(browser, origin, scenario) {
+    const page = await browser.newPage();
+    await page.setViewport({
+        width: scenario.width,
+        height: scenario.height,
+        deviceScaleFactor: 1,
+    });
+    await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+        const url = new URL(request.url());
+        if (url.origin === origin) {
+            if (url.pathname === '/__dev__/last-generated' && request.method() === 'HEAD') {
+                request.respond({ status: 404, body: '' });
+            } else request.continue();
+        } else request.abort();
+    });
+    await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded' });
+    await page.addStyleTag({
+        content:
+            '*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}',
+    });
+    await page.evaluate(browserSnippets.applyTheme, scenario.theme);
+    await page.evaluate(browserSnippets.waitForFrames);
+
+    if (scenario.state === 'modal') {
+        await page.evaluate(browserSnippets.showErrorModal);
+    } else if (scenario.state === 'outline') await prepareOutline(page);
+    else if (scenario.state === 'preview') await preparePreview(page);
+    await page.evaluate(browserSnippets.waitForFrames);
+    return page;
+}
+
+async function prepareOutline(page) {
+    await page.evaluate(browserSnippets.renderOutline);
+    await page.waitForFunction(browserSnippets.outlineIsVisible);
+}
+
+async function preparePreview(page) {
+    await page.evaluate(browserSnippets.renderPreview);
+    await page.waitForFunction(browserSnippets.previewIsVisible);
+}
+
+async function captureScenario(browser, origin, name) {
+    const scenario = scenarios[name];
+    if (!scenario) throw new Error(`Unknown visual scenario: ${name}`);
+    const page = await createScenarioPage(browser, origin, scenario);
     try {
-        const page = await browser.newPage();
-        await page.setRequestInterception(true);
-        page.on('request', (request) => {
-            const url = request.url();
-            if (url.startsWith(`http://127.0.0.1:${port}`) || url.startsWith('http://localhost:'))
-                request.continue();
-            else request.abort();
-        });
-        await page
-            .addStyleTag({ content: '*{animation:none!important;transition:none!important;}' })
-            .catch(() => {});
-        await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
-        await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
-        await page.addStyleTag({
-            content: '*{animation:none!important;transition:none!important;}',
-        });
-        await page.evaluate(() => document.fonts && document.fonts.ready);
-        await new Promise((resolve) => setTimeout(resolve, 250));
-        await page.screenshot({ path: path.join(outputDir, 'desktop-light.png'), fullPage: true });
-
-        await page.evaluate(() => document.body.classList.toggle('dark-mode'));
-        await page.screenshot({ path: path.join(outputDir, 'desktop-dark.png'), fullPage: true });
-
-        await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
-        await page.screenshot({ path: path.join(outputDir, 'mobile-light.png'), fullPage: true });
-
-        await page.evaluate(() => {
-            const modal = document.querySelector('#error-container');
-            if (modal) modal.classList.remove('hidden');
-        });
-        await page.screenshot({
-            path: path.join(outputDir, 'modal-error-mobile.png'),
-            fullPage: true,
-        });
-        const expectedDir = path.join(root, 'tests', 'baseline', 'screenshots');
-        const names = [
-            'desktop-light.png',
-            'desktop-dark.png',
-            'mobile-light.png',
-            'modal-error-mobile.png',
-        ];
-        if (compare) {
-            for (const name of names) {
-                const expectedBuffer = fs.readFileSync(path.join(expectedDir, name));
-                const actualBuffer = fs.readFileSync(path.join(outputDir, name));
-                const expected = PNG.sync.read(expectedBuffer);
-                const actual = PNG.sync.read(actualBuffer);
-                if (expected.width !== actual.width || expected.height !== actual.height)
-                    throw new Error(`Visual dimensions differ: ${name}`);
-                const masks = visualConfig[name] || [];
-                for (const mask of masks) {
-                    for (let y = mask.y; y < Math.min(actual.height, mask.y + mask.height); y++) {
-                        for (let x = mask.x; x < Math.min(actual.width, mask.x + mask.width); x++) {
-                            const offset = (y * actual.width + x) * 4;
-                            actual.data[offset] = expected.data[offset];
-                            actual.data[offset + 1] = expected.data[offset + 1];
-                            actual.data[offset + 2] = expected.data[offset + 2];
-                            actual.data[offset + 3] = expected.data[offset + 3];
-                        }
-                    }
-                }
-                const diff = new PNG({ width: expected.width, height: expected.height });
-                const differentPixels = pixelmatch(
-                    expected.data,
-                    actual.data,
-                    diff.data,
-                    expected.width,
-                    expected.height,
-                    { threshold: 0.1 },
-                );
-                const ratio = differentPixels / (expected.width * expected.height);
-                if (ratio > 0.001) {
-                    fs.mkdirSync(diffDir, { recursive: true });
-                    fs.writeFileSync(path.join(diffDir, name), PNG.sync.write(diff));
-                    throw new Error(
-                        `Visual baseline differs: ${name} (${differentPixels} pixels, ${(ratio * 100).toFixed(3)}%)`,
-                    );
-                }
-                const hash = crypto.createHash('sha256').update(expectedBuffer).digest('hex');
-                if (hash !== crypto.createHash('sha256').update(actualBuffer).digest('hex'))
-                    console.warn(
-                        `Visual baseline passed pixel tolerance: ${name} (${differentPixels} pixels)`,
-                    );
-            }
-            console.log(
-                'Visual baseline OK: 4 screenshots passed pixel diff (threshold=0.1, max ratio=0.1%).',
-            );
-        } else {
-            console.log(`Baseline screenshots written to ${path.relative(root, outputDir)}`);
-        }
+        return await page.screenshot({ type: 'png', fullPage: false });
     } finally {
-        await browser.close();
-        await new Promise((resolve) => server.close(resolve));
+        await page.close();
     }
 }
 
-capture()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error.stack || error);
-        process.exitCode = 1;
-    });
+async function run() {
+    const selectedNames = onlyScenarioArg
+        ? [onlyScenarioArg.slice('--scenario='.length)]
+        : Object.keys(scenarios);
+    fs.mkdirSync(outputDir, { recursive: true });
+    const runtime = await startRuntime();
+    const results = [];
+    try {
+        for (const name of selectedNames) {
+            const actualBuffer = await captureScenario(runtime.browser, runtime.origin, name);
+            const actualPath = path.join(outputDir, name);
+            fs.writeFileSync(actualPath, actualBuffer);
+            if (compare) {
+                const expectedPath = path.join(root, 'tests', 'baseline', 'screenshots', name);
+                const result = comparePngBuffers(
+                    fs.readFileSync(expectedPath),
+                    actualBuffer,
+                    visualConfig.comparison,
+                );
+                results.push({ name, ...result });
+                console.log(
+                    `${name}: ${result.differentPixels} pixels (${(result.ratio * 100).toFixed(4)}%), max region RGB distance ${result.maxRegionDistance.toFixed(1)} at tile ${result.maxRegion.x},${result.maxRegion.y}`,
+                );
+                if (!result.passed) {
+                    fs.mkdirSync(diffDir, { recursive: true });
+                    fs.writeFileSync(path.join(diffDir, name), result.diffBuffer);
+                    throw new Error(`Visual baseline differs: ${name}`);
+                }
+            }
+        }
+    } finally {
+        await runtime.close();
+    }
+    if (compare)
+        console.log(
+            `Visual baseline OK: ${results.length} screenshots passed pixel and region checks.`,
+        );
+    else console.log(`Baseline screenshots written to ${path.relative(root, outputDir)}`);
+}
+
+if (require.main === module) {
+    run()
+        .then(() => process.exit(0))
+        .catch((error) => {
+            console.error(error.stack || error);
+            process.exit(1);
+        });
+}
+
+module.exports = {
+    root,
+    scenarios,
+    visualConfig,
+    startRuntime,
+    createScenarioPage,
+    captureScenario,
+    comparePngBuffers,
+};

@@ -4,18 +4,18 @@
 
 Hashes observados localmente antes de este documento:
 
-| Orden | Rama | Hash |
-|---:|---|---|
-| 1 | `refactor/fase-0-red-seguridad` | `d1f07114376c17e408bb6fc7c91d21287d4d9974` |
-| 2 | `refactor/fase-0b-cierre-huecos` | `8f53dfe068f7a89a06587b9de19684be0453f8a2` |
-| 3 | `refactor/fase-1-calidad-base` | `3c962717bc458a30b4230edfef766d874afb9da1` |
-| 4 | `refactor/fase-2-contratos` | `a7df061b21f3778db10505854725617e65110c7d` |
-| 5 | `refactor/fase-3a-backend-base` | `6d05d8307f0210901586cb95bbc83fecc13cb043` |
-| 6 | `refactor/fase-3a-bis-extraccion` | `2f0569fafe9ff0ac089fa90b4e978ec0f70b2951` |
-| 7 | `refactor/fase-3b1-colas-export` | `5e75fc16b6ad09bcea3d6da0dd558b63c1a0fc3a` |
-| 8 | `refactor/fase-3b2-pipeline-rutas` | `21b238af9d8c41ccdfad6efa32b77c3ccf17be31` |
-| 9 | `refactor/fase-3c-cierre-backend` | `ff967744dfb10e24c07ce3a85108c50b3a690532` |
-| 10 | `refactor/fase-3c-fix` | `3d8399fd6c7905194543cb585f7fc29efbad117d` |
+| Orden | Rama                               | Hash                                       |
+| ----: | ---------------------------------- | ------------------------------------------ |
+|     1 | `refactor/fase-0-red-seguridad`    | `d1f07114376c17e408bb6fc7c91d21287d4d9974` |
+|     2 | `refactor/fase-0b-cierre-huecos`   | `8f53dfe068f7a89a06587b9de19684be0453f8a2` |
+|     3 | `refactor/fase-1-calidad-base`     | `3c962717bc458a30b4230edfef766d874afb9da1` |
+|     4 | `refactor/fase-2-contratos`        | `a7df061b21f3778db10505854725617e65110c7d` |
+|     5 | `refactor/fase-3a-backend-base`    | `6d05d8307f0210901586cb95bbc83fecc13cb043` |
+|     6 | `refactor/fase-3a-bis-extraccion`  | `2f0569fafe9ff0ac089fa90b4e978ec0f70b2951` |
+|     7 | `refactor/fase-3b1-colas-export`   | `5e75fc16b6ad09bcea3d6da0dd558b63c1a0fc3a` |
+|     8 | `refactor/fase-3b2-pipeline-rutas` | `21b238af9d8c41ccdfad6efa32b77c3ccf17be31` |
+|     9 | `refactor/fase-3c-cierre-backend`  | `ff967744dfb10e24c07ce3a85108c50b3a690532` |
+|    10 | `refactor/fase-3c-fix`             | `3d8399fd6c7905194543cb585f7fc29efbad117d` |
 
 El commit de estas notas actualizará el hash de `refactor/fase-3c-fix`; consultar `git rev-parse HEAD` para el valor definitivo.
 
@@ -42,9 +42,36 @@ Comando: `npm run verify:all` (ejecutado el 2026-09-30 en Windows). No terminó 
 - No se ha realizado smoke test con proveedores reales.
 - GitHub Actions todavía no se ha observado correr para estas ramas.
 
-## Hueco de cobertura visual
+## Diagnóstico de cobertura visual (histórico, corregido en Fase 3d)
 
-El baseline visual no detecta cambios pequeños de forma fiable: el cambio global de fondo rojo pasó con 80/80/17/0 píxeles distintos. No tomar un pase visual aislado como prueba de ausencia de regresiones visuales.
+La atribución anterior de `80/80/17/0` al fondo rojo era incorrecta. La
+reproducción controlada cambió `body` a rojo, pero `#chat-screen` cubría el
+viewport completo y lo pintaba opaco; ese cambio no era visible. Los 80 píxeles
+desktop medidos en el worktree limpio eran el botón dev-only
+`#btn-debug-last-generated`, presente en la baseline antigua pero ausente cuando
+`HEAD /__dev__/last-generated` respondía 404. El rectángulo del diff fue
+`x=989..1004, y=496..512`. Evidencia e imágenes:
+[`docs/visual-baseline-diagnosis/README.md`](visual-baseline-diagnosis/README.md).
+
+## Fase 3d — Baseline visual
+
+- Rama iniciada desde `refactor/fase-3c-fix` en `67d248bcdf976c726d73f930353ba683f8cd3808`.
+- Capturas: `desktop-light.png`, `desktop-dark.png`, `mobile-light.png`,
+  `modal-error-mobile.png`, `outline-editable-desktop.png` y
+  `presentation-iframe-desktop.png`.
+- Los estados claros/oscuros se fuerzan explícitamente; animaciones apagadas,
+  requests externos bloqueados, providers configurados en stub y el probe del
+  botón dev fijado en 404.
+- Comparación: pixelmatch threshold 0.03, ratio máximo 0.01%, mosaicos de 32×32
+  con distancia euclidiana RGB máxima 20; cero máscaras.
+- Diez ejecuciones consecutivas de `npm run check:baseline:visual`: 10/10
+  código 0, 0 píxeles sobre el umbral en cada una. La máxima distancia regional
+  observada fue 9.3 (móvil), debajo del límite 20.
+- Mutaciones comprobadas: `#chat-screen` rojo detectado (1,166,371 px);
+  body rojo no visible y pasa (0); botón +20px detectado (35 px y distancia
+  regional 336.2); texto rojo (7,765 px); radio cero (205 px); icono oculto
+  (18 px); título +2px (15,358 px); comentario CSS pasa (0).
+- Ningún archivo de `src/` se cambió.
 
 ## Pendientes para continuar
 

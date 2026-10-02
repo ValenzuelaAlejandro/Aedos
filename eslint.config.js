@@ -105,4 +105,9 @@ module.exports = [
         languageOptions: { ecmaVersion: 'latest', sourceType: 'script', globals: frontendGlobals },
         rules: sharedRules,
     },
+    {
+        files: ['scripts/visual/browser-snippets.js'],
+        languageOptions: { ecmaVersion: 'latest', sourceType: 'commonjs', globals: globals.browser },
+        rules: sharedRules,
+    },
 ];

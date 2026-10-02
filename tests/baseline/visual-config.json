@@ -1,6 +1,10 @@
 {
-  "desktop-light.png": [],
-  "desktop-dark.png": [],
-  "mobile-light.png": [],
-  "modal-error-mobile.png": []
+  "comparison": {
+    "pixelThreshold": 0.03,
+    "maxDifferentRatio": 0.0001,
+    "regionSize": 32,
+    "maxRegionColorDistance": 20
+  },
+  "masks": [],
+  "maskReview": "No regions are masked. The dev-only last-generated button is deterministically excluded by returning 404 from its local HEAD probe; capture animations are disabled and external requests are blocked."
 }
