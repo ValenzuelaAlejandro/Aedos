@@ -3,13 +3,15 @@
 Estos problemas se documentan, pero no se corrigen en esta fase porque cambiarían
 el comportamiento observable o pertenecen a una fase de correcciones separada.
 
-1. **Cola y `req.close`.** `src/backend/queues/generation.js` retira una
-   solicitud sólo cuando el listener `req.on('close')` encuentra todavía el
-   elemento en la cola. La evidencia operativa congelada es la reproducción de
-   `req2`/`req3` colgadas y la ausencia del `429 QUEUE_FULL` esperado; el test
-   automatizado actual sí cubre el `503 PRO_TEMPORARILY_PAUSED`. Corrección
-   mínima propuesta, no aplicada: modelar explícitamente los estados de cada
-   elemento y liberar/contabilizar desconexiones una sola vez.
+1. **Cola y desconexión de petición — corregido.** `req.on('close')` también
+   se dispara al terminar de leer el body, aunque la conexión HTTP siga viva;
+   eso retiraba entradas válidas de la cola. `generation-queue-disconnect.test.js`
+   reprodujo que la tercera conexión recibía 200 y quedaba esperando en vez del
+   429 `QUEUE_FULL`. Corregido en el commit de esta rama
+   `fix(queue): use response close for queued request cleanup`: ahora se
+   elimina una entrada al cerrarse su response antes de terminar, y se
+   desregistra el listener al adquirir o abandonar el slot. El test confirma
+   429 real, FIFO y limpieza tras desconexión del cliente.
 
 2. **Sanitización HTML incompleta.** Las fixtures actuales muestran que se
    conservan casos como `iframe`, `object`, `embed`, `@import`,

@@ -120,10 +120,12 @@ function createGenerationQueue({ runtimeConfig, queueLog, ErrorCategory, queueFu
                 maxConcurrent: MAX_CONCURRENT_GENERATIONS
             });
             writeSse(res, { queued: true, position: state.queueDepth + 1 });
+            let removeCloseListener = () => {};
             const obtainedSlot = await new Promise((resolve) => {
                 const item = { resolve: () => resolve(true) };
                 queue.push(item);
-                req.on('close', () => {
+                const removeQueuedRequest = () => {
+                    if (res.writableEnded) return;
                     const idx = queue.indexOf(item);
                     if (idx !== -1) {
                         queue.splice(idx, 1);
@@ -133,8 +135,11 @@ function createGenerationQueue({ runtimeConfig, queueLog, ErrorCategory, queueFu
                         });
                         resolve(false);
                     }
-                });
+                };
+                res.on('close', removeQueuedRequest);
+                removeCloseListener = () => res.off('close', removeQueuedRequest);
             });
+            removeCloseListener();
             if (!obtainedSlot) return 'disconnected';
             writeSse(res, { queued: false });
             const resumedState = snapshot();
