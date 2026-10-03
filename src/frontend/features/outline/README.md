@@ -13,8 +13,3 @@ compatibility wrapper while existing callers migrate.
 the target container, partial outline data and the scroll callback, and owns no
 outline store state. `window.renderStreamingOutline` remains the classic
 compatibility entry point.
-
-`editor-bindings.js` binds slide fields and point controls. It receives a live
-slide getter and render/count callbacks from `scripts/outline.js`; it mutates the
-same slide objects as the legacy editor, without owning a second copy of the
-outline state.

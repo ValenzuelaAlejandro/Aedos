@@ -8,7 +8,6 @@ const test = require('node:test');
 const root = path.resolve(__dirname, '..');
 const rendererPath = path.join(root, 'src/frontend/features/outline/slide-renderer.js');
 const parserPath = path.join(root, 'src/frontend/features/outline/stream-parser.js');
-const bindingsPath = path.join(root, 'src/frontend/features/outline/editor-bindings.js');
 const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/outline-slide-cases.json');
 
 function createDocument() {
@@ -73,39 +72,4 @@ test('outline stream parser preserves complete and partial slide fragments', () 
 
     const partial = parse('{"slides":[{"index":0,"title":"Still typ');
     assert.equal(JSON.stringify(partial), JSON.stringify({ slides: [{ title: 'Still typ', key_points: [] }] }));
-});
-
-test('outline editor bindings update the live slide through the injected getter', () => {
-    const listeners = {};
-    const titleInput = {
-        dataset: { index: '0' },
-        style: {},
-        scrollHeight: 24,
-        value: 'Edited title',
-        addEventListener(type, listener) { listeners[type] = listener; },
-    };
-    const document = {
-        querySelectorAll(selector) {
-            return selector === '.outline-slide-title' ? [titleInput] : [];
-        },
-    };
-    const window = {};
-    vm.runInNewContext(fs.readFileSync(bindingsPath, 'utf8'), {
-        window,
-        document,
-        clearTimeout() {},
-        setTimeout(callback) { callback(); return 1; },
-    }, { filename: bindingsPath });
-
-    const slides = [{ title: 'Original title', key_points: [] }];
-    let updateCountCalls = 0;
-    window.AedosOutlineEditorBindings.bindEvents({
-        getSlides: () => slides,
-        renderSlides() {},
-        updateSlideCount() { updateCountCalls++; },
-    });
-    listeners.input({ target: titleInput });
-
-    assert.equal(slides[0].title, 'Edited title');
-    assert.equal(updateCountCalls, 1);
 });
