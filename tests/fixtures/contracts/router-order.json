@@ -82,5 +82,10 @@
     "path": "/download/:filename",
     "methods": ["get"],
     "stack": ["<anonymous>"]
+  },
+  {
+    "type": "middleware",
+    "name": "handleUploadError",
+    "regexp": "/^\\/?(?=\\/|$)/i"
   }
 ]

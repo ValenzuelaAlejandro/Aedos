@@ -22,6 +22,14 @@ frontend consumes `QUEUE_FULL` and `PRO_TEMPORARILY_PAUSED` with
 consumes SSE `{ error }` events during generation. Download errors remain the
 plain-text `Invalid file` and `File not found` responses.
 
+Multipart upload validation returns JSON `{ "error": "..." }`: an upload
+larger than 10 MiB returns HTTP 413; exceeding the three-file limit, using an
+unsupported extension, or omitting the extension returns HTTP 400. The
+frontend's generation handlers check `response.ok`, parse the JSON body, and
+display its `error` string (falling back to `Server error: <status>`). They do
+not branch on 400 versus 413 or show a dedicated upload-error state; file size
+and count are also checked client-side before submission.
+
 Error response bodies are cataloged in `src/backend/contracts/errors.js`. The
 frontend consumes `QUEUE_FULL` and `PRO_TEMPORARILY_PAUSED` with
 `retryAfterSec`, displays `Validation failed.fields` for form errors, and

@@ -22,12 +22,11 @@ el comportamiento observable o pertenecen a una fase de correcciones separada.
    del cambio; Google Fonts y `data:image/*` se conservan. No se amplió a una
    política HTML general ni a vectores no enumerados en esta tarea.
 
-3. **Error HTTP 500 de Multer.** Los límites multipart atraviesan Multer antes
-   del handler de generación; los casos de campo inesperado y tamaño excedido
-   conservan respuestas `MulterError`/`LIMIT_FILE_SIZE` en
-   `tests/contracts/backend-contract.test.js`. Corrección mínima propuesta, no
-   aplicada: middleware de error dedicado que traduzca cada código a un contrato
-   4xx estable.
+3. **Errores de validación Multer — corregidos en `refactor/fix-multer`.** El
+   middleware dedicado traduce `LIMIT_FILE_SIZE` a HTTP 413 y JSON `{ error }`;
+   exceso de cantidad, extensiones no permitidas y nombres sin extensión
+   devuelven HTTP 400 en el mismo formato. El resto de errores no relacionados
+   con la carga se siguen delegando a Express.
 
 4. **Fallo Gemini a mitad de stream sin fallback.** El test
    `tests/contracts/provider-network.test.js` congela el terminal SSE cuando el

@@ -27,7 +27,7 @@ const {
 const { writeSse, setSseHeaders } = require('./contracts/sse');
 const { sanitizeTema } = require('./contracts/topic-sanitizer');
 const { sanitizeGeneratedHtml: sanitizeGeneratedHtmlMoved } = require('./sanitization/html');
-const { TMP_DIR, upload } = require('./files/upload');
+const { TMP_DIR, upload, handleUploadError } = require('./files/upload');
 const { createDirectoryEnsurer, ensureBackendDirectories } = require('./files/directories');
 const { extractPresentationTitle, buildFileStemFromTitle, resolveUniqueHtmlPath } = require('./files/content');
 const { buildSkeletonFileContext, buildGenerationFileContext } = require('./files/attachments');
@@ -363,6 +363,9 @@ registerBackendRoutes({
     DOWNLOAD_TTL_MS,
     puppeteerLog
 });
+
+// Normalize upload middleware failures before Express's HTML error handler.
+app.use(handleUploadError);
 
 // ── Global process safety net ─────────────────────────────────────────────
 // Long-lived SSE responses make socket-level failures (EPIPE / aborted /

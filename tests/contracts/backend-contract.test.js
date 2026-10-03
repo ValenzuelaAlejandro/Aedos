@@ -156,8 +156,11 @@ test('multipart preserves the supported extension allowlist and filename handlin
         { tema: 'Extension', mode: 'flash' },
         [{ name: 'no-extension', type: 'application/octet-stream', content: 'fixture' }]
     ));
-    assert.equal(missingExtension.status, 500);
-    assert.match(await missingExtension.text(), /Invalid file type/i);
+    assert.equal(missingExtension.status, 400);
+    assert.match(missingExtension.headers.get('content-type'), /application\/json/);
+    assert.deepEqual(await missingExtension.json(), {
+        error: 'Invalid file type. Only PDF, Office Word, and images are allowed.'
+    });
 });
 
 test('multipart rejects the fourth file and unsupported extensions', async () => {
@@ -165,15 +168,19 @@ test('multipart rejects the fourth file and unsupported extensions', async () =>
         { tema: 'Multipart', mode: 'flash' },
         [1, 2, 3, 4].map((index) => ({ name: `file-${index}.pdf`, type: 'application/pdf', content: String(index) }))
     ));
-    assert.equal(four.status, 500);
-    assert.match(await four.text(), /MulterError|Unexpected field/i);
+    assert.equal(four.status, 400);
+    assert.match(four.headers.get('content-type'), /application\/json/);
+    assert.deepEqual(await four.json(), { error: 'Too many files. Maximum is 3.' });
 
     const unsupported = await request('/generate-skeleton', multipart(
         { tema: 'Multipart', mode: 'flash' },
         [{ name: 'malware.exe', type: 'application/octet-stream', content: 'x' }]
     ));
-    assert.equal(unsupported.status, 500);
-    assert.match(await unsupported.text(), /Invalid file type/i);
+    assert.equal(unsupported.status, 400);
+    assert.match(unsupported.headers.get('content-type'), /application\/json/);
+    assert.deepEqual(await unsupported.json(), {
+        error: 'Invalid file type. Only PDF, Office Word, and images are allowed.'
+    });
 });
 
 test('multipart enforces the ten megabyte file limit', async () => {
@@ -182,13 +189,15 @@ test('multipart enforces the ten megabyte file limit', async () => {
         [{ name: 'exact.pdf', type: 'application/pdf', content: Buffer.alloc(10 * 1024 * 1024) }]
     ));
     const exactBody = await exact.text();
-    assert.equal(exact.status, 500);
-    assert.match(exactBody, /MulterError: File too large/);
+    assert.equal(exact.status, 413);
+    assert.match(exact.headers.get('content-type'), /application\/json/);
+    assert.deepEqual(JSON.parse(exactBody), { error: 'File too large. Maximum size is 10 MB.' });
 
     const over = await request('/generate-skeleton', multipart(
         { tema: 'Size', mode: 'flash' },
         [{ name: 'over.pdf', type: 'application/pdf', content: Buffer.alloc(10 * 1024 * 1024 + 1) }]
     ));
-    assert.equal(over.status, 500);
-    assert.match(await over.text(), /LIMIT_FILE_SIZE|File too large/i);
+    assert.equal(over.status, 413);
+    assert.match(over.headers.get('content-type'), /application\/json/);
+    assert.deepEqual(await over.json(), { error: 'File too large. Maximum size is 10 MB.' });
 });

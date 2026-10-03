@@ -16,6 +16,7 @@ Hashes observados localmente antes de este documento:
 |     8 | `refactor/fase-3b2-pipeline-rutas` | `21b238af9d8c41ccdfad6efa32b77c3ccf17be31` |
 |     9 | `refactor/fase-3c-cierre-backend`  | `ff967744dfb10e24c07ce3a85108c50b3a690532` |
 |    10 | `refactor/fase-3c-fix`             | `3d8399fd6c7905194543cb585f7fc29efbad117d` |
+|    11 | `refactor/fix-sanitizacion`        | `42987acaf87bbfe1e8b3deef38893f119cca1a7e` |
 
 El commit de estas notas actualizará el hash de `refactor/fase-3c-fix`; consultar `git rev-parse HEAD` para el valor definitivo.
 
@@ -77,7 +78,28 @@ desktop medidos en el worktree limpio eran el botón dev-only
 
 1. Ejecutar smoke test manual controlado con proveedores reales.
 2. Crear/usar la rama de integración después de acordar su base.
-3. Resolver los known issues priorizados.
+3. Resolver los known issues priorizados; el error HTTP de Multer se corrigió
+   en `refactor/fix-multer` (véase la sección Etapa 2c).
 4. Completar Fase 0c.
 5. Completar Fase 4 del frontend.
 6. Repetir `npm run verify:all` en un entorno compatible con Puppeteer y Windows/Linux CI, y observar Actions.
+
+## Etapa 2c — errores de carga Multer
+
+- Antes del arreglo, archivo >10 MiB, cuarto archivo, extensión `.exe` y
+  nombre sin extensión devolvían `500 text/html` con el manejador por defecto
+  de Express y una página que incluía el mensaje/traza del error.
+- Ahora el middleware de carga produce JSON `{ "error": "..." }`: tamaño
+  excedido es 413; cantidad, extensión y nombre son 400. El caso exactamente
+  10 MiB también se observa como `LIMIT_FILE_SIZE` en la versión instalada y
+  devuelve 413.
+- El frontend ya comprueba `response.ok`, lee `errorData.error` y lo presenta;
+  no distingue 400 de 413 ni tiene una pantalla específica de error de carga.
+  Antes de enviar, limita localmente cada archivo a 10 MB y el total a 3.
+- `npm run test:contract`, `npm run verify:quality` y `npm run verify:all`
+  pasaron en Windows con Node v24.19.0. Visual: 6/6 capturas, todas 0 píxeles
+  distintos; mutaciones 8/8. PPTX: baseline 14 paquetes; COM render omitido
+  porque PowerPoint no está instalado. PDF: baseline pasó. No hubo proveedores
+  reales ni push.
+- Rama: `refactor/fix-multer`, basada en `42987ac`. Consulta `git rev-parse
+  HEAD` para su hash actual.
