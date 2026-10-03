@@ -167,8 +167,8 @@ Cadena local, sin push:
 | `refactor/fase-8c-outline` | `7df25906d15fa59005a88c8ddf0e04bd5bb8dddc` | Código: parser/render streaming y chips; binder revertido |
 
 Después de esta punta de código se añadió el handoff en el commit docs-only
-`eea84173f5c2500c8c24b2ed5a786a587e0e6005`; ese commit pasó `verify:all` y es
-la punta actual de la rama. No cambia los blobs de código medidos abajo.
+`eea84173f5c2500c8c24b2ed5a786a587e0e6005`; ese commit pasó `verify:all` y no
+cambió los blobs de código medidos abajo.
 
 Commits relevantes en 8c:
 
