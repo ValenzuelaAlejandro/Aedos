@@ -4,6 +4,14 @@ Classic-script modules used by the presentation iframe editor. They load before
 `/editor/editor.js` in generated HTML so the iframe retains its existing global
 compatibility API and synchronous initialization order.
 
+## Semantic targeting
+
+`semantics.js` owns the legacy selectors and predicates used to decide which
+presentation nodes are text, image slots, visual leaves, semantic containers,
+or ignored editor chrome. `window.AedosEditorSemantics` is an internal
+iframe-only factory bridge; `window.editableSelectors` remains assigned by the
+editor bootstrap at its original initialization point.
+
 ## History
 
 `history.js` owns the private undo/redo stack, clean HTML snapshots, the 50-entry

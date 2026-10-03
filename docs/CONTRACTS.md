@@ -77,6 +77,7 @@ outline actions. These names must remain stable until their consumers migrate.
 |---|---|---|
 | `features/shared/i18n.js` | `currentLang`, `__t`, `__applyTranslations` | all UI scripts, `index.html` data attributes |
 | `features/shared/init.js` | fallback `__t`, `currentLang` | shared navigation |
+| `features/editor/semantics.js` | `AedosEditorSemantics` | `editor.js` only (internal iframe factory bridge; not a public application API) |
 | `features/editor/history.js` | `AedosEditorHistory` | `editor.js` only (internal iframe factory bridge; not a public application API) |
 | `features/minimap/minimap-view.js` | `AedosMinimapView` | `minimap.js` only (internal page factory bridge; not a public application API) |
 | `features/minimap/minimap.js` | `initMinimap`, `syncMinimapActiveState` | `app.js`, editor lifecycle |
