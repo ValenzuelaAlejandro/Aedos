@@ -1,0 +1,32 @@
+[
+  {
+    "file": { "name": "long-image-name-example-file.jpeg", "type": "image/jpeg" },
+    "sha256": "48f11c74bdcd8e9e253ebb0630441088186cfcd0c73d54c485a6e06b22edf04f",
+    "length": 357
+  },
+  {
+    "file": { "name": "document.pdf", "type": "application/pdf" },
+    "sha256": "38a34fabd12b7b3bb898aaea7faf8e848262e06118c2350ffad0e21af3657186",
+    "length": 445
+  },
+  {
+    "file": { "name": "report.pdf", "type": "" },
+    "sha256": "88ff678408e3d66c1e53a4109b3ae44cdfa19f714f8d6abf47551b3c50ea9eef",
+    "length": 443
+  },
+  {
+    "file": { "name": "brief.docx", "type": "application/octet-stream" },
+    "sha256": "7bc051d207aa381b6ba27f14a9cab282118c57ff50fc220bad87ea9200f7832f",
+    "length": 417
+  },
+  {
+    "file": { "name": "archive.bin", "type": "application/octet-stream" },
+    "sha256": "8fd966e1ae276ce91733cd92473c63404913eaa1c59f0eb03fed4a6aa74f03a2",
+    "length": 321
+  },
+  {
+    "file": { "name": "<script>&\"'.pdf", "type": "application/pdf" },
+    "sha256": "ce6127e98d6ca8baeeee9097a1603a4dbbf3e28bde0c909e2760720ffa4d7150",
+    "length": 468
+  }
+]

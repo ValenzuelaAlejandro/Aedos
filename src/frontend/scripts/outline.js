@@ -5,26 +5,7 @@
  * Uses the same colorful document icons as the chatbox attachment area.
  */
 function _fileBubbleChipHtml(file) {
-    const displayName = file.name && file.name.length > 24
-        ? file.name.substring(0, 21) + '...'
-        : (file.name || 'file');
-
-    let iconMarkup;
-    if (file.type && file.type.startsWith('image/')) {
-        // Image icon (outline style)
-        iconMarkup = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;flex-shrink:0;opacity:0.75;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
-    } else if (file.type && file.type.includes('pdf') || (file.name && file.name.endsWith('.pdf'))) {
-        // PDF — red flat icon matching renderAttachmentChips
-        iconMarkup = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="margin-right:6px;flex-shrink:0;"><path d="M4 2h10l6 6v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#E2231A"/><path d="M14 2v6h6z" fill="#B0150F"/><text x="11" y="16.5" fill="#FFFFFF" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="6.2" font-weight="900" text-anchor="middle" letter-spacing="-0.3px">PDF</text></svg>`;
-    } else if (file.name && (file.name.endsWith('.docx') || file.name.endsWith('.doc'))) {
-        // DOCX — blue flat icon matching renderAttachmentChips
-        iconMarkup = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="margin-right:6px;flex-shrink:0;"><path d="M4 2h10l6 6v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#185ABD"/><path d="M14 2v6h6z" fill="#103F8A"/><text x="11" y="16.5" fill="#FFFFFF" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="7.5" font-weight="900" text-anchor="middle">W</text></svg>`;
-    } else {
-        // Generic file icon
-        iconMarkup = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;flex-shrink:0;opacity:0.75;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-    }
-
-    return `${iconMarkup}${escapeHtml(displayName)}`;
+    return window.AedosChatRenderer.renderFileChip(file);
 }
 
 function scrollToBottom(force = false) {
@@ -245,7 +226,7 @@ function showOutlineEditorLoading(slideCount = 8) {
                 bubbleContent += `<div class="chat-bubble-files-container">${fileItemsHtml}</div>`;
             }
             if (promptText) {
-                bubbleContent += `<span>${escapeHtml(promptText)}</span>`;
+                bubbleContent += `<span>${window.escapeHtml(promptText)}</span>`;
             }
             userBubble.innerHTML = bubbleContent;
             convZone.appendChild(userBubble);
@@ -312,13 +293,13 @@ function showOutlineEditorLoading(slideCount = 8) {
                         const slideEl = document.createElement('div');
                         slideEl.className = 'historical-slide-item';
                         slideEl.innerHTML = `
-                            <div class="historical-slide-number">${escapeHtml(num)}</div>
-                            <div class="historical-slide-title">${escapeHtml(title)}</div>
+                            <div class="historical-slide-number">${window.escapeHtml(num)}</div>
+                            <div class="historical-slide-title">${window.escapeHtml(title)}</div>
                             <div class="historical-points-list">
                                 ${points.map(pt => `
                                     <div class="historical-point-item">
                                         <span class="historical-point-bullet">-</span>
-                                        <span class="historical-point-text">${escapeHtml(pt)}</span>
+                                        <span class="historical-point-text">${window.escapeHtml(pt)}</span>
                                     </div>
                                 `).join('')}
                             </div>
@@ -711,13 +692,13 @@ function renderOutlineSlides() {
 
         item.innerHTML = `
             <div class="seamless-slide-number">${index + 1}.</div>
-            <textarea id="outline-slide-title-${index}" name="outline-slide-title-${index}" class="seamless-title-input outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1" aria-label="Slide Title">${escapeHtml(slide.title || '')}</textarea>
+            <textarea id="outline-slide-title-${index}" name="outline-slide-title-${index}" class="seamless-title-input outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1" aria-label="Slide Title">${window.escapeHtml(slide.title || '')}</textarea>
             
             <div class="seamless-points-list" id="outline-points-${index}">
                 ${(slide.key_points || []).map((point, pIndex) => `
                     <div class="seamless-point-item">
                         <span class="seamless-point-bullet">-</span>
-                        <textarea id="outline-slide-${index}-point-${pIndex}" name="outline-slide-${index}-point-${pIndex}" class="seamless-point-input outline-point-input" data-sindex="${index}" data-pindex="${pIndex}" rows="1" aria-label="Bullet point">${escapeHtml(point)}</textarea>
+                        <textarea id="outline-slide-${index}-point-${pIndex}" name="outline-slide-${index}-point-${pIndex}" class="seamless-point-input outline-point-input" data-sindex="${index}" data-pindex="${pIndex}" rows="1" aria-label="Bullet point">${window.escapeHtml(point)}</textarea>
                     </div>
                 `).join('')}
             </div>
@@ -1207,16 +1188,6 @@ window.addBlankPoint = addBlankPoint;
 window.deleteSlide = deleteSlide;
 window.moveSlideUp = moveSlideUp;
 window.moveSlideDown = moveSlideDown;
-
-function escapeHtml(unsafe) {
-    if (typeof unsafe !== 'string') return '';
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
 
 function syncCustomDropdowns() {
     ['tone', 'audience', 'density'].forEach(type => {
