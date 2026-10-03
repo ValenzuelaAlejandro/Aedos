@@ -7,12 +7,12 @@ const specs = [
         expected: { count: 4 },
     },
     {
-        name: 'outline-title', probe: 'title', file: '/scripts/outline.js',
+        name: 'outline-title', probe: 'title', file: '/features/outline/editor-bindings.js',
         edits: [['slides[idx].title = e.target.value;', 'slides[idx].title = slides[idx].title;']],
         expected: { title: 'Mutation title sentinel' },
     },
     {
-        name: 'outline-point', probe: 'point', file: '/scripts/outline.js',
+        name: 'outline-point', probe: 'point', file: '/features/outline/editor-bindings.js',
         edits: [['slides[sIdx].key_points[pIdx] = e.target.value;', 'slides[sIdx].key_points[pIdx] = slides[sIdx].key_points[pIdx];']],
         expected: { point: 'Mutation point sentinel' },
     },
