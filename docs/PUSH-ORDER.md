@@ -31,7 +31,7 @@ siga coincidiendo con el hash revisado; publica una por una en este orden.
 | 21 | `refactor/fase-4d-editor` | `2fd866ae59d18e26dfef231b5dd260d9dcf2be26` | `git push -u origin refactor/fase-4d-editor` |
 | 22 | `refactor/fase-5-esm` | `19d6dab545ac9bae9a7b638b01e6bc40e9ab6c9f` | `git push -u origin refactor/fase-5-esm` |
 | 23 | `refactor/fase-6-tipos` | `3e466ce92df4e93dbb4c679b76943fdf0cedb9b3` | `git push -u origin refactor/fase-6-tipos` |
-| 24 | `refactor/fase-7-limpieza` | `0baf654587886402adbf5d1dbcad09155ebcd199` (antes de este documento) | `git push -u origin refactor/fase-7-limpieza` |
+| 24 | `refactor/fase-7-limpieza` | `e221fd7295397fa9d69ee2fa161effb62d2bfd13` (antes del commit de este documento) | `git push -u origin refactor/fase-7-limpieza` |
 
 El último hash de `fase-7-limpieza` cambia al commit de estos documentos; para
 ese valor final usa `git rev-parse refactor/fase-7-limpieza`. No usar `--force`,
