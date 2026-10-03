@@ -164,7 +164,11 @@ Cadena local, sin push:
 | `refactor/fase-7-limpieza` | `e472f37` | Base de esta ejecución |
 | `refactor/fase-8a-red-estable` | `565a8f0d296fa85b1ec92ba1a08c24dc7c74c9e6` | Safety estabilizado; verify verde |
 | `refactor/fase-8b-inventario` | `a1cd537d6190c81aeb8027c378e7c31a0d5bb9f7` | Inventario y parser streaming extraído |
-| `refactor/fase-8c-outline` | `7df25906d15fa59005a88c8ddf0e04bd5bb8dddc` | Parser/render streaming y chips; binder revertido |
+| `refactor/fase-8c-outline` | `7df25906d15fa59005a88c8ddf0e04bd5bb8dddc` | Código: parser/render streaming y chips; binder revertido |
+
+Después de esta punta de código se añadió el handoff en el commit docs-only
+`eea84173f5c2500c8c24b2ed5a786a587e0e6005`; ese commit pasó `verify:all` y es
+la punta actual de la rama. No cambia los blobs de código medidos abajo.
 
 Commits relevantes en 8c:
 
@@ -190,7 +194,7 @@ llamadas reales ni acceso a red externa. No se leyó `.env`.
 
 Medidas de archivos obtenidas con `git show <ref>:<archivo> | wc -l`:
 
-| Archivo | Inicio 8a (`565a8f0`) | HEAD 8c (`7df2590`) |
+| Archivo | Inicio 8a (`565a8f0`) | Código 8c (`7df2590`) |
 | --- | ---: | ---: |
 | `src/frontend/scripts/app.js` | 4,618 | 4,618 |
 | `src/frontend/scripts/outline.js` | 1,308 | 1,147 |
