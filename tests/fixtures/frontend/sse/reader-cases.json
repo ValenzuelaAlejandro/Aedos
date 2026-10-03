@@ -1,0 +1,66 @@
+[
+  {
+    "name": "payload split at every UTF-8 byte boundary",
+    "wire": "data: {\"chunk\":\"energía\"}\n\n",
+    "splitBytes": true,
+    "line": ["{\"chunk\":\"energía\"}"],
+    "event": ["{\"chunk\":\"energía\"}"],
+    "tail": []
+  },
+  {
+    "name": "multiple backend events in one read",
+    "wire": "data: {\"reasoning\":\"Diseñando\"}\n\ndata: {\"done\":true}\n\n",
+    "line": ["{\"reasoning\":\"Diseñando\"}", "{\"done\":true}"],
+    "event": ["{\"reasoning\":\"Diseñando\"}", "{\"done\":true}"],
+    "tail": []
+  },
+  {
+    "name": "comment and id lines are ignored by the event-block reader only",
+    "wire": ": keepalive\nid: 7\ndata: {\"chunk\":\"x\"}\n\n",
+    "line": ["{\"chunk\":\"x\"}"],
+    "event": [],
+    "tail": []
+  },
+  {
+    "name": "unfinished final event is flushed by presentation reader only",
+    "wire": "data: {\"done\":true}",
+    "line": [],
+    "event": [],
+    "tail": ["{\"done\":true}"]
+  },
+  {
+    "name": "empty data line is skipped by line reader and passed through by event reader",
+    "wire": "data: \n\n",
+    "line": [],
+    "event": [""],
+    "tail": []
+  },
+  {
+    "name": "legacy terminal token is emitted for caller handling",
+    "wire": "data: [DONE]\n\n",
+    "line": ["[DONE]"],
+    "event": ["[DONE]"],
+    "tail": []
+  },
+  {
+    "name": "payload whitespace differs between the two legacy readers",
+    "wire": "data: {\"chunk\":\"x\"}  \n\n",
+    "line": ["{\"chunk\":\"x\"}"],
+    "event": ["{\"chunk\":\"x\"}  "],
+    "tail": []
+  },
+  {
+    "name": "CRLF tail keeps the presentation reader's trailing carriage return",
+    "wire": "data: {\"chunk\":\"crlf\"}\r\n\r\n",
+    "line": ["{\"chunk\":\"crlf\"}"],
+    "event": [],
+    "tail": ["{\"chunk\":\"crlf\"}\r"]
+  },
+  {
+    "name": "each data line is separate in line mode but not in event-block mode",
+    "wire": "data: {\"a\":1}\ndata: {\"b\":2}\n\n",
+    "line": ["{\"a\":1}", "{\"b\":2}"],
+    "event": ["{\"a\":1}\ndata: {\"b\":2}"],
+    "tail": []
+  }
+]

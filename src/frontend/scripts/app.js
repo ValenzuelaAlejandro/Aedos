@@ -1595,9 +1595,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(serverErr);
             }
 
-            const reader = skeletonResponse.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            let buffer = '';
+            const skeletonStream = window.AedosHttpSse.openResponse(skeletonResponse, { framing: 'line' });
             let rawText = '';
             let finalSkeleton = null;
             let sawSkeletonSseParseError = false;
@@ -1607,85 +1605,72 @@ document.addEventListener('DOMContentLoaded', () => {
                 return _latestAi && _latestAi.querySelector('.chat-ai-body');
             })();
 
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
+            for await (const { data: dataStr } of skeletonStream.events) {
+                if (!dataStr) continue;
+                try {
+                    const data = JSON.parse(dataStr);
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
 
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop(); // Keep last incomplete line in buffer
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const dataStr = line.slice(6).trim();
-                        if (!dataStr) continue;
-
-                        try {
-                            const data = JSON.parse(dataStr);
-                            if (data.error) {
-                                throw new Error(data.error);
+                    // Reasoning tokens — surface in the thinking panel
+                    // for the currently active AI bubble. The first
+                    // request reuses the static #chat-ai-response;
+                    // follow-ups work via showOutlineEditorLoading.
+                    if (data.reasoning && typeof data.reasoning === 'string') {
+                        const allAiBodies = document.querySelectorAll('.chat-msg-ai .chat-ai-body');
+                        const _aiBody = allAiBodies[allAiBodies.length - 1];
+                        if (_aiBody && window.AedosThinking) {
+                            // Lazily create the panel if a previous
+                            // legacy code path forgot to call show().
+                            if (!window.AedosThinking.getPanel(_aiBody)) {
+                                window.AedosThinking.show(_aiBody, {
+                                    label: window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…',
+                                    stage: data.stage || 'stage1'
+                                });
                             }
+                            window.AedosThinking.appendReasoning(_aiBody, data.reasoning);
+                        }
+                        continue;
+                    }
 
-                            // Reasoning tokens — surface in the thinking panel
-                            // for the currently active AI bubble. The first
-                            // request reuses the static #chat-ai-response;
-                            // follow-ups work via showOutlineEditorLoading.
-                            if (data.reasoning && typeof data.reasoning === 'string') {
-                                const allAiBodies = document.querySelectorAll('.chat-msg-ai .chat-ai-body');
-                                const _aiBody = allAiBodies[allAiBodies.length - 1];
-                                if (_aiBody && window.AedosThinking) {
-                                    // Lazily create the panel if a previous
-                                    // legacy code path forgot to call show().
-                                    if (!window.AedosThinking.getPanel(_aiBody)) {
-                                        window.AedosThinking.show(_aiBody, {
-                                            label: window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…',
-                                            stage: data.stage || 'stage1'
-                                        });
-                                    }
-                                    window.AedosThinking.appendReasoning(_aiBody, data.reasoning);
-                                }
-                                continue;
-                            }
+                    if (data.chunk) {
+                        rawText += data.chunk;
+                        const partialSkeleton = window.parsePartialSkeleton(rawText);
+                        if (window.outlineEditorState) {
+                            window.outlineEditorState.skeleton = partialSkeleton;
+                        }
+                        if (window.renderStreamingOutline) {
+                            window.renderStreamingOutline(partialSkeleton);
+                        }
 
-                            if (data.chunk) {
-                                rawText += data.chunk;
-                                const partialSkeleton = window.parsePartialSkeleton(rawText);
-                                if (window.outlineEditorState) {
-                                    window.outlineEditorState.skeleton = partialSkeleton;
-                                }
-                                if (window.renderStreamingOutline) {
-                                    window.renderStreamingOutline(partialSkeleton);
-                                }
-
-                                // Collapse the thinking panel (instead of
-                                // hiding it) once the first slide starts
-                                // streaming. The pill stays visible so the
-                                // user can re-expand it to see what the
-                                // model was thinking about.
-                                if (partialSkeleton && partialSkeleton.slides && partialSkeleton.slides.length > 0) {
-                                    if (window.AedosThinking) {
-                                        window.AedosThinking.collapse(_skeletonReasoningAiBody);
-                                    }
-                                    // Legacy fall-back: also hide the old
-                                    // dot loader if it's still around.
-                                    const aiMessages = document.querySelectorAll('.chat-msg-ai');
-                                    const latestAiMessage = aiMessages[aiMessages.length - 1];
-                                    if (latestAiMessage) {
-                                        const thinking = latestAiMessage.querySelector('.chat-thinking');
-                                        if (thinking) thinking.classList.add('hidden');
-                                    }
-                                }
+                        // Collapse the thinking panel (instead of
+                        // hiding it) once the first slide starts
+                        // streaming. The pill stays visible so the
+                        // user can re-expand it to see what the
+                        // model was thinking about.
+                        if (partialSkeleton && partialSkeleton.slides && partialSkeleton.slides.length > 0) {
+                            if (window.AedosThinking) {
+                                window.AedosThinking.collapse(_skeletonReasoningAiBody);
                             }
-                            if (data.done) {
-                                finalSkeleton = data.skeleton;
-                            }
-                        } catch (e) {
-                            sawSkeletonSseParseError = true;
-                            console.error('SSE JSON error:', e);
-                            if (e.message && (e.message.includes('Limit') || e.message.includes('pressure') || e.message.includes('failed') || e.message.includes('REJECTED'))) {
-                                throw e;
+                            // Legacy fall-back: also hide the old
+                            // dot loader if it's still around.
+                            const aiMessages = document.querySelectorAll('.chat-msg-ai');
+                            const latestAiMessage = aiMessages[aiMessages.length - 1];
+                            if (latestAiMessage) {
+                                const thinking = latestAiMessage.querySelector('.chat-thinking');
+                                if (thinking) thinking.classList.add('hidden');
                             }
                         }
+                    }
+                    if (data.done) {
+                        finalSkeleton = data.skeleton;
+                    }
+                } catch (e) {
+                    sawSkeletonSseParseError = true;
+                    console.error('SSE JSON error:', e);
+                    if (e.message && (e.message.includes('Limit') || e.message.includes('pressure') || e.message.includes('failed') || e.message.includes('REJECTED'))) {
+                        throw e;
                     }
                 }
             }
@@ -2321,8 +2306,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let buffer = "";
             let firstWrite = true;
             const _generateReasoningAiBody = (() => {
                 const _aiMessages = document.querySelectorAll('.chat-msg-ai');
@@ -2346,22 +2329,23 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             resetWatchdog();
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                resetWatchdog();
-
-                buffer += decoder.decode(value, { stream: true });
-                let lines = buffer.split('\n\n');
-                buffer = lines.pop();
-
-                for (let line of lines) {
-                    if (line.trim() === '') continue;
-                    if (line.startsWith('data: ')) {
-                        let dataStr = line.substring(6);
-                        if (dataStr.trim() === '[DONE]') continue;
-                        let parsed;
-                        try { parsed = JSON.parse(dataStr); } catch (e) { continue; }
+            const generationEvents = window.AedosHttpSse.readReader(reader, {
+                framing: 'event',
+                flushTail: true,
+                onChunk: resetWatchdog
+            });
+            for await (const { data: dataStr, tail } of generationEvents) {
+                if (tail) {
+                    try {
+                        const parsed = JSON.parse(dataStr);
+                        if (parsed.chunk) queuePreviewMarkup(sanitizeModelOutput(parsed.chunk));
+                        if (parsed.done && parsed.html) generatedHtml = parsed.html;
+                    } catch (e) { }
+                    continue;
+                }
+                if (dataStr.trim() === '[DONE]') continue;
+                let parsed;
+                try { parsed = JSON.parse(dataStr); } catch (e) { continue; }
 
                         if (parsed.queued === true) {
                             pauseBtnMessages();
@@ -2559,26 +2543,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                             currentTitle = displayTitle;
                         }
-                    }
-                }
             }
 
             clearTimeout(sseWatchdog);
-
-            // End of while(true)
-            if (buffer.trim()) {
-                const remainingLines = buffer.split('\n');
-                for (let rLine of remainingLines) {
-                    if (rLine.startsWith('data: ')) {
-                        const dataStr = rLine.substring(6);
-                        try {
-                            const parsed = JSON.parse(dataStr);
-                            if (parsed.chunk) queuePreviewMarkup(sanitizeModelOutput(parsed.chunk));
-                            if (parsed.done && parsed.html) generatedHtml = parsed.html;
-                        } catch (e) { }
-                    }
-                }
-            }
 
             if (!generatedHtml || generatedHtml.trim().length < 50) {
                 throw new Error(window.__t ? window.__t('error_generation_failed', "Sorry, could not generate the presentation correctly.") : "Sorry, could not generate the presentation correctly.");
