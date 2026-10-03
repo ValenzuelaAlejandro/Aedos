@@ -18,3 +18,8 @@ the requesting feature. Equivalence vectors are in
 API exposes `getState()`, `replaceState()` and `clearDraft()`. The writable
 `window.outlineEditorState` property remains as a compatibility facade, so
 existing classic scripts keep observing the same state object.
+
+`generation-store.js` owns generation controllers, mode/language/export
+selection, request sequence state, and the legacy cross-script request fields.
+The existing underscore-prefixed `window.*` fields remain writable accessors
+into `window.AedosStores.generation.state`.
