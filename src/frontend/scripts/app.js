@@ -98,7 +98,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Active SSE stream controller (cancel on Back / new generation) ──
     // NOTE: also exposed on window so outline.js abort logic can reach it.
-    const generationState = window.AedosStores.generation.state;
+    let _activeGenController = null;
+    Object.defineProperty(window, '_activeGenController', {
+        get: () => _activeGenController,
+        set: (v) => { _activeGenController = v; }
+    });
+    let _skeletonGenController = null;
+    let _heroCustomTextActive = false;
     // Callback run when the error modal is dismissed (varies by context)
     let _errorModalOnDismiss = null;
 
@@ -173,6 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let _settlingAnimation = null;
     // Generation/iframe identity used to ignore late messages and callbacks from
     // a previous stream after the preview iframe has been replaced.
+    let _generationSequence = 0;
+    let _activeGeneration = null;
 
     function clearStageInlinePadding() {
         const stageEl = document.getElementById('preview-stage');
@@ -207,8 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Mode toggle: false = Flash (default), true = Pro (3-stage pipeline)
+    let proModeEnabled = false;
 
     // ── Dropdown Menus Logic (Mode & Language) ──────────────────────────────────
+    let targetLanguage = 'auto';
     const modeBtn = document.getElementById('btn-mode-dropdown');
     const modeMenu = document.getElementById('mode-dropdown-menu');
     const langBtn = document.getElementById('btn-lang-dropdown');
@@ -216,6 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportMenuBtn = document.getElementById('export-menu-trigger');
     const exportMenu = document.getElementById('export-dropdown-menu');
     const exportPptxBtn = document.getElementById('export-pptx-btn');
+    let requestedExportFormat = 'pdf';
     const currentModeLabel = document.getElementById('current-mode-label');
     const currentLangLabel = document.getElementById('current-lang-label');
     const chatInputWrapper = document.querySelector('.chat-input-wrapper');
@@ -245,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = e.target.closest('.dropdown-item[data-mode]');
             if (!item) return;
             const mode = item.dataset.mode;
-            generationState.proModeEnabled = (mode === 'pro');
+            proModeEnabled = (mode === 'pro');
 
             modeMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
             item.classList.add('active');
@@ -255,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentModeLabel.textContent = window.__t(labelKey);
                 currentModeLabel.setAttribute('data-i18n', labelKey);
             }
-            if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', generationState.proModeEnabled);
+            if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', proModeEnabled);
             closeAllDropdowns();
         });
     }
@@ -274,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
         langMenu.addEventListener('click', (e) => {
             const item = e.target.closest('.dropdown-item[data-lang]');
             if (!item) return;
-            generationState.targetLanguage = item.dataset.lang;
+            targetLanguage = item.dataset.lang;
 
             langMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
             item.classList.add('active');
@@ -305,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
             exportPptxBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (finalizeBtn && finalizeBtn.disabled) return;
-                generationState.requestedExportFormat = 'pptx';
+                requestedExportFormat = 'pptx';
                 closeAllDropdowns();
                 finalizeBtn?.click();
             });
@@ -318,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window._syncModeWithFiles = function () {
         if (!modeBtn) return;
         if (window._attachedFiles && window._attachedFiles.length > 0) {
-            generationState.proModeEnabled = true;
+            proModeEnabled = true;
             modeBtn.disabled = true;
             modeBtn.style.opacity = '0.6';
             modeBtn.style.cursor = 'not-allowed';
@@ -327,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatInputWrapper) chatInputWrapper.classList.add('is-pro');
             if (modeMenu) modeMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.toggle('active', el.dataset.mode === 'pro'));
         } else {
-            generationState.proModeEnabled = false;
+            proModeEnabled = false;
             modeBtn.disabled = false;
             modeBtn.style.opacity = '';
             modeBtn.style.cursor = '';
@@ -575,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Invalidate any queued slide messages/callbacks before tearing down
         // the current preview. This is the equivalent of unmount cleanup for
         // the vanilla iframe-based editor.
-        generationState.activeGeneration = null;
+        _activeGeneration = null;
         _pendingTransitionFn = null;
 
         if (window.location.hash !== '#home') {
@@ -690,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (temaInput) temaInput.value = '';
 
         // Reset hero custom state and title text upon returning home
-        generationState.heroCustomTextActive = false;
+        _heroCustomTextActive = false;
         const heroTextSpan = document.querySelector('.hero-title-text');
         if (heroTextSpan && heroTextSpan.getAttribute('data-original-text')) {
             heroTextSpan.textContent = heroTextSpan.getAttribute('data-original-text');
@@ -720,8 +731,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const outlineContainer = document.getElementById('outline-container');
 
         // Check if there is active progress that can be lost (generation OR manual editing)
-        const outlineActive = !!generationState.skeletonController || (outlineContainer && !outlineContainer.classList.contains('hidden'));
-        const editorActive = !!generationState.activeController || (previewCont && !previewCont.classList.contains('hidden'));
+        const outlineActive = !!_skeletonGenController || (outlineContainer && !outlineContainer.classList.contains('hidden'));
+        const editorActive = !!_activeGenController || (previewCont && !previewCont.classList.contains('hidden'));
 
         if (outlineActive || editorActive) {
             const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
@@ -729,8 +740,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (outlineContainer) outlineContainer.classList.add('hidden'); 
                 if (previewCont) previewCont.classList.add('hidden'); 
                 
-                if (generationState.activeController) { generationState.activeController.abort(); generationState.activeController = null; }
-                if (generationState.skeletonController) { generationState.skeletonController.abort(); generationState.skeletonController = null; }
+                if (_activeGenController) { _activeGenController.abort(); _activeGenController = null; }
+                if (_skeletonGenController) { _skeletonGenController.abort(); _skeletonGenController = null; }
                 
                 // Reset hash to #home and reload to guarantee a clean URL
                 window.location.href = window.location.origin + window.location.pathname + '#home';
@@ -771,8 +782,8 @@ document.addEventListener('DOMContentLoaded', () => {
         topBrand.addEventListener('click', () => {
             const previewCont = document.getElementById('preview-container');
             const outlineContainer = document.getElementById('outline-container');
-            const outlineActive = !!generationState.skeletonController || (outlineContainer && !outlineContainer.classList.contains('hidden'));
-            const editorActive = !!generationState.activeController || (previewCont && !previewCont.classList.contains('hidden'));
+            const outlineActive = !!_skeletonGenController || (outlineContainer && !outlineContainer.classList.contains('hidden'));
+            const editorActive = !!_activeGenController || (previewCont && !previewCont.classList.contains('hidden'));
 
             if (outlineActive || editorActive) {
                 const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
@@ -783,8 +794,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // If confirmed, reset states
                 if (outlineContainer) outlineContainer.classList.add('hidden'); 
                 if (previewCont) previewCont.classList.add('hidden'); 
-                if (generationState.activeController) { generationState.activeController.abort(); generationState.activeController = null; }
-                if (generationState.skeletonController) { generationState.skeletonController.abort(); generationState.skeletonController = null; }
+                if (_activeGenController) { _activeGenController.abort(); _activeGenController = null; }
+                if (_skeletonGenController) { _skeletonGenController.abort(); _skeletonGenController = null; }
             }
 
             // Cleanly reset UI and set hash to #home
@@ -797,8 +808,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const outlineContainer = document.getElementById('outline-container');
         const previewCont = document.getElementById('preview-container');
         
-        const outlineActive = !!generationState.skeletonController || (outlineContainer && !outlineContainer.classList.contains('hidden'));
-        const editorActive = !!generationState.activeController || (previewCont && !previewCont.classList.contains('hidden'));
+        const outlineActive = !!_skeletonGenController || (outlineContainer && !outlineContainer.classList.contains('hidden'));
+        const editorActive = !!_activeGenController || (previewCont && !previewCont.classList.contains('hidden'));
 
         if (outlineActive || editorActive) {
             e.preventDefault();
@@ -1041,13 +1052,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Animate hero title dynamically based on active state and language
         if (isActive) {
-            if (!generationState.heroCustomTextActive) {
-                generationState.heroCustomTextActive = true;
+            if (!_heroCustomTextActive) {
+                _heroCustomTextActive = true;
                 animateHeroTitle(window.__t('hero_active'));
             }
         } else {
-            if (generationState.heroCustomTextActive) {
-                generationState.heroCustomTextActive = false;
+            if (_heroCustomTextActive) {
+                _heroCustomTextActive = false;
                 animateHeroTitle(window.__t('hero_line_1'));
             }
         }
@@ -1468,9 +1479,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // If already generating, act as a CANCEL/STOP button!
         if (generateBtn && generateBtn.classList.contains('is-generating')) {
             console.log("Stopping active generation...");
-            if (generationState.skeletonController) {
-                generationState.skeletonController.abort();
-                generationState.skeletonController = null;
+            if (_skeletonGenController) {
+                _skeletonGenController.abort();
+                _skeletonGenController = null;
             }
             if (window.stopOutlineGeneration) {
                 window.stopOutlineGeneration();
@@ -1486,9 +1497,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Abort any previous in-flight skeleton generation
-        if (generationState.skeletonController) {
-            generationState.skeletonController.abort();
-            generationState.skeletonController = null;
+        if (_skeletonGenController) {
+            _skeletonGenController.abort();
+            _skeletonGenController = null;
         }
 
         // Push state immediately so the native back button works during the loading phase
@@ -1510,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const requestData = {
             tema: finalTema,
             mode: 'chat', // skeleton always draws from the chat rate-limit bucket
-            ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
+            ...(targetLanguage !== 'auto' ? { language: targetLanguage } : {})
         };
 
         const isFollowUpRequest = window.outlineEditorState && window.outlineEditorState.skeleton !== null;
@@ -1542,7 +1553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const controller = new AbortController();
-        generationState.skeletonController = controller;
+        _skeletonGenController = controller;
 
         if (window.showOutlineEditorLoading) {
             window.showOutlineEditorLoading(requestData.slides || 8);
@@ -1550,7 +1561,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Before stream starts, prepare the outline streaming layout (fading pills, moving containers, etc.)
         if (window.prepareOutlineStreaming) {
-            window.prepareOutlineStreaming(generationState.proModeEnabled ? 'pro' : 'flash');
+            window.prepareOutlineStreaming(proModeEnabled ? 'pro' : 'flash');
         }
 
         // Only the very first request should mount the panel in the static
@@ -1664,7 +1675,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // The skeleton fetch stream is complete. Free the skeleton controller safely.
-            generationState.skeletonController = null;
+            _skeletonGenController = null;
 
             window._pendingGenerateBodyData = bodyData;
             window._pendingGenerateHeaders = headers;
@@ -1807,7 +1818,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error("Outline editor not initialized");
             }
         } catch (error) {
-            if (generationState.skeletonController && controller !== generationState.skeletonController) {
+            if (_skeletonGenController && controller !== _skeletonGenController) {
                 console.log("Ignoring obsolete skeleton generation error/abort");
                 return;
             }
@@ -1891,9 +1902,9 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn("A generation is already in progress. Ignoring proceed request.");
             return;
         }
-        if (generationState.skeletonController) {
-            generationState.skeletonController.abort();
-            generationState.skeletonController = null;
+        if (_skeletonGenController) {
+            _skeletonGenController.abort();
+            _skeletonGenController = null;
         }
 
         const skeleton = (window.outlineEditorState && window.outlineEditorState.skeleton)
@@ -1915,7 +1926,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const requestData = {
             tema,
             mode: 'chat',
-            ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
+            ...(targetLanguage !== 'auto' ? { language: targetLanguage } : {})
         };
         requestData.currentSkeleton = JSON.stringify(skeleton);
 
@@ -1986,7 +1997,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (window.AedosThinking) {
                     window.AedosThinking.show(aiBody, {
                         label: window.__t ? window.__t('chat_proceeding_1', 'Analyzing request…') : 'Analyzing request…',
-                        stage: generationState.proModeEnabled ? 'stage1' : 'flash'
+                        stage: proModeEnabled ? 'stage1' : 'flash'
                     });
                 }
 
@@ -2050,11 +2061,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // before its first HTML chunk (especially in Pro mode), so waiting for
         // parsed.chunk makes the UI look frozen during the pipeline stages.
         const generation = {
-            id: ++generationState.sequence,
+            id: ++_generationSequence,
             finalPreviewMounted: false,
             transitionStarted: false
         };
-        generationState.activeGeneration = generation;
+        _activeGeneration = generation;
         _pendingTransitionFn = null;
 
         generatedHtml = ''; // Reset state for a fresh start
@@ -2080,7 +2091,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let _hasTransitioned = false;
         function doTransitionToPreview() {
             if (_hasTransitioned) return;
-            if (generationState.activeGeneration !== generation || generation.finalPreviewMounted) return;
+            if (_activeGeneration !== generation || generation.finalPreviewMounted) return;
             _hasTransitioned = true;
             generation.transitionStarted = true;
             stopBtnMessages();
@@ -2160,7 +2171,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (slideDots) slideDots.innerHTML = '';
 
         const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
-        setPreviewStreamStatus(generationState.proModeEnabled ? 'Analizando contenido…' : 'Generando presentación…');
+        setPreviewStreamStatus(proModeEnabled ? 'Analizando contenido…' : 'Generando presentación…');
         doTransitionToPreview();
         // Writing every model token directly into a live iframe forces a full
         // document/layout pass for each chunk. On slower machines that can make
@@ -2231,22 +2242,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const _aiBody = _latestAi && _latestAi.querySelector('.chat-ai-body');
             if (_aiBody && window.AedosThinking) {
                 window.AedosThinking.show(_aiBody, {
-                    label: generationState.proModeEnabled
+                    label: proModeEnabled
                         ? (window.__t ? window.__t('chat_proceeding_1', 'Analyzing request…') : 'Analyzing request…')
                         : (window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…'),
-                    stage: generationState.proModeEnabled ? 'stage1' : 'flash'
+                    stage: proModeEnabled ? 'stage1' : 'flash'
                 });
             }
         } catch (_) { /* non-critical */ }
 
         try {
-            if (generationState.activeController) {
+            if (_activeGenController) {
                 console.warn("A generation is already in progress. Ignoring duplicate request.");
                 return;
             }
             
             const controller = new AbortController();
-            generationState.activeController = controller;
+            _activeGenController = controller;
 
             let bodyData = window._pendingGenerateBodyData;
             let headers = window._pendingGenerateHeaders || {};
@@ -2261,14 +2272,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
-                if (generationState.proModeEnabled) cloned.append('mode', 'pro');
+                if (proModeEnabled) cloned.append('mode', 'pro');
                 cloned.append('skeleton', JSON.stringify(skeleton));
                 bodyData = cloned;
             } else {
                 const parsed = JSON.parse(bodyData);
                 parsed.skeleton = skeleton;
                 // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
-                if (generationState.proModeEnabled) {
+                if (proModeEnabled) {
                     parsed.mode = 'pro';
                 } else {
                     delete parsed.mode;
@@ -2436,7 +2447,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (parsed.chunk) {
                                 if (firstWrite) {
                                     firstWrite = false;
-                                    setPreviewStreamStatus(generationState.proModeEnabled ? 'Componiendo slides…' : 'Recibiendo slides…');
+                                    setPreviewStreamStatus(proModeEnabled ? 'Componiendo slides…' : 'Recibiendo slides…');
                                 // Collapse the thinking panel into a "Thought
                                 // for Ns" pill now that the slides are about
                                 // to render. The user can still re-expand
@@ -2581,13 +2592,13 @@ document.addEventListener('DOMContentLoaded', () => {
             previewIframe = rawIframe;
 
             initPreview(generatedHtml, () => {
-                if (generationState.activeGeneration !== generation) return;
+                if (_activeGeneration !== generation) return;
                 generation.finalPreviewMounted = true;
                 _pendingTransitionFn = null;
 
                 // Restore visibility only after setup is truly complete
                 setTimeout(() => {
-                    if (generationState.activeGeneration !== generation) return;
+                    if (_activeGeneration !== generation) return;
                     if (stage) stage.classList.remove('flicker-mask');
                     if (minimapPanel) minimapPanel.classList.remove('flicker-mask');
 
@@ -2684,11 +2695,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 previewFlushTimer = null;
             }
             previewStreamClosed = true;
-            if (generationState.activeGeneration === generation) {
-                generationState.activeGeneration = null;
+            if (_activeGeneration === generation) {
+                _activeGeneration = null;
                 _pendingTransitionFn = null;
             }
-            if (generationState.activeController && generationState.activeController.signal.aborted) {
+            if (_activeGenController && _activeGenController.signal.aborted) {
                 return;
             }
             _stabilizeMinimapOnNextPreviewInit = false;
@@ -2848,7 +2859,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.navigateToHome();
             });
         } finally {
-            generationState.activeController = null;
+            _activeGenController = null;
             toggleGenerateLoading(false);
             // Re-enable minimap skeleton updates for subsequent normal generations.
             _skipMinimapSkeleton = false;
@@ -2870,9 +2881,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
             if (!confirm(msg)) return;
 
-            if (generationState.activeController) {
-                generationState.activeController.abort();
-                generationState.activeController = null;
+            if (_activeGenController) {
+                _activeGenController.abort();
+                _activeGenController = null;
             }
             
             window.navigateToHome();
@@ -2891,9 +2902,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
             if (!confirm(msg)) return;
 
-            if (generationState.activeController) {
-                generationState.activeController.abort();
-                generationState.activeController = null;
+            if (_activeGenController) {
+                _activeGenController.abort();
+                _activeGenController = null;
             }
             
             window.navigateToHome();
@@ -4565,8 +4576,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 9. FINALIZE — Download PDF or editable PowerPoint
     // =========================================================
     finalizeBtn.addEventListener('click', async () => {
-        const exportFormat = generationState.requestedExportFormat;
-        generationState.requestedExportFormat = 'pdf';
+        const exportFormat = requestedExportFormat;
+        requestedExportFormat = 'pdf';
         finalizeBtn.disabled = true;
         finalizeBtn.classList.add('loading');
 
