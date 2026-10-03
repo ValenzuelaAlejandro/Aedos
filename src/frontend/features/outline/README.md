@@ -14,11 +14,6 @@ the target container, partial outline data and the scroll callback, and owns no
 outline store state. `window.renderStreamingOutline` remains the classic
 compatibility entry point.
 
-`editor-bindings.js` owns outline input and dropdown listeners. It receives
-explicit callbacks for the live slides, slide re-render and count update, and
-does not retain shared editor state. `scripts/outline.js` keeps binding
-orchestration and the existing event order.
-
 `chips-renderer.js` owns suggested-chip creation, its existing one-second delay,
 and chip DOM events. Translation, generation actions and animation are supplied
 by `scripts/outline.js`; `window.renderOutlineSuggestedChips` remains the

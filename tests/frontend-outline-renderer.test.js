@@ -9,7 +9,6 @@ const root = path.resolve(__dirname, '..');
 const rendererPath = path.join(root, 'src/frontend/features/outline/slide-renderer.js');
 const parserPath = path.join(root, 'src/frontend/features/outline/stream-parser.js');
 const chipsPath = path.join(root, 'src/frontend/features/outline/chips-renderer.js');
-const editorBindingsPath = path.join(root, 'src/frontend/features/outline/editor-bindings.js');
 const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/outline-slide-cases.json');
 
 function createDocument() {
@@ -154,80 +153,4 @@ test('outline chips renderer preserves translated actions, delay, and animation 
     container.children[0].onClick();
     container.children[2].onClick();
     assert.deepEqual(generated, ['Review title', 'proceed']);
-});
-
-test('outline editor bindings preserve live slide edits, point ordering, and count updates', () => {
-    const timers = [];
-    const selectors = new Map();
-    const window = {
-        clearTimeout() {},
-        setTimeout(callback, delay) {
-            timers.push({ callback, delay });
-            return timers.length;
-        },
-        parseInt,
-        Event: class Event {
-            constructor(type) {
-                this.type = type;
-            }
-        },
-        document: {
-            querySelectorAll(selector) {
-                return selectors.get(selector) || [];
-            },
-        },
-    };
-    vm.runInNewContext(fs.readFileSync(editorBindingsPath, 'utf8'), { window }, { filename: editorBindingsPath });
-
-    function makeField(dataset, value = '') {
-        return {
-            dataset,
-            value,
-            style: {},
-            scrollHeight: 42,
-            listeners: {},
-            addEventListener(type, callback) {
-                this.listeners[type] = callback;
-            },
-        };
-    }
-
-    const title = makeField({ index: '0' }, 'Edited title');
-    const point = makeField({ sindex: '0', pindex: '0' }, 'New point');
-    selectors.set('.outline-slide-title', [title]);
-    selectors.set('.outline-point-input', [point]);
-    const slides = [{ title: 'Original', key_points: ['First', 'Second'] }];
-    let renderCount = 0;
-    let countUpdates = 0;
-    window.AedosOutlineEditorBindings.bindOutlineEditorEvents({
-        getSlides: () => slides,
-        renderSlides: () => { renderCount += 1; },
-        updateSlideCount: () => { countUpdates += 1; },
-    });
-
-    assert.equal(title.style.height, '42px');
-    title.listeners.input({ target: title });
-    const titleTimer = timers.pop();
-    assert.equal(titleTimer.delay, 80);
-    titleTimer.callback();
-    assert.equal(slides[0].title, 'Edited title');
-    point.listeners.input({ target: point });
-    const pointTimer = timers.pop();
-    assert.equal(pointTimer.delay, 80);
-    pointTimer.callback();
-    assert.equal(slides[0].key_points[0], 'New point');
-
-    const event = {
-        key: 'Enter',
-        shiftKey: false,
-        target: point,
-        preventDefault() {
-            this.prevented = true;
-        },
-    };
-    point.listeners.keydown(event);
-    assert.equal(event.prevented, true);
-    assert.deepEqual(slides[0].key_points, ['New point', '', 'Second']);
-    assert.equal(renderCount, 1);
-    assert.equal(countUpdates, 1);
 });
