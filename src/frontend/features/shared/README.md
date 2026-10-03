@@ -35,3 +35,7 @@ navigation, so it is not a live alias of the private cursor.
 `theme-controller.js` installs the two theme toggle handlers, persists
 `app_theme`, synchronizes the live preview iframe, and preserves the existing
 View Transition circular reveal timing and geometry.
+
+`i18n.js` owns the existing English/Spanish catalogs and document translation
+pass. Add new language strings to both catalogs and retain the `window.__t`,
+`window.currentLang`, and `window.__applyTranslations` compatibility API.
