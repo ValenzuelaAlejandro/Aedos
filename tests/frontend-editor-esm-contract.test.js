@@ -37,3 +37,18 @@ test('shared HTTP/SSE service is a native module with a temporary compatibility 
     assert.match(service, /export function (readReader|openResponse)/);
     assert.match(service, /window\.AedosHttpSse = Object\.freeze\(\{ openResponse, readReader \}\)/);
 });
+
+test('chat and outline renderers are native modules with explicit shared escaping import', () => {
+    const index = read('src/frontend/index.html');
+    const chat = read('src/frontend/features/chat/attachment-renderer.js');
+    const outline = read('src/frontend/features/outline/slide-renderer.js');
+
+    assert.match(index, /<script type="module" src="features\/chat\/attachment-renderer\.js\?v=2"><\/script>/);
+    assert.match(index, /<script type="module" src="features\/outline\/slide-renderer\.js\?v=2"><\/script>/);
+    assert.match(chat, /export function escapeHtml/);
+    assert.match(chat, /export function renderFileChip/);
+    assert.match(outline, /import \{ escapeHtml \} from '\.\.\/chat\/attachment-renderer\.js\?v=2'/);
+    assert.match(outline, /export function renderSlides/);
+    assert.match(chat, /window\.AedosChatRenderer = Object\.freeze\(\{ renderFileChip \}\)/);
+    assert.match(outline, /window\.AedosOutlineRenderer = Object\.freeze\(\{ renderSlides \}\)/);
+});

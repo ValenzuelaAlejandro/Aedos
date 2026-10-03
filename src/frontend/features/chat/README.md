@@ -1,9 +1,9 @@
 # Chat feature
 
-Classic scripts in this folder provide chat-oriented UI services and load
-before the application scripts that consume them.
+The native module in this folder provides chat-oriented UI rendering services.
 
 `attachment-renderer.js` renders the existing file-chip markup and owns the
-shared HTML escaping helper. Its `window.AedosChatRenderer.renderFileChip`
-service is used by outline chat history, while `window.escapeHtml` remains as a
-compatibility global for the current app and outline scripts.
+shared HTML escaping helper. It exports `renderFileChip` and `escapeHtml`; the
+outline slide renderer imports the latter. The `window.AedosChatRenderer` and
+`window.escapeHtml` compatibility globals remain for the classic app and outline
+controllers until those consumers migrate.

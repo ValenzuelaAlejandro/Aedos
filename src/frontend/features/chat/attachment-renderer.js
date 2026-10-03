@@ -1,8 +1,5 @@
-(function registerChatRenderer(global) {
-    'use strict';
-
-    /** Escapes text for insertion into HTML markup. */
-    function escapeHtml(unsafe) {
+/** Escapes text for insertion into HTML markup. */
+export function escapeHtml(unsafe) {
         if (typeof unsafe !== 'string') return '';
         return unsafe
             .replace(/&/g, "&amp;")
@@ -10,10 +7,12 @@
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
-    }
+}
 
-    /** Returns the innerHTML for one legacy chat-bubble attachment chip. */
-    function renderFileChip(file) {
+/** Returns the innerHTML for one legacy chat-bubble attachment chip.
+ * @param {{name?: string, type?: string}} file
+ */
+export function renderFileChip(file) {
         const displayName = file.name && file.name.length > 24
             ? file.name.substring(0, 21) + '...'
             : (file.name || 'file');
@@ -30,9 +29,8 @@
         }
 
         return `${iconMarkup}${escapeHtml(displayName)}`;
-    }
+}
 
-    global.AedosChatRenderer = Object.freeze({ renderFileChip });
-    // Preserve the helper consumed as a global identifier by legacy scripts.
-    global.escapeHtml = escapeHtml;
-})(window);
+// Compatibility globals remain until the classic application consumers migrate.
+window.AedosChatRenderer = Object.freeze({ renderFileChip });
+window.escapeHtml = escapeHtml;
