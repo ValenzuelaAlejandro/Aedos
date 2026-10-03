@@ -1,8 +1,8 @@
 {
-  "totalWarnings": 163,
+  "totalWarnings": 162,
   "byRule": {
     "no-empty": 9,
-    "complexity": 35,
+    "complexity": 34,
     "max-lines-per-function": 26,
     "max-lines": 10,
     "no-unused-vars": 27,
@@ -23,7 +23,7 @@
     "src\\backend\\utils\\pptx-export.js": 11,
     "src\\backend\\utils\\rate-limiter.js": 2,
     "src\\frontend\\editor\\editor-ui.js": 2,
-    "src\\frontend\\editor\\editor.js": 31,
+    "src\\frontend\\editor\\editor.js": 30,
     "src\\frontend\\features\\minimap\\minimap.js": 5,
     "src\\frontend\\features\\shared\\i18n.js": 2,
     "src\\frontend\\features\\shared\\init.js": 2,
@@ -41,7 +41,7 @@
     ],
     [
       "src\\frontend\\editor\\editor.js",
-      31
+      30
     ],
     [
       "src\\backend\\utils\\pptx-export.js",
