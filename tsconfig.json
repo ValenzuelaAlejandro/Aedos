@@ -9,5 +9,10 @@
     "target": "ES2022",
     "types": ["node"]
   },
-  "include": ["src/backend/**/*.js", "scripts/**/*.js"]
+  "include": [
+    "src/backend/**/*.js",
+    "scripts/**/*.js",
+    "src/frontend/features/editor/selection-geometry.js",
+    "src/frontend/features/editor/semantics.js"
+  ]
 }

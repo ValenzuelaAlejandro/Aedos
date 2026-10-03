@@ -1,9 +1,11 @@
 # Editor feature modules
 
-Classic-script modules used by the presentation iframe editor. They load before
-`/editor/editor.js` in generated HTML. The editor entrypoint is a native ES
-module and imports these leaf modules directly; its `window.*` application
-compatibility hooks remain owned by the editor bootstrap.
+Native ESM modules used by the presentation iframe editor. The `/editor/editor.js`
+entrypoint imports these leaf modules directly. Its `window.*` application
+compatibility hooks remain owned by the editor bootstrap. `selection-geometry.js`
+and `semantics.js` are currently included in the frontend `checkJs` scope; extend
+that scope only as additional modules pass typecheck without increasing its
+diagnostic ratchet.
 
 ## Semantic targeting
 
