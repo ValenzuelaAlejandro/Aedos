@@ -19,11 +19,6 @@ explicit callbacks for the live slides, slide re-render and count update, and
 does not retain shared editor state. `scripts/outline.js` keeps binding
 orchestration and the existing event order.
 
-`slide-commands.js` owns blank-slide/point insertion, slide deletion and
-reordering. Each command receives callbacks for the current slides, slide limit
-and existing renderer; it does not retain the shared outline store. The legacy
-global command functions remain wrappers in `scripts/outline.js`.
-
 `chips-renderer.js` owns suggested-chip creation, its existing one-second delay,
 and chip DOM events. Translation, generation actions and animation are supplied
 by `scripts/outline.js`; `window.renderOutlineSuggestedChips` remains the
