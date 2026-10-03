@@ -103,3 +103,25 @@ desktop medidos en el worktree limpio eran el botón dev-only
   reales ni push.
 - Rama: `refactor/fix-multer`, basada en `42987ac`. Consulta `git rev-parse
   HEAD` para su hash actual.
+
+## Etapa 2d — revisión de dependencias
+
+- Rama `refactor/fix-audit`, base `459c932`; el árbol Git inició limpio.
+- Auditoría en npm 11.17.0 contra `https://registry.npmjs.org/`: conexión
+  correcta, 16 vulnerabilidades en total (12 high, 4 moderate, 0 low/critical).
+  Las 16 entradas están presentes con `npm ls --omit=dev`, es decir, alcanzan
+  producción; 3 directas (`express`, `multer`, `puppeteer`) y 13 transitivas.
+  El inventario paquete/severidad está en `docs/KNOWN-ISSUES.md`.
+- Se revisó un dry-run (29 cambios semver, 7 retiros, 0 adiciones). Ensayo
+  aplicado solo para evaluación: audit quedó en 8 high, pero `verify:all`
+  falló antes de llegar a las baselines: el test de 10 MiB esperaba 413 y con
+  Multer 2.4.0 observó 200. Ese cambio incumple el contrato congelado.
+- Se descartó el ensayo; `package-lock.json` se restauró y `npm ci
+  --ignore-scripts` reinstaló Express 4.22.2, Multer 2.2.0 y Puppeteer 24.39.1.
+  No hay cambios de dependencias ni commit correctivo de audit. No se ejecutó
+  ninguna actualización major. La familia Puppeteer requiere 25.12.0 major
+  para eliminar los 8 high restantes del ensayo; riesgo documentado en
+  `docs/KNOWN-ISSUES.md`.
+- El commit `459c932` ya documenta y traduce a HTTP 413 el caso exactamente
+  10 MiB. El inventario y la conclusión de esta revisión se registran en esta
+  rama de documentación; no se tocaron baselines.
