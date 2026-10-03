@@ -1,134 +1,193 @@
-# Inventario frontend — línea base para Etapa 4
+# Frontend extraction inventory
 
-Este inventario se midió en el commit `dcd47d315c2aae960a944f7c330d80ae44070d44`
-(fin de Etapa 3). Cada tamaño proviene de `git show <commit>:<archivo> | wc -l`;
-el árbol de trabajo de esta medición no tenía cambios de producción. Los rangos
-son líneas inclusivas de esos blobs y deberán actualizarse al cerrar cada
-subetapa. La meta de Etapa 4 es que ningún archivo de frontend pase de 400
-líneas, salvo excepción concreta y documentada.
+Baseline: `refactor/fase-8a-red-estable` at `565a8f0d296fa85b1ec92ba1a08c24dc7c74c9e6` (2026-10-03). Source line counts were measured from committed blobs, not the working tree:
 
-## Archivos de partida
+```text
+git show HEAD:src/frontend/scripts/app.js | wc -l       # 4618
+git show HEAD:src/frontend/scripts/outline.js | wc -l   # 1308
+git show HEAD:src/frontend/editor/editor.js | wc -l     # 1898
+```
 
-| Archivo y rango actual | Responsabilidades actuales | Destino previsto |
-| --- | --- | --- |
-| `src/frontend/scripts/app.js`, 1–4916 | IIFE de bootstrap y estado; globals compartidos; tema/idioma/router; adjuntos y validación; mensajes y progreso; generación de esqueleto y presentación con dos lectores SSE; transiciones y montaje del preview; zoom/fullscreen; slots de imagen; navegación/minimapa; exportación y reset. | Dividir por responsabilidades en `features/chat/`, `features/preview/`, `features/editor/`, `features/export/` y bootstrap. El código que siga en un archivo debe ser una sola responsabilidad. |
-| `src/frontend/scripts/outline.js`, 1–1369 | Contenedores de conversación y outline, streaming/parsing de esqueleto, chips, render y eventos del editor de outline, alta/baja/reordenamiento, resumption y sincronización de dropdowns. | `features/outline/`: estado, render, acciones y compatibilidad. El parser SSE común va al cliente HTTP/SSE de 4.1. |
-| `src/frontend/editor/editor.js`, 1–2205 | Código ejecutado dentro del iframe: selección, detección semántica de nodos, toolbar, transformaciones, historial, duplicar/copiar/pegar, capas y navegación de teclado; publica acciones en `window` del iframe. | `features/editor/`: selección/semántica, transformaciones, historial y acciones de capa, manteniendo la API pública del iframe. |
-| `src/frontend/features/tools/tools.js`, 1–1018 | Inicialización del panel de herramientas del editor, sincronización de selección, inserción de formas/iconos y edición contextual de tipografía, color, tamaño, alineación, bordes, opacidad e imágenes. | `features/editor/tools/`: panel y controles por tipo de propiedad; conservar `window.initTools` y los callbacks consumidos desde el padre. |
-| `src/frontend/features/minimap/minimap.js`, 1–515 | Miniaturas, centrado/escala, detección de acento, actualización observada del iframe, selección, drag/drop y sincronización de orden. | `features/editor/minimap/`: render de miniaturas, sincronización y navegación; conservar `window.initMinimap` y los hooks actuales. |
-| `src/frontend/mobile/js/bridge.js`, 1–493 | Adaptador táctil a mouse, pinch zoom/pan, overlays móviles, metadatos de slides y contador/dots. | `mobile/bridge/`: gestos, zoom/pan, controles y sincronización; mantener las interfaces que consume `app-mobile.js` y los globals editoriales. |
+Line ranges below refer to that snapshot. They identify extraction seams, not
+permission to change behavior. The current `window.*` facade, markup, CSS order,
+timers, promise/event ordering, and store object identity are compatibility
+contracts. Keep a facade in the original entry point while moving an
+implementation. Remove a property only after a repository-wide search across
+JavaScript, HTML, iframe entry points, `docs/CONTRACTS.md`, and tests proves zero
+consumers. Every new module must own one responsibility, remain at or below 300
+lines, have JSDoc `@typedef` definitions for its API/state, and have a README in
+its feature folder. A proposed folder that does not yet exist must be created
+with its README in the same commit as its first module.
 
-El corte inicial de `app.js` por zonas para planear los movimientos es: 1–68
-(sanitización de salida y conversión GIF); 69–824 (estado, globals, tema,
-idioma, router y controles); 825–1154 (adjuntos, drag/drop, contador y
-validación); 1155–1478 (progreso, loaders, preview y modo debug); 1479–2103
-(generación del outline y acción de proceder); 2104–2956 (generación final,
-stream SSE, iframe incremental y errores); 2957–3779 (setup del preview,
-interacciones del editor, zoom y fullscreen); 3780–4303 (reemplazo de imágenes
-y overlays); 4304–4916 (navegación, minimapa, exportación, reset y cierre del
-bootstrap). Estos son límites de planificación; antes de mover un bloque se
-vuelven a inspeccionar sus consumidores y dependencias léxicas.
+## `src/frontend/scripts/app.js` — 4618 lines
 
-## Lint y tipos antes del movimiento
+The script is a classic-script DOMContentLoaded coordinator. It acquires the
+existing `AedosStores.generation.state` and
+`AedosStores.previewEditor.state`; the preview store's `currentSlide` and the
+legacy `window.currentSlide` are deliberately separately synchronized values.
+The app also reads/writes the `outlineEditorState` facade and invokes iframe
+editor APIs. Do not move whole blocks that close over these objects without
+injecting the specific store/API they need.
 
-Comando lint por archivo: `node_modules/.bin/eslint <archivo> --format json`.
-Los errores y avisos que siguen son los observados en la línea base, no errores
-introducidos por Etapa 4:
+| Lines | Responsibility and principal functions | Shared mutable state read / written | `window.*` API used or written | Proposed destination |
+|---|---|---|---|---|
+| 1–82 | `sanitizeModelOutput`, `gifToStaticDataUrl`; app bootstrap and store/logger acquisition | No app state in the two helpers; bootstrap obtains generation and preview stores | Reads `AedosStores`, `BrowserLogger`; helper declarations remain compatible until consumers are searched | Pure pieces to existing `features/shared/` or `features/chat/` modules, with thin classic wrappers |
+| 83–353 | DOM references; top-panel mode/language/export-format controls, file-to-mode synchronization and message routing | Reads/writes generation `proModeEnabled`, `targetLanguage`, `requestedExportFormat`; reads attached files; reads preview iframe identity for messages | Reads `AedosStores`, `MobileRuntime`, `MobileConfig`; writes `_syncModeWithFiles` | Existing `features/shared/` controllers, then a focused `features/navigation/` controller if needed |
+| 354–433 | Theme/language control initialization and native placeholder setup | Reads/writes theme storage and preview iframe theme; local placeholder state | Calls `AedosThemeController`; reads `MobileRuntime`, `__t` | Keep theme in `features/shared/theme-controller.js`; placeholder behavior belongs with chat composer |
+| 434–1007 | Screen router (`navigateToHome/Chat/Editor`), conversation cleanup, upload/drop validation, attachment chips and generate-button validation | Reads/writes generation mode, attached files, active controllers, hero flags; reads/writes `outlineEditorState`; resets preview DOM and chat state | Writes `navigateToHome`, `navigateToChat`, `navigateToEditor`, `_attachedFiles` facade, `_syncModeWithFiles`, `validateGenerateButton`; reads/writes `_chipsRenderTimeout`; calls outline, modal, translation and mobile APIs | `features/navigation/screen-router.js` and `features/chat/attachments.js`; inject store/DOM actions instead of capturing app locals |
+| 1008–1278 | Generate-button loading messages, hero text transitions, preview reset/title helpers and debug-canvas setup | Reads mode/language; writes transient timer fields, preview title/HTML/current slide | Reads/writes `_btnMsgTimer`, `_heroTypewriterTimer`, `_heroResetTimer`, `_manualZoomScale`; writes `currentSlide`; calls `AedosStores`, `__t`, `MobileRuntime` | `features/generation/controls.js`; debug canvas and title/reset helpers stay with preview lifecycle |
+| 1279–1760 | `handleGenerate`: skeleton request construction, upload handoff, SSE consumption, partial outline updates and failure/cancel paths | Reads/writes generation controllers, sequence, files, backup skeleton and pending request body/headers; reads/writes outline state | Reads/writes `_activeGenController`, `_attachedFiles`, `_backupSkeleton`, `_pendingGenerateBodyData`, `_pendingGenerateHeaders`; calls `prepareOutlineStreaming`, `renderStreamingOutline`, `finalizeStreamingOutline`, `stopOutlineGeneration`, `navigateToChat` | `features/generation/skeleton-flow.js`; preserve SSE event order and pass explicit generation/outline store APIs |
+| 1761–1919 | `proceedWithCurrentOutline`, request handoff and user-approved continuation | Reads skeleton, language, attachments and controller; writes pending request and progress timers | Writes `proceedWithCurrentOutline`, pending-body/header facades, `_proceedMsgInterval`; calls `startFinalGeneration` | Same skeleton-flow boundary as 1279–1760, with a wrapper retaining `window.proceedWithCurrentOutline` |
+| 1920–2779 | `startFinalGeneration`: final SSE stream, incremental HTML, error/retry handling, generation identity and animated transition into preview | Reads/writes generation sequence/controllers/current-generation identity; preview HTML/title/iframe/insets/settling animation; consumes outline skeleton | Writes `startFinalGeneration`; uses `_pendingGenerateBodyData`, `_pendingGenerateHeaders`, `_proceedMsgInterval`, `_manualZoomScale`, `_pendingTransitionFn`; calls `initPreview`, `scaleIframe`, `navigateToEditor`, `AedosStores`, `AedosHttpSse` | `features/generation/final-generation.js` plus a distinct transition adapter; all async callbacks need an explicit generation/iframe token API |
+| 2780–3410 | `initPreview`, slide discovery, `setupPreviewInteractions`, iframe initialization/restoration, editor/minimap/tools setup and dot regeneration | Reads/writes preview iframe, generated HTML, slide container/cursor/count, title and insets; rekeys slot overlay references during undo/redo | Writes `regenerateDotsCount`; reads/writes `_restoreBatchT`, `_refreshSlotOverlays`, `_ensureInternalOverlay`, `_buildOverlayForSlot`; calls iframe `editor*`, `initEditorUI`, `initMinimap`, `initTools` | `features/preview/iframe-lifecycle.js`; isolate restore/rebind API from `features/preview/image-slots.js` |
+| 3411–3614 | Zoom state, sizing, pan synchronization and fullscreen entry/exit | Reads/writes preview insets and iframe transforms; uses mobile zoom/pan fallback | Reads/writes `_manualZoomScale`, `_baseScale`, `_mobile_zoom`, `_pan`; calls `MobileRuntime`, iframe `editor*` | `features/preview/zoom-controller.js` (new folder README if needed), consuming preview store and explicit viewport adapter |
+| 3615–4135 | Image slot replacement, iframe drop handling, parent-side file-picker overlays and overlay rekey/position | Reads/writes preview iframe and `_overlayMap`; modifies iframe slot DOM and parent overlay DOM | Reads/writes `_ensureInternalOverlay`, `_triggerImagePicker`, `_pruneDeadSlotOverlays`, `_refreshSlotOverlays`, `_buildOverlayForSlot`, `_slotMsgHandler`; calls iframe `editorSaveState` and preview APIs | `features/preview/image-slots.js`; inject iframe/store operations and retain all editor-facing bridges |
+| 4136–4443 | Slide navigation, dots/counters, keyboard, wheel, touch and mobile counter synchronization | Reads/writes preview slide cursor/count/container and legacy mirrored `currentSlide` | Writes `scrollToSlide`, `prevSlide`, `nextSlide`, `getCurrentSlide`, `getTotalSlides`; calls iframe `editor*`, `MobileRuntime`, `AedosMobileNavDots` | `features/preview/slide-navigation.js`, explicit preview-store methods and event callbacks |
+| 4444–4507 | PDF/PPTX finalization, progress, download and export error display | Reads/writes requested export format; reads preview iframe/title | Uses `AedosExportSnapshot`; reads translation/modal APIs | Existing `features/export/` (new `finalize.js` if distinct); modal display remains an injected API |
+| 4508–4618 | Reset, click-outside deselection, `fillInput`, suggestion-pill bindings | Resets preview store and overlays; updates composer input and modal state | Writes `fillInput`; calls iframe `editorDeselect`, translation and reset/navigation APIs | Reset belongs to router/preview lifecycle; `fillInput` stays as compatibility wrapper; suggestion pills join chat composer |
 
-| Archivo | Avisos ESLint | Errores ESLint |
-| --- | ---: | ---: |
-| `scripts/app.js` | 74 | 5 |
-| `scripts/outline.js` | 10 | 8 |
-| `editor/editor.js` | 34 | 1 |
-| `features/tools/tools.js` | 5 | 1 |
-| `features/minimap/minimap.js` | 6 | 2 |
-| `mobile/js/bridge.js` | 7 | 0 |
+### App extraction order (lower to higher risk)
 
-`npm run typecheck:ratchet` informó 29 errores totales en el proyecto, todos en
-backend o scripts. `tsconfig.json` incluye `src/backend/**/*.js` y
-`scripts/**/*.js`, pero no `src/frontend`; por tanto, los diagnósticos de tipo
-por cada uno de estos seis archivos están **fuera de cobertura**, no equivalen
-a cero errores. Agregar el frontend al typecheck es trabajo de Etapa 6.
+1. Extract pure `sanitizeModelOutput`/GIF conversion helpers; verify exact return
+   bytes/data URL behavior and leave the classic declarations as forwarding
+   wrappers until consumer search is clear.
+2. Move attachment rendering and file validation to the existing chat feature.
+   The module receives `getFiles/setFiles` over the generation store; no second
+   mutable file array is allowed.
+3. Move screen navigation and cleanup behind an explicit router API. Its inputs
+   are the relevant DOM roots, generation/outline/preview stores, and injected
+   callbacks; the router must not import app-local DOM constants.
+4. Extract loading controls and timer ownership. Preserve the existing timer
+   handles through accessors/adapters until HTML, tests and scripts no longer
+   read the legacy names.
+5. Extract skeleton request/SSE handling as one owner of `skeletonController`,
+   request body/headers and outline state transitions; the module gets store
+   APIs, not direct mutable snapshots.
+6. Extract final-generation SSE separately from its transition adapter. Keep
+   response chunk cadence, watchdog, event order, sequence checks and callbacks
+   byte/timing-equivalent.
+7. Extract preview iframe mount/restore lifecycle and image-slot overlays as
+   two modules with an explicit iframe generation token and overlay registry
+   API; do not share `_overlayMap` directly across modules.
+8. Extract slide navigation and zoom/fullscreen behind the existing preview
+   store; maintain the legacy mirrored `currentSlide` writes at the same points.
+9. Extract export finalization and reset/modal wiring last; preserve download,
+   progress and error-modal behavior, and keep `window.fillInput` until all
+   markup consumers are migrated.
 
-## Orden clásico que debe conservarse en Etapa 4
+## `src/frontend/scripts/outline.js` — 1308 lines
 
-En `src/frontend/index.html`, antes del contenido de la página se cargan
-`features/shared/i18n.js`, `features/shared/logger.js`,
-`features/minimap/minimap.js`, `features/shared/init.js` y
-`features/chat/thinking-panel.js`. Al final del documento se cargan, en este
-orden, `features/tools/tools.js`, `editor/editor-ui.js`, `mobile/js/config.js`,
-`mobile/js/app-mobile.js`, `scripts/app.js`, `scripts/outline.js` y
-`mobile/js/bridge.js`. Los proveedores externos cargados en `<head>` preceden
-a esas hojas. Etapa 4 mantiene scripts clásicos, URLs y orden; cada función
-movida que conserve consumidores existentes expone temporalmente un wrapper
-`window.*` compatible. La migración a `type="module"` pertenece a Etapa 5.
+This classic script owns the live outline editing experience. Its primary state
+is the mutable `window.outlineEditorState` facade backed by
+`AedosStores.outline`; skeleton arrays and slide objects are mutated in place.
+The script also shares generation attachment/controller/timer bridges with
+`app.js`. New boundaries must receive `getState()`/specific mutation methods or
+an explicit outline API; they must not cache a stale skeleton reference.
 
-## Límites repetidos — documentar, no centralizar ahora
+| Lines | Responsibility and principal functions | Shared mutable state read / written | `window.*` API used or written | Proposed destination |
+|---|---|---|---|---|
+| 1–143 | File chip helper, scrolling, active outline container/DOM lookup, generate-button dispatch, bubble actions and follow-up container creation | Reads/writes outline `activeContainer` and skeleton; reads chat DOM and attached files indirectly | Reads `AedosChatRenderer`, `outlineEditorState`; calls app `navigateToChat`/generation APIs | `features/outline/container.js` (new, with README), retaining container facade functions in `outline.js` |
+| 144–387 | `showOutlineEditorLoading`: reset or follow-up flow, conversation bubbles, prior-outline archival, loader and uploaded-file chips | Writes `isLoading`, active container and sometimes draft; reads/writes `_attachedFiles`, `_chipsRenderTimeout`; mutates chat/outline DOM | Reads/writes `outlineEditorState`, `_attachedFiles`, `_chipsRenderTimeout`; calls `toggleGenerateLoading`, `AedosThinking`, `AedosChatRenderer`, `__t` | `features/outline/conversation.js`; receives store/file APIs and render callbacks |
+| 388–580 | `parsePartialSkeleton`, `prepareOutlineStreaming`, `renderStreamingOutline`, `finalizeStreamingOutline`; incremental JSON and slide updates | Parser itself is pure; stream functions mutate skeleton/mode/maxSlides/loading and DOM | Writes `parsePartialSkeleton`, `prepareOutlineStreaming`, `renderStreamingOutline`, `finalizeStreamingOutline`; calls `renderOutlineSlides`, chips and app validation APIs | `features/outline/stream-parser.js` (pure) and `features/outline/streaming.js` (orchestrator, separate APIs) |
+| 581–675 | Suggested chip rendering, delayed reveal and primary proceed shortcut | Reads outline skeleton; writes/clears `_chipsRenderTimeout`; click actions can begin final generation | Writes `renderOutlineSuggestedChips`, `_chipsRenderTimeout`; reads `__t`, calls `proceedWithCurrentOutline`, `fillInput` | `features/outline/suggested-chips.js`; inject state getter/timer scheduler and action callbacks |
+| 676–846 | `initOutlineEditor`, `renderOutlineSlides`, `bindOutlineEvents`; slide title/description/type/point controls and DOM listeners | Reads/writes skeleton slides, properties and role; active DOM container | Calls `AedosOutlineRenderer`; reads `outlineEditorState`; editing remains reachable from `initOutlineEditor` facade | Existing `features/outline/slide-renderer.js` for pure markup; `features/outline/editor-bindings.js` for DOM events |
+| 847–920 | Stop generation, slide-count validation and blank-slide insertion/animation | Reads/writes loading state and skeleton slide array; reads maxSlides | Writes `stopOutlineGeneration`; reads/writes `_activeGenController`; calls `renderOutlineSlides`, `renderOutlineSuggestedChips`, `validateGenerateButton` | `features/outline/slide-actions.js`, using explicit outline/generation APIs |
+| 921–1009 | `addSlideWithAI`: temporary skeleton card, request/fetch lifecycle, slide append and error cleanup | Reads/writes skeleton slide array and current loading state; owns a request-local controller/timer/placeholder | Reads/writes `outlineEditorState`; invokes `AedosHttpSse`, render/actions and translation APIs | `features/outline/incremental-generation.js`; controller passed in, no shared request state outside the outline/generation stores |
+| 1010–1095 | Point insertion/deletion plus slide delete/reorder operations | Mutates `skeleton.slides` and nested `points`; may rerender and change focus/scroll | Writes `addBlankPoint`, `deleteSlide`, `moveSlideUp`, `moveSlideDown` | `features/outline/slide-actions.js`, with a single store-backed mutation API |
+| 1096–1157 | `resumeOutlineEditor`: restore draft controls, dropdowns, hero/loading state and outline drawer | Reads/writes skeleton/loading; updates current DOM/hero and timer values | Writes `resumeOutlineEditor`; reads `outlineEditorState`, `__t`; clears typewriter/reset/message timer bridges | `features/outline/resume.js`, called by a compatibility wrapper |
+| 1158–1308 | Legacy `window` facade, `syncCustomDropdowns`, dropdown and drawer/back-button event wiring | Reads outline state and active container; aborts shared generation controller; edits drawer DOM | Defines `showOutlineEditorLoading`, `initOutlineEditor`, `resumeOutlineEditor`, slide-action globals; reads/writes `_activeGenController`; calls app navigation and translation APIs | `outline.js` remains the facade/bootstrap; dropdown wiring can move to `features/outline/dropdowns.js` with injected store/action API |
 
-| Comportamiento | Frontend actual | Backend actual | Nota de seguridad/alcance |
-| --- | --- | --- | --- |
-| Tema de generación | `app.js`: aviso a partir de 600 caracteres y contador `/600` | `MAX_TOPIC_CHARACTERS = 600` | Conservar el comportamiento y su contrato. |
-| Adjuntos | `app.js`: rechaza `size > 10 * 1024 * 1024`; máximo 3 archivos | `MAX_UPLOAD_BYTES = 10 MiB`, `MAX_UPLOAD_FILES = 3`; las rutas además admiten `MAX_UPLOAD_ARRAY_FIELDS = 5` | El límite de la ruta no sustituye el límite real de Multer; el caso exactamente 10 MiB ya está documentado por separado. |
-| Slides | `outline.js`: 15 Flash y 8 Pro; `minimap.js` también contiene límite visible 15 | `MAX_FLASH_SLIDES = 15`, `MAX_PRO_SLIDES = 8` | No consolidar ni modificar durante los movimientos. |
-| HTML generado | `app.js`: `MAX_STREAM_HTML_CHARS = 2_000_000` | `MAX_EXPORT_HTML_BYTES = 2 MiB` | Caracteres y bytes no son unidades equivalentes; no reemplazar uno por otro. |
-| Watchdog SSE | `app.js`: 600000 ms | `SSE_WATCHDOG_MS = 600000` | Conservar valor y ubicación efectiva hasta pruebas de tiempos específicas. |
+### Outline extraction order (lower to higher risk)
 
-El inventario no autoriza cambios de lógica, nombres de endpoints, límites,
-prompts, apariencia ni dependencias. Antes de cada extracción se caracterizará
-el contrato con tests; la lógica se mueve, no se reescribe.
+1. Move `parsePartialSkeleton` to a pure parser module with JSDoc input/output
+   typedefs; keep `window.parsePartialSkeleton` as a forwarding wrapper.
+2. Preserve and isolate the existing `AedosOutlineRenderer` contract; any
+   renderer work receives a container and slide data and never mutates store
+   state.
+3. Extract custom dropdown presentation/bindings with `syncCustomDropdowns`
+   behind explicit callbacks for slide type and outline metadata.
+4. Extract suggested-chip markup and delayed reveal; inject `getSkeleton`,
+   `schedule/cancel`, and click actions so the timer is not shared implicitly.
+5. Extract chat bubble/container archival and file-chip presentation; pass the
+   active-container and attachment APIs and preserve node placement/order.
+6. Extract streaming lifecycle around the pure parser. One module owns
+   `prepare → render partial → finalize`, receives the outline store, and keeps
+   `window.prepareOutlineStreaming`, `renderStreamingOutline`, and
+   `finalizeStreamingOutline` wrappers.
+7. Extract slide rendering and edit bindings. A single outline API owns all
+   mutations of the existing skeleton object; listeners resolve `dataset.index`
+   against the current `getState()` result on every event.
+8. Extract blank/AI slide and point/delete/reorder actions; pass request/SSE
+   transport and animation callbacks, keeping controller cancellation and
+   mutation ordering explicit.
+9. Extract resume/stop and finish by reducing `outline.js` to orchestration and
+   compatibility facades. Retain each `window.*` name until the consumer audit
+   proves it unused.
 
-## Medición al cierre del trabajo de editor/móvil (4d)
+## `src/frontend/editor/editor.js` — 1898 lines
 
-Comparación desde `b9f666b` (entrada de esta subfase, cierre 4c) hasta
-`c1a3238` (cierre medido de 4d). Cada cifra sale de
-`git show <commit>:<archivo> | wc -l`; no son conteos del árbol sin commit.
+`initEditor()` runs inside the generated presentation iframe and closes over
+all selection, transform, lock, clipboard, observer, history and UI state. It
+imports the already-extracted editor-semantics/history/selection-geometry
+helpers. Parent `app.js`, tools and the mobile bridge consume its iframe
+`window.*` commands; parent and iframe are separate realms. The iframe module
+must keep the existing event sequence and expose a small context/API when
+responsibilities move, not duplicate these mutable variables.
 
-| Archivo | `b9f666b` | `c1a3238` | Cambio |
-| --- | ---: | ---: | ---: |
-| `scripts/app.js` | 4610 | 4632 | +22 |
-| `scripts/outline.js` | 1308 | 1308 | 0 |
-| `editor/editor.js` | 2205 | 1894 | -311 |
-| `features/tools/tools.js` | 1018 | 945 | -73 |
-| `features/minimap/minimap.js` | 515 | 408 | -107 |
-| `mobile/js/bridge.js` | 493 | 392 | -101 |
+| Lines | Responsibility and principal functions | Shared mutable state read / written | `window.*` API used or written | Proposed destination |
+|---|---|---|---|---|
+| 1–120 | Iframe bootstrap, fullscreen lock, editor state, clipboard/group model | Owns lock, selected node, drag/resize coordinates, snap lines, clipboard, drag group, frozen-slide map, restore flag | Reads parent fullscreen; writes `setLocked` later in bootstrap; imports `createAedosEditorSemantics` | Keep bootstrap in `editor/editor.js`; group semantics remain in `features/editor/semantics.js` |
+| 121–168 | Selection UI creation/attachment, slide-change cleanup, activation/structure observers | Owns selection box, handles, toolbar/guides and observers; reads active slide DOM | Parent document fullscreen events; no new public bridge | `features/editor/lifecycle.js`, passed iframe document and an editor-context API |
+| 169–435 | Toolbar markup, property button actions, color picker and palette | Reads selected element and computed/theme styles; writes selected node styles, selection UI and history | Writes/reads internal `editableSelectors`; invokes parent image picker/event fallback | `features/editor/toolbar.js` (view/actions separated if >300 lines), inject selected-element/history/image-picker methods |
+| 436–711 | Editable target traversal, semantic grouping, freeze/normalize slide layout | Reads semantic selectors/container rules and geometry; writes node positioning/normalization markers and frozen state | Writes `editableSelectors`, `freezeAllSlides` | `features/editor/normalization.js`, receiving semantics and explicit save/restore callbacks |
+| 712–791 | Rectangle intersection, slide-relative geometry and drag/resize collision/clamping | Pure rectangle inputs plus slide DOM dimensions; no app store state | No public window API | Existing `features/editor/selection-geometry.js` or a sibling pure `collision-geometry.js`; keep each module under 300 lines |
+| 792–927 | Pointer selection, drag-start target resolution, snapping guides and mouseup cleanup | Reads/writes selection, drag flags, snap arrays, active target/group and selection UI | Dispatches `selection-changed`; invokes internal `selectElement`/`deselectGroup` | `features/editor/selection.js` for target/selection; transform event binding stays in `features/editor/transforms.js` |
+| 928–1104 | Text edit entry/blur, plain-text paste, selected image-slot picker dispatch | Reads/writes selected node/contentEditable state, selection box, history and selection | Calls parent `_triggerImagePicker`; fallback custom event | `features/editor/content-editing.js`, injecting editor context and picker callback |
+| 1105–1413 | Resize-handle and mousemove transform lifecycle, collision resolution and alignment snapping | Reads/writes drag/resize coordinates, handle, active target/group, snap lines, selected node, guides and history | Dispatches/consumes editor-local events; uses selection functions | `features/editor/transforms.js`; inject get/set transform-session API rather than importing mutable closure state |
+| 1414–1608 | `selectElement`, `deselectGroup`, selection box update, history creation and element duplication setup | Reads/writes selected element/observers/selection UI/restore state and undo history | Writes `editor*` selection/history bridges at end of file | `features/editor/selection.js` and existing `features/editor/history.js`; history receives explicit callbacks/context |
+| 1609–1787 | Keyboard shortcut handling: copy/paste/duplicate/delete/undo/redo and keyboard movement | Reads/writes selection, clipboard, history, frozen/normalized node geometry | Bridges the same public selection/history methods; dispatches parent-visible selection events | `features/editor/keyboard.js`, passed selection/clipboard/history/layer APIs |
+| 1788–1898 | Parent-facing compatibility methods, front/back z-order and arrow-move commands; auto-init | Reads/writes selected element and history; adjusts DOM order/z-index/position | Defines `editorUndo`, `editorRedo`, `editorSaveState`, `editorDeselect`, `editorUpdateSelection`, `editorGetSelection`, `editorSelect`, `isJustSelected`, `editorIsDragging`, `editorDuplicateSelection`, `editorDeleteSelection`, `toFront`, `toBack`, `editorArrowMove`, `setLocked`, `freezeAllSlides`, `editableSelectors` | Keep these as `editor.js` facade wrappers; route to selection, layer, transform and history APIs only after consumer audit |
 
-Comando ESLint al cierre: `node node_modules/eslint/bin/eslint.js --format
-json <seis rutas anteriores>`. Conteos observados: `app.js` 68 avisos/5
-errores; `outline.js` 10/8; `editor.js` 30/1; `tools.js` 5/1; `minimap.js`
-5/2; `bridge.js` 5/0. El ratchet del proyecto bajó de 169 a 162 avisos entre
-`b9f666b` y `c1a3238`; el ratchet de tipos siguió en 29. `src/frontend` aún no
-está incluido en `tsconfig.json`, así que el número de diagnósticos TypeScript
-de esas seis rutas es **no medido/fuera de cobertura**, no cero.
+### Editor extraction order (lower to higher risk)
 
-### Extracciones conectadas
+1. Consolidate only pure collision/rectangle helpers with the existing geometry
+   module; no DOM mutation or closure state crosses this boundary.
+2. Extract semantic target predicates and selector catalogs to the existing
+   semantics module; retain `window.editableSelectors` as a wrapper/value until
+   parent and mobile consumers are proven migrated.
+3. Extract toolbar markup as a renderer of an explicit selected-element view
+   model. Do not let a renderer read the closure's `selectedElement` directly.
+4. Move toolbar handlers into a separate action module receiving editor API
+   methods for font size, styles, delete/duplicate and picker operations.
+5. Move slide observers, UI creation and lock/fullscreen lifecycle; bind event
+   order in the iframe bootstrap and pass the document/window explicitly.
+6. Move text/content editing handlers behind `getSelection`, `saveState`, and
+   image-picker APIs; preserve blur and paste ordering exactly.
+7. Move selection and selection-box behavior with one context object that owns
+   selected element/observers; parent notifications remain the same event and
+   timing.
+8. Move drag/resize as one transform-session owner (start coordinates, active
+   target, snap arrays and flags travel together); do not split mutable session
+   fields between modules.
+9. Move keyboard/clipboard and layer operations last; they consume selection,
+   history and transform APIs, and keep all parent-facing `window.*` wrappers
+   in the iframe bootstrap until the full consumer search is clean.
 
-- `features/editor/history.js`: historial y snapshots de undo/redo.
-- `features/editor/semantics.js`: targeting semántico del DOM de la slide.
-- `features/editor/selection-geometry.js`: cálculo puro del marco de selección
-  y posición legacy de la toolbar.
-- `features/tools/shape-inserter.js`: inserción de shapes e iconos.
-- `features/minimap/minimap-view.js`: centrado, selección y reordenamiento de
-  la vista del minimapa.
-- `mobile/js/nav-dots.js`: sincronización de puntos/etiquetas de navegación.
+## Cross-cut rules
 
-Cada helper está cargado por su consumidor y tiene test focal incluido en
-`verify:all`; sus bridges clásicos son internos y están registrados en
-`docs/CONTRACTS.md`. El orden de carga de `index.html` se conserva. Los tres
-helpers de editor se inyectan dentro del iframe antes de `editor.js`.
-
-### Archivos aún sobre 400 líneas
-
-El objetivo de tamaño de Etapa 4 no se alcanzó para todas las piezas. Estas
-excepciones son explícitas y quedan como trabajo de modularización pendiente,
-no como autorización para alterar el comportamiento:
-
-| Archivo | Motivo concreto para mantener el coordinador por ahora |
-| --- | --- |
-| `scripts/app.js` (4632) | Un único `DOMContentLoaded` enlaza controles y mantiene estado compartido de generación, archivos, stream y preview. Los servicios/store/renderers ya movidos dejan callbacks que cierran sobre esos nodos y estado; dividir el bootstrap restante requiere definir más límites de inyección y volver a validar su orden. |
-| `scripts/outline.js` (1308) | Los listeners de streaming, edición, chips, delete/reorder y reanudación comparten el mismo skeleton y estado de petición. No se encontró una costura adicional independiente para extraer sin cambiar el ciclo de listeners/estado. |
-| `editor/editor.js` (1894) | El coordinador iframe conserva selección, handles, snapping, observers, restauración, drag/resize y callbacks que capturan el mismo estado léxico. Las responsabilidades puras (semántica, historia y geometría) ya salieron con pruebas; handlers restantes requieren rediseñar la interfaz del estado compartido. |
-| `features/tools/tools.js` (945) | `renderTools` compone y enlaza controles sobre la selección/iframe actual; shape e icon insertion se extrajeron, pero los controles contextuales restantes comparten el ciclo de vida de ese DOM y de `saveState`. |
-| `features/minimap/minimap.js` (408) | Queda apenas sobre el umbral. El coordinador enlaza observer, timers, estado de slides y callbacks públicos del minimapa; el view helper independiente ya fue extraído. No se movió el coordinador por 8 líneas netas de umbral sin una costura clara. |
-
-`mobile/js/bridge.js` queda por debajo del objetivo (392). Estas medidas y
-excepciones no sustituyen una futura separación probada en la etapa de limpieza.
+- Every move is code relocation or dependency injection only. No change to DOM
+  text/attributes, CSS, visual baselines, contracts, timer values, animation
+  starts, request ordering, stream chunk cadence, or event dispatch order.
+- A cut that needs shared mutable data must either be the sole owner of that
+  data or consume a documented API (`AedosStores.*`, explicit getter/setter
+  methods, or one editor context object). Do not make a second copy or hand a
+  mutable snapshot to a long-lived listener.
+- Before removing any `window.*`, search all `src/frontend/**/*.js`, HTML
+  including generated/iframe templates, `docs/CONTRACTS.md`, and `tests/`;
+  record the exact search scope and zero matches in the removal commit.
+- New module and its folder README/JSDoc typedefs land together. Keep each
+  module at no more than 300 committed lines; split a proposed responsibility
+  further if the measurement would exceed that cap.
+- Each extraction block is one commit followed immediately by
+  `npm run verify:all`. Never refresh a baseline to make a move pass. Lint/type
+  ratchets remain at or below 129/16 respectively.
