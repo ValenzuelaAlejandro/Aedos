@@ -53,84 +53,11 @@ function initTools(iframe) {
         return slides.find(s => s.classList.contains('active')) || slides[0] || iframeDoc.body;
     }
 
-    function insertShape(className, styles) {
-        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
-        const slide = getActiveSlide();
-        const shape = iframeDoc.createElement('div');
-        shape.className = className + ' shapes-added'; // identification
-        shape.style.position = 'absolute';
-        shape.style.left = '50%';
-        shape.style.top = '50%';
-        shape.style.transform = styles.includes('rotate') ? styles : 'translate(-50%, -50%)';
-        shape.style.width = styles && styles.includes('999px') ? '240px' : '150px';
-        shape.style.height = '150px';
-        shape.style.backgroundColor = '#6366f1';
-        shape.style.zIndex = '10';
-
-        // Split styles and apply manually 
-        if (styles) {
-            const custom = styles.split(';').filter(s => s.trim());
-            custom.forEach(s => {
-                const parts = s.split(':');
-                const prop = parts.shift();
-                const val = parts.join(':');
-                if (prop && val) {
-                    shape.style.setProperty(prop.trim(), val.trim());
-                }
-            });
-        }
-
-        slide.appendChild(shape);
-
-        // Select it automatically to show tools
-        if (iframeWin.editorSelect) {
-            iframeWin.editorSelect(shape);
-        } else {
-            // Fallback for older sessions
-            const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
-            shape.dispatchEvent(clickEv);
-            const upEv = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: iframeWin });
-            iframeDoc.dispatchEvent(upEv);
-        }
-
-        if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
-    }
-
-    function insertIcon(iconName) {
-        if (iframeWin.editorSaveState) iframeWin.editorSaveState();
-        const slide = getActiveSlide();
-        const icon = iframeDoc.createElement('i');
-        icon.setAttribute('data-lucide', iconName);
-        icon.style.position = 'absolute';
-        icon.style.left = '50%';
-        icon.style.top = '50%';
-        icon.style.transform = 'translate(-50%, -50%)';
-        icon.style.width = '64px';
-        icon.style.height = '64px';
-        icon.style.color = '#eab308';
-        icon.style.zIndex = '10';
-        icon.classList.add('lucide-icon');
-        slide.appendChild(icon);
-
-        if (iframeWin.lucide) iframeWin.lucide.createIcons();
-
-        // Select it automatically to show tools
-        // After Lucide replaces the <i> with <svg>, find the actual element
-        const newlyCreated = slide.querySelector(`[data-lucide="${iconName}"]`);
-        const elToSelect = newlyCreated || icon;
-
-        if (iframeWin.editorSelect) {
-            iframeWin.editorSelect(elToSelect);
-        } else {
-            // Fallback
-            const clickEv = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: iframeWin });
-            elToSelect.dispatchEvent(clickEv);
-            const upEv = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: iframeWin });
-            iframeDoc.dispatchEvent(upEv);
-        }
-
-        if (iframeWin.editorUpdateSelection) iframeWin.editorUpdateSelection();
-    }
+    const { insertShape, insertIcon } = window.AedosEditorInsertions.create({
+        iframeDoc,
+        iframeWin,
+        getActiveSlide,
+    });
 
     // Helper to generate right panel tools based on selected element
     function renderTools(el) {
