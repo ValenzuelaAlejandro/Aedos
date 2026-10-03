@@ -118,6 +118,63 @@ checked against the static `index.html` DOM:
 
 The checker allowlists this generated set and still validates static page IDs.
 
+### Phase 0c editor safety contracts
+
+`npm run check:editor-safety` freezes the UI state reached by the deterministic
+browser flow in `scripts/editor-safety/`. Its static IDs include the IDs listed
+in that test's `requiredIds` array; the exercised compatibility globals include
+`outlineEditorState`, `parsePartialSkeleton`, `renderStreamingOutline`,
+`finalizeStreamingOutline`, `initOutlineEditor`, `deleteSlide`, `moveSlideUp`,
+`moveSlideDown`, `proceedWithCurrentOutline`, `startFinalGeneration`,
+`initTools`, `initMinimap`, `editorSelect`, `editorGetSelection`, `editorUndo`,
+`editorRedo`, and `toFront`. Their names and the event order are checked by
+browser assertions, not inferred from screenshot pixels alone.
+
+The fixtures answer `/generate-skeleton` and `/generate` with exactly two SSE
+events each, in order: `chunk`, then `done`. The browser request trace must be
+`/generate-skeleton`, `/generate`, `/finalize`, `/finalize-pptx`; the first
+request must carry the selected Japanese UI language (`idioma: "ja"` or its
+serialized equivalent). PDF and PPTX results are fixed mock responses. All
+external browser requests are aborted and no provider is contacted.
+
+The new `tests/baseline/editor-safety/` captures exist because Phase 0c adds
+visual checkpoints after each tested state; they do not replace or regenerate
+the six general visual captures. Capture animation/transition APIs are disabled
+in the test harness, and the mock HTML makes editor geometry deterministic.
+Regenerate only with `npm run baseline:editor-safety`, then review every changed
+image and run `npm run check:editor-safety`.
+
+#### NO cubierto
+
+- The legacy “Add Section” control is under `.outline-bubble-footer`, which the
+  current stylesheet hides. The flow clicks its bound button programmatically;
+  it verifies the action/state but does not claim pointer-visible coverage of
+  that control.
+- Outline add/delete/reorder in this safety flow exercises the existing bound
+  action and `window.deleteSlide`/`window.moveSlideUp`/`window.moveSlideDown`
+  APIs. Pointer drag-and-drop reordering is not covered.
+- Theme toggle is captured in chat. The theme button is hidden in preview, so
+  theme switching while the iframe editor is active is not covered.
+- Provider latency, queue waiting, provider failure mid-stream/fallback,
+  browser/network conditions outside loopback, and real PDF/PPTX rendering are
+  not covered by this mocked browser flow. The export endpoints return fixed
+  payloads; structural export baselines remain separate.
+- Desktop preview zoom is exercised only in its normal non-fullscreen range
+  (100% to 90% and back); fullscreen zoom behavior is not covered here.
+- The minimap's initial active-thumbnail highlight is timing-sensitive during
+  the 800 ms thumbnail refresh after iframe mutations. The zoom-reset capture
+  deliberately excludes the minimap; its thumbnail rendering in that
+  intermediate state is `NO cubierto`. Dedicated minimap checkpoints click the
+  first and second thumbnails, wait for the refresh, and assert the selected
+  slide index and active marker. Before screenshotting a ready preview, the
+  harness waits for every minimap iframe document and its fonts to finish
+  loading; it does not await animation-frame promises inside replaceable
+  thumbnails.
+
+The outline-add checkpoint waits until the two expected suggested chips have
+rendered before capture. This prevents a valid delayed chip-rendering state
+from making the same checkpoint differ depending on when the screenshot starts.
+
 ## Sanitization snapshots and security findings
 
 Snapshots live in `tests/fixtures/sanitization/` and are tested by

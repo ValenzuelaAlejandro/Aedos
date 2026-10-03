@@ -84,6 +84,52 @@ desktop medidos en el worktree limpio eran el botón dev-only
 5. Completar Fase 4 del frontend.
 6. Repetir `npm run verify:all` en un entorno compatible con Puppeteer y Windows/Linux CI, y observar Actions.
 
+## Etapa 3 — red de seguridad del editor (completada)
+
+- Rama: `refactor/fase-0c-editor-red`, basada en `refactor/fix-audit` (`3114bde`).
+- Añadido `scripts/editor-safety/`: flujo Puppeteer por estados, comparación
+  visual, contratos DOM/SSE y 13 mutaciones canario. No se modifica `src/`.
+- Generación y exportación se interceptan con fixtures deterministas; se
+  bloquean requests externos, se desactivan animaciones/transiciones y se
+  usa un servidor efímero de loopback. No se llaman proveedores reales.
+- Capturas por estado añadidas en `tests/baseline/editor-safety/`. Se regeneran
+  porque esta etapa añade estados que no existían en la baseline anterior; no
+  se regeneró el baseline general, PDF ni PPTX.
+- Limitaciones `NO cubierto` (el detalle y motivo están en
+  `docs/CONTRACTS.md`): botón Add Section oculto validado con click programático,
+  reorder por drag-and-drop, tema en preview, proveedor real/fallo mid-stream,
+  render/export real y zoom fullscreen.
+- Hallazgos del harness: el mock HTTP detectó correctamente que omitir
+  `response.ok` deja el modal de error oculto; la prueba espera un máximo de
+  2.5 s y captura el estado ausente. La prueba de capas espera a
+  `is-editor-ready` antes de obtener el iframe para evitar medir durante su
+  reemplazo final.
+- El minimapa actualiza sus miniaturas 800 ms después de mutaciones del iframe.
+  El estado de resaltado inicial no se considera visualmente cubierto en la
+  captura de zoom reset; esa captura omite el minimapa y los pasos siguientes
+  ejercitan clic en miniatura 1/2, esperan el refresh y verifican el índice
+  activo. La temporización de esa actualización sigue siendo un riesgo conocido.
+- `check:editor-safety` quedó integrado en `verify:baseline` y por tanto en
+  `verify:all`. La suite cubre 30 checkpoints visuales/de estado y 13
+  mutaciones canario; una ejecución completa terminó con 13/13 detectadas.
+- Diez ejecuciones consecutivas finales de `npm run check:editor-safety`
+  terminaron con exit 0. En cada una, los 30 checkpoints tuvieron 0 píxeles
+  distintos y las 13 mutaciones fueron detectadas. Las salidas se midieron
+  directamente; los logs locales temporales están bajo `tmp/`.
+- Diagnóstico de estabilidad: una serie preliminar falló por `ProtocolError:
+  Promise was collected` al esperar `requestAnimationFrame` de miniaturas iframe
+  reemplazables; la espera ahora verifica documento completo y fuentes cargadas,
+  sin retener promesas dentro de esos iframes. Otra serie falló porque `flow-04`
+  capturaba antes de que aparecieran los chips ya esperados por el flujo; el
+  checkpoint ahora espera los chips. Se regeneraron solo `flow-04`, `flow-19`
+  y `flow-20`; los otros 27 PNG conservaron exactamente su SHA-256. Ningún
+  baseline general, PDF o PPTX cambió.
+- `npm run verify:quality` pasó: lint permaneció en 175 (baseline 175),
+  TypeScript bajó de 30 a 29 diagnósticos (baseline aún 30; bajar ese ratchet
+  corresponde a un commit separado). Formato pasó. `src/` no se modificó.
+- La verificación completa `npm run verify:all` posterior al commit queda como
+  compuerta obligatoria antes de continuar a Etapa 4.
+
 ## Etapa 2c — errores de carga Multer
 
 - Antes del arreglo, archivo >10 MiB, cuarto archivo, extensión `.exe` y
