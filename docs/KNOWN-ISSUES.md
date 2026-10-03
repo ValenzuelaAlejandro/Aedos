@@ -106,6 +106,11 @@ el comportamiento observable o pertenecen a una fase de correcciones separada.
   typedefs; no hay módulos nuevos huérfanos.
 - Los ratchets separados quedaron en lint 129 y TypeScript 16 después de
   `0baf654`; no se rebajaron diagnósticos para silenciar errores nuevos.
+- Estabilidad de editor: en diez repeticiones seriales frescas, una falló en
+  `flow-16-editor-layer` con diferencia visual en región `36,10`; las otras
+  nueve pasaron 30 checkpoints y 13/13 mutaciones, y `verify:all` posterior
+  también pasó. No se modificó ni regeneró la baseline. Investigar esa
+  intermitencia antes de afirmar estabilidad 10/10.
 - Pendientes que requieren decisión: migración/build con Vite y destino de
   hosting; upgrades major de Express/Puppeteer; split adicional PPTX; retirada
   del contenedor outline legacy. El inventario de dependencias vulnerables y

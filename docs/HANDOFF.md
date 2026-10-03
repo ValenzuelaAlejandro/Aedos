@@ -31,8 +31,12 @@ incluye un hash autorreferencial en el propio archivo. No cambió código de
   4 moderate) y no retuvo upgrades. El inventario, transitividad y riesgos
   major están en `docs/KNOWN-ISSUES.md`; no se volvió a ejecutar audit en Etapa 7.
 - Etapa 3 / red del editor: 30 checkpoints deterministas y 13 mutaciones
-  canario; se registraron diez ejecuciones consecutivas finales en verde. El
-  detalle `NO cubierto` está en `docs/CONTRACTS.md`.
+  canario. En diez ejecuciones seriales frescas el 2026-10-03, nueve pasaron
+  (30/30 checkpoints y 13/13 mutaciones); la tercera falló intermitentemente
+  en `flow-16-editor-layer`, región `36,10`. Una corrida completa posterior de
+  `npm run verify:all` sí pasó con 30 checkpoints y 13/13 mutaciones. Esta
+  observación fresca supersede el registro anterior de 10/10. El detalle
+  `NO cubierto` está en `docs/CONTRACTS.md`.
 - Etapa 4: módulos extraídos para HTTP/SSE, stores, renderers, herramientas,
   editor y móvil; el orden de bootstrap/bridges se conserva. El inventario
   histórico está en `docs/FRONTEND-INVENTORY.md`.
@@ -97,6 +101,20 @@ ms (+18.5%). No se atribuye causalidad a una sola capa y no se añadió Vite. Un
 intento de migrar renderers a ESM (`df02cd2`) falló el harness porque esperaba
 `renderSlides`; se revirtió íntegramente en `55274ce`. Las rutas y carga actual
 se sirven sin build.
+
+Medición comparativa fresca con Puppeteer, cinco muestras por árbol, servidor
+HTTP estático local y requests externos abortados: `main` 1016/100/92/108/92 ms
+(mediana 100 ms); Fase 7 112/108/112/112/108 ms (mediana 112 ms). El primer
+FCP de `main` fue un arranque frío atípico. Este harness mide la pintura inicial
+de `#chat-screen`, no la disponibilidad del backend, y no es directamente
+comparable con la medición histórica de siete muestras.
+
+La auditoría actual sin red (`npm audit --offline --json`) salió con código 0 y
+metadatos locales en cero; esto no renueva la base de avisos del registro. La
+última auditoría conectada documentada para Etapa 2d encontró 16 avisos
+(12 high, 4 moderate), que continúan pendientes sin upgrades runtime retenidos.
+El árbol Git local mide 6,763,349 bytes de blobs rastreados en HEAD; `.git`
+ocupaba 7,225,673 bytes en la inspección actual.
 
 Los helpers internos ya no globales tienen test de ausencia; los bridges
 observables están enumerados en `docs/CONTRACTS.md`. Los usuarios HTML/iframe,
