@@ -54,7 +54,7 @@ test('a delayed slide event cannot re-enter streaming after final mount', () => 
 
 test('implementation uses generation events instead of the fixed 670ms race', () => {
     assert.match(appSource, /finalPreviewMounted/);
-    assert.match(appSource, /setPreviewStreamStatus\(proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/);
+    assert.match(appSource, /setPreviewStreamStatus\((?:generationState\.)?proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/);
     assert.doesNotMatch(appSource, /setTimeout\(\(\) => fn\(\), 670\)/);
 });
 
@@ -75,7 +75,7 @@ test('optimistic loader and incremental paints start before 5s and 60s completio
 });
 
 test('implementation enters preview before HTML and flushes chunks on a short cadence', () => {
-    assert.match(appSource, /setPreviewStreamStatus\(proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/);
+    assert.match(appSource, /setPreviewStreamStatus\((?:generationState\.)?proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/);
     assert.match(appSource, /doTransitionToPreview\(\);\s*\/\/ Writing every model token/s);
     assert.match(appSource, /const STREAM_FLUSH_INTERVAL_MS = 80/);
     assert.match(appSource, /schedulePreviewMarkupFlush\(\)/);

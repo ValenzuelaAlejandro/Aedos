@@ -18,3 +18,10 @@ the requesting feature. Equivalence vectors are in
 API exposes `getState()`, `replaceState()` and `clearDraft()`. The writable
 `window.outlineEditorState` property remains as a compatibility facade, so
 existing classic scripts keep observing the same state object.
+
+`generation-store.js` owns generation controllers, mode and language settings,
+export selection, sequence/preview identity, and request handoff fields. The
+legacy writable `window._activeGenController`, `window._attachedFiles`,
+`window._backupSkeleton`, `window._pendingGenerateBodyData`, and
+`window._pendingGenerateHeaders` properties are accessors into that state, so
+existing classic scripts and inline consumers keep the same observable values.
