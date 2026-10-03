@@ -30,12 +30,8 @@ function loadRenderer() {
                 .replace(/'/g, '&#039;');
         },
     };
-    const source = fs.readFileSync(rendererPath, 'utf8')
-        .replace(/^import \{ escapeHtml \} from '\.\.\/chat\/attachment-renderer\.js\?v=2';\s*/m, '')
-        .replace(/^export function /gm, 'function ');
-    vm.runInNewContext(source, {
+    vm.runInNewContext(fs.readFileSync(rendererPath, 'utf8'), {
         document: createDocument(),
-        escapeHtml: window.escapeHtml,
         window,
     }, { filename: rendererPath });
     return window.AedosOutlineRenderer;

@@ -11,8 +11,7 @@ const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/attachmen
 
 function loadRenderer() {
     const window = {};
-    const source = fs.readFileSync(rendererPath, 'utf8').replace(/^export function /gm, 'function ');
-    vm.runInNewContext(source, { window }, { filename: rendererPath });
+    vm.runInNewContext(fs.readFileSync(rendererPath, 'utf8'), { window }, { filename: rendererPath });
     return window;
 }
 
