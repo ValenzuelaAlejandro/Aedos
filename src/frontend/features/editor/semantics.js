@@ -26,7 +26,7 @@
  * @returns {AedosEditorSemanticsApi}
  */
 // eslint-disable-next-line max-lines-per-function
-function createAedosEditorSemantics() {
+export function createAedosEditorSemantics() {
     const TEXT_EDITABLE_SELECTORS = 'h1, h2, h3, h4, p, li, blockquote, .tag, .subtitle, cite, [class*="title"], [class*="desc"], [class*="stat"], [class*="label"], [class*="val"], [class*="num"], [class*="caption"], [class*="source"], [class*="cite"], [class*="footnote"], [class*="meta"], .code-line';
     const LEAF_VISUAL_SELECTORS = '.lucide-icon, svg[data-lucide], .accent-bar, img';
     const KNOWN_CONTAINER_SELECTORS = 'div.card, div.stat-box, div.step-item, div.timeline-item, .img-slot, [data-image-slot], .quote-block, ul, ol, [class*="card"], [class*="box"], [class*="item"]';
@@ -229,5 +229,3 @@ function createAedosEditorSemantics() {
         isEditableElement,
     };
 }
-
-window.AedosEditorSemantics = Object.freeze({ create: createAedosEditorSemantics });

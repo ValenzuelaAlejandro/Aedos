@@ -2080,10 +2080,7 @@ document.addEventListener('DOMContentLoaded', () => {
             body { background: #121212; margin: 0; padding: 0; }
         </style>
         <link rel="stylesheet" href="/editor/editor.css?v=3">
-        <script src="/features/editor/semantics.js?v=1"></script>
-        <script src="/features/editor/history.js?v=1"></script>
-        <script src="/features/editor/selection-geometry.js?v=1"></script>
-        <script src="/editor/editor.js?v=3"></script>
+        <script type="module" src="/editor/editor.js?v=4"></script>
         `;
 
         const tema = document.getElementById('w-tema').value.trim();
@@ -2825,32 +2822,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 html = antiFlicker + html;
             }
 
-            // Ensure editor scripts are always present
-            if (!html.includes('editor.js')) {
+            // Editor internals are one native module graph inside the iframe.
+            const editorScript = /<script\b(?=[^>]*\bsrc=["'][^"']*editor\.js[^"']*["'])[^>]*><\/script>/i;
+            const privateEditorScripts = /<script\b(?=[^>]*\bsrc=["'][^"']*\/features\/editor\/(?:semantics|history|selection-geometry)\.js[^"']*["'])[^>]*><\/script>/gi;
+            html = html.replace(privateEditorScripts, '');
+            const editorModule = '<script type="module" src="/editor/editor.js?v=4"></script>';
+
+            // Ensure the module entrypoint and its stylesheet are present.
+            if (!editorScript.test(html)) {
                 if (html.includes('</body>')) {
-                    html = html.replace('</body>', '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/features/editor/semantics.js?v=1"></script><script src="/features/editor/history.js?v=1"></script><script src="/features/editor/selection-geometry.js?v=1"></script><script src="/editor/editor.js?v=3"></script></body>');
+                    html = html.replace('</body>', `<link rel="stylesheet" href="/editor/editor.css?v=3">${editorModule}</body>`);
                 } else {
-                    html += '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/features/editor/semantics.js?v=1"></script><script src="/features/editor/history.js?v=1"></script><script src="/features/editor/selection-geometry.js?v=1"></script><script src="/editor/editor.js?v=3"></script>';
+                    html += `<link rel="stylesheet" href="/editor/editor.css?v=3">${editorModule}`;
                 }
             } else {
-                const editorScript = /<script\b(?=[^>]*\bsrc=["'][^"']*editor\.js[^"']*["'])[^>]*><\/script>/i;
-                const editorModules = [];
-                if (!html.includes('/features/editor/semantics.js')) {
-                    editorModules.push('<script src="/features/editor/semantics.js?v=1"></script>');
-                }
-                if (!html.includes('/features/editor/history.js')) {
-                    editorModules.push('<script src="/features/editor/history.js?v=1"></script>');
-                }
-                if (!html.includes('/features/editor/selection-geometry.js')) {
-                    editorModules.push('<script src="/features/editor/selection-geometry.js?v=1"></script>');
-                }
-                if (editorModules.length > 0) {
-                    if (editorScript.test(html)) {
-                        html = html.replace(editorScript, `${editorModules.join('')}$&`);
-                    } else {
-                        html = editorModules.join('') + html;
-                    }
-                }
+                html = html.replace(editorScript, editorModule);
             }
             // Strip all AI-generated googleapis link tags (may have malformed url() hrefs).
             // Both complete and partial/unclosed tags are removed so the correct G_FONTS

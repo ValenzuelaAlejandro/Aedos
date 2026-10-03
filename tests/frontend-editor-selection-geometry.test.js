@@ -9,7 +9,10 @@ function loadSelectionGeometry() {
     const context = { window };
     vm.createContext(context);
     const sourcePath = path.join(__dirname, '../src/frontend/features/editor/selection-geometry.js');
-    vm.runInContext(fs.readFileSync(sourcePath, 'utf8'), context, { filename: sourcePath });
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace('export function calculateEditorSelectionGeometry', 'function calculateEditorSelectionGeometry') +
+        '\nwindow.AedosEditorSelectionGeometry = Object.freeze({ calculate: calculateEditorSelectionGeometry });';
+    vm.runInContext(source, context, { filename: sourcePath });
     return window.AedosEditorSelectionGeometry;
 }
 

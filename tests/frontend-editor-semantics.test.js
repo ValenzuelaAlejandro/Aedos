@@ -53,7 +53,10 @@ function loadEditorSemantics() {
     const context = { Element, Node: { TEXT_NODE: 3 }, document, window };
     vm.createContext(context);
     const sourcePath = path.join(__dirname, '../src/frontend/features/editor/semantics.js');
-    vm.runInContext(fs.readFileSync(sourcePath, 'utf8'), context, { filename: sourcePath });
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace('export function createAedosEditorSemantics', 'function createAedosEditorSemantics') +
+        '\nwindow.AedosEditorSemantics = Object.freeze({ create: createAedosEditorSemantics });';
+    vm.runInContext(source, context, { filename: sourcePath });
     return { api: window.AedosEditorSemantics.create(), body, Element, window };
 }
 

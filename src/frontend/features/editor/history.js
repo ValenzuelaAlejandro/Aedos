@@ -47,7 +47,7 @@ const getCurrentSlideIndex = () => {
  * @param {EditorHistoryOptions} options
  * @returns {{saveState: () => void, undo: () => void, redo: () => void, restoreState: (entry: {html: string, slideIndex: number}) => void}}
  */
-function createEditorHistory(options) {
+export function createEditorHistory(options) {
     const { getIsRestoring, setIsRestoring, deselectGroup, ensureUI } = options;
     const history = [];
     let historyIndex = -1;
@@ -144,5 +144,3 @@ function createEditorHistory(options) {
 
     return { saveState, undo, redo, restoreState };
 }
-
-window.AedosEditorHistory = Object.freeze({ create: createEditorHistory });

@@ -43,7 +43,10 @@ function loadHistoryFactory() {
     const context = { window, document, CustomEvent, setTimeout };
     vm.createContext(context);
     const sourcePath = path.join(__dirname, '../src/frontend/features/editor/history.js');
-    vm.runInContext(fs.readFileSync(sourcePath, 'utf8'), context, { filename: sourcePath });
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace('export function createEditorHistory', 'function createEditorHistory') +
+        '\nwindow.AedosEditorHistory = Object.freeze({ create: createEditorHistory });';
+    vm.runInContext(source, context, { filename: sourcePath });
 
     return {
         api: window.AedosEditorHistory,

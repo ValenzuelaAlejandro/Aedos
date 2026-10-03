@@ -2,6 +2,10 @@
  * Aedos Visual Editor
  * Injected into the presentation iframe to allow Canva-like editing.
  */
+import { createAedosEditorSemantics } from '../features/editor/semantics.js';
+import { createEditorHistory } from '../features/editor/history.js';
+import { calculateEditorSelectionGeometry } from '../features/editor/selection-geometry.js';
+
 function initEditor() {
     if (window._editorInitialized) return;
     window._editorInitialized = true;
@@ -413,7 +417,7 @@ function initEditor() {
 
 
     // Editable Elements Target Mapping
-    const editorSemantics = window.AedosEditorSemantics.create();
+    const editorSemantics = createAedosEditorSemantics();
     const {
         editableSelectors,
         textEditableSelectors: TEXT_EDITABLE_SELECTORS,
@@ -1516,7 +1520,7 @@ function initEditor() {
         const winW = window.innerWidth;
         const winH = window.innerHeight;
 
-        const geometry = window.AedosEditorSelectionGeometry.calculate(
+        const geometry = calculateEditorSelectionGeometry(
             rect,
             { width: winW, height: winH },
             toolbar.offsetWidth,
@@ -1558,7 +1562,7 @@ function initEditor() {
     }
 
     // --- UNDO / REDO LOGIC ---
-    const editorHistory = window.AedosEditorHistory.create({
+    const editorHistory = createEditorHistory({
         getIsRestoring: () => _isRestoring,
         setIsRestoring: value => { _isRestoring = value; },
         deselectGroup,

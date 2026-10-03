@@ -1,0 +1,30 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.join(__dirname, '..');
+const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
+
+test('iframe editor loads its native module and imports private feature helpers', () => {
+    const app = read('src/frontend/scripts/app.js');
+    const editor = read('src/frontend/editor/editor.js');
+
+    assert.match(app, /<script type="module" src="\/editor\/editor\.js\?v=4"><\/script>/);
+    assert.match(editor, /import \{ createAedosEditorSemantics \} from '\.\.\/features\/editor\/semantics\.js';/);
+    assert.match(editor, /import \{ createEditorHistory \} from '\.\.\/features\/editor\/history\.js';/);
+    assert.match(editor, /import \{ calculateEditorSelectionGeometry \} from '\.\.\/features\/editor\/selection-geometry\.js';/);
+    assert.doesNotMatch(app, /<script src="\/features\/editor\/(?:semantics|history|selection-geometry)\.js/);
+});
+
+test('private editor helper factories are no longer window globals', () => {
+    const sources = [
+        read('src/frontend/features/editor/semantics.js'),
+        read('src/frontend/features/editor/history.js'),
+        read('src/frontend/features/editor/selection-geometry.js'),
+    ].join('\n');
+
+    assert.doesNotMatch(sources, /window\.AedosEditor(?:Semantics|History|SelectionGeometry)/);
+    assert.match(read('src/frontend/editor/editor.js'), /window\.editableSelectors = editableSelectors/);
+    assert.match(read('src/frontend/features/tools/tools.js'), /iframeWin\.editableSelectors/);
+});

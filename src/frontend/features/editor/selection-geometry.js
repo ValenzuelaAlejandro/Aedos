@@ -11,7 +11,7 @@
  * @param {number} toolbarWidth Measured toolbar width (falls back to 340).
  * @returns {EditorSelectionGeometry}
  */
-function calculateEditorSelectionGeometry(rect, viewport, toolbarWidth) {
+export function calculateEditorSelectionGeometry(rect, viewport, toolbarWidth) {
     const boxLeft = Math.max(0, Math.min(rect.left, viewport.width));
     const boxTop = Math.max(0, Math.min(rect.top, viewport.height));
     const boxRight = Math.max(boxLeft, Math.min(rect.left + rect.width, viewport.width));
@@ -45,5 +45,3 @@ function calculateEditorSelectionGeometry(rect, viewport, toolbarWidth) {
         isSmall: boxWidth < 50 || boxHeight < 50,
     };
 }
-
-window.AedosEditorSelectionGeometry = Object.freeze({ calculate: calculateEditorSelectionGeometry });

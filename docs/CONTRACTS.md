@@ -77,9 +77,6 @@ outline actions. These names must remain stable until their consumers migrate.
 |---|---|---|
 | `features/shared/i18n.js` | `currentLang`, `__t`, `__applyTranslations` | all UI scripts, `index.html` data attributes |
 | `features/shared/init.js` | fallback `__t`, `currentLang` | shared navigation |
-| `features/editor/semantics.js` | `AedosEditorSemantics` | `editor.js` only (internal iframe factory bridge; not a public application API) |
-| `features/editor/history.js` | `AedosEditorHistory` | `editor.js` only (internal iframe factory bridge; not a public application API) |
-| `features/editor/selection-geometry.js` | `AedosEditorSelectionGeometry` | `editor.js` only (internal iframe geometry bridge; not a public application API) |
 | `features/tools/shape-inserter.js` | `AedosEditorInsertions` | `tools.js` only (internal editor-tools factory bridge; not a public application API) |
 | `mobile/js/nav-dots.js` | `AedosMobileNavDots` | `mobile/js/bridge.js` only (internal mobile factory bridge; not a public application API) |
 | `features/minimap/minimap-view.js` | `AedosMinimapView` | `minimap.js` only (internal page factory bridge; not a public application API) |
@@ -87,7 +84,7 @@ outline actions. These names must remain stable until their consumers migrate.
 | `features/tools/tools.js` | `initTools`, `_addImageHandler` | `app.js`, iframe bridge |
 | `features/chat/thinking-panel.js` | `AedosThinking` | `app.js`, `outline.js` |
 | `editor/editor-ui.js` | `initEditorUI`, `_minimapInterval`, `_keydownHandler` | `app.js` |
-| `editor/editor.js` | editor selection, undo/redo, layer and movement helpers | `app.js`, `tools.js`, mobile bridge |
+| `editor/editor.js` | editor selection, undo/redo, layer and movement helpers; `editableSelectors` | `app.js`, `tools.js`, mobile bridge (`tools.js` reads `iframe.contentWindow.editableSelectors`) |
 | `outline.js` | `outlineEditorState`, outline parsing/rendering/editing functions | `app.js`, outline DOM |
 | `app.js` | navigation, generation, preview, export, zoom and slot-overlay helpers | `index.html`, mobile bridge, editor/tools |
 | `mobile/js/config.js` | `MobileConfig` | mobile runtime |
