@@ -1,10 +1,7 @@
-(function registerHttpSse(global) {
-    'use strict';
-
-    /** @typedef {'line' | 'event'} SseFraming */
-    /** @typedef {ReadableStreamDefaultReader<Uint8Array>} SseReader */
-    /** @typedef {{ framing: SseFraming, flushTail?: boolean, onChunk?: () => void }} SseOptions */
-    /** @typedef {{ data: string, tail: boolean }} SseData */
+/** @typedef {'line' | 'event'} SseFraming */
+/** @typedef {ReadableStreamDefaultReader<Uint8Array>} SseReader */
+/** @typedef {{ framing: SseFraming, flushTail?: boolean, onChunk?: () => void }} SseOptions */
+/** @typedef {{ data: string, tail: boolean }} SseData */
 
     /**
      * Convert one existing frontend frame into its raw data payload, retaining
@@ -67,9 +64,9 @@
      * @param {SseOptions} options
      * @returns {AsyncGenerator<SseData>}
      */
-    function readReader(reader, options) {
-        return readPayloads(reader, options);
-    }
+export function readReader(reader, options) {
+    return readPayloads(reader, options);
+}
 
     /**
      * Open an HTTP response body while keeping access to its reader for cancel.
@@ -77,10 +74,10 @@
      * @param {SseOptions} options
      * @returns {{ reader: SseReader, events: AsyncGenerator<SseData> }}
      */
-    function openResponse(response, options) {
-        const reader = response.body.getReader();
-        return { reader, events: readReader(reader, options) };
-    }
+export function openResponse(response, options) {
+    const reader = response.body.getReader();
+    return { reader, events: readReader(reader, options) };
+}
 
-    global.AedosHttpSse = Object.freeze({ openResponse, readReader });
-})(window);
+// Temporary compatibility facade for classic app.js and outline.js consumers.
+window.AedosHttpSse = Object.freeze({ openResponse, readReader });

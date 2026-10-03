@@ -28,3 +28,12 @@ test('private editor helper factories are no longer window globals', () => {
     assert.match(read('src/frontend/editor/editor.js'), /window\.editableSelectors = editableSelectors/);
     assert.match(read('src/frontend/features/tools/tools.js'), /iframeWin\.editableSelectors/);
 });
+
+test('shared HTTP/SSE service is a native module with a temporary compatibility facade', () => {
+    const index = read('src/frontend/index.html');
+    const service = read('src/frontend/features/shared/http-sse.js');
+
+    assert.match(index, /<script type="module" src="features\/shared\/http-sse\.js\?v=1"><\/script>/);
+    assert.match(service, /export function (readReader|openResponse)/);
+    assert.match(service, /window\.AedosHttpSse = Object\.freeze\(\{ openResponse, readReader \}\)/);
+});

@@ -66,7 +66,10 @@ async function legacyPayloads(chunks, framing) {
 
 function loadClient() {
     const window = {};
-    vm.runInNewContext(fs.readFileSync(clientPath, 'utf8'), {
+    const source = fs.readFileSync(clientPath, 'utf8')
+        .replace('export function readReader', 'function readReader')
+        .replace('export function openResponse', 'function openResponse');
+    vm.runInNewContext(source, {
         TextDecoder,
         window,
     }, { filename: clientPath });

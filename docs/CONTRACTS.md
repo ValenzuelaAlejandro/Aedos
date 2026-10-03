@@ -76,6 +76,7 @@ outline actions. These names must remain stable until their consumers migrate.
 | Defined by | Properties defined | Main consumers |
 |---|---|---|
 | `features/shared/i18n.js` | `currentLang`, `__t`, `__applyTranslations` | all UI scripts, `index.html` data attributes |
+| `features/shared/http-sse.js` | `AedosHttpSse` temporary facade; named module exports `openResponse`, `readReader` | classic `app.js` and `outline.js` stream consumers |
 | `features/shared/init.js` | fallback `__t`, `currentLang` | shared navigation |
 | `features/tools/shape-inserter.js` | `AedosEditorInsertions` | `tools.js` only (internal editor-tools factory bridge; not a public application API) |
 | `mobile/js/nav-dots.js` | `AedosMobileNavDots` | `mobile/js/bridge.js` only (internal mobile factory bridge; not a public application API) |
