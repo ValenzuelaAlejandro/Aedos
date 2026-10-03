@@ -150,3 +150,67 @@ El escáner de `require` literal desde `server.js` alcanzó 56/57 módulos backe
 el único archivo no alcanzado es `contracts/types.js`, typedef puro permitido.
 No hay módulos nuevos huérfanos. `tmp/` no tiene archivos rastreados; no se
 borraron artifacts ignorados del usuario.
+
+## Etapa 8 — cierre parcial (2026-10-03)
+
+La ejecución se detuvo en la Etapa 3 por la compuerta de dos intentos: dos
+extracciones del binder de edición fueron rechazadas por `verify:all` y se
+revirtieron. No se crearon las ramas 8d/8e ni se inició la Etapa 6.
+
+Cadena local, sin push:
+
+| Rama | HEAD | Resultado relevante |
+| --- | --- | --- |
+| `refactor/fase-7-limpieza` | `e472f37` | Base de esta ejecución |
+| `refactor/fase-8a-red-estable` | `565a8f0d296fa85b1ec92ba1a08c24dc7c74c9e6` | Safety estabilizado; verify verde |
+| `refactor/fase-8b-inventario` | `a1cd537d6190c81aeb8027c378e7c31a0d5bb9f7` | Inventario y parser streaming extraído |
+| `refactor/fase-8c-outline` | `7df25906d15fa59005a88c8ddf0e04bd5bb8dddc` | Parser/render streaming y chips; binder revertido |
+
+Commits relevantes en 8c:
+
+- `931fa1f` extrajo el render de streaming; `verify:all` pasó.
+- `1cdff5e` extrajo el render de chips; `verify:all` pasó.
+- `4d93187` intentó extraer bindings de edición. `verify:all` falló con
+  `Lint ratchet increased: rules= files=src\frontend\features\outline\editor-bindings.js`.
+  ESLint aislado mostró `max-lines-per-function`: `bindEvents` tenía 136 líneas
+  frente al máximo 80. Revertido por `86526a1`; el verify del revert pasó.
+- `c7d3c7c` separó el binding en helpers sin avisos ESLint, pero el sentinel
+  `outline-title` falló antes de calidad: `Mutation anchor not found in
+  /scripts/outline.js: slides[idx].title = e.target.value;`. El probe de
+  `scripts/editor-safety/mutation-probes.js` aún esperaba el código en el archivo
+  antiguo, cuando ya vivía en el módulo nuevo. Revertido por `7df2590`; su
+  `verify:all` pasó. La próxima ejecución autorizada debe actualizar primero el
+  probe para mutar y verificar el módulo extraído, y volver a comprobarlo antes
+  de crear otro commit.
+
+Los verifies exitosos de esta cadena acabaron en código 0, lint 129, tipos 16 y
+formato correcto. El último verify fue el del revert `7df2590`. No se tocaron
+baselines. La verificación incluye solo providers simulados/locales; no hubo
+llamadas reales ni acceso a red externa. No se leyó `.env`.
+
+Medidas de archivos obtenidas con `git show <ref>:<archivo> | wc -l`:
+
+| Archivo | Inicio 8a (`565a8f0`) | HEAD 8c (`7df2590`) |
+| --- | ---: | ---: |
+| `src/frontend/scripts/app.js` | 4,618 | 4,618 |
+| `src/frontend/scripts/outline.js` | 1,308 | 1,147 |
+| `src/frontend/editor/editor.js` | 1,898 | 1,898 |
+| `features/outline/stream-parser.js` | — | 51 |
+| `features/outline/stream-renderer.js` | — | 85 |
+| `features/outline/chips-renderer.js` | — | 94 |
+
+El objetivo de `outline.js` ≤300 líneas no se alcanzó. Los globals legacy
+`window.parsePartialSkeleton`, `window.renderStreamingOutline` y
+`window.renderOutlineSuggestedChips` se conservaron como fachadas; no se eliminó
+ningún `window.*`. El helper `addSlideWithAI` sigue definido localmente, pero la
+búsqueda en el repo encontró solo su declaración y el botón `#btn-add-slide-ai`
+en HTML, sin llamada ni listener encontrado. No se extrajo código inalcanzable
+a un módulo; decidir si retirar ese helper o reconectar el botón queda pendiente.
+
+La Etapa 1 terminó con 30/30 ejecuciones consecutivas de
+`npm run check:editor-safety` en verde y 13/13 sentinels detectados. La Etapa 2
+está documentada en `docs/FRONTEND-INVENTORY.md`. Pendiente al reanudar: resolver
+el probe de mutación del binder sin elevar lint/type ratchets; terminar los
+cortes de outline, luego crear 8d/8e y completar arquitectura, contratos,
+handoff y orden de push. Push, CI de GitHub, smoke test con providers reales y
+`npm audit` conectado continúan pendientes del usuario/entorno.
