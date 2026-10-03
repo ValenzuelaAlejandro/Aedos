@@ -10,6 +10,7 @@ const rendererPath = path.join(root, 'src/frontend/features/outline/slide-render
 const parserPath = path.join(root, 'src/frontend/features/outline/stream-parser.js');
 const chipsPath = path.join(root, 'src/frontend/features/outline/chips-renderer.js');
 const editorBindingsPath = path.join(root, 'src/frontend/features/outline/editor-bindings.js');
+const slideCommandsPath = path.join(root, 'src/frontend/features/outline/slide-commands.js');
 const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/outline-slide-cases.json');
 
 function createDocument() {
@@ -230,4 +231,133 @@ test('outline editor bindings preserve live slide edits, point ordering, and cou
     assert.deepEqual(slides[0].key_points, ['New point', '', 'Second']);
     assert.equal(renderCount, 1);
     assert.equal(countUpdates, 1);
+});
+
+function createSlideCommandHarness() {
+    const frames = [];
+    const timers = [];
+    const main = { scrollTop: 4, scrollHeight: 80 };
+    const cards = [];
+    const pointList = { appendChild(item) { this.item = item; } };
+    const document = {
+        querySelector(selector) {
+            return selector === '.outline-main' ? main : null;
+        },
+        querySelectorAll(selector) {
+            return selector === '.outline-slide-card' ? cards : [];
+        },
+        getElementById(id) {
+            return id === 'outline-points-0' ? pointList : null;
+        },
+        createElement(tagName) {
+            assert.equal(tagName, 'div');
+            const listeners = {};
+            const classes = new Set();
+            const textarea = {
+                dataset: { sindex: '0', pindex: '1' },
+                style: {},
+                value: '',
+                scrollHeight: 32,
+                addEventListener: (name, callback) => { listeners[`textarea:${name}`] = callback; },
+                focus() { this.focused = true; },
+            };
+            const deleteButton = {
+                dataset: { sindex: '0', pindex: '1' },
+                addEventListener: (name, callback) => { listeners[`delete:${name}`] = callback; },
+            };
+            return {
+                classList: {
+                    add: (name) => classes.add(name),
+                    remove: (...names) => names.forEach((name) => classes.delete(name)),
+                },
+                querySelector(selector) {
+                    return selector === '.outline-point-input' ? textarea : deleteButton;
+                },
+                get listeners() { return listeners; },
+                textarea,
+                deleteButton,
+            };
+        },
+    };
+    const window = {
+        document,
+        confirm: () => true,
+        parseInt,
+        requestAnimationFrame(callback) {
+            frames.push(callback);
+        },
+        setTimeout(callback, delay) {
+            timers.push({ callback, delay });
+        },
+    };
+    vm.runInNewContext(fs.readFileSync(slideCommandsPath, 'utf8'), { window }, { filename: slideCommandsPath });
+
+    const slides = [{ title: 'First', key_points: ['Existing'] }];
+    let renders = 0;
+    const dependencies = {
+        getSlides: () => slides,
+        getMaxSlides: () => 3,
+        renderSlides: () => { renders += 1; },
+    };
+    return {
+        frames,
+        timers,
+        main,
+        cards,
+        pointList,
+        slides,
+        getRenders: () => renders,
+        commands: window.AedosOutlineSlideCommands,
+        dependencies,
+    };
+}
+
+test('outline slide commands preserve add, reorder, and animation callbacks', () => {
+    const { frames, timers, main, cards, slides, getRenders, commands, dependencies } = createSlideCommandHarness();
+    commands.addBlankSlide(dependencies);
+    assert.equal(slides.length, 2);
+    assert.deepEqual(JSON.parse(JSON.stringify(slides[1])), {
+        role: 'concept', title: '', subtitle: '', key_points: [],
+    });
+    const cardClasses = new Set();
+    cards.push({ classList: {
+        add: (name) => cardClasses.add(name),
+        remove: (...names) => names.forEach((name) => cardClasses.delete(name)),
+    } });
+    frames.shift()();
+    assert.equal(main.scrollTop, main.scrollHeight);
+    assert.equal(cardClasses.has('is-new'), true);
+    frames.shift()();
+    assert.equal(cardClasses.has('is-new-visible'), true);
+    assert.equal(timers.shift().delay, 500);
+
+    commands.moveSlideDown(0, dependencies);
+    assert.equal(slides[0].title, '');
+    assert.equal(getRenders(), 2);
+    frames.shift()();
+    assert.equal(main.scrollTop, 80);
+    commands.moveSlideUp(1, dependencies);
+    assert.equal(slides[0].title, 'First');
+    frames.shift()();
+});
+
+test('outline point command preserves inline editing and delete callbacks', () => {
+    const { frames, pointList, slides, getRenders, commands, dependencies } = createSlideCommandHarness();
+    commands.addBlankPoint(0, dependencies);
+    assert.deepEqual(slides[0].key_points, ['Existing', '']);
+    assert.equal(pointList.item.textarea.focused, true);
+    pointList.item.textarea.value = 'Added point';
+    pointList.item.listeners['textarea:input']({ target: pointList.item.textarea });
+    assert.equal(slides[0].key_points[1], 'Added point');
+    pointList.item.listeners['delete:click']();
+    assert.deepEqual(slides[0].key_points, ['Existing']);
+    assert.equal(getRenders(), 1);
+    assert.equal(frames.length, 1);
+});
+
+test('outline slide deletion preserves confirmation and rerender behavior', () => {
+    const { slides, getRenders, commands, dependencies } = createSlideCommandHarness();
+    commands.deleteSlide(0, dependencies);
+    assert.deepEqual(slides, []);
+    assert.equal(getRenders(), 1);
 });
