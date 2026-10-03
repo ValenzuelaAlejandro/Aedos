@@ -31,3 +31,7 @@ container/cursor/count, and editor inset animation state. Its
 `window.currentSlide` facade is deliberately a separate mirrored value: the
 legacy app synchronized it only at initialization, preview reset, and slide
 navigation, so it is not a live alias of the private cursor.
+
+`theme-controller.js` installs the two theme toggle handlers, persists
+`app_theme`, synchronizes the live preview iframe, and preserves the existing
+View Transition circular reveal timing and geometry.
