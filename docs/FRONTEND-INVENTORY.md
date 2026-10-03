@@ -76,3 +76,59 @@ movida que conserve consumidores existentes expone temporalmente un wrapper
 El inventario no autoriza cambios de lógica, nombres de endpoints, límites,
 prompts, apariencia ni dependencias. Antes de cada extracción se caracterizará
 el contrato con tests; la lógica se mueve, no se reescribe.
+
+## Medición al cierre del trabajo de editor/móvil (4d)
+
+Comparación desde `b9f666b` (entrada de esta subfase, cierre 4c) hasta
+`c1a3238` (cierre medido de 4d). Cada cifra sale de
+`git show <commit>:<archivo> | wc -l`; no son conteos del árbol sin commit.
+
+| Archivo | `b9f666b` | `c1a3238` | Cambio |
+| --- | ---: | ---: | ---: |
+| `scripts/app.js` | 4610 | 4632 | +22 |
+| `scripts/outline.js` | 1308 | 1308 | 0 |
+| `editor/editor.js` | 2205 | 1894 | -311 |
+| `features/tools/tools.js` | 1018 | 945 | -73 |
+| `features/minimap/minimap.js` | 515 | 408 | -107 |
+| `mobile/js/bridge.js` | 493 | 392 | -101 |
+
+Comando ESLint al cierre: `node node_modules/eslint/bin/eslint.js --format
+json <seis rutas anteriores>`. Conteos observados: `app.js` 68 avisos/5
+errores; `outline.js` 10/8; `editor.js` 30/1; `tools.js` 5/1; `minimap.js`
+5/2; `bridge.js` 5/0. El ratchet del proyecto bajó de 169 a 162 avisos entre
+`b9f666b` y `c1a3238`; el ratchet de tipos siguió en 29. `src/frontend` aún no
+está incluido en `tsconfig.json`, así que el número de diagnósticos TypeScript
+de esas seis rutas es **no medido/fuera de cobertura**, no cero.
+
+### Extracciones conectadas
+
+- `features/editor/history.js`: historial y snapshots de undo/redo.
+- `features/editor/semantics.js`: targeting semántico del DOM de la slide.
+- `features/editor/selection-geometry.js`: cálculo puro del marco de selección
+  y posición legacy de la toolbar.
+- `features/tools/shape-inserter.js`: inserción de shapes e iconos.
+- `features/minimap/minimap-view.js`: centrado, selección y reordenamiento de
+  la vista del minimapa.
+- `mobile/js/nav-dots.js`: sincronización de puntos/etiquetas de navegación.
+
+Cada helper está cargado por su consumidor y tiene test focal incluido en
+`verify:all`; sus bridges clásicos son internos y están registrados en
+`docs/CONTRACTS.md`. El orden de carga de `index.html` se conserva. Los tres
+helpers de editor se inyectan dentro del iframe antes de `editor.js`.
+
+### Archivos aún sobre 400 líneas
+
+El objetivo de tamaño de Etapa 4 no se alcanzó para todas las piezas. Estas
+excepciones son explícitas y quedan como trabajo de modularización pendiente,
+no como autorización para alterar el comportamiento:
+
+| Archivo | Motivo concreto para mantener el coordinador por ahora |
+| --- | --- |
+| `scripts/app.js` (4632) | Un único `DOMContentLoaded` enlaza controles y mantiene estado compartido de generación, archivos, stream y preview. Los servicios/store/renderers ya movidos dejan callbacks que cierran sobre esos nodos y estado; dividir el bootstrap restante requiere definir más límites de inyección y volver a validar su orden. |
+| `scripts/outline.js` (1308) | Los listeners de streaming, edición, chips, delete/reorder y reanudación comparten el mismo skeleton y estado de petición. No se encontró una costura adicional independiente para extraer sin cambiar el ciclo de listeners/estado. |
+| `editor/editor.js` (1894) | El coordinador iframe conserva selección, handles, snapping, observers, restauración, drag/resize y callbacks que capturan el mismo estado léxico. Las responsabilidades puras (semántica, historia y geometría) ya salieron con pruebas; handlers restantes requieren rediseñar la interfaz del estado compartido. |
+| `features/tools/tools.js` (945) | `renderTools` compone y enlaza controles sobre la selección/iframe actual; shape e icon insertion se extrajeron, pero los controles contextuales restantes comparten el ciclo de vida de ese DOM y de `saveState`. |
+| `features/minimap/minimap.js` (408) | Queda apenas sobre el umbral. El coordinador enlaza observer, timers, estado de slides y callbacks públicos del minimapa; el view helper independiente ya fue extraído. No se movió el coordinador por 8 líneas netas de umbral sin una costura clara. |
+
+`mobile/js/bridge.js` queda por debajo del objetivo (392). Estas medidas y
+excepciones no sustituyen una futura separación probada en la etapa de limpieza.
