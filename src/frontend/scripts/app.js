@@ -2080,6 +2080,7 @@ document.addEventListener('DOMContentLoaded', () => {
             body { background: #121212; margin: 0; padding: 0; }
         </style>
         <link rel="stylesheet" href="/editor/editor.css?v=3">
+        <script src="/features/editor/history.js?v=1"></script>
         <script src="/editor/editor.js?v=3"></script>
         `;
 
@@ -2825,9 +2826,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // Ensure editor scripts are always present
             if (!html.includes('editor.js')) {
                 if (html.includes('</body>')) {
-                    html = html.replace('</body>', '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/editor/editor.js?v=3"></script></body>');
+                    html = html.replace('</body>', '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/features/editor/history.js?v=1"></script><script src="/editor/editor.js?v=3"></script></body>');
                 } else {
-                    html += '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/editor/editor.js?v=3"></script>';
+                    html += '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/features/editor/history.js?v=1"></script><script src="/editor/editor.js?v=3"></script>';
+                }
+            } else if (!html.includes('/features/editor/history.js')) {
+                const editorScript = /<script\b(?=[^>]*\bsrc=["'][^"']*editor\.js[^"']*["'])[^>]*><\/script>/i;
+                const historyScript = '<script src="/features/editor/history.js?v=1"></script>';
+                if (editorScript.test(html)) {
+                    html = html.replace(editorScript, `${historyScript}$&`);
+                } else {
+                    html = historyScript + html;
                 }
             }
             // Strip all AI-generated googleapis link tags (may have malformed url() hrefs).

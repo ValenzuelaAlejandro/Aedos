@@ -252,7 +252,8 @@ async function runExportFlow(page, runtime, checkpoint) {
 
 async function runMainFlow(runtime) {
     const page = await runtime.newPage();
-    page.on('pageerror', (error) => console.error(`browser pageerror: ${error.message}`));
+    const pageErrors = [];
+    page.on('pageerror', (error) => pageErrors.push(error));
     const frame = { current: null };
     try {
         await runLanguageAndTheme(page, captureCheckpoint);
@@ -268,6 +269,7 @@ async function runMainFlow(runtime) {
         await runMinimapFlow(page, captureCheckpoint);
         await runExportFlow(page, runtime, captureCheckpoint);
         assertMainFlowTrace(runtime.trace);
+        assert.deepEqual(pageErrors.map((error) => error.message), [], 'browser flow must not produce uncaught page errors');
     } finally {
         await page.close();
     }
