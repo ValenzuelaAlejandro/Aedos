@@ -8,3 +8,8 @@ this module owns only DOM item creation and preserves the legacy HTML output.
 streamed JSON. It is pure: it does not own UI state or DOM nodes. The classic
 `window.parsePartialSkeleton` function in `scripts/outline.js` remains a
 compatibility wrapper while existing callers migrate.
+
+`stream-renderer.js` updates the in-progress, disabled slide fields. It receives
+the target container, partial outline data and the scroll callback, and owns no
+outline store state. `window.renderStreamingOutline` remains the classic
+compatibility entry point.
