@@ -13,12 +13,14 @@ el comportamiento observable o pertenecen a una fase de correcciones separada.
    desregistra el listener al adquirir o abandonar el slot. El test confirma
    429 real, FIFO y limpieza tras desconexión del cliente.
 
-2. **Sanitización HTML incompleta.** Las fixtures actuales muestran que se
-   conservan casos como `iframe`, `object`, `embed`, `@import`,
-   `url(javascript:...)` y algunos `data:text/html`. Evidencia: pares en
-   `tests/fixtures/sanitization/embedded.*`, `style_import_url.*`,
-   `style_attribute.*` y `data_urls.*`. Corrección mínima propuesta, no
-   aplicada: ampliar la política/allowlist del sanitizer y regenerar snapshots.
+2. **Sanitización HTML — corregida parcialmente según el alcance autorizado.**
+   El commit `fix(sanitization): block listed active content vectors` elimina
+   `iframe`, `object`, `embed`, imports no permitidos, URLs `javascript:` y
+   `data:text/html`, y declaraciones CSS con `expression()`, `behavior` o URLs
+   peligrosas. Las fixtures adversariales están actualizadas. Las salidas
+   sanitizadas y hashes de los ejemplos flash/pro siguen idénticos a HEAD antes
+   del cambio; Google Fonts y `data:image/*` se conservan. No se amplió a una
+   política HTML general ni a vectores no enumerados en esta tarea.
 
 3. **Error HTTP 500 de Multer.** Los límites multipart atraviesan Multer antes
    del handler de generación; los casos de campo inesperado y tamaño excedido

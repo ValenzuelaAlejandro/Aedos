@@ -13,6 +13,7 @@ const cases = {
     script: '<section class="s"><script>alert(1)</script><p>safe</p></section>',
     handlers: '<section class="s" onclick="bad()" onerror=bad onload="bad"><p>safe</p></section>',
     javascript_urls: '<a href="javascript:alert(1)"><img src="javascript:bad" /></a>',
+    javascript_unquoted: '<a href=javascript:alert(1)>link</a><img src=data:text/html,bad>',
     data_urls:
         '<img src="data:text/html,<script>alert(1)</script>"><img src="data:image/png;base64,AAAA">',
     embedded: '<iframe src="https://evil.test"></iframe><object data="x"></object><embed src="x">',
@@ -24,7 +25,7 @@ const cases = {
     entities: '<p title="&quot; onclick=&quot;bad">&lt;safe&gt; &amp; text</p>',
     mixed_case: '<ScRiPt>alert(1)</ScRiPt><DIV OnClIcK="bad()">safe</DIV>',
     style_attribute:
-        '<div style="background:url(javascript:bad);color:red" onmouseover="bad()">safe</div>',
+        '<div style="background:url(javascript:bad);background-image:url(data:text/html,bad);color:red;behavior:url(x);width:expression(alert(1))" onmouseover="bad()">safe</div>',
 };
 
 for (const [name, input] of Object.entries(cases)) {
