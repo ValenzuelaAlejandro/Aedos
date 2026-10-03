@@ -30,12 +30,6 @@ display its `error` string (falling back to `Server error: <status>`). They do
 not branch on 400 versus 413 or show a dedicated upload-error state; file size
 and count are also checked client-side before submission.
 
-Error response bodies are cataloged in `src/backend/contracts/errors.js`. The
-frontend consumes `QUEUE_FULL` and `PRO_TEMPORARILY_PAUSED` with
-`retryAfterSec`, displays `Validation failed.fields` for form errors, and
-consumes SSE `{ error }` events during generation. Download errors remain the
-plain-text `Invalid file` and `File not found` responses.
-
 ## Generation inputs
 
 Important fields are `tema`, `mode`, `slides`, `language`, legacy `idioma`,
@@ -44,14 +38,9 @@ uploads allow PDF, DOC/DOCX, PNG, JPG/JPEG and WEBP, with the implementation's
 file-count and byte limits.
 
 Limits and environment defaults live in `src/backend/contracts/limits.js` and
-`src/backend/contracts/config-defaults.js`. Pure request normalizers live in
-`src/backend/contracts/request-normalizers.js`; handler integration remains
-deferred until every legacy edge case is covered.
-
-Limits and environment defaults live in `src/backend/contracts/limits.js` and
-`src/backend/contracts/config-defaults.js`. Pure request normalizers live in
-`src/backend/contracts/request-normalizers.js`; handler integration remains
-deferred until every legacy edge case is covered.
+`src/backend/contracts/config-defaults.js`. Request normalizers are integrated
+in the generation routes; their 50 HTTP characterization cases freeze status
+and response-body behavior.
 
 ## SSE event shapes
 
@@ -187,19 +176,20 @@ URLs, data URLs, embedded elements, CSS imports/URLs, SVG scripts, conditional
 comments, malformed HTML, entities, mixed case and representative Flash/Pro
 examples.
 
-The current sanitizer removes `<script>` blocks, inline `on*` handlers and
-some quoted `javascript:` attributes. It does not currently remove every
-dangerous construct in the fixture set. In particular, the current snapshots
-preserve `data:text/html`, `<iframe>`, `<object>`, `<embed>`, CSS
-`url(javascript:...)`, CSS `@import`, and dangerous `style` values. These are
-frozen observations, not accepted security recommendations; fixing them is
-outside the no-behavior-change scope of Phase 0b.
+The sanitizer was hardened in `42987ac` for the explicitly listed active-content
+vectors: scripts, inline handlers, `iframe`/`object`/`embed`, unsafe imports,
+`javascript:`/`data:text/html` URLs, and dangerous CSS declarations. The
+adversarial fixture expectations are the contract; representative safe Flash
+and Pro output hashes, Google Fonts, and `data:image/*` remain preserved. This
+is a bounded policy, not a general HTML allow-list; unlisted constructs still
+need a separate reviewed security task.
 
 ## Script load order
 
-Shared/i18n code loads before feature code; editor/tool/mobile bridges load
-before `app.js` and `outline.js`. The order matters because the current frontend
-uses classic scripts and `window` globals instead of ESM imports.
+`index.html` loads the shared catalog and i18n before feature code; editor/tool/
+mobile bridges load before `app.js` and `outline.js`. ESM is used for selected
+layers, but classic scripts and documented `window.*` bridges remain part of the
+compatibility contract.
 
 ## Timers and watchdogs
 

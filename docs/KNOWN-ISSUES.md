@@ -1,4 +1,4 @@
-# Known issues congelados en 3c
+# Known issues y decisiones pendientes
 
 Estos problemas se documentan, pero no se corrigen en esta fase porque cambiarían
 el comportamiento observable o pertenecen a una fase de correcciones separada.
@@ -87,3 +87,27 @@ el comportamiento observable o pertenecen a una fase de correcciones separada.
    install. Corrección mínima propuesta, no aplicada: provisionar el cache en
    CI/deploy y fallar de forma explícita si falta, o volver lazy la inicialización
    tras una caracterización específica de timing.
+
+## Estado de la limpieza de Etapa 7
+
+- Las extracciones del rate limiter y del pipeline de prompts están aplicadas
+  en `4135498` y `6a65b89`; sus suites específicas y `npm run verify:all`
+  pasaron. Los textos/plantillas de prompts no se reescribieron.
+- La división de CSS es mecánica y byte-idéntica; el catálogo de assets
+  centraliza las URLs/SRI sin cambiar versiones ni orden. La CDN sirve Motion
+  12.38.0 mientras que el lockfile resuelve el paquete npm 12.37.0; igualarlos
+  cambiaría la versión cargada y queda pendiente de aprobación.
+- No se dividieron `utils/pptx-export.js` ni `export/pptx-renderer.js`: su
+  serialización/captura y baseline de 14 paquetes requieren un seam medible
+  antes de extraer. El render COM no se pudo ejecutar porque PowerPoint no está
+  instalado; sí pasó la comparación estructural PPTX.
+- El escaneo literal de `require` desde `server.js` alcanzó 56 de 57 módulos
+  backend. El único no alcanzado es `contracts/types.js`, un módulo puro de
+  typedefs; no hay módulos nuevos huérfanos.
+- Los ratchets separados quedaron en lint 129 y TypeScript 16 después de
+  `0baf654`; no se rebajaron diagnósticos para silenciar errores nuevos.
+- Pendientes que requieren decisión: migración/build con Vite y destino de
+  hosting; upgrades major de Express/Puppeteer; split adicional PPTX; retirada
+  del contenedor outline legacy. El inventario de dependencias vulnerables y
+  los límites de cobertura visual/editor siguen descritos arriba y en
+  `docs/HANDOFF.md`.

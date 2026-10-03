@@ -1,7 +1,7 @@
 # Arquitectura del backend
 
-Este documento describe la forma actual del backend de Aedos después de la
-refactorización 3c. `src/backend/server.js` sigue siendo la fachada de
+Este documento describe la forma actual del backend después de la limpieza de
+la Etapa 7. `src/backend/server.js` sigue siendo la fachada de
 bootstrap: conserva la inicialización eager de Puppeteer, la construcción de
 dependencias, el orden de middleware/rutas y los exports públicos.
 
@@ -21,8 +21,8 @@ dependencias, el orden de middleware/rutas y los exports públicos.
 | `files/` | Uploads, adjuntos, directorios y descargas | Utilidades usadas por rutas |
 | `browser/` | Gestión del navegador Puppeteer | `manager.js` |
 | `sanitization/` | Sanitización e inyección de HTML | `html.js` |
-| `prompts/` | Prompts de las etapas de generación | Módulos por etapa |
-| `utils/` | Logger, rate limiter, export warnings y renderer PPTX | Utilidades transversales |
+| `prompts/` | Orquestación y contenido de los prompts de generación | `pipeline.js`, `stage-runner.js`, `json-extraction.js`, `skeleton-enrichment.js` y prompts por etapa |
+| `utils/` | Logger, fachada de rate limiter, evaluadores y export warnings/PPTX | Utilidades transversales |
 
 ## Flujo de una solicitud de generación
 
@@ -89,8 +89,39 @@ bloque monolítico; `utils/pptx-export.js` quedó intacto. `server.js` termina e
 los process handlers o el guard de arranque; las dos últimas extracciones se
 dejaron fuera cuando el ratchet detectó TS2322 y se documentan como no aplicadas.
 
-La comparación de normalizadores cubrió 48 peticiones HTTP con igualdad exacta
-de status y cuerpo. Se integraron en `routes/generate.js`; la suite contractual
-ejecuta el probe para evitar código muerto. La selección Pro automática por
+La comparación HTTP de normalizadores cubrió 50 casos con igualdad exacta de
+status y cuerpo. Los helpers están integrados en las rutas de generación y la
+suite contractual vuelve a ejecutar el probe. La selección Pro automática por
 adjuntos pertenece al frontend; el backend sólo expone la información de
 adjuntos existente.
+
+## Cierre de Etapa 7
+
+- `utils/rate-limiter.js` conserva Redis, auditoría de IP, middleware y la
+  fachada pública. `utils/rate-limit-evaluators.js` contiene sólo las decisiones
+  de contador/cooldown. Se midieron 545 líneas antes, y después 334 en la
+  fachada más 252 en el helper; las cifras salen de `git show <commit>:<path> |
+  wc -l`. `src/backend/utils/README.md` registra el límite de la extracción.
+- `prompts/pipeline.js` conserva el orden de etapas y ahora mide 165 líneas
+  frente a 489 antes. `json-extraction.js` (124), `stage-runner.js` (166) y
+  `skeleton-enrichment.js` (61) son los módulos conectados. Los cuerpos
+  ejecutables se trasladaron sin reescritura; se añadieron pruebas locales para
+  parseo, defaults del skeleton y error permanente de quota.
+- Los nuevos módulos están por debajo de 300 líneas y `prompts/README.md`
+  describe responsabilidades. `base.js`, `stage2-design.js` y
+  `stage3-compositor.js` retienen textos/plantillas interpoladas: dividirlos
+  exigiría mover fragmentos de payload y elevaría el riesgo de cambiar el prompt
+  enviado al proveedor.
+- `server.js` tiene 424 líneas en `refactor/fase-3c-fix` y 427 en la punta
+  posterior a Multer; el cambio neto corresponde al import y middleware
+  `handleUploadError` de `459c932`. En Etapa 7 no se cambió.
+- `utils/pptx-export.js` (792 líneas) y `export/pptx-renderer.js` (1,258)
+  permanecen juntos en sus responsabilidades actuales: su orden de serialización,
+  captura de DOM y dependencias de inicialización están acoplados al baseline de
+  14 paquetes. El corte propuesto necesita una interfaz específica y una
+  comparación binaria/estructural por cada extracción; no se intentó en esta
+  etapa.
+- `npm run verify:all` pasó después de cada commit de código y después del
+  commit separado de reducción de ratchets. El baseline PPTX siguió en 14
+  paquetes, el PDF en sus 8 páginas estructuralmente iguales, y la visual en
+  6/6 capturas sin diferencias.

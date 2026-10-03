@@ -6,6 +6,8 @@
 - `npm test`: comando original de Node; en Linux debe ejecutarse sin la
   limitación de `spawn EPERM` de Windows.
 - `npm run test:contract`: contratos HTTP y multipart.
+- `npm run test:rate-limit-evaluators` y `npm run test:prompts-modules`:
+  caracterización pura de las dos extracciones backend de Etapa 7.
 - `npm run check:dom`: referencias de IDs estáticos.
 - `npm run verify:quality`: lint, type-check y formato con ratchets.
 - `npm run verify:baseline`: red de seguridad funcional y visual existente.
@@ -25,6 +27,13 @@ cambio es intencional y actualiza la baseline correspondiente sólo después de
 revisar el diff. Para regenerarlas de forma explícita usa
 `node scripts/lint-ratchet.js --write` o
 `node scripts/typecheck-ratchet.js --write`.
+
+Si el total disminuye, conserva esa reducción y cambia el baseline a la baja en
+un commit separado del cambio de código; ejecuta `npm run verify:all` también
+después de ese commit. No bajes ratchets para ocultar diagnósticos nuevos. Las
+medidas de tamaño que se reportan en una refactorización deben salir del blob
+commiteado (`git show <commit>:<archivo> | wc -l`), no de un conteo del working
+tree.
 
 ## Baseline visual
 
@@ -55,3 +64,8 @@ El diagnóstico de la mutación del fondo está en
 Mantén la regla orientativa de un archivo = una responsabilidad y procura no
 superar 400 líneas por archivo. Esta regla se reporta como warning para poder
 mejorar gradualmente sin bloquear la refactorización.
+
+Para módulos nuevos de backend, la guía de cierre pide una responsabilidad,
+JSDoc/typedefs, README de carpeta cuando aplique y objetivo de 300 líneas. No
+separes literales/plantillas de prompts ni serializadores PPTX sin demostrar
+equivalencia exacta y sin conservar el orden observable.
