@@ -124,9 +124,9 @@ desktop medidos en el worktree limpio eran el botón dev-only
   checkpoint ahora espera los chips. Se regeneraron solo `flow-04`, `flow-19`
   y `flow-20`; los otros 27 PNG conservaron exactamente su SHA-256. Ningún
   baseline general, PDF o PPTX cambió.
-- `npm run verify:quality` pasó: lint permaneció en 175 (baseline 175),
-  TypeScript bajó de 30 a 29 diagnósticos (baseline aún 30; bajar ese ratchet
-  corresponde a un commit separado). Formato pasó. `src/` no se modificó.
+- `npm run verify:quality` pasó: lint permaneció en 175 (baseline 175) y
+  TypeScript en 29 diagnósticos (baseline 29). Formato pasó. `src/` no se
+  modificó.
 - La verificación completa `npm run verify:all` posterior al commit queda como
   compuerta obligatoria antes de continuar a Etapa 4.
 
