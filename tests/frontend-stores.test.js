@@ -9,6 +9,8 @@ const storePath = path.join(root, 'src/frontend/features/shared/outline-store.js
 const fixturePath = path.join(root, 'tests/fixtures/frontend/stores/outline-default.json');
 const generationStorePath = path.join(root, 'src/frontend/features/shared/generation-store.js');
 const generationFixturePath = path.join(root, 'tests/fixtures/frontend/stores/generation-default.json');
+const previewEditorStorePath = path.join(root, 'src/frontend/features/shared/preview-editor-store.js');
+const previewEditorFixturePath = path.join(root, 'tests/fixtures/frontend/stores/preview-editor-default.json');
 
 function loadOutlineStore() {
     const window = {};
@@ -19,6 +21,12 @@ function loadOutlineStore() {
 function loadGenerationStore() {
     const window = {};
     vm.runInNewContext(fs.readFileSync(generationStorePath, 'utf8'), { window }, { filename: generationStorePath });
+    return window;
+}
+
+function loadPreviewEditorStore() {
+    const window = {};
+    vm.runInNewContext(fs.readFileSync(previewEditorStorePath, 'utf8'), { window }, { filename: previewEditorStorePath });
     return window;
 }
 
@@ -78,4 +86,19 @@ test('generation store preserves defaults and legacy writable globals', () => {
     assert.equal(store.state.backupSkeleton, skeleton);
     assert.equal(store.state.pendingBodyData, body);
     assert.equal(store.state.pendingHeaders, headers);
+});
+
+test('preview/editor store preserves defaults and the separately synced currentSlide bridge', () => {
+    const window = loadPreviewEditorStore();
+    const expected = JSON.parse(fs.readFileSync(previewEditorFixturePath, 'utf8'));
+    const state = window.AedosStores.previewEditor.state;
+
+    assert.deepEqual(JSON.parse(JSON.stringify(state)), expected);
+    assert.equal(window.currentSlide, 0);
+
+    state.currentSlide = 2;
+    assert.equal(window.currentSlide, 0);
+    window.currentSlide = 4;
+    assert.equal(state.currentSlide, 2);
+    assert.equal(state.legacyCurrentSlide, 4);
 });

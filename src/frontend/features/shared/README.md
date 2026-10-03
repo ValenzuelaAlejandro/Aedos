@@ -25,3 +25,9 @@ legacy writable `window._activeGenController`, `window._attachedFiles`,
 `window._backupSkeleton`, `window._pendingGenerateBodyData`, and
 `window._pendingGenerateHeaders` properties are accessors into that state, so
 existing classic scripts and inline consumers keep the same observable values.
+
+`preview-editor-store.js` owns the preview document, markup, title, slide
+container/cursor/count, and editor inset animation state. Its
+`window.currentSlide` facade is deliberately a separate mirrored value: the
+legacy app synchronized it only at initialization, preview reset, and slide
+navigation, so it is not a live alias of the private cursor.

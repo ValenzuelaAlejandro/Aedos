@@ -57,6 +57,7 @@ function gifToStaticDataUrl(file) {
 
 document.addEventListener('DOMContentLoaded', () => {
     const generationState = window.AedosStores.generation.state;
+    const previewState = window.AedosStores.previewEditor.state;
     const uiLog = window.BrowserLogger
         ? window.BrowserLogger.createLogger({ scope: 'UI', minLevel: 'debug' })
         : {
@@ -134,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Preview elements
-    let previewIframe = document.getElementById('preview-iframe');
+    previewState.previewIframe = document.getElementById('preview-iframe');
     const slideDots = document.getElementById('slide-dots');
     const slideLabel = document.getElementById('slide-label');
     const mobileSlideDots = document.getElementById('mobile-slide-dots');
@@ -152,12 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // State
-    let currentSlide = 0;
-    window.currentSlide = 0; // Initialize globally for editor iframe sync
-    let totalSlides = 0;
-    let generatedHtml = '';
-    let slideContainer = null; // The actual parent element of the slides (may be body or a wrapper)
-    let currentTitle = 'Presentation';
+    // Preview state is owned by the shared preview/editor store.
     let _refreshSlotOverlays = null; // assigned in injectImageReplacementSystem
     let _overlayMap = new Map(); // slotEl -> { input, label }
     let _stabilizeMinimapOnNextPreviewInit = false;
@@ -165,10 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Panel insets used by scaleIframe to account for floating panel overlay.
     // GSAP tweens this object during the settling animation so scaleIframe can
     // call getBoundingClientRect once and derive both scale and centering offset.
-    let _editorInsets = { left: 0, right: 0, top: 0, bottom: 0 };
     // Tracks the active settling GSAP tween so we can kill it before a new generation
     // starts (prevents the previous onComplete from firing showFloatingPills mid-stream).
-    let _settlingAnimation = null;
     // Generation/iframe identity used to ignore late messages and callbacks from
     // a previous stream after the preview iframe has been replaced.
     function clearStageInlinePadding() {
@@ -339,15 +333,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!e.data) return;
         // A removed streaming iframe may still have a queued postMessage. Never
         // let that stale event advance the current generation's UI state.
-        if (e.source && previewIframe && previewIframe.contentWindow && e.source !== previewIframe.contentWindow) return;
+        if (e.source && previewState.previewIframe && previewState.previewIframe.contentWindow && e.source !== previewState.previewIframe.contentWindow) return;
         if (e.data.type === 'slideUpdate') {
             const count = e.data.count;
-            totalSlides = count;
+            previewState.totalSlides = count;
             if (slideLabel) {
                 const tpl = window.__t("slide_label_tpl", "{current} / {total}");
                 slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
             }
-            currentSlide = count - 1;
+            previewState.currentSlide = count - 1;
             if (previewContainer && previewContainer.classList.contains('is-generating')) {
                 setPreviewStreamStatus(`Generando presentación… ${count} slide${count === 1 ? '' : 's'} recibida${count === 1 ? '' : 's'}`);
             }
@@ -409,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 // Propagate theme into live preview iframe (if present)
                 try {
-                    const doc = previewIframe && (previewIframe.contentDocument || (previewIframe.contentWindow && previewIframe.contentWindow.document));
+                    const doc = previewState.previewIframe && (previewState.previewIframe.contentDocument || (previewState.previewIframe.contentWindow && previewState.previewIframe.contentWindow.document));
                     if (doc && doc.documentElement) {
                         doc.documentElement.setAttribute('data-theme', nextTheme);
                     }
@@ -1292,9 +1286,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         minimapAlreadyInit = false;
         toolsAlreadyInit = false;
-        const rawIframe = previewIframe.cloneNode();
-        previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
-        previewIframe = rawIframe;
+        const rawIframe = previewState.previewIframe.cloneNode();
+        previewState.previewIframe.parentNode.replaceChild(rawIframe, previewState.previewIframe);
+        previewState.previewIframe = rawIframe;
 
         const minimapList = document.getElementById('minimap-list');
         if (minimapList) {
@@ -1308,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (slideDots) slideDots.innerHTML = '';
-        slideContainer = null;
+        previewState.slideContainer = null;
         _refreshSlotOverlays = null;
         _overlayMap = new Map();
     }
@@ -1355,11 +1349,11 @@ document.addEventListener('DOMContentLoaded', () => {
             window.navigateToEditor();
         }
 
-        generatedHtml = html;
-        currentSlide = 0;
-        totalSlides = 0;
+        previewState.generatedHtml = html;
+        previewState.currentSlide = 0;
+        previewState.totalSlides = 0;
         window.currentSlide = 0;
-        currentTitle = title;
+        previewState.currentTitle = title;
         _pendingTransitionFn = null;
         window._manualZoomScale = 1;
         updateZoomDisplay();
@@ -1385,7 +1379,7 @@ document.addEventListener('DOMContentLoaded', () => {
             previewHeader.classList.add('slide-down');
             // Apply settled insets so the slide centers between panels in debug mode.
             if (window.innerWidth > 768) {
-                _editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
+                previewState.editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
                 const dbgStage = document.getElementById('preview-stage');
                 if (dbgStage) {
                     dbgStage.style.paddingLeft = '165px';
@@ -2052,9 +2046,9 @@ document.addEventListener('DOMContentLoaded', () => {
         generationState.activeGeneration = generation;
         _pendingTransitionFn = null;
 
-        generatedHtml = ''; // Reset state for a fresh start
-        currentSlide = 0;
-        totalSlides = 0;
+        previewState.generatedHtml = ''; // Reset state for a fresh start
+        previewState.currentSlide = 0;
+        previewState.totalSlides = 0;
 
         // Keep the send button in the generation (stop-icon) state during the final HTML
         // generation, regardless of whether we got here via a chat "proceed" or via the
@@ -2111,10 +2105,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Kill any in-progress settling tween from a previous generation so its
             // onComplete never fires showFloatingPills during the new streaming session.
-            if (_settlingAnimation) { _settlingAnimation.kill(); _settlingAnimation = null; }
+            if (previewState.settlingAnimation) { previewState.settlingAnimation.kill(); previewState.settlingAnimation = null; }
 
             // Reset panel insets so slide fills the full screen during streaming.
-            _editorInsets = { left: 0, right: 0, top: 0, bottom: 0 };
+            previewState.editorInsets = { left: 0, right: 0, top: 0, bottom: 0 };
             resetMobileZoomState();
             window._manualZoomScale = 1;
             updateZoomDisplay();
@@ -2137,9 +2131,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         minimapAlreadyInit = false;
         toolsAlreadyInit = false;
-        const rawIframe = previewIframe.cloneNode();
-        previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
-        previewIframe = rawIframe;
+        const rawIframe = previewState.previewIframe.cloneNode();
+        previewState.previewIframe.parentNode.replaceChild(rawIframe, previewState.previewIframe);
+        previewState.previewIframe = rawIframe;
 
         // Clear Minimap and Dots
         const minimapList = document.getElementById('minimap-list');
@@ -2154,7 +2148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (slideDots) slideDots.innerHTML = '';
 
-        const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+        const iframeDoc = previewState.previewIframe.contentDocument || previewState.previewIframe.contentWindow.document;
         setPreviewStreamStatus(generationState.proModeEnabled ? 'Analizando contenido…' : 'Generando presentación…');
         doTransitionToPreview();
         // Writing every model token directly into a live iframe forces a full
@@ -2322,7 +2316,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const parsed = JSON.parse(dataStr);
                         if (parsed.chunk) queuePreviewMarkup(sanitizeModelOutput(parsed.chunk));
-                        if (parsed.done && parsed.html) generatedHtml = parsed.html;
+                        if (parsed.done && parsed.html) previewState.generatedHtml = parsed.html;
                     } catch (e) { }
                     continue;
                 }
@@ -2500,9 +2494,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             continue;
                         }
                         if (parsed.done) {
-                            generatedHtml = parsed.html;
+                            previewState.generatedHtml = parsed.html;
                             let displayTitle = tema;
-                            const configMatch = generatedHtml.match(/<!--\s*CONFIG\s*([\s\S]*?)\s*-->/i);
+                            const configMatch = previewState.generatedHtml.match(/<!--\s*CONFIG\s*([\s\S]*?)\s*-->/i);
                             if (configMatch) {
                                 try {
                                     const configObj = JSON.parse(configMatch[1]);
@@ -2510,11 +2504,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 } catch (e) { }
                             }
                             if (displayTitle === tema) {
-                                const titleMatch = generatedHtml.match(/<title>\s*(.*?)\s*<\/title>/i);
+                                const titleMatch = previewState.generatedHtml.match(/<title>\s*(.*?)\s*<\/title>/i);
                                 if (titleMatch && titleMatch[1]) {
                                     displayTitle = titleMatch[1];
                                 } else {
-                                    const h1Match = generatedHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+                                    const h1Match = previewState.generatedHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
                                     if (h1Match && h1Match[1]) {
                                         displayTitle = h1Match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
                                     }
@@ -2524,13 +2518,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (previewLabel.tagName === 'INPUT') previewLabel.value = displayTitle;
                                 else previewLabel.textContent = displayTitle;
                             }
-                            currentTitle = displayTitle;
+                            previewState.currentTitle = displayTitle;
                         }
             }
 
             clearTimeout(sseWatchdog);
 
-            if (!generatedHtml || generatedHtml.trim().length < 50) {
+            if (!previewState.generatedHtml || previewState.generatedHtml.trim().length < 50) {
                 throw new Error(window.__t ? window.__t('error_generation_failed', "Sorry, could not generate the presentation correctly.") : "Sorry, could not generate the presentation correctly.");
             }
 
@@ -2571,11 +2565,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // editor.js a fresh window so its one-time guards don't block re-initialization.
             minimapAlreadyInit = false;
             toolsAlreadyInit = false;
-            const rawIframe = previewIframe.cloneNode();
-            previewIframe.parentNode.replaceChild(rawIframe, previewIframe);
-            previewIframe = rawIframe;
+            const rawIframe = previewState.previewIframe.cloneNode();
+            previewState.previewIframe.parentNode.replaceChild(rawIframe, previewState.previewIframe);
+            previewState.previewIframe = rawIframe;
 
-            initPreview(generatedHtml, () => {
+            initPreview(previewState.generatedHtml, () => {
                 if (generationState.activeGeneration !== generation) return;
                 generation.finalPreviewMounted = true;
                 _pendingTransitionFn = null;
@@ -2600,7 +2594,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // shrinks and re-centers into the area between the floating panels.
                     // No inline styles are set on the stage element — no CSS fights.
                     if (window.gsap && window.innerWidth > 768) {
-                        _settlingAnimation = window.gsap.to(_editorInsets, {
+                        previewState.settlingAnimation = window.gsap.to(previewState.editorInsets, {
                             left: 165,
                             right: 30,
                             top: 64,
@@ -2613,10 +2607,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // on the scrollable means no overflow-clipping bug.
                                 const stageEl = document.getElementById('preview-stage');
                                 if (stageEl) {
-                                    stageEl.style.paddingLeft = `${_editorInsets.left}px`;
-                                    stageEl.style.paddingRight = `${_editorInsets.right}px`;
-                                    stageEl.style.paddingTop = `${_editorInsets.top}px`;
-                                    stageEl.style.paddingBottom = `${_editorInsets.bottom}px`;
+                                    stageEl.style.paddingLeft = `${previewState.editorInsets.left}px`;
+                                    stageEl.style.paddingRight = `${previewState.editorInsets.right}px`;
+                                    stageEl.style.paddingTop = `${previewState.editorInsets.top}px`;
+                                    stageEl.style.paddingBottom = `${previewState.editorInsets.bottom}px`;
                                 }
                                 scaleIframe();
                             },
@@ -2624,14 +2618,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (previewHeader) previewHeader.classList.add('slide-down');
                             },
                             onComplete: () => {
-                                _settlingAnimation = null;
+                                previewState.settlingAnimation = null;
                                 showFloatingPills();
                                 scaleIframe();
                             }
                         });
                     } else {
                         if (window.innerWidth > 768) {
-                            _editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
+                            previewState.editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
                             const fallbackStage = document.getElementById('preview-stage');
                             if (fallbackStage) {
                                 fallbackStage.style.paddingLeft = '165px';
@@ -2912,8 +2906,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Guard: if called before the HTML is parsed (e.g. triggered by the
             // about:blank load of the freshly-cloned iframe), bail out and let
             // the poll retry — do NOT set setupDone so the real load can win.
-            const iDoc = previewIframe.contentDocument ||
-                (previewIframe.contentWindow && previewIframe.contentWindow.document);
+            const iDoc = previewState.previewIframe.contentDocument ||
+                (previewState.previewIframe.contentWindow && previewState.previewIframe.contentWindow.document);
             if (!iDoc || !iDoc.body || findSlides(iDoc).length === 0) return;
             setupDone = true;
 
@@ -2921,9 +2915,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Do NOT use display:none — Safari unloads iframe content on hide.
             try {
                 requestAnimationFrame(() => {
-                    previewIframe.style.willChange = 'transform';
+                    previewState.previewIframe.style.willChange = 'transform';
                     requestAnimationFrame(() => {
-                        previewIframe.style.willChange = '';
+                        previewState.previewIframe.style.willChange = '';
                     });
                 });
             } catch (e) { }
@@ -2987,7 +2981,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 html += safetyCloser;
             }
 
-            const doc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+            const doc = previewState.previewIframe.contentDocument || previewState.previewIframe.contentWindow.document;
             // Call doc.open() first to cancel any pending about:blank navigation on
             // the freshly-cloned iframe before we attach the onload handler.
             // If onload were set before doc.open(), the blank-document load event
@@ -3003,7 +2997,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(doSetup, 300);
             };
 
-            previewIframe.onload = onIframeLoad;
+            previewState.previewIframe.onload = onIframeLoad;
 
             doc.write('<!DOCTYPE html>' + html);
             doc.close();
@@ -3022,7 +3016,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Try to detect if already loaded (sync srcdoc or manual write)
-        const doc = previewIframe.contentDocument;
+        const doc = previewState.previewIframe.contentDocument;
         if (doc && doc.readyState === 'complete' && findSlides(doc).length > 0) {
             setTimeout(doSetup, 50);
         }
@@ -3032,7 +3026,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const poll = () => {
             if (setupDone) return;
             attempts++;
-            const doc = previewIframe.contentDocument;
+            const doc = previewState.previewIframe.contentDocument;
             if (doc && doc.body) {
                 const found = findSlides(doc);
                 if (found.length >= 1) {
@@ -3109,7 +3103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // the moment skeleton-injector fires its first postMessage).
     let _skipMinimapSkeleton = false;
     function setupPreviewInteractions(targetIndex = 0) {
-        const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+        const iframeDoc = previewState.previewIframe.contentDocument || previewState.previewIframe.contentWindow.document;
         if (!iframeDoc || !iframeDoc.body) return;
 
         // Images and web fonts can change slide geometry after the iframe load
@@ -3178,7 +3172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const slides = findSlides(iframeDoc);
-        totalSlides = slides.length || 1;
+        previewState.totalSlides = slides.length || 1;
         // buildDots() was redundant here as it's called after restoration anyway
 
         // Attach global nav listeners only once to avoid memory leaks and CPU peaks
@@ -3191,7 +3185,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         // Determine the container that holds the slides (could be body or a wrapper like <main>)
-        slideContainer = (slides.length > 0) ? slides[0].parentElement : iframeDoc.body;
+        previewState.slideContainer = (slides.length > 0) ? slides[0].parentElement : iframeDoc.body;
 
         // ── CRITICAL: Lock slide dimensions to absolute CSS pixels ──
         // (1122px x 631px) ensuring cross-os consistency regardless of host DPI.
@@ -3214,23 +3208,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Apply horizontal carousel layout to the real slide container
-        slideContainer.style.display = 'flex';
-        slideContainer.style.flexDirection = 'row';
-        slideContainer.style.width = 'max-content';
-        slideContainer.style.height = '100%';
-        slideContainer.style.margin = '0';
-        slideContainer.style.padding = '0';
+        previewState.slideContainer.style.display = 'flex';
+        previewState.slideContainer.style.flexDirection = 'row';
+        previewState.slideContainer.style.width = 'max-content';
+        previewState.slideContainer.style.height = '100%';
+        previewState.slideContainer.style.margin = '0';
+        previewState.slideContainer.style.padding = '0';
 
         // Problem 9: Restore the "rewind" effect. 
         // We capture how far the skeleton went and start the final render from there.
-        const startSlide = currentSlide;
+        const startSlide = previewState.currentSlide;
         if (startSlide > 0) {
-            slideContainer.style.transform = `translateX(-${startSlide * naturalSlideW}px)`;
+            previewState.slideContainer.style.transform = `translateX(-${startSlide * naturalSlideW}px)`;
             // Force reflow BEFORE applying transition so the browser sees the start position
-            void slideContainer.offsetWidth;
+            void previewState.slideContainer.offsetWidth;
         }
 
-        slideContainer.style.transition = 'transform 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
+        previewState.slideContainer.style.transition = 'transform 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
 
         // Match minimap rewind speed
         const ml = document.getElementById('minimap-list');
@@ -3241,8 +3235,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // After the rewind is done, return to a faster, more responsive speed for editing
         setTimeout(() => {
-            if (slideContainer) {
-                slideContainer.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+            if (previewState.slideContainer) {
+                previewState.slideContainer.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
             }
             if (ml) {
                 ml.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -3250,13 +3244,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1300);
 
         // Update overlays when carrousel transition ends
-        slideContainer.removeEventListener('transitionend', _refreshSlotOverlays);
-        slideContainer.addEventListener('transitionend', () => {
+        previewState.slideContainer.removeEventListener('transitionend', _refreshSlotOverlays);
+        previewState.slideContainer.addEventListener('transitionend', () => {
             if (_refreshSlotOverlays) _refreshSlotOverlays();
         });
 
         // Store for scrollToSlide to use without re-measuring
-        previewIframe._slideWidthPx = naturalSlideW;
+        previewState.previewIframe._slideWidthPx = naturalSlideW;
 
         // Ensure no scrollbars ever show up in the preview window
         iframeDoc.documentElement.style.overflow = 'hidden';
@@ -3275,14 +3269,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Force reset scroll positions left over by 'scrollIntoView' during the skeleton stream!
         // This was making the absolute transform value fight with the document's scroll offset.
-        if (previewIframe.contentWindow) previewIframe.contentWindow.scrollTo(0, 0);
+        if (previewState.previewIframe.contentWindow) previewState.previewIframe.contentWindow.scrollTo(0, 0);
         if (iframeDoc.documentElement) iframeDoc.documentElement.scrollLeft = 0;
         if (iframeDoc.body) iframeDoc.body.scrollLeft = 0;
 
         // Init React-like declarative UI binding for Editor Panels
         if (typeof window.initEditorUI === 'function' && !iframeDoc._aedosEditorUIReady) {
             try {
-                window.initEditorUI(previewIframe);
+                window.initEditorUI(previewState.previewIframe);
                 iframeDoc._aedosEditorUIReady = true;
             } catch (error) {
                 // A panel failure must not prevent the carousel from becoming
@@ -3297,7 +3291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // On mobile: canvas is read-only. Image-slot overlays (parent-frame labels) are
         // independent of the lock so photo upload still works normally.
         if (isMobileViewport()) {
-            const iw = previewIframe.contentWindow;
+            const iw = previewState.previewIframe.contentWindow;
             if (iw && typeof iw.setLocked === 'function') {
                 iw.setLocked(true);
             }
@@ -3308,7 +3302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // freezeSlideLayout() and then the minimap refreshes from that stable geometry. Do the
         // same here before initMinimap builds the final thumbnails.
         if (_stabilizeMinimapOnNextPreviewInit) {
-            const iw = previewIframe.contentWindow;
+            const iw = previewState.previewIframe.contentWindow;
             if (iw && typeof iw.freezeAllSlides === 'function') {
                 iw.freezeAllSlides();
             }
@@ -3325,12 +3319,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const initializeEditorSubsystems = () => {
                 try {
                     if (typeof window.initMinimap === 'function' && !iframeDoc._aedosMinimapReady) {
-                        window.initMinimap(previewIframe);
+                        window.initMinimap(previewState.previewIframe);
                         iframeDoc._aedosMinimapReady = true;
                         minimapAlreadyInit = true;
                     }
                     if (typeof window.initTools === 'function' && !iframeDoc._aedosToolsReady) {
-                        window.initTools(previewIframe);
+                        window.initTools(previewState.previewIframe);
                         iframeDoc._aedosToolsReady = true;
                         toolsAlreadyInit = true;
                     }
@@ -3354,16 +3348,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // DOM nodes. Parent labels are still valid but _overlayMap keys point to DEAD nodes.
         // Strategy: re-key the map by matching data-image-slot IDs (stable across restores).
         // This avoids duplicate listeners and the full rebuild/teardown cost.
-        const iframeWinRef = previewIframe.contentWindow;
+        const iframeWinRef = previewState.previewIframe.contentWindow;
         if (iframeWinRef) {
             iframeWinRef.addEventListener('state-restored', (ev) => {
                 const needsRebuild = ev.detail ? ev.detail.needsOverlayRebuild : true;
                 if (!needsRebuild) return;
-                const iDoc = previewIframe.contentDocument;
+                const iDoc = previewState.previewIframe.contentDocument;
                 if (!iDoc) return;
 
                 // CRITICAL: Cache width early for scrollToSlide calculations
-                previewIframe._slideWidthPx = 1122;
+                previewState.previewIframe._slideWidthPx = 1122;
 
                 // --- OPTIMIZATION: Non-destructive overlay re-keying ---
                 // 1. Map existing overlays by their slot ID (string attribute - survives innerHTML replace)
@@ -3405,7 +3399,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearTimeout(window._restoreBatchT);
                 window._restoreBatchT = setTimeout(() => {
                     iDoc._restoringState = true;
-                    setupPreviewInteractions(currentSlide);
+                    setupPreviewInteractions(previewState.currentSlide);
                     iDoc._restoringState = false;
 
                     // Final refresh of overlay positions
@@ -3414,11 +3408,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // --- REFRESH SLIDE SYSTEM ---
                 const slides = findSlides(iDoc);
-                totalSlides = slides.length || 1;
+                previewState.totalSlides = slides.length || 1;
                 buildDots();
 
                 // Re-find and re-init the slide container (it might be a new DOM node after innerHTML replace)
-                slideContainer = (slides.length > 0) ? slides[0].parentElement : iDoc.body;
+                previewState.slideContainer = (slides.length > 0) ? slides[0].parentElement : iDoc.body;
 
                 // Re-apply critical styles to new slide nodes
                 slides.forEach(s => {
@@ -3430,24 +3424,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     s.style.boxSizing = 'border-box';
                 });
 
-                if (slideContainer) {
-                    slideContainer.style.display = 'flex';
-                    slideContainer.style.flexDirection = 'row';
-                    slideContainer.style.width = 'max-content';
-                    slideContainer.style.height = '100%';
-                    slideContainer.style.margin = '0';
-                    slideContainer.style.padding = '0';
-                    slideContainer.style.transition = 'none'; // Instant jump for sync
+                if (previewState.slideContainer) {
+                    previewState.slideContainer.style.display = 'flex';
+                    previewState.slideContainer.style.flexDirection = 'row';
+                    previewState.slideContainer.style.width = 'max-content';
+                    previewState.slideContainer.style.height = '100%';
+                    previewState.slideContainer.style.margin = '0';
+                    previewState.slideContainer.style.padding = '0';
+                    previewState.slideContainer.style.transition = 'none'; // Instant jump for sync
 
-                    if (currentSlide >= totalSlides) currentSlide = totalSlides - 1;
-                    if (currentSlide < 0) currentSlide = 0;
+                    if (previewState.currentSlide >= previewState.totalSlides) previewState.currentSlide = previewState.totalSlides - 1;
+                    if (previewState.currentSlide < 0) previewState.currentSlide = 0;
 
                     // Don't restore slide position from entry. User doesn't want to move.
-                    scrollToSlide(currentSlide);
+                    scrollToSlide(previewState.currentSlide);
 
                     // Restore transition after reflow
                     setTimeout(() => {
-                        if (slideContainer) slideContainer.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+                        if (previewState.slideContainer) previewState.slideContainer.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
                     }, 50);
                 }
 
@@ -3475,16 +3469,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.regenerateDotsCount = function () {
-        const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+        const iframeDoc = previewState.previewIframe.contentDocument || previewState.previewIframe.contentWindow.document;
         if (!iframeDoc) return;
         const slides = findSlides(iframeDoc);
-        totalSlides = slides.length || 1;
+        previewState.totalSlides = slides.length || 1;
 
         // Refresh slideContainer reference (it might have been replaced during Undo/Redo)
-        slideContainer = (slides.length > 0) ? slides[0].parentElement : iframeDoc.body;
+        previewState.slideContainer = (slides.length > 0) ? slides[0].parentElement : iframeDoc.body;
 
-        if (slideContainer) {
-            slideContainer.style.cssText += '; display:flex !important; flex-direction:row !important; width:max-content !important; height:100%; transition:transform 0.6s cubic-bezier(0.25,1,0.5,1); margin:0; padding:0;';
+        if (previewState.slideContainer) {
+            previewState.slideContainer.style.cssText += '; display:flex !important; flex-direction:row !important; width:max-content !important; height:100%; transition:transform 0.6s cubic-bezier(0.25,1,0.5,1); margin:0; padding:0;';
         }
 
 
@@ -3502,18 +3496,18 @@ document.addEventListener('DOMContentLoaded', () => {
         buildDots();
 
         // Ensure currentSlide is within bounds before syncing classes
-        if (currentSlide >= totalSlides) {
-            currentSlide = totalSlides - 1;
+        if (previewState.currentSlide >= previewState.totalSlides) {
+            previewState.currentSlide = previewState.totalSlides - 1;
         }
-        if (currentSlide < 0) currentSlide = 0;
+        if (previewState.currentSlide < 0) previewState.currentSlide = 0;
 
         // Force 'active' class to match currentSlide JS state
         slides.forEach((s, idx) => {
-            if (idx === currentSlide) s.classList.add('active');
+            if (idx === previewState.currentSlide) s.classList.add('active');
             else s.classList.remove('active');
         });
 
-        scrollToSlide(currentSlide);
+        scrollToSlide(previewState.currentSlide);
         updateSlideCounter();
 
 
@@ -3588,7 +3582,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const stage = document.querySelector('.preview-stage');
         const wrapper = document.querySelector('.preview-wrapper');
 
-        if (!wrapper || !stage || !previewIframe) return;
+        if (!wrapper || !stage || !previewState.previewIframe) return;
 
         const isMobileLayout = syncZoomStateWithViewportMode();
 
@@ -3610,8 +3604,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // _editorInsets is {0,0,0,0} during streaming and is tweened by GSAP
             // during the settling animation so scaleIframe always gets the right values.
-            const L = _editorInsets.left, R = _editorInsets.right;
-            const T = _editorInsets.top, B = _editorInsets.bottom;
+            const L = previewState.editorInsets.left, R = previewState.editorInsets.right;
+            const T = previewState.editorInsets.top, B = previewState.editorInsets.bottom;
             const isStreamingState = previewContainer.classList.contains('is-generating') || previewContainer.classList.contains('is-settling');
             // Keep strict fit while streaming and in mobile layout, but allow
             // desktop zoom controls after returning from a mobile-width session.
@@ -3658,7 +3652,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mobileZoom = forceFitScale ? 1 : (window._mobile_zoom || 1);
         const totalScale = scale * mobileZoom;
 
-        previewIframe.style.transform = `scale(${totalScale}) translate3d(0,0,0)`;
+        previewState.previewIframe.style.transform = `scale(${totalScale}) translate3d(0,0,0)`;
         wrapper.style.height = `${iframeNativeHeight * totalScale}px`;
         wrapper.style.width = `${iframeNativeWidth * totalScale}px`;
 
@@ -3672,7 +3666,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Inject scale into iframe for the visual editor's coordinate math
         try {
-            const iframeWin = previewIframe.contentWindow;
+            const iframeWin = previewState.previewIframe.contentWindow;
             if (iframeWin) iframeWin._iframeScale = totalScale;
         } catch (e) { }
 
@@ -3887,7 +3881,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 input.addEventListener('change', (e) => {
                     if (e.target.files && e.target.files.length > 0) {
-                        const iframeWin = previewIframe.contentWindow;
+                        const iframeWin = previewState.previewIframe.contentWindow;
                         if (iframeWin && iframeWin.editorSaveState) iframeWin.editorSaveState();
                         replaceSlotImage(slotRef.current, e.target.files[0]);
                     }
@@ -3942,14 +3936,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const files = e.dataTransfer.files;
                 if (files && files.length > 0 && files[0].type.startsWith('image/')) {
-                    const iframeWin = previewIframe.contentWindow;
+                    const iframeWin = previewState.previewIframe.contentWindow;
                     if (iframeWin && iframeWin.editorSaveState) iframeWin.editorSaveState();
                     replaceSlotImage(slotRef.current, files[0]);
                     return;
                 }
                 const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
                 if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
-                    const iframeWin = previewIframe.contentWindow;
+                    const iframeWin = previewState.previewIframe.contentWindow;
                     if (iframeWin && iframeWin.editorSaveState) iframeWin.editorSaveState();
                     replaceSlotWithUrl(slotRef.current, imageUrl);
                 }
@@ -4040,7 +4034,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         function pruneDeadSlotOverlays() {
-            const iDoc = previewIframe.contentDocument;
+            const iDoc = previewState.previewIframe.contentDocument;
             _overlayMap.forEach((entry, slotEl) => {
                 if (!iDoc || !iDoc.contains(slotEl)) {
                     entry.label.remove();
@@ -4054,11 +4048,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Position overlays for the slots on the CURRENT slide, hide others
         function _positionOverlays() {
-            const iDoc = previewIframe.contentDocument;
+            const iDoc = previewState.previewIframe.contentDocument;
             if (!iDoc || !iDoc.defaultView) return;
-            const matrix = new DOMMatrix(getComputedStyle(previewIframe).transform);
+            const matrix = new DOMMatrix(getComputedStyle(previewState.previewIframe).transform);
             const scale = matrix.a || 1;
-            const fr = previewIframe.getBoundingClientRect();
+            const fr = previewState.previewIframe.getBoundingClientRect();
 
             // iDoc.defaultView.innerWidth is the "native" viewport width of the iframe
             const viewW = iDoc.defaultView.innerWidth;
@@ -4252,20 +4246,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // 8. SLIDE NAVIGATION
     // =========================================================
     function scrollToSlide(index) {
-        const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+        const iframeDoc = previewState.previewIframe.contentDocument || previewState.previewIframe.contentWindow.document;
         if (!iframeDoc || !iframeDoc.body) return;
 
         const slides = findSlides(iframeDoc);
-        const container = slideContainer || iframeDoc.body;
+        const container = previewState.slideContainer || iframeDoc.body;
         if (slides[index]) {
-            const iframeWin = previewIframe.contentWindow;
-            const slideWidthPx = previewIframe._slideWidthPx
+            const iframeWin = previewState.previewIframe.contentWindow;
+            const slideWidthPx = previewState.previewIframe._slideWidthPx
                 || (iframeWin && iframeWin.innerWidth > 0 ? iframeWin.innerWidth : 0)
                 || 1122; // Hard fallback for high-fidelity consistency
             container.style.transform = `translateX(-${index * slideWidthPx}px)`;
             slides.forEach(s => s.classList.remove('active'));
             slides[index].classList.add('active');
-            currentSlide = index;
+            previewState.currentSlide = index;
             window.currentSlide = index; // Expose globally for the editor iframe
             updateSlideCounter();
             // Reposition overlays for the new active slide
@@ -4279,7 +4273,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function tryNavigate(targetIndex) {
         if (Date.now() - _lastNavScroll < NAV_COOLDOWN) return false;
-        if (targetIndex < 0 || targetIndex >= totalSlides) return false;
+        if (targetIndex < 0 || targetIndex >= previewState.totalSlides) return false;
 
         _lastNavScroll = Date.now();
         scrollToSlide(targetIndex);
@@ -4287,16 +4281,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.scrollToSlide = scrollToSlide;
-    window.prevSlide = () => tryNavigate(currentSlide - 1);
-    window.nextSlide = () => tryNavigate(currentSlide + 1);
-    window.getCurrentSlide = () => currentSlide;
-    window.getTotalSlides = () => totalSlides;
+    window.prevSlide = () => tryNavigate(previewState.currentSlide - 1);
+    window.nextSlide = () => tryNavigate(previewState.currentSlide + 1);
+    window.getCurrentSlide = () => previewState.currentSlide;
+    window.getTotalSlides = () => previewState.totalSlides;
 
     function notifySlideMetaUpdate() {
         document.dispatchEvent(new CustomEvent('slide-meta-updated', {
             detail: {
-                currentSlide,
-                totalSlides
+                currentSlide: previewState.currentSlide,
+                totalSlides: previewState.totalSlides
             }
         }));
     }
@@ -4304,8 +4298,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncMobileSlideCounterFallback() {
         if (!mobileSlideLabel && !mobileSlideDots) return;
 
-        const safeTotal = Math.max(1, Number.isFinite(totalSlides) ? totalSlides : 1);
-        const safeCurrent = Math.max(0, Math.min(safeTotal - 1, Number.isFinite(currentSlide) ? currentSlide : 0));
+        const safeTotal = Math.max(1, Number.isFinite(previewState.totalSlides) ? previewState.totalSlides : 1);
+        const safeCurrent = Math.max(0, Math.min(safeTotal - 1, Number.isFinite(previewState.currentSlide) ? previewState.currentSlide : 0));
 
         if (mobileSlideLabel) {
             mobileSlideLabel.textContent = `${safeCurrent + 1} / ${safeTotal}`;
@@ -4332,9 +4326,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function buildDots() {
         slideDots.innerHTML = '';
-        for (let i = 0; i < totalSlides; i++) {
+        for (let i = 0; i < previewState.totalSlides; i++) {
             const dot = document.createElement('button');
-            dot.className = 'slide-dot' + (i === currentSlide ? ' active' : '');
+            dot.className = 'slide-dot' + (i === previewState.currentSlide ? ' active' : '');
             dot.setAttribute('aria-label', `Slide ${i + 1}`);
             dot.addEventListener('click', () => scrollToSlide(i));
             slideDots.appendChild(dot);
@@ -4346,10 +4340,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSlideCounter() {
         const dots = slideDots.querySelectorAll('.slide-dot');
         dots.forEach((d, i) => {
-            d.classList.toggle('active', i === currentSlide);
+            d.classList.toggle('active', i === previewState.currentSlide);
         });
         const tpl = window.__t("slide_label_tpl", "Slide {current} of {total}");
-        slideLabel.textContent = tpl.replace('{current}', currentSlide + 1).replace('{total}', totalSlides);
+        slideLabel.textContent = tpl.replace('{current}', previewState.currentSlide + 1).replace('{total}', previewState.totalSlides);
         syncMobileSlideCounterFallback();
         notifySlideMetaUpdate();
     }
@@ -4428,9 +4422,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { }
 
         if (e.key === 'ArrowLeft') {
-            if (tryNavigate(currentSlide - 1)) e.preventDefault();
+            if (tryNavigate(previewState.currentSlide - 1)) e.preventDefault();
         } else if (e.key === 'ArrowRight') {
-            if (tryNavigate(currentSlide + 1)) e.preventDefault();
+            if (tryNavigate(previewState.currentSlide + 1)) e.preventDefault();
         }
     }
     // Global keyboard shortcut forwarding to the editor iframe
@@ -4493,15 +4487,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let navigated = false;
         if (dy > dx) {
             if (e.deltaY > 0) {
-                navigated = tryNavigate(currentSlide + 1);
+                navigated = tryNavigate(previewState.currentSlide + 1);
             } else if (e.deltaY < 0) {
-                navigated = tryNavigate(currentSlide - 1);
+                navigated = tryNavigate(previewState.currentSlide - 1);
             }
         } else {
             if (e.deltaX > 0) {
-                navigated = tryNavigate(currentSlide + 1);
+                navigated = tryNavigate(previewState.currentSlide + 1);
             } else if (e.deltaX < 0) {
-                navigated = tryNavigate(currentSlide - 1);
+                navigated = tryNavigate(previewState.currentSlide - 1);
             }
         }
 
@@ -4519,8 +4513,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.MobileRuntime && typeof window.MobileRuntime.createSlideSwipeHandlers === 'function'
             ? window.MobileRuntime.createSlideSwipeHandlers({
                 threshold: 50,
-                getCurrentSlide: () => currentSlide,
-                getTotalSlides: () => totalSlides,
+                getCurrentSlide: () => previewState.currentSlide,
+                getTotalSlides: () => previewState.totalSlides,
                 onNavigate: (nextSlide) => tryNavigate(nextSlide)
             })
             : null;
@@ -4549,10 +4543,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const threshold = 50;
         if (touchEndX < touchStartX - threshold) {
             // Swipe Left -> Next
-            tryNavigate(currentSlide + 1);
+            tryNavigate(previewState.currentSlide + 1);
         } else if (touchEndX > touchStartX + threshold) {
             // Swipe Right -> Prev
-            tryNavigate(currentSlide - 1);
+            tryNavigate(previewState.currentSlide - 1);
         }
     }
 
@@ -4575,8 +4569,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
 
         try {
-            const iframeWin = previewIframe.contentWindow;
-            const iframeDoc = previewIframe.contentDocument || iframeWin.document;
+            const iframeWin = previewState.previewIframe.contentWindow;
+            const iframeDoc = previewState.previewIframe.contentDocument || iframeWin.document;
 
             // Deselect any active editor element so the selection box and toolbar
             // are hidden before we clone — otherwise they end up in the PDF.
@@ -4706,7 +4700,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(exportFormat === 'pptx' ? '/finalize-pptx' : '/finalize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ html: finalHtml, title: currentTitle })
+                body: JSON.stringify({ html: finalHtml, title: previewState.currentTitle })
             });
 
             const data = await response.json();
@@ -4762,10 +4756,10 @@ document.addEventListener('DOMContentLoaded', () => {
             chatScreen.classList.remove('hidden');
         }
 
-        currentSlide = 0;
-        totalSlides = 0;
-        generatedHtml = '';
-        slideContainer = null;
+        previewState.currentSlide = 0;
+        previewState.totalSlides = 0;
+        previewState.generatedHtml = '';
+        previewState.slideContainer = null;
         _refreshSlotOverlays = null;
         // Remove persistent slot overlays from previous presentation
         document.querySelectorAll('._slot-overlay-label').forEach(el => el.remove());
@@ -4805,7 +4799,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Only act if preview is visible
         if (previewContainer && !previewContainer.classList.contains('hidden')) {
             // If not clicking inside the iframe itself
-            if (e.target !== previewIframe) {
+            if (e.target !== previewState.previewIframe) {
                 // And not clicking on editor UI elements (tools, minimap, header)
                 const isEditorInteraction =
                     e.target.closest('#editor-tools-panel') ||
@@ -4816,8 +4810,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!isEditorInteraction) {
                     try {
-                        if (previewIframe && previewIframe.contentWindow && previewIframe.contentWindow.editorDeselect) {
-                            previewIframe.contentWindow.editorDeselect();
+                        if (previewState.previewIframe && previewState.previewIframe.contentWindow && previewState.previewIframe.contentWindow.editorDeselect) {
+                            previewState.previewIframe.contentWindow.editorDeselect();
                         }
                     } catch (err) { }
                 }
@@ -4859,7 +4853,6 @@ document.querySelectorAll('.suggestion-pill').forEach(pill => {
         }
     });
 });
-
 
 
 
