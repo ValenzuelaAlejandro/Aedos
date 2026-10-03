@@ -3,7 +3,7 @@
 /**
  * Normalize, validate and sanitize the complete streamed HTML response.
  *
- * @param {{fullHtml: string, usePipeline: boolean, requestId: string, opciones: any, res: any, maxProSlides: number, maxFlashSlides: number, sanitizeGeneratedHtml: Function, injectLayoutSafetyNet: Function, sanitizerLog: any, ErrorCategory: any, isDevelopment: boolean, tmpDir: string, fs: any, path: any, devLog: any, classifyError: Function, extractPresentationTitle: Function, buildFileStemFromTitle: Function, resolveUniqueHtmlPath: Function, examplesFlashDir: string, examplesProDir: string}} deps
+ * @param {{fullHtml: string, usePipeline: boolean, requestId: string, opciones: any, res: any, maxProSlides: number, maxFlashSlides: number, sanitizeGeneratedHtml: Function, injectLayoutSafetyNet: Function, sanitizerLog: any, ErrorCategory: any, isDevelopment: boolean, tmpDir: string, fs: any, path: any, devLog: any, classifyError: Function, extractPresentationTitle: Function, buildFileStemFromTitle: Function, resolveUniqueHtmlPath: Function, examplesFlashDir: string, examplesProDir: string, vendorAssets: {lucide: {url: string, integrity: string}}}} deps
  * @returns {{type: string, html?: string, message?: string}}
  */
 function processGeneratedOutput({
@@ -28,7 +28,8 @@ function processGeneratedOutput({
     buildFileStemFromTitle,
     resolveUniqueHtmlPath,
     examplesFlashDir,
-    examplesProDir
+    examplesProDir,
+    vendorAssets
 }) {
     let finalHtml = fullHtml.replace(/^```html\n?/m, '').replace(/^```\n?/m, '').replace(/```\n?$/m, '').trim();
     finalHtml = finalHtml.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/gi, '');
@@ -116,8 +117,8 @@ function processGeneratedOutput({
     cleanedOutput = sanitizeGeneratedHtml(cleanedOutput);
     cleanedOutput = injectLayoutSafetyNet(cleanedOutput);
 
-    const lucideSrc = 'https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js';
-    const lucideIntegrity = 'sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei';
+    const lucideSrc = vendorAssets.lucide.url;
+    const lucideIntegrity = vendorAssets.lucide.integrity;
     const hasGoogleFontsReference = /fonts\.googleapis\.com/i.test(cleanedOutput);
     const G_FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Lexend:wght@400;700&family=Lora:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Prompt:wght@400;700&family=Sora:wght@400;700&family=Space+Grotesque:wght@400;700&family=Ubuntu:wght@400;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">`;
     const headInjectionParts = [];

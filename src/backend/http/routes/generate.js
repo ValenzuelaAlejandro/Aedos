@@ -3,6 +3,7 @@
 const express = require('express');
 const { processGeneratedOutput } = require('./generate-output');
 const { handleGenerationError } = require('./generate-errors');
+const vendorAssets = require('../../../frontend/features/shared/vendor-assets');
 const {
     normalizeMode,
     normalizeRequestedLanguage,
@@ -226,7 +227,8 @@ function createGenerateHandler(deps) {
                 buildFileStemFromTitle: deps.buildFileStemFromTitle,
                 resolveUniqueHtmlPath: deps.resolveUniqueHtmlPath,
                 examplesFlashDir: deps.EXAMPLES_FLASH_DIR,
-                examplesProDir: deps.EXAMPLES_PRO_DIR
+                examplesProDir: deps.EXAMPLES_PRO_DIR,
+                vendorAssets
             });
             if (output.type === 'refused') {
                 res.write(`data: ${JSON.stringify({ refused: true, message: output.message })}\n\n`);

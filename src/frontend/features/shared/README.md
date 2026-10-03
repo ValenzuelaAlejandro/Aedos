@@ -36,6 +36,13 @@ navigation, so it is not a live alias of the private cursor.
 `app_theme`, synchronizes the live preview iframe, and preserves the existing
 View Transition circular reveal timing and geometry.
 
+`vendor-assets.js` is the single source for pinned CDN URLs and integrity
+hashes. It writes the same parser-blocking asset tags in their original order
+for `index.html` and exports the catalog to the backend's generated-slide
+sanitizer. Keep the existing CSP hosts and do not change versions without
+revalidating the UI and integrity hashes. The CDN Motion runtime remains
+12.38.0; the separate npm dependency currently resolves to 12.37.0.
+
 `i18n.js` owns the existing English/Spanish catalogs and document translation
 pass. Add new language strings to both catalogs and retain the `window.__t`,
 `window.currentLang`, and `window.__applyTranslations` compatibility API.
