@@ -1,9 +1,9 @@
 {
-  "totalWarnings": 170,
+  "totalWarnings": 169,
   "byRule": {
     "no-empty": 11,
     "complexity": 37,
-    "max-lines-per-function": 27,
+    "max-lines-per-function": 26,
     "max-lines": 11,
     "no-unused-vars": 28,
     "no-shadow": 22,
@@ -30,14 +30,14 @@
     "src\\frontend\\features\\tools\\tools.js": 5,
     "src\\frontend\\mobile\\js\\app-mobile.js": 1,
     "src\\frontend\\mobile\\js\\bridge.js": 7,
-    "src\\frontend\\scripts\\app.js": 69,
+    "src\\frontend\\scripts\\app.js": 68,
     "src\\frontend\\scripts\\outline.js": 10,
     "tests\\pptx-export-advanced.test.js": 1
   },
   "topFiles": [
     [
       "src\\frontend\\scripts\\app.js",
-      69
+      68
     ],
     [
       "src\\frontend\\editor\\editor.js",
