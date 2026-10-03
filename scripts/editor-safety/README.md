@@ -26,3 +26,11 @@ The harness waits for iframe documents and fonts to be ready before visual
 capture. The outline-add checkpoint also waits for its suggested chips to be
 rendered. These waits characterize stable visible states; they do not extend or
 patch production timers.
+
+Editor-safety synchronization is state-based: the property panel checkpoint
+waits for the debounced tools DOM to represent the newly selected non-text
+element, and the edited minimap waits until its active thumbnail DOM matches the
+editor title style. PPTX capture waits for the mocked response. After minimap
+navigation, the test explicitly hovers the target thumbnail to match the
+baseline's visible delete/duplicate controls and waits for its iframe refresh.
+No visual mask or baseline regeneration is used for these transient states.

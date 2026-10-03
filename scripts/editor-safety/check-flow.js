@@ -76,7 +76,6 @@ async function runLanguageAndTheme(page, checkpoint) {
 
 async function runOutlineFlow(page, checkpoint) {
     await requestTopic(page, 'Energía solar para ciudades resilientes');
-    await new Promise((resolve) => setTimeout(resolve, 500));
     await page.waitForSelector('#outline-container:not(.hidden) .seamless-slide-item', { timeout: 15000 });
     await checkpoint(page, 'flow-03-outline-streamed', async () => {
         assert.equal(await outlineCount(page), 3);
@@ -172,9 +171,9 @@ async function runEditorHistoryAndLayers(page, checkpoint, frame, beforeResize) 
         assert.ok(Math.abs(width - beforeResize) <= 2, `Undo did not restore width: ${width} vs ${beforeResize}`);
     });
     frame.current = await getEditorFrame(page);
+    const redoThumbnailLoad = await watchThumbnailLoad(page);
     await frame.current.evaluate(() => window.editorRedo());
-    // minimap.js refreshes the changed thumbnail 800ms after iframe mutations.
-    await new Promise((resolve) => setTimeout(resolve, 850));
+    await waitForThumbnailLoad(page, redoThumbnailLoad);
     await checkpoint(page, 'flow-14-editor-redo', async () => {
         frame.current = await getEditorFrame(page);
         const width = await frame.current.$eval('section.s.active h1', (el) => el.getBoundingClientRect().width);
@@ -192,14 +191,53 @@ async function runEditorHistoryAndLayers(page, checkpoint, frame, beforeResize) 
         assert.match(await frame.current.$eval('section.s.active h1', (el) => el.textContent), /edición manual/);
     });
     frame.current = await getEditorFrame(page);
+    const previousToolsMarkup = await page.$eval('#dynamic-tools-container', (el) => el.innerHTML);
     await frame.current.evaluate(() => {
         window.editorSelect(document.querySelector('section.s.active .layer-back'));
         window.toFront();
     });
+    await page.waitForFunction((previousMarkup) => {
+        const panel = document.getElementById('editor-tools-panel');
+        const tools = document.getElementById('dynamic-tools-container');
+        return panel?.classList.contains('active') &&
+            Number(getComputedStyle(panel).opacity) >= 0.99 &&
+            tools?.innerHTML !== previousMarkup &&
+            !tools?.querySelector('#tool-font-size');
+    }, { timeout: 5000 }, previousToolsMarkup);
     await checkpoint(page, 'flow-16-editor-layer', async () => {
         frame.current = await getEditorFrame(page);
         assert.ok(await frame.current.$eval('.layer-back', (el) => Number(getComputedStyle(el).zIndex) > 2));
     });
+}
+
+async function watchThumbnailLoad(page, requestedIndex = null) {
+    const index = requestedIndex ?? await page.$eval('#preview-iframe', (iframe) =>
+        [...iframe.contentDocument.querySelectorAll('section.s')].findIndex((slide) => slide.classList.contains('active')));
+    const selector = `#minimap-list > .minimap-item[data-index="${index}"] iframe`;
+    const previousLoads = await page.$eval(selector, (iframe) => {
+        iframe.dataset.editorSafetyLoadCount ||= '0';
+        if (iframe.dataset.editorSafetyLoadListener !== 'installed') {
+            iframe.dataset.editorSafetyLoadListener = 'installed';
+            iframe.addEventListener('load', () => {
+                iframe.dataset.editorSafetyLoadCount = String(Number(iframe.dataset.editorSafetyLoadCount || 0) + 1);
+            });
+        }
+        return Number(iframe.dataset.editorSafetyLoadCount);
+    });
+    return { selector, previousLoads };
+}
+
+async function waitForThumbnailLoad(page, watch) {
+    await page.waitForFunction(({ selector, previousLoads }) => {
+        const iframe = document.querySelector(selector);
+        return Number(iframe?.dataset.editorSafetyLoadCount || 0) > previousLoads;
+    }, { timeout: 15000 }, watch);
+    const iframe = await page.$(watch.selector);
+    if (!iframe) throw new Error(`Minimap thumbnail disappeared: ${watch.selector}`);
+    const frame = await iframe.contentFrame();
+    if (!frame) throw new Error(`Minimap thumbnail has no content frame: ${watch.selector}`);
+    await frame.waitForFunction(() => document.readyState === 'complete' && document.fonts?.status !== 'loading', { timeout: 10000 });
+    await frame.evaluate(() => new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
 }
 
 async function runMinimapFlow(page, checkpoint) {
@@ -213,8 +251,10 @@ async function runMinimapFlow(page, checkpoint) {
         assert.equal(await page.$eval('#canvas-zoom-display', (el) => el.textContent.trim()), zoomBefore);
     }, { hideMinimap: true });
     await page.waitForFunction(() => document.querySelectorAll('#minimap-list > *').length >= 2, { timeout: 12000 });
+    const firstThumbnailLoad = await watchThumbnailLoad(page, 0);
     await page.click('#minimap-list > *:first-child');
-    await new Promise((resolve) => setTimeout(resolve, 850));
+    await waitForThumbnailLoad(page, firstThumbnailLoad);
+    await waitForHoveredMinimapItem(page, '#minimap-list > *:first-child');
     await checkpoint(page, 'flow-19-editor-minimap', async () => {
         assert.ok(await page.$$eval('#minimap-list > *', (items) => items.length >= 2));
         assert.equal(await page.$eval('#minimap-list > *:first-child', (item) => item.classList.contains('active')), true);
@@ -222,14 +262,21 @@ async function runMinimapFlow(page, checkpoint) {
         assert.equal(await editor.evaluate(() =>
             [...document.querySelectorAll('section.s')].findIndex((section) => section.classList.contains('active'))), 0);
     });
+    const secondThumbnailLoad = await watchThumbnailLoad(page, 1);
     await page.click('#minimap-list > *:nth-child(2)');
-    await new Promise((resolve) => setTimeout(resolve, 850));
+    await waitForThumbnailLoad(page, secondThumbnailLoad);
+    await waitForHoveredMinimapItem(page, '#minimap-list > *:nth-child(2)');
     await checkpoint(page, 'flow-20-minimap-navigation', async () => {
         assert.ok(await page.$eval('#minimap-list > *:nth-child(2)', (el) => el.classList.contains('active')));
         const editor = await getEditorFrame(page);
         assert.equal(await editor.evaluate(() =>
             [...document.querySelectorAll('section.s')].findIndex((section) => section.classList.contains('active'))), 1);
     });
+}
+
+async function waitForHoveredMinimapItem(page, selector) {
+    await page.hover(selector);
+    await page.waitForFunction((itemSelector) => document.querySelector(itemSelector)?.matches(':hover'), { timeout: 3000 }, selector);
 }
 
 async function runExportFlow(page, runtime, checkpoint) {
@@ -243,8 +290,9 @@ async function runExportFlow(page, runtime, checkpoint) {
     });
     await page.waitForFunction(() => !/** @type {HTMLButtonElement | null} */ (document.querySelector('#finalize-btn'))?.disabled, { timeout: 5000 });
     await page.click('#export-menu-trigger');
+    const pptxResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/finalize-pptx', { timeout: 10000 });
     await page.click('#export-pptx-btn');
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await pptxResponse;
     await checkpoint(page, 'flow-24-export-pptx', async () => {
         assert.ok(runtime.trace.some((entry) => entry.path === '/finalize-pptx'));
     });
