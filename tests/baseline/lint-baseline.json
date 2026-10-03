@@ -1,10 +1,10 @@
 {
-  "totalWarnings": 132,
+  "totalWarnings": 129,
   "byRule": {
     "no-empty": 9,
-    "complexity": 30,
+    "complexity": 28,
     "max-lines-per-function": 23,
-    "max-lines": 9,
+    "max-lines": 8,
     "no-unused-vars": 20,
     "no-shadow": 20,
     "eqeqeq": 2,
@@ -14,14 +14,14 @@
   "byFile": {
     "scripts\\verify-pptx-export.js": 2,
     "src\\backend\\prompts\\base.js": 2,
-    "src\\backend\\prompts\\pipeline.js": 3,
+    "src\\backend\\prompts\\pipeline.js": 1,
     "src\\backend\\prompts\\stage1-content.js": 1,
     "src\\backend\\prompts\\stage2-design.js": 2,
     "src\\backend\\prompts\\stage3-compositor.js": 2,
     "src\\backend\\server.js": 5,
     "src\\backend\\utils\\logger.js": 1,
     "src\\backend\\utils\\pptx-export.js": 11,
-    "src\\backend\\utils\\rate-limiter.js": 2,
+    "src\\backend\\utils\\rate-limiter.js": 1,
     "src\\frontend\\editor\\editor-ui.js": 2,
     "src\\frontend\\features\\minimap\\minimap.js": 5,
     "src\\frontend\\features\\shared\\i18n.js": 2,
@@ -63,15 +63,15 @@
       5
     ],
     [
-      "src\\backend\\prompts\\pipeline.js",
-      3
-    ],
-    [
       "scripts\\verify-pptx-export.js",
       2
     ],
     [
       "src\\backend\\prompts\\base.js",
+      2
+    ],
+    [
+      "src\\backend\\prompts\\stage2-design.js",
       2
     ]
   ]

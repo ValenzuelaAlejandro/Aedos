@@ -1,15 +1,15 @@
 {
-  "totalErrors": 29,
+  "totalErrors": 16,
   "byFile": {
     "scripts\\capture-baseline.js": 1,
     "scripts\\verify-pdf-baseline.js": 1,
-    "src\\backend\\prompts\\pipeline.js": 20,
+    "src\\backend\\prompts\\pipeline.js": 7,
     "src\\backend\\server.js": 2,
     "src\\backend\\utils\\logger.js": 1,
     "src\\backend\\utils\\pptx-export.js": 4
   },
   "byCode": {
-    "TS2339": 28,
+    "TS2339": 15,
     "TS2353": 1
   }
 }
