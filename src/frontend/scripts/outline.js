@@ -1,13 +1,5 @@
 // Outline Editor Logic
 
-window.outlineEditorState = {
-    skeleton: null,
-    mode: 'flash',
-    maxSlides: 15,
-    isLoading: false,
-    activeContainer: null
-};
-
 /**
  * Returns the innerHTML for a .chat-bubble-file-chip span.
  * Uses the same colorful document icons as the chatbox attachment area.

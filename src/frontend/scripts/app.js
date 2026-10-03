@@ -688,9 +688,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        if (window.outlineEditorState) {
-            window.outlineEditorState.skeleton = null;
-            window.outlineEditorState.isLoading = false;
+        if (window.outlineEditorState && window.AedosStores && window.AedosStores.outline) {
+            window.AedosStores.outline.clearDraft();
         }
         
         const previewCont = document.getElementById('preview-container');

@@ -13,3 +13,8 @@ whitespace, delimiter, and final-tail behavior. `tail: true` marks the
 presentation reader's special EOF path. Event interpretation stays in
 the requesting feature. Equivalence vectors are in
 `tests/fixtures/frontend/sse/reader-cases.json`.
+
+`outline-store.js` owns the mutable outline state. Its `window.AedosStores.outline`
+API exposes `getState()`, `replaceState()` and `clearDraft()`. The writable
+`window.outlineEditorState` property remains as a compatibility facade, so
+existing classic scripts keep observing the same state object.
