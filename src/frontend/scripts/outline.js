@@ -580,31 +580,16 @@ function updateOutlineSlideCount() {
     }
 }
 
+function getSlideCommandDependencies() {
+    return {
+        getSlides: () => window.outlineEditorState.skeleton.slides,
+        getMaxSlides: () => window.outlineEditorState.maxSlides,
+        renderSlides: renderOutlineSlides
+    };
+}
+
 function addBlankSlide() {
-    const slides = window.outlineEditorState.skeleton.slides;
-    if (slides.length >= window.outlineEditorState.maxSlides) return;
-
-    slides.push({
-        role: "concept",
-        title: "",
-        subtitle: "",
-        key_points: []
-    });
-    renderOutlineSlides();
-
-    // Bug #7/#20: scroll to bottom AFTER render, then animate the new card in
-    const main = document.querySelector('.outline-main');
-    requestAnimationFrame(() => {
-        if (main) main.scrollTop = main.scrollHeight;
-        // Animate the last card as newly added
-        const cards = document.querySelectorAll('.outline-slide-card');
-        const newCard = cards[cards.length - 1];
-        if (newCard) {
-            newCard.classList.add('is-new');
-            requestAnimationFrame(() => newCard.classList.add('is-new-visible'));
-            setTimeout(() => { newCard.classList.remove('is-new', 'is-new-visible'); }, 500);
-        }
-    });
+    return window.AedosOutlineSlideCommands.addBlankSlide(getSlideCommandDependencies());
 }
 
 async function addSlideWithAI() {
@@ -697,89 +682,19 @@ async function addSlideWithAI() {
 }
 
 function addBlankPoint(slideIndex) {
-    const slides = window.outlineEditorState.skeleton.slides;
-    if (!slides[slideIndex].key_points) slides[slideIndex].key_points = [];
-    slides[slideIndex].key_points.push("");
-
-    // Bug #10: Instead of full re-render, only re-render the affected slide card's point list
-    // so the user doesn't lose focus on other fields.
-    const pointList = document.getElementById(`outline-points-${slideIndex}`);
-    if (pointList) {
-        const pIdx = slides[slideIndex].key_points.length - 1;
-        const newItem = document.createElement('div');
-        newItem.className = 'outline-point-item';
-        newItem.innerHTML = `
-            <span class="outline-point-bullet">●</span>
-            <textarea id="outline-slide-${slideIndex}-point-${pIdx}" name="outline-slide-${slideIndex}-point-${pIdx}" class="outline-point-input" data-sindex="${slideIndex}" data-pindex="${pIdx}" rows="1" aria-label="Bullet point" style="height: auto; resize: none; overflow-y: hidden;"></textarea>
-            <button type="button" class="outline-point-delete" data-sindex="${slideIndex}" data-pindex="${pIdx}">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
-        `;
-        pointList.appendChild(newItem);
-
-        // Wire up the new textarea
-        const textarea = newItem.querySelector('.outline-point-input');
-        const autoResize = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
-        textarea.addEventListener('input', (e) => {
-            autoResize(e.target);
-            const sIdx = parseInt(e.target.dataset.sindex, 10);
-            const pIx = parseInt(e.target.dataset.pindex, 10);
-            const sl = window.outlineEditorState.skeleton.slides;
-            if (sl[sIdx] && sl[sIdx].key_points) sl[sIdx].key_points[pIx] = e.target.value;
-        });
-
-        // Wire up the delete button
-        const deleteBtn = newItem.querySelector('.outline-point-delete');
-        deleteBtn.addEventListener('click', () => {
-            const sIdx = parseInt(deleteBtn.dataset.sindex, 10);
-            const pIx = parseInt(deleteBtn.dataset.pindex, 10);
-            const sl = window.outlineEditorState.skeleton.slides;
-            if (sl[sIdx]) sl[sIdx].key_points.splice(pIx, 1);
-            renderOutlineSlides();
-        });
-
-        // Bug #10: Focus the new textarea so user can immediately type
-        textarea.focus();
-        // Animate in
-        newItem.classList.add('is-new');
-        requestAnimationFrame(() => newItem.classList.add('is-new-visible'));
-        setTimeout(() => newItem.classList.remove('is-new', 'is-new-visible'), 400);
-    } else {
-        // Fallback: full re-render if DOM element not found
-        renderOutlineSlides();
-    }
+    return window.AedosOutlineSlideCommands.addBlankPoint(slideIndex, getSlideCommandDependencies());
 }
 
 function deleteSlide(index) {
-    if (confirm('Are you sure you want to delete this slide?')) {
-        window.outlineEditorState.skeleton.slides.splice(index, 1);
-        renderOutlineSlides();
-    }
+    return window.AedosOutlineSlideCommands.deleteSlide(index, getSlideCommandDependencies());
 }
 
 function moveSlideUp(index) {
-    if (index === 0) return;
-    const slides = window.outlineEditorState.skeleton.slides;
-    const temp = slides[index - 1];
-    slides[index - 1] = slides[index];
-    slides[index] = temp;
-    // Bug #20: preserve scroll position after re-render
-    const main = document.querySelector('.outline-main');
-    const scrollTop = main ? main.scrollTop : 0;
-    renderOutlineSlides();
-    requestAnimationFrame(() => { if (main) main.scrollTop = scrollTop; });
+    return window.AedosOutlineSlideCommands.moveSlideUp(index, getSlideCommandDependencies());
 }
 
 function moveSlideDown(index) {
-    const slides = window.outlineEditorState.skeleton.slides;
-    if (index === slides.length - 1) return;
-    const temp = slides[index + 1];
-    slides[index + 1] = slides[index];
-    slides[index] = temp;
-    const main = document.querySelector('.outline-main');
-    const scrollTop = main ? main.scrollTop : 0;
-    renderOutlineSlides();
-    requestAnimationFrame(() => { if (main) main.scrollTop = scrollTop; });
+    return window.AedosOutlineSlideCommands.moveSlideDown(index, getSlideCommandDependencies());
 }
 
 function resumeOutlineEditor() {

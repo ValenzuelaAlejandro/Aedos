@@ -2,8 +2,8 @@
 
 const specs = [
     {
-        name: 'outline-add', probe: 'add', file: '/scripts/outline.js',
-        edits: [['function addBlankSlide() {\n    const slides', 'function addBlankSlide() {\n    return;\n    const slides']],
+        name: 'outline-add', probe: 'add', file: '/features/outline/slide-commands.js',
+        edits: [["slides.push({ role: 'concept', title: '', subtitle: '', key_points: [] });", 'slides.pop();']],
         expected: { count: 4 },
     },
     {
@@ -17,18 +17,18 @@ const specs = [
         expected: { point: 'Mutation point sentinel' },
     },
     {
-        name: 'outline-delete', probe: 'delete', file: '/scripts/outline.js',
-        edits: [['window.outlineEditorState.skeleton.slides.splice(index, 1);', 'window.outlineEditorState.skeleton.slides.splice(index + 1, 1);']],
+        name: 'outline-delete', probe: 'delete', file: '/features/outline/slide-commands.js',
+        edits: [['dependencies.getSlides().splice(index, 1);', 'dependencies.getSlides().splice(index + 1, 1);']],
         expected: { count: 2, first: 'De panel a red eléctrica' },
     },
     {
-        name: 'outline-move-up', probe: 'up', file: '/scripts/outline.js',
-        edits: [['slides[index - 1] = slides[index];', 'slides[index - 1] = slides[index - 1];']],
+        name: 'outline-move-up', probe: 'up', file: '/features/outline/slide-commands.js',
+        edits: [['slides[targetIndex] = slides[index];', 'slides[targetIndex] = slides[targetIndex];']],
         expected: { titles: ['De panel a red eléctrica', 'La energía que llega del sol', 'Ciudades con energía limpia'] },
     },
     {
-        name: 'outline-move-down', probe: 'down', file: '/scripts/outline.js',
-        edits: [['slides[index + 1] = slides[index];', 'slides[index + 1] = slides[index + 1];']],
+        name: 'outline-move-down', probe: 'down', file: '/features/outline/slide-commands.js',
+        edits: [['slides[targetIndex] = slides[index];', 'slides[targetIndex] = slides[targetIndex];']],
         expected: { titles: ['De panel a red eléctrica', 'La energía que llega del sol', 'Ciudades con energía limpia'] },
     },
     {
