@@ -7,6 +7,7 @@ const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
 const rendererPath = path.join(root, 'src/frontend/features/outline/slide-renderer.js');
+const parserPath = path.join(root, 'src/frontend/features/outline/stream-parser.js');
 const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/outline-slide-cases.json');
 
 function createDocument() {
@@ -59,4 +60,16 @@ test('outline slide renderer preserves the legacy markup byte-for-byte', () => {
         assert.equal(item.innerHTML.length, expected.length);
         assert.equal(crypto.createHash('sha256').update(item.innerHTML).digest('hex'), expected.sha256);
     }
+});
+
+test('outline stream parser preserves complete and partial slide fragments', () => {
+    const window = {};
+    vm.runInNewContext(fs.readFileSync(parserPath, 'utf8'), { window }, { filename: parserPath });
+    const parse = window.AedosOutlineParser.parsePartialSkeleton;
+
+    const complete = parse('{"slides":[{"index":0,"title":"Solar","key_points":["Clean","Reliable"]}]}');
+    assert.equal(JSON.stringify(complete), JSON.stringify({ slides: [{ title: 'Solar', key_points: ['Clean', 'Reliable'] }] }));
+
+    const partial = parse('{"slides":[{"index":0,"title":"Still typ');
+    assert.equal(JSON.stringify(partial), JSON.stringify({ slides: [{ title: 'Still typ', key_points: [] }] }));
 });
