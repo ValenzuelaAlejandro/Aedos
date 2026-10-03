@@ -1,14 +1,14 @@
 {
-  "totalWarnings": 162,
+  "totalWarnings": 132,
   "byRule": {
     "no-empty": 9,
-    "complexity": 34,
-    "max-lines-per-function": 26,
-    "max-lines": 10,
-    "no-unused-vars": 27,
-    "no-shadow": 22,
-    "prefer-const": 21,
+    "complexity": 30,
+    "max-lines-per-function": 23,
+    "max-lines": 9,
+    "no-unused-vars": 20,
+    "no-shadow": 20,
     "eqeqeq": 2,
+    "prefer-const": 8,
     "no-undef": 11
   },
   "byFile": {
@@ -23,7 +23,6 @@
     "src\\backend\\utils\\pptx-export.js": 11,
     "src\\backend\\utils\\rate-limiter.js": 2,
     "src\\frontend\\editor\\editor-ui.js": 2,
-    "src\\frontend\\editor\\editor.js": 30,
     "src\\frontend\\features\\minimap\\minimap.js": 5,
     "src\\frontend\\features\\shared\\i18n.js": 2,
     "src\\frontend\\features\\shared\\init.js": 2,
@@ -38,10 +37,6 @@
     [
       "src\\frontend\\scripts\\app.js",
       68
-    ],
-    [
-      "src\\frontend\\editor\\editor.js",
-      30
     ],
     [
       "src\\backend\\utils\\pptx-export.js",
@@ -73,6 +68,10 @@
     ],
     [
       "scripts\\verify-pptx-export.js",
+      2
+    ],
+    [
+      "src\\backend\\prompts\\base.js",
       2
     ]
   ]
