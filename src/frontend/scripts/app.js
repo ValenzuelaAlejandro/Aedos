@@ -89,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorContainer = document.getElementById('error-container');
     const refusedContainer = document.getElementById('refused-container');
     const refusedMessage = document.getElementById('refused-message');
+    const errorModal = window.AedosModals.createErrorModal(errorContainer);
 
     const downloadBtn = document.getElementById('download-btn');
     const resultSubtitle = document.getElementById('result-subtitle');
@@ -98,30 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const temaError = document.getElementById('tema-error');
     let debugLastGeneratedBtn = null; // Created dynamically in dev only
 
-    // Callback run when the error modal is dismissed (varies by context)
-    let _errorModalOnDismiss = null;
-
-    function showErrorModal(onDismiss) {
-        _errorModalOnDismiss = onDismiss || null;
-        errorContainer.classList.remove('hidden');
-    }
-
-    function hideErrorModal() {
-        errorContainer.classList.add('is-closing');
-        setTimeout(() => {
-            errorContainer.classList.remove('is-closing');
-            errorContainer.classList.add('hidden');
-            _errorModalOnDismiss = null;
-        }, 190);
-    }
+    const showErrorModal = errorModal.show;
 
     // Wire error modal close/action buttons
     const _errCloseBtnEl = document.getElementById('error-modal-close-btn');
-    if (_errCloseBtnEl) _errCloseBtnEl.addEventListener('click', () => {
-        const cb = _errorModalOnDismiss;
-        hideErrorModal();
-        if (cb) cb();
-    });
+    if (_errCloseBtnEl) _errCloseBtnEl.addEventListener('click', errorModal.dismiss);
 
     const _refCloseBtnEl = document.getElementById('refused-modal-close-btn');
     if (_refCloseBtnEl) _refCloseBtnEl.addEventListener('click', () => {
@@ -4745,7 +4727,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     function resetUI() {
         document.body.classList.remove('no-scroll');
-        _errorModalOnDismiss = null;
+        errorModal.clearOnDismiss();
         // Show chat again
         if (resultContainer) resultContainer.classList.add('hidden');
         if (errorContainer) errorContainer.classList.add('hidden');
@@ -4781,9 +4763,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // back-btn: dismiss error modal then call the context-specific dismiss action
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            const cb = _errorModalOnDismiss;
-            hideErrorModal();
-            if (cb) cb();
+            errorModal.dismiss();
             // If no callback, just close the modal — stay on whatever screen is active
         });
     }
@@ -4853,6 +4833,3 @@ document.querySelectorAll('.suggestion-pill').forEach(pill => {
         }
     });
 });
-
-
-
