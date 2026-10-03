@@ -479,96 +479,37 @@ window.finalizeStreamingOutline = function(finalSkeleton) {
 window.renderOutlineSuggestedChips = function(skeletonData) {
     const chipsContainer = getOutlineDom().chipsContainer;
     if (!chipsContainer) return;
-    chipsContainer.innerHTML = '';
-    
-    if (window._chipsRenderTimeout) clearTimeout(window._chipsRenderTimeout);
-
-    const hasSlides = !!(
-        skeletonData &&
-        Array.isArray(skeletonData.slides) &&
-        skeletonData.slides.length > 0
-    );
-    if (!hasSlides) return;
-
-    let suggestedChips = [];
-    const isEnglish = (skeletonData.language || 'es').toLowerCase().startsWith('en');
-
-    const t = (key, fallback) => {
-        if (typeof window !== 'undefined' && window.__t) {
-            return window.__t(key);
-        }
-        return fallback;
-    };
-
-    if (skeletonData.suggested_chips && Array.isArray(skeletonData.suggested_chips) && skeletonData.suggested_chips.length > 0) {
-        suggestedChips = skeletonData.suggested_chips.slice(0, 2).map(chipText => ({
-            text: chipText,
-            prompt: chipText
-        }));
-
-        suggestedChips.push({
-            text: t('chip_fallback_generate_text', isEnglish ? 'Looks good! Create presentation' : 'Todo listo! Crear presentación'),
-            primary: true,
-            action: 'generate'
-        });
-    } else {
-        suggestedChips = [
-            {
-                text: t('chip_fallback_add_slide_text', 'Añadir diapositiva relevante'),
-                prompt: t('chip_fallback_add_slide_prompt', 'Sugiéreme y añade una nueva diapositiva relevante y lógica al esquema actual')
-            },
-            {
-                text: t('chip_fallback_explain_text', 'Explicar con más detalle'),
-                prompt: t('chip_fallback_explain_prompt', 'Haz que los puntos clave de las diapositivas sean más detallados, informativos y descriptivos')
-            },
-            {
-                text: t('chip_fallback_generate_text', 'Todo listo! Crear presentación'),
-                primary: true,
-                action: 'generate'
+    window.AedosOutlineChipsRenderer.renderSuggestedChips(chipsContainer, skeletonData, {
+        previousTimeout: window._chipsRenderTimeout,
+        rememberTimeout(timeout) {
+            window._chipsRenderTimeout = timeout;
+        },
+        translate(key, fallback) {
+            if (typeof window !== 'undefined' && window.__t) return window.__t(key);
+            return fallback;
+        },
+        proceed() {
+            if (typeof window.proceedWithCurrentOutline === 'function') window.proceedWithCurrentOutline();
+        },
+        submitPrompt(chip) {
+            const inputEl = document.getElementById('w-tema');
+            const btnGenerateMain = document.getElementById('btn-generate');
+            if (inputEl && btnGenerateMain) {
+                inputEl.value = chip.prompt || chip.text;
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                btnGenerateMain.disabled = false;
+                btnGenerateMain.click();
             }
-        ];
-    }
-
-    window._chipsRenderTimeout = setTimeout(() => {
-        if (!document.body.contains(chipsContainer)) return;
-        chipsContainer.innerHTML = '';
-        
-        suggestedChips.forEach((chip, cIdx) => {
-            const btn = document.createElement('button');
-            btn.className = `suggested-chip ${chip.primary ? 'chip-primary' : ''}`;
-            btn.type = 'button';
-            btn.innerHTML = chip.text;
-
-            btn.addEventListener('click', () => {
-                // Primary "Looks good! Create presentation" chip: skip the AI skeleton
-                // analysis entirely and kick off the final generation straight from
-                // the current outline. This avoids a wasted /generate-skeleton call.
-                if (chip.action === 'generate') {
-                    if (typeof window.proceedWithCurrentOutline === 'function') {
-                        window.proceedWithCurrentOutline();
-                    }
-                    return;
-                }
-
-                const inputEl = document.getElementById('w-tema');
-                const btnGenerateMain = document.getElementById('btn-generate');
-                if (inputEl && btnGenerateMain) {
-                    inputEl.value = chip.prompt || chip.text;
-                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                    btnGenerateMain.disabled = false;
-                    btnGenerateMain.click();
-                }
-            });
-            chipsContainer.appendChild(btn);
-
+        },
+        animate(button, index) {
             if (window.gsap) {
-                window.gsap.fromTo(btn, 
-                    { opacity: 0, scale: 0.95, x: -15 }, 
-                    { opacity: 1, scale: 1, x: 0, duration: 0.4, ease: 'power2.out', delay: cIdx * 0.08 }
+                window.gsap.fromTo(button,
+                    { opacity: 0, scale: 0.95, x: -15 },
+                    { opacity: 1, scale: 1, x: 0, duration: 0.4, ease: 'power2.out', delay: index * 0.08 }
                 );
             }
-        });
-    }, 1000);
+        },
+    });
 };
 
 function initOutlineEditor(skeletonData, mode) {
