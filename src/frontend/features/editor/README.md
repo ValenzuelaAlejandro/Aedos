@@ -22,6 +22,14 @@ public application contract.
 Keep its timer (50 ms), initial snapshot delay (500 ms), event name, and payload
 unchanged unless a separately approved behavior change is tested.
 
+## Selection geometry
+
+`selection-geometry.js` calculates the viewport-clipped selection box and the
+existing toolbar edge fallbacks as a pure helper. It is loaded before
+`editor.js`; its `window.AedosEditorSelectionGeometry` factory is an internal
+iframe bridge. The helper deliberately preserves the legacy 340px fallback
+toolbar width, 50px small-selection threshold, and 10/12px viewport margins.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.

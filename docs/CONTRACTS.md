@@ -79,6 +79,7 @@ outline actions. These names must remain stable until their consumers migrate.
 | `features/shared/init.js` | fallback `__t`, `currentLang` | shared navigation |
 | `features/editor/semantics.js` | `AedosEditorSemantics` | `editor.js` only (internal iframe factory bridge; not a public application API) |
 | `features/editor/history.js` | `AedosEditorHistory` | `editor.js` only (internal iframe factory bridge; not a public application API) |
+| `features/editor/selection-geometry.js` | `AedosEditorSelectionGeometry` | `editor.js` only (internal iframe geometry bridge; not a public application API) |
 | `features/tools/shape-inserter.js` | `AedosEditorInsertions` | `tools.js` only (internal editor-tools factory bridge; not a public application API) |
 | `mobile/js/nav-dots.js` | `AedosMobileNavDots` | `mobile/js/bridge.js` only (internal mobile factory bridge; not a public application API) |
 | `features/minimap/minimap-view.js` | `AedosMinimapView` | `minimap.js` only (internal page factory bridge; not a public application API) |

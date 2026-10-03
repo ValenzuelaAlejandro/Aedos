@@ -2082,6 +2082,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <link rel="stylesheet" href="/editor/editor.css?v=3">
         <script src="/features/editor/semantics.js?v=1"></script>
         <script src="/features/editor/history.js?v=1"></script>
+        <script src="/features/editor/selection-geometry.js?v=1"></script>
         <script src="/editor/editor.js?v=3"></script>
         `;
 
@@ -2827,9 +2828,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Ensure editor scripts are always present
             if (!html.includes('editor.js')) {
                 if (html.includes('</body>')) {
-                    html = html.replace('</body>', '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/features/editor/semantics.js?v=1"></script><script src="/features/editor/history.js?v=1"></script><script src="/editor/editor.js?v=3"></script></body>');
+                    html = html.replace('</body>', '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/features/editor/semantics.js?v=1"></script><script src="/features/editor/history.js?v=1"></script><script src="/features/editor/selection-geometry.js?v=1"></script><script src="/editor/editor.js?v=3"></script></body>');
                 } else {
-                    html += '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/features/editor/semantics.js?v=1"></script><script src="/features/editor/history.js?v=1"></script><script src="/editor/editor.js?v=3"></script>';
+                    html += '<link rel="stylesheet" href="/editor/editor.css?v=3"><script src="/features/editor/semantics.js?v=1"></script><script src="/features/editor/history.js?v=1"></script><script src="/features/editor/selection-geometry.js?v=1"></script><script src="/editor/editor.js?v=3"></script>';
                 }
             } else {
                 const editorScript = /<script\b(?=[^>]*\bsrc=["'][^"']*editor\.js[^"']*["'])[^>]*><\/script>/i;
@@ -2839,6 +2840,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (!html.includes('/features/editor/history.js')) {
                     editorModules.push('<script src="/features/editor/history.js?v=1"></script>');
+                }
+                if (!html.includes('/features/editor/selection-geometry.js')) {
+                    editorModules.push('<script src="/features/editor/selection-geometry.js?v=1"></script>');
                 }
                 if (editorModules.length > 0) {
                     if (editorScript.test(html)) {

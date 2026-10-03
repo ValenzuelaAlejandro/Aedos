@@ -1516,28 +1516,25 @@ function initEditor() {
         const winW = window.innerWidth;
         const winH = window.innerHeight;
 
-        // Clamp the selection box to the visible viewport so it never collapses
-        // when an element partially overflows the canvas (e.g. very long text).
-        const boxLeft   = Math.max(0, Math.min(rect.left, winW));
-        const boxTop    = Math.max(0, Math.min(rect.top, winH));
-        const boxRight  = Math.max(boxLeft, Math.min(rect.left + rect.width, winW));
-        const boxBottom = Math.max(boxTop, Math.min(rect.top + rect.height, winH));
-        const boxW = boxRight - boxLeft;
-        const boxH = boxBottom - boxTop;
+        const geometry = window.AedosEditorSelectionGeometry.calculate(
+            rect,
+            { width: winW, height: winH },
+            toolbar.offsetWidth,
+        );
 
         // If the element is entirely outside the viewport, hide the UI and bail.
-        if (boxW === 0 || boxH === 0) {
+        if (!geometry.isVisible) {
             selectionBox.style.display = 'none';
             toolbar.style.display = 'none';
             return;
         }
 
-        selectionBox.style.left   = `${boxLeft}px`;
-        selectionBox.style.top    = `${boxTop}px`;
-        selectionBox.style.width  = `${boxW}px`;
-        selectionBox.style.height = `${boxH}px`;
+        selectionBox.style.left = `${geometry.left}px`;
+        selectionBox.style.top = `${geometry.top}px`;
+        selectionBox.style.width = `${geometry.width}px`;
+        selectionBox.style.height = `${geometry.height}px`;
 
-        if (boxW < 50 || boxH < 50) {
+        if (geometry.isSmall) {
             selectionBox.classList.add('editor-small-selection');
         } else {
             selectionBox.classList.remove('editor-small-selection');
@@ -1551,30 +1548,8 @@ function initEditor() {
         }
 
         // SMART POSITIONING: Keep toolbar within window boundaries
-        const tbWidth = toolbar.offsetWidth || 340;
-
-        let toolbarTop  = boxTop - 56;
-        let toolbarLeft = boxLeft;
-
-        // 1. Vertical check
-        if (toolbarTop < 10) {
-            toolbarTop = boxTop + boxH + 12;
-        }
-
-        // 2. Vertical check bottom
-        if (toolbarTop + 46 > winH - 10) {
-            toolbarTop = boxTop - 56;
-            if (toolbarTop < 0) toolbarTop = 10;
-        }
-
-        // 3. Horizontal check
-        if (toolbarLeft + tbWidth > winW - 12) {
-            toolbarLeft = winW - tbWidth - 12;
-        }
-        if (toolbarLeft < 12) toolbarLeft = 12;
-
-        toolbar.style.left = `${toolbarLeft}px`;
-        toolbar.style.top  = `${toolbarTop}px`;
+        toolbar.style.left = `${geometry.toolbarLeft}px`;
+        toolbar.style.top = `${geometry.toolbarTop}px`;
 
         if (!isDragging && !isResizing) {
             toolbar.style.opacity = '1';
