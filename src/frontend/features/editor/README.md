@@ -56,6 +56,10 @@ explicit callbacks and the existing per-iframe `WeakMap`.
 MutationObserver/ResizeObserver lifecycle. Selection state, UI updates, and
 commands remain explicit callbacks into the editor coordinator.
 
+`compatibility-facade.js` installs the same parent-frame `window.*` editor
+hooks, including layer and arrow-move commands. The values remain live through
+getter callbacks into the editor's per-iframe state.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.

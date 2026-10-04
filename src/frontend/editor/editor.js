@@ -11,6 +11,7 @@ import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js'
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 import { createEditorSlideFreeze, createEditorElementNormalizer } from '../features/editor/slide-freeze.js';
 import { createEditorSelectionLifecycle } from '../features/editor/selection-lifecycle.js';
+import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -1387,83 +1388,7 @@ function initEditor() {
     // Save initial state
     saveState();
 
-    // Expose actions to parent
-    window.editorUndo = undo;
-    window.editorRedo = redo;
-    window.editorSaveState = saveState;
-    window.editorDeselect = deselectGroup;
-    window.editorUpdateSelection = updateSelectionBox;
-    window.editorGetSelection = () => selectedElement;
-    window.editorSelect = selectElement;
-    window.isJustSelected = () => _justSelected;
-    window.editorIsDragging = () => isDragging || isResizing;
-    window.editorDuplicateSelection = () => { if (selectedElement) duplicateElement(selectedElement); };
-    window.editorDeleteSelection = () => deleteElement(selectedElement);
-    window.toFront = () => {
-        if (!selectedElement) return;
-        saveState();
-        const parent = selectedElement.parentElement;
-
-        // Ensure the element has a positioning context so z-index works
-        const currentStyle = window.getComputedStyle(selectedElement);
-        if (currentStyle.position === 'static') {
-            selectedElement.style.position = 'relative';
-        }
-
-        // Strategy: Max z-index among siblings (excluding self) + 1
-        const siblings = Array.from(parent.children).filter(s => s !== selectedElement);
-        let maxZ = 0;
-        siblings.forEach(s => {
-            const style = window.getComputedStyle(s);
-            let z = parseInt(style.zIndex);
-            // If it's positioned but has no z-index, it's effectively 1 for layering
-            if (isNaN(z) && style.position !== 'static') z = 1;
-            if (!isNaN(z) && z > maxZ) maxZ = z;
-        });
-        
-        selectedElement.style.zIndex = maxZ + 1;
-        parent.appendChild(selectedElement); // Physical move to end of DOM (front)
-        updateSelectionBox();
-    };
-
-    window.toBack = () => {
-        if (!selectedElement) return;
-        saveState();
-        const parent = selectedElement.parentElement;
-
-        // Ensure the element has a positioning context so z-index works
-        const currentStyle = window.getComputedStyle(selectedElement);
-        if (currentStyle.position === 'static') {
-            selectedElement.style.position = 'relative';
-        }
-
-        // Strategy: Min z-index among siblings (excluding self) - 1
-        const siblings = Array.from(parent.children).filter(s => s !== selectedElement);
-        let minZ = 1000;
-        let foundAny = false;
-        siblings.forEach(s => {
-            const style = window.getComputedStyle(s);
-            let z = parseInt(style.zIndex);
-            if (isNaN(z) && style.position !== 'static') z = 1;
-            if (!isNaN(z)) {
-                if (z < minZ) minZ = z;
-                foundAny = true;
-            }
-        });
-
-        // If no siblings have z-index, we assume they are at layer 1
-        if (!foundAny) minZ = 1;
-
-        // Allow going down to 0. 0 is used by background slots in some templates.
-        // We avoid negative z-index to prevent disappearing behind the slide container itself.
-        const newZ = Math.max(0, minZ - 1);
-        selectedElement.style.zIndex = newZ;
-
-        parent.prepend(selectedElement); // Physical move to start of DOM (back)
-        updateSelectionBox();
-    };
-    window.editorArrowMove = (key, shift) => {
-
+    function moveSelectedElementByArrow(key, shift) {
         if (!selectedElement) return;
         if (!selectedElement._undoSavingArrow) {
             saveState();
@@ -1491,7 +1416,25 @@ function initEditor() {
         selectedElement.style.left = `${resolved.left}px`;
         selectedElement.style.top = `${resolved.top}px`;
         updateSelectionBox();
-    };
+    }
+
+    installEditorCompatibilityFacade({
+        window,
+        getSelectedElement: () => selectedElement,
+        getIsJustSelected: () => _justSelected,
+        getIsDragging: () => isDragging,
+        getIsResizing: () => isResizing,
+        undo,
+        redo,
+        saveState,
+        deselect: deselectGroup,
+        updateSelection: updateSelectionBox,
+        select: selectElement,
+        duplicate: duplicateElement,
+        deleteElement,
+        arrowMove: moveSelectedElementByArrow,
+        resolveDragCollision,
+    });
 }
 
 if (document.readyState === 'loading') {
