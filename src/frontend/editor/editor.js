@@ -23,6 +23,7 @@ import { bindEditorToolbarSizeEvents } from '../features/editor/toolbar-size-eve
 import { bindEditorToolbarActionEvents } from '../features/editor/toolbar-action-events.js';
 import { bindEditorToolbarSwatchEvents } from '../features/editor/toolbar-swatch-events.js';
 import { registerEditorMouseupCleanup } from '../features/editor/mouseup-cleanup.js';
+import { createEditorFontSizeActions } from '../features/editor/font-size-actions.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
 import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
@@ -108,6 +109,12 @@ function initEditor() {
     }
 
     let activeColorAction = null; // 'text' or 'bg'
+    const { changeFontSize, updateSizeDisplay } = createEditorFontSizeActions({
+        document,
+        window,
+        getSelectedElement: () => selectedElement,
+        saveState: () => saveState(),
+    });
 
     function deleteElement(el) {
         return elementOperations.deleteElement(el);
@@ -138,24 +145,6 @@ function initEditor() {
     }
 
     bindToolbarEvents();
-
-    function changeFontSize(delta) {
-        if (!selectedElement) return;
-        saveState();
-        const style = window.getComputedStyle(selectedElement);
-        const currentSize = parseFloat(style.fontSize) || 16;
-        const newSize = Math.max(8, Math.min(200, currentSize + delta));
-        selectedElement.style.fontSize = newSize + 'px';
-        updateSizeDisplay();
-    }
-
-    function updateSizeDisplay() {
-        const valEl = document.getElementById('editor-tb-size-val');
-        if (selectedElement && valEl) {
-            const style = window.getComputedStyle(selectedElement);
-            valEl.textContent = Math.round(parseFloat(style.fontSize)) || 16;
-        }
-    }
 
     const { getDynamicPalette, showColorPicker } = createEditorColorPicker({
         document,

@@ -129,3 +129,7 @@ to the editor through callbacks.
 `mouseup-cleanup.js` owns the document mouseup listener that resets drag/resize
 state, hides guides, refreshes the current selection, and clears per-mousedown
 flags on editable elements. All shared state remains behind bootstrap callbacks.
+
+`font-size-actions.js` owns the font-size increment/clamp and toolbar display
+commands; selection, history, computed style, and the value element are supplied
+through the existing editor document/window and callbacks.

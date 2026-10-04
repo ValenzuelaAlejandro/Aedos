@@ -64,6 +64,18 @@ function loadMouseupCleanup() {
     return module.exports.registerEditorMouseupCleanup;
 }
 
+function loadFontSizeActions() {
+    const module = { exports: {} };
+    const context = { module };
+    vm.createContext(context);
+    const sourcePath = path.join(__dirname, '../src/frontend/features/editor/font-size-actions.js');
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace('export function createEditorFontSizeActions', 'function createEditorFontSizeActions') +
+        '\nmodule.exports = { createEditorFontSizeActions };';
+    vm.runInContext(source, context, { filename: sourcePath });
+    return module.exports.createEditorFontSizeActions;
+}
+
 test('toolbar markup retains text controls and shared actions', () => {
     const render = loadToolbarMarkup();
     const html = render({
@@ -196,4 +208,25 @@ test('mouseup cleanup preserves reset, guide, selection and per-mousedown order'
     ]);
     assert.equal('_normalized' in selected, false);
     assert.equal('_stateSavedSinceMousedown' in editable, false);
+});
+
+test('font-size actions preserve two-pixel steps, clamp and display rounding', () => {
+    const create = loadFontSizeActions();
+    const calls = [];
+    const element = { style: { fontSize: '199px' } };
+    const value = {};
+    const actions = create({
+        document: { getElementById: id => id === 'editor-tb-size-val' ? value : null },
+        window: { getComputedStyle: target => ({ fontSize: target.style.fontSize }) },
+        getSelectedElement: () => element,
+        saveState: () => calls.push('save'),
+    });
+    actions.changeFontSize(2);
+    assert.equal(element.style.fontSize, '200px');
+    assert.equal(value.textContent, 200);
+    assert.deepEqual(calls, ['save']);
+    element.style.fontSize = '7px';
+    actions.changeFontSize(-2);
+    assert.equal(element.style.fontSize, '8px');
+    assert.equal(value.textContent, 8);
 });
