@@ -116,3 +116,8 @@ from the selected element's semantic predicates and palette.
 `toolbar-size-events.js` binds the two existing font-size controls when their
 markup is present. It receives the font-size action explicitly and owns no
 selection state.
+
+`toolbar-action-events.js` binds text/fill color, image replacement, delete,
+and duplicate controls in their prior order. Late editor state and actions are
+provided as callbacks so listener registration does not eagerly read bindings
+initialized later in the editor bootstrap.

@@ -20,6 +20,7 @@ import { applyEditorDrag } from '../features/editor/drag-interaction.js';
 import { createEditorColorPicker } from '../features/editor/color-picker.js';
 import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
 import { bindEditorToolbarSizeEvents } from '../features/editor/toolbar-size-events.js';
+import { bindEditorToolbarActionEvents } from '../features/editor/toolbar-action-events.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
 import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
@@ -112,52 +113,18 @@ function initEditor() {
 
     function bindToolbarEvents() {
         bindEditorToolbarSizeEvents({ document, changeFontSize });
-        const btnTextColor = document.getElementById('editor-btn-text-color');
-        const btnBgColor = document.getElementById('editor-btn-bg-color');
-        const btnDelete = document.getElementById('editor-btn-delete');
-        const btnDuplicate = document.getElementById('editor-btn-duplicate');
-        const btnReplaceImg = document.getElementById('editor-btn-replace-img');
-
-        if (btnTextColor) {
-            btnTextColor.addEventListener('click', (e) => {
-                e.stopPropagation();
-                activeColorAction = 'text';
-                showColorPicker(e.currentTarget);
-            });
-        }
-
-        if (btnBgColor) {
-            btnBgColor.addEventListener('click', (e) => {
-                e.stopPropagation();
-                activeColorAction = 'bg';
-                showColorPicker(e.currentTarget);
-            });
-        }
-
-        if (btnReplaceImg) {
-            btnReplaceImg.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (selectedElement) {
-                    if (window.parent && window.parent._triggerImagePicker) {
-                        window.parent._triggerImagePicker(selectedElement);
-                    }
-                }
-            });
-        }
-
-        if (btnDelete) {
-            btnDelete.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deleteElement(selectedElement);
-            });
-        }
-
-        if (btnDuplicate) {
-            btnDuplicate.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (selectedElement) duplicateElement(selectedElement);
-            });
-        }
+        bindEditorToolbarActionEvents({
+            document,
+            window,
+            getSelectedElement: () => selectedElement,
+            showColorPicker: (action, anchor) => {
+                activeColorAction = action;
+                showColorPicker(anchor);
+            },
+            replaceImage: element => window.parent._triggerImagePicker(element),
+            deleteSelected: () => deleteElement(selectedElement),
+            duplicateSelected: () => duplicateElement(selectedElement),
+        });
 
         // Quick colors binding if they exist
         toolbar.querySelectorAll('.editor-color-swatches-mini .editor-color-swatch').forEach(swatch => {
