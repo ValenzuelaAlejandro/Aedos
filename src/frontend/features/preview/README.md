@@ -14,6 +14,10 @@ dots, and counters. It receives the live preview state, existing DOM nodes, and
 the overlay refresh getter; its `window.*` compatibility helpers are registered
 at the former navigation initialization point.
 
+`slide-input.js` owns the existing keyboard, wheel, and swipe handlers. The
+factory registers document keyboard/wheel listeners at their former point and
+returns wheel/touch handlers for iframe registration by `app.js`.
+
 `overlay-labels.js` creates the parent-side input and label for each image slot.
 The factory receives the live overlay map and replacement callbacks; the app
 invokes it at the former assignment point, so listener registration order stays
