@@ -17,6 +17,7 @@ import { installEditorCompatibilityFacade } from '../features/editor/compatibili
 import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
 import { applyEditorResize } from '../features/editor/resize-interaction.js';
 import { applyEditorDrag } from '../features/editor/drag-interaction.js';
+import { createEditorPointerSelectionHandler } from '../features/editor/pointer-selection.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -515,86 +516,24 @@ function initEditor() {
 
 
 
-    document.body.addEventListener('mousedown', (e) => {
-        if (_isLocked) return;
-        ensureUI();
-
-        // Ignore if clicking on our own tools
-        if (e.target.closest('.editor-selection-box') || e.target.closest('.editor-toolbar') || e.target.closest('.editor-color-picker')) {
-            return;
-        }
-
-        // Allow text cursor placement without dragging if already in edit mode
-        if (e.target.closest('[contenteditable="true"]')) {
-            return;
-        }
-
-        // Use elementsFromPoint to pierce z-index stacking
-        // This allows selecting elements that are visually behind others
-        const allUnderCursor = document.elementsFromPoint(e.clientX, e.clientY);
-
-        // Find the best target: prefer the topmost editable that matches,
-        // but if the user clicked directly on an editable (e.target), use that first.
-        let target = findEditableTarget(e.target);
-
-        // Special case: img-slots used as full-bleed backgrounds sit beneath
-        // content wrappers (z-index:3), so findEditableTarget never reaches them.
-        // If the direct click didn't land on a text element or an img-slot, scan
-        // allUnderCursor and prefer any img-slot found there.
-        if (!isImageSlotElement(target) && !isTextEditableElement(e.target)) {
-            for (const el of allUnderCursor) {
-                if (el.closest('.editor-selection-box') || el.closest('.editor-toolbar')) continue;
-                if (isImageSlotElement(el)) {
-                    target = el;
-                    break;
-                }
-            }
-        }
-
-        // If no target found via native hit-test, scan all elements at this point
-        if (!target) {
-            for (const el of allUnderCursor) {
-                if (el.closest('.editor-selection-box') || el.closest('.editor-toolbar')) continue;
-                const match = findEditableTarget(el);
-                if (match) {
-                    target = match;
-                    break;
-                }
-            }
-        }
-
-        if (target) {
-            // Select it (visual only for now)
-            selectElement(target);
-
-            isDragging = true;
-            dragGroup = [];
-            activeDragTarget = getStableDragTarget(target);
-
-            // We don't normalize (rip out of DOM) immediately on click.
-            // We wait until the mouse actually moves to avoid breaking layouts on simple clicks.
-            const rect = activeDragTarget.getBoundingClientRect();
-            const slide = activeDragTarget.closest('.s') || activeDragTarget.closest('section') || document.body;
-            const slideRect = slide.getBoundingClientRect();
-
-            startX = e.clientX;
-            startY = e.clientY;
-
-            startLeft = rect.left - slideRect.left;
-            startTop = rect.top - slideRect.top;
-
-            // Build snap targets
-            const snapTargets = createEditorSnapTargets(slide, activeDragTarget, getEditableElementsInSlide);
-            snapLinesX = snapTargets.snapLinesX;
-            snapLinesY = snapTargets.snapLinesY;
-
-            if (e.target.contentEditable !== 'true') {
-                e.preventDefault();
-            }
-        } else {
-            deselectGroup();
-        }
-    });
+    document.body.addEventListener('mousedown', createEditorPointerSelectionHandler({
+        document,
+        getIsLocked: () => _isLocked,
+        ensureUI,
+        isImageSlotElement,
+        isTextEditableElement,
+        findEditableTarget,
+        getStableDragTarget,
+        getEditableElementsInSlide,
+        selectElement,
+        deselectGroup,
+        setIsDragging: value => { isDragging = value; },
+        setDragGroup: elements => { dragGroup = elements; },
+        setActiveDragTarget: element => { activeDragTarget = element; },
+        setStartPointer: (x, y) => { startX = x; startY = y; },
+        setStartPosition: (left, top) => { startLeft = left; startTop = top; },
+        setSnapLines: (x, y) => { snapLinesX = x; snapLinesY = y; },
+    }));
 
     // Cleanup _stateSavedSinceMousedown on mouseup
     document.addEventListener('mouseup', () => {
