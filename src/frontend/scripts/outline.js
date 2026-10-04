@@ -8,138 +8,25 @@ function _fileBubbleChipHtml(file) {
     return window.AedosChatRenderer.renderFileChip(file);
 }
 
-function scrollToBottom(force = false) {
-    const chatScreen = document.getElementById('chat-screen');
-    if (!chatScreen) return;
-
-    const threshold = 180;
-    const isAtBottom = (chatScreen.scrollHeight - chatScreen.scrollTop - chatScreen.clientHeight) <= threshold;
-
-    if (force || isAtBottom) {
-        chatScreen.scrollTo({
-            top: chatScreen.scrollHeight,
-            behavior: 'auto'
-        });
+const outlineContainerUi = window.AedosOutlineContainerUi.createOutlineContainerUi({
+    document,
+    getState: () => window.outlineEditorState,
+    addBlankSlide: () => addBlankSlide(),
+    translate: (key, fallback) => window.__t ? window.__t(key, fallback) : fallback,
+    alert: message => window.alert(message),
+    startFinalGeneration: skeleton => {
+        if (window.startFinalGeneration) window.startFinalGeneration(skeleton);
     }
-}
-
-function getActiveOutlineContainer() {
-    const activeContainer = window.outlineEditorState?.activeContainer;
-    if (activeContainer && document.body.contains(activeContainer)) {
-        return activeContainer;
-    }
-
-    return document.getElementById('outline-container');
-}
-
-function getOutlineDom(container = getActiveOutlineContainer()) {
-    if (!container) {
-        return {
-            container: null,
-            slidesContainer: null,
-            chipsContainer: null,
-            addSlideButton: null,
-            generateButton: null
-        };
-    }
-
-    return {
-        container,
-        slidesContainer: container.querySelector('[data-outline-slides]') || container.querySelector('#outline-slides-container'),
-        chipsContainer: container.querySelector('[data-outline-chips]') || container.querySelector('#outline-suggested-chips'),
-        addSlideButton: container.querySelector('[data-outline-add-slide]') || container.querySelector('#btn-outline-add-slide'),
-        generateButton: container.querySelector('[data-outline-generate]') || container.querySelector('#btn-outline-generate')
-    };
-}
-
-function clearOutlineDom(container = getActiveOutlineContainer()) {
-    const outlineDom = getOutlineDom(container);
-    if (outlineDom.slidesContainer) outlineDom.slidesContainer.innerHTML = '';
-    if (outlineDom.chipsContainer) outlineDom.chipsContainer.innerHTML = '';
-}
-
-function mountActiveOutlineContainer(container) {
-    const fallbackContainer = document.getElementById('outline-container');
-    window.outlineEditorState.activeContainer = container && document.body.contains(container)
-        ? container
-        : fallbackContainer;
-    return getOutlineDom(window.outlineEditorState.activeContainer);
-}
-
-function handleOutlineGenerateRequest() {
-    const activeGenerateButton = getOutlineDom().generateButton;
-    if (activeGenerateButton && activeGenerateButton.disabled) return;
-
-    const skel = window.outlineEditorState.skeleton;
-    if (!skel) return;
-
-    skel.topic = document.getElementById('outline-title-input').value;
-    skel.tone = document.getElementById('outline-tone-select').value;
-    skel.audience = document.getElementById('outline-audience-select').value;
-    skel.density = document.getElementById('outline-density-select').value;
-
-    const subtitleInput = document.getElementById('outline-subtitle-input');
-    if (subtitleInput) skel.subtitle_context = subtitleInput.value.trim();
-
-    if (!skel.slides || skel.slides.length === 0) {
-        alert(window.__t ? window.__t('outline_empty_slides', 'Please add at least one slide before generating.') : 'Please add at least one slide before generating.');
-        return;
-    }
-
-    skel.slides.forEach(slide => {
-        if (slide.key_points) {
-            slide.key_points = slide.key_points.filter(p => p && p.trim() !== '');
-        }
-    });
-
-    if (activeGenerateButton) {
-        activeGenerateButton.disabled = true;
-        activeGenerateButton.classList.add('is-generating');
-    }
-
-    if (window.startFinalGeneration) {
-        window.startFinalGeneration(skel);
-    }
-}
-
-function bindOutlineBubbleActions(container) {
-    const outlineDom = getOutlineDom(container);
-
-    if (outlineDom.addSlideButton && !outlineDom.addSlideButton.dataset.boundOutlineAction) {
-        outlineDom.addSlideButton.dataset.boundOutlineAction = 'true';
-        outlineDom.addSlideButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            addBlankSlide();
-        });
-    }
-
-    if (outlineDom.generateButton && !outlineDom.generateButton.dataset.boundOutlineAction) {
-        outlineDom.generateButton.dataset.boundOutlineAction = 'true';
-        outlineDom.generateButton.addEventListener('click', handleOutlineGenerateRequest);
-    }
-}
-
-function createFollowUpOutlineContainer() {
-    const container = document.createElement('div');
-    container.className = 'outline-container-local hidden';
-    container.innerHTML = `
-        <div class="seamless-outline-list" data-outline-slides></div>
-        <div class="outline-suggested-chips" data-outline-chips></div>
-        <div class="outline-bubble-footer">
-            <button type="button" class="outline-btn-ghost" data-outline-add-slide>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Add Section
-            </button>
-            <button type="button" class="outline-generate-btn" data-outline-generate>
-                <span class="outline-generate-text" data-i18n="generate_outline_slides">Create Presentation</span>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-            </button>
-        </div>
-    `;
-
-    bindOutlineBubbleActions(container);
-    return container;
-}
+});
+const {
+    scrollToBottom,
+    getActiveOutlineContainer,
+    getOutlineDom,
+    clearOutlineDom,
+    mountActiveOutlineContainer,
+    bindOutlineBubbleActions,
+    createFollowUpOutlineContainer
+} = outlineContainerUi;
 
 function showOutlineEditorLoading(slideCount = 8) {
     return window.AedosOutlineLoadingView.showOutlineEditorLoading(slideCount, {

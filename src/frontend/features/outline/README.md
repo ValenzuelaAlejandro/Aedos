@@ -37,6 +37,10 @@ It is a call-scoped adapter and retains no shared state.
 It registers listeners only when called by the existing outline bootstrap and
 receives state, navigation, translation and generation-cancellation callbacks.
 
+`container-ui.js` owns the DOM lookup, mounting, chat scrolling, and bubble
+actions for outline containers. It receives the existing state and action
+callbacks explicitly; it does not retain or replace the outline store.
+
 `chips-renderer.js` owns suggested-chip creation, its existing one-second delay,
 and chip DOM events. Translation, generation actions and animation are supplied
 by `scripts/outline.js`; `window.renderOutlineSuggestedChips` remains the
