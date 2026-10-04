@@ -7,6 +7,7 @@ import { createEditorHistory } from '../features/editor/history.js';
 import { calculateEditorSelectionGeometry } from '../features/editor/selection-geometry.js';
 import { resolveDragCollision, resolveResizeCollision } from '../features/editor/collision-geometry.js';
 import { createEditorTargeting } from '../features/editor/targeting.js';
+import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -500,22 +501,7 @@ function initEditor() {
         });
     };
 
-    function getInheritedStyles(el) {
-        const style = window.getComputedStyle(el);
-        return {
-            fontSize: style.fontSize,
-            fontFamily: style.fontFamily,
-            color: style.color,
-            lineHeight: style.lineHeight,
-            textAlign: style.textAlign,
-            fontWeight: style.fontWeight,
-            letterSpacing: style.letterSpacing,
-            textTransform: style.textTransform,
-            fontVariant: style.fontVariant,
-            fontStyle: style.fontStyle,
-            textDecoration: style.textDecoration
-        };
-    }
+    const getInheritedStyles = createEditorStyleSnapshot(window.getComputedStyle.bind(window));
 
     function normalizeElement(el, slide, silent = false, providedRect = null, force = false) {
         if (el._normalized) return;
