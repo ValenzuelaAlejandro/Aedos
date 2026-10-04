@@ -248,6 +248,7 @@ function initEditor() {
 
     const {
         getEditableElementsInNode,
+        getEditableElementsInSlide,
         getTopLevelEditableElements,
         getAllEditableElements,
         findEditableTarget,
@@ -286,24 +287,6 @@ function initEditor() {
         textEditableSelectors: editorSemantics.textEditableSelectors,
         getInheritedStyles,
     });
-
-    /**
-     * Helper to get all editable elements in the same slide, excluding the one being edited.
-     */
-    function getEditableElementsInSlide(slide, excludeEl) {
-        if (!slide) return [];
-        return getEditableElementsInNode(slide, excludeEl)
-            .filter(el => {
-                if (el === excludeEl) return false;
-                if (el.style.display === 'none' || el.style.visibility === 'hidden') return false;
-                if (el.matches(ignoreSelectors) || el.closest(ignoreSelectors)) return false;
-
-                // Exclude children and ancestors of the current element
-                if (excludeEl && (excludeEl.contains(el) || el.contains(excludeEl))) return false;
-
-                return true;
-            });
-    }
 
     const editorGrouping = createEditorGrouping({ document, isSemanticContainer, getEditableElementsInSlide });
 

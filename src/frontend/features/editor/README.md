@@ -95,6 +95,9 @@ receives the existing group, history, normalization, freeze, and selection APIs.
 `grouping.js` computes the existing visually-contained child set and slide-
 relative starting coordinates from the editor's supplied semantic predicate.
 
+`targeting.js` also filters the slide's editable targets against hidden nodes,
+ignored editor chrome, and the currently edited element's ancestor/descendant set.
+
 `selection-dom.js` creates the existing selection box, resize handles, toolbar,
 and alignment guide elements, and attaches them to the document root on demand.
 

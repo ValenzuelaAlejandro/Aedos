@@ -18,6 +18,10 @@ class FakeElement {
         return this.children.flatMap(child => [child, ...child.querySelectorAll()]);
     }
 
+    matches() { return false; }
+
+    closest() { return null; }
+
     contains(element) {
         return this === element || this.children.some(child => child.contains(element));
     }
@@ -85,4 +89,24 @@ test('stable drag target promotes a nested editable to its semantic container', 
     });
 
     assert.equal(targeting.getStableDragTarget(label), container);
+});
+
+test('slide editable targeting filters hidden nodes and excludes edited ancestors and descendants', () => {
+    const slide = new FakeElement('slide');
+    const visible = new FakeElement('visible', slide);
+    const hidden = new FakeElement('hidden', slide);
+    hidden.style.display = 'none';
+    const parent = new FakeElement('parent', slide);
+    const child = new FakeElement('child', parent);
+    const editable = new Set([visible, hidden, parent, child]);
+    const targeting = loadEditorTargeting()({
+        document: { body: slide, querySelectorAll: () => [] },
+        Element: FakeElement,
+        Node: { ELEMENT_NODE: 1 },
+        semantics: createSemantics(slide, new Set(), editable),
+    });
+
+    assert.deepEqual([...targeting.getEditableElementsInSlide(slide)].map(element => element.name), ['visible', 'parent', 'child']);
+    assert.deepEqual([...targeting.getEditableElementsInSlide(slide, parent)].map(element => element.name), ['visible']);
+    assert.equal(targeting.getEditableElementsInSlide(null).length, 0);
 });

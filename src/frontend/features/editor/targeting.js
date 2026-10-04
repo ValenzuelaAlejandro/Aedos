@@ -10,6 +10,7 @@
 
 /** @typedef {object} AedosEditorTargetingApi
  * @property {(root: Element, excludeEl?: Element|null) => Element[]} getEditableElementsInNode
+ * @property {(slide: Element|null, excludeEl?: Element|null) => Element[]} getEditableElementsInSlide
  * @property {(root: Element, excludeEl?: Element|null, includeRoot?: boolean) => Element[]} getTopLevelEditableElements
  * @property {() => Element[]} getAllEditableElements
  * @property {(startEl: Node|Element|null) => Element|null} findEditableTarget
@@ -45,6 +46,18 @@ export function createEditorTargeting({ document, Element, Node, semantics }) {
 
             return true;
         });
+    }
+
+    function getEditableElementsInSlide(slide, excludeEl) {
+        if (!slide) return [];
+        return getEditableElementsInNode(slide, excludeEl)
+            .filter(element => {
+                if (element === excludeEl) return false;
+                if (element.style.display === 'none' || element.style.visibility === 'hidden') return false;
+                if (isIgnoredElement(element)) return false;
+                if (excludeEl && (excludeEl.contains(element) || element.contains(excludeEl))) return false;
+                return true;
+            });
     }
 
     function getTopLevelEditableElements(root, excludeEl, includeRoot = false) {
@@ -126,6 +139,7 @@ export function createEditorTargeting({ document, Element, Node, semantics }) {
 
     return {
         getEditableElementsInNode,
+        getEditableElementsInSlide,
         getTopLevelEditableElements,
         getAllEditableElements,
         findEditableTarget,
