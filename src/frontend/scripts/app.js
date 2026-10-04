@@ -309,9 +309,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     // INPUT PLACEHOLDER (NATIVE)
     // =========================================================
-    const typewriterCursor = null;
-    const chatPlaceholderContainer = null;
-    let typewriterRunning = false;
+    chatState.typewriterCursor = null;
+    chatState.chatPlaceholderContainer = null;
+    chatState.typewriterRunning = false;
     function startTypewriter() { }
     function stopTypewriter() { }
 
@@ -803,16 +803,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────────────────────────────
 
 
-    let warmedUp = false;
+    chatState.warmedUp = false;
     temaInput.addEventListener('input', () => {
         const val = temaInput.value;
 
         // Warm up the backend if not already done
-        if (!warmedUp && val.length > 0) {
-            warmedUp = true;
+        if (!chatState.warmedUp && val.length > 0) {
+            chatState.warmedUp = true;
             fetch('/health').catch(() => {
                 // Silently fail, allow retry on next input if it failed
-                warmedUp = false;
+                chatState.warmedUp = false;
             });
         }
 
@@ -1026,7 +1026,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof langBtn !== 'undefined' && langBtn) langBtn.disabled = false;
             if (typeof btnAttachFile !== 'undefined' && btnAttachFile) btnAttachFile.disabled = false;
 
-            if (typewriterCursor) typewriterCursor.style.display = '';
+            if (chatState.typewriterCursor) chatState.typewriterCursor.style.display = '';
             stopBtnMessages();
 
             document.querySelectorAll('.suggestion-pill, .file-chip-remove').forEach(el => el.disabled = false);
@@ -4412,7 +4412,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // restart typewriter if empty
         if (document.getElementById('w-tema').value.trim() === '') {
-            if (chatPlaceholderContainer) chatPlaceholderContainer.style.display = '';
+            if (chatState.chatPlaceholderContainer) chatState.chatPlaceholderContainer.style.display = '';
             startTypewriter();
         }
     }
