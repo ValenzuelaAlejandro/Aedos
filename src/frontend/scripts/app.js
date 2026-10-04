@@ -3285,26 +3285,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize zoom state
     window._manualZoomScale = 1.0; // Manual zoom factor (1.0 = fill available area; panels reserve space via stage padding)
-    const MIN_ZOOM = 0.5; // 50%
-    const MAX_ZOOM = 2; // 200%
-    const ZOOM_STEP = 0.1; // 10% increments
-    let _fallbackLastIsMobileLayoutForZoom = window.innerWidth <= MOBILE_BREAKPOINT;
+    const zoomState = {
+        min: 0.5, // 50%
+        max: 2, // 200%
+        step: 0.1, // 10% increments
+        fallbackLastIsMobileLayout: window.innerWidth <= MOBILE_BREAKPOINT
+    };
     const syncZoomStateWithViewportMode =
         window.MobileRuntime && typeof window.MobileRuntime.createViewportModeSync === 'function'
             ? window.MobileRuntime.createViewportModeSync({ onLeaveMobile: resetMobileZoomState })
             : function syncZoomStateWithViewportModeFallback() {
                 const isMobileLayout = window.innerWidth <= MOBILE_BREAKPOINT;
-                if (_fallbackLastIsMobileLayoutForZoom && !isMobileLayout) {
+                if (zoomState.fallbackLastIsMobileLayout && !isMobileLayout) {
                     resetMobileZoomState();
                 }
-                _fallbackLastIsMobileLayoutForZoom = isMobileLayout;
+                zoomState.fallbackLastIsMobileLayout = isMobileLayout;
                 return isMobileLayout;
             };
 
     function updateZoomDisplay() {
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-        const maxZoom = isFullscreen ? MAX_ZOOM : 1;
-        const minZoom = MIN_ZOOM;
+        const maxZoom = isFullscreen ? zoomState.max : 1;
+        const minZoom = zoomState.min;
         const EPS = 0.0001;
         const display = document.getElementById('canvas-zoom-display');
         if (display) {
@@ -3317,8 +3319,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setZoom(zoomLevel) {
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-        const maxZoom = isFullscreen ? MAX_ZOOM : 1;
-        zoomLevel = Math.max(MIN_ZOOM, Math.min(maxZoom, zoomLevel));
+        const maxZoom = isFullscreen ? zoomState.max : 1;
+        zoomLevel = Math.max(zoomState.min, Math.min(maxZoom, zoomLevel));
         window._manualZoomScale = zoomLevel;
         updateZoomDisplay();
         window.dispatchEvent(new Event('resize'));
@@ -3330,13 +3332,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnZoomIn) {
         btnZoomIn.addEventListener('click', () => {
-            setZoom(window._manualZoomScale + ZOOM_STEP);
+            setZoom(window._manualZoomScale + zoomState.step);
         });
     }
 
     if (btnZoomOut) {
         btnZoomOut.addEventListener('click', () => {
-            setZoom(window._manualZoomScale - ZOOM_STEP);
+            setZoom(window._manualZoomScale - zoomState.step);
         });
     }
 
