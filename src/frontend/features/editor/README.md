@@ -73,6 +73,11 @@ editor callbacks.
 targets used during drag and resize. It reads geometry from the supplied slide
 and editable-element callback and retains no mutable state.
 
+`resize-interaction.js` applies the existing pointer resize delta, collision
+minimums, snapping guides, and inline styles using the start state supplied by
+the editor. `drag-interaction.js` applies the matching drag collision, guide,
+and position updates. Neither module owns pointer state.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.

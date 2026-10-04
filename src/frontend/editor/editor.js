@@ -16,6 +16,7 @@ import { createEditorPasteHandler, createEditorTextEditingHandler, createEditorD
 import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
 import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
 import { applyEditorResize } from '../features/editor/resize-interaction.js';
+import { applyEditorDrag } from '../features/editor/drag-interaction.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -734,85 +735,20 @@ function initEditor() {
         }
 
         if (isDragging) {
-            if (!currentElement._normalized) return;
-
-            let newLeft = startLeft + (e.clientX - startX);
-            let newTop = startTop + (e.clientY - startY);
-
-            // 1. Resolve Collision
-            const eRect = currentElement.getBoundingClientRect();
-            const resolved = resolveDragCollision({
-                left: newLeft,
-                top: newTop,
-                width: eRect.width,
-                height: eRect.height
-            }, slide, selectedElement);
-
-            newLeft = resolved.left;
-            newTop = resolved.top;
-
-            // 2. Snapping Logic
-            if (slide) {
-                const sRect = slide.getBoundingClientRect();
-                // Use updated rect for snapping
-                const myLinesX = [newLeft, newLeft + eRect.width / 2, newLeft + eRect.width];
-                const myLinesY = [newTop, newTop + eRect.height / 2, newTop + eRect.height];
-
-                const snapTolerance = 8;
-                let bestSnapX = null, bestDiffX = 0, minDistX = snapTolerance;
-
-                for (let mx of myLinesX) {
-                    for (let tg of snapLinesX) {
-                        const dist = Math.abs(mx - tg.val);
-                        if (dist < minDistX) {
-                            minDistX = dist;
-                            bestSnapX = tg.val;
-                            bestDiffX = tg.val - mx;
-                        }
-                    }
-                }
-
-                if (bestSnapX !== null) {
-                    newLeft += bestDiffX;
-                    // Guides are in document.body, so add slide offset
-                    guideV.style.left = (sRect.left + bestSnapX) + 'px';
-                    guideV.style.top = '0px';
-                    guideV.style.height = '100%';
-                    guideV.style.display = 'block';
-                } else {
-                    guideV.style.display = 'none';
-                }
-
-                let bestSnapY = null, bestDiffY = 0, minDistY = snapTolerance;
-
-                for (let my of myLinesY) {
-                    for (let tg of snapLinesY) {
-                        const dist = Math.abs(my - tg.val);
-                        if (dist < minDistY) {
-                            minDistY = dist;
-                            bestSnapY = tg.val;
-                            bestDiffY = tg.val - my;
-                        }
-                    }
-                }
-
-                if (bestSnapY !== null) {
-                    newTop += bestDiffY;
-                    // Guides are in document.body, so add slide offset
-                    guideH.style.top = (sRect.top + bestSnapY) + 'px';
-                    guideH.style.left = '0px';
-                    guideH.style.width = '100%';
-                    guideH.style.display = 'block';
-                } else {
-                    guideH.style.display = 'none';
-                }
-            }
-
-            currentElement.style.left = `${newLeft}px`;
-            currentElement.style.top = `${newTop}px`;
-
-            updateSelectionBox();
-
+            applyEditorDrag(e, {
+                currentElement,
+                selectedElement,
+                slide,
+                startX,
+                startY,
+                startLeft,
+                startTop,
+                snapLinesX,
+                snapLinesY,
+                guideH,
+                guideV,
+                updateSelectionBox,
+            });
         } else if (isResizing) {
             applyEditorResize(e, {
                 selectedElement,
