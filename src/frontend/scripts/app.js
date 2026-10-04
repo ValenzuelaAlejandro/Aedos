@@ -39,16 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const _errCloseBtnEl = document.getElementById('error-modal-close-btn');
     if (_errCloseBtnEl) _errCloseBtnEl.addEventListener('click', errorModal.dismiss);
 
-    const _refCloseBtnEl = document.getElementById('refused-modal-close-btn');
-    if (_refCloseBtnEl) _refCloseBtnEl.addEventListener('click', () => {
-        refusedContainer.classList.add('is-closing');
-        setTimeout(() => {
-            refusedContainer.classList.remove('is-closing');
-            refusedContainer.classList.add('hidden');
-            chatScreen.style.cssText = '';
-            chatScreen.classList.remove('hidden');
-        }, 190);
-    });
+    window.AedosModals.createRefusedModalClose({ refusedContainer, chatScreen });
 
     // Preview elements
     previewState.previewIframe = document.getElementById('preview-iframe');
