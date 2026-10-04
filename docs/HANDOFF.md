@@ -308,17 +308,3 @@ marcó 0 píxeles distintos y detectó 13/13 sentinels. Logs temporales locales:
 
 Pendientes del usuario/entorno: push manual, CI de GitHub, smoke test con IA
 real y `npm audit` con red. No publicar `main`, tags ni usar force.
-
-## Reanudación desde 8e — estabilidad de captura (2026-10-04)
-
-Continuación local desde `refactor/fase-8e-app` en `831c18414d247fbfc5e8a072dbf7958f9de72ad8`. No se leyó `.env`, no se usó red ni se contactaron proveedores reales; no se tocaron `src/` ni baselines.
-
-Diagnóstico sobre el HEAD inicial:
-
-- `npm run check:editor-safety`: 20 corridas iniciales, 19 pasaron y 1 falló en `flow-14-editor-redo`. La salida del comparador informó 0 píxeles sobre umbral, distancia regional máxima 41.6, región `0,9`; el análisis RGB exacto encontró 28 píxeles no idénticos, acotados al borde/sombra del thumbnail activo. Los screenshots actual/diff se guardaron en `tmp/editor-safety-current/`; copias del actual, baseline y diff están en `%TEMP%\aedos-stage0-visual-831c184\flow-14-editor-redo-{actual,baseline,diff}.png`.
-- `npm run check:baseline:visual`: 20/20 corridas; seis capturas aprobadas en cada una. `flow-01-landing` no falló en esta serie y no requirió cambios.
-- La espera previa de iframe load, fuentes del iframe y dos frames no comprobaba que el tile anfitrión del minimapa hubiera estabilizado su geometría/estilo tras refrescar el thumbnail. En `scripts/editor-safety/check-flow.js`, la espera ahora aguarda también `document.fonts.ready` del documento anfitrión y tres frames consecutivos con geometría, transformación, opacidad, borde y sombra idénticos para el tile. No hay sleeps, tolerancias nuevas ni regeneración de imágenes.
-- Confirmación posterior al cambio: `npm run check:editor-safety` 20/20 en verde; cada corrida pasó todos los checkpoints y detectó 13/13 sentinels. En todas las veinte, `flow-13-editor-undo` y `flow-14-editor-redo` fueron 0 píxeles distintos. Logs: `%TEMP%\aedos-stage0-fixed-831c184\editor-safety-1.log` a `editor-safety-20.log`.
-- Durante la exploración se probó y descartó una espera visual global: tres ejecuciones capturaron incorrectamente el panel de herramientas en `flow-13-editor-undo` (140276 píxeles, 10.8238%, región 41,9). El estado de DOM/estilos no representaba el compuesto del screenshot. Ese helper global no está en el cambio final; sus capturas diagnóstico están en `%TEMP%\aedos-stage0-visual-831c184\flow-13-editor-undo-{actual,baseline,diff}.png`.
-
-Este cambio es exclusivamente de sincronización del harness. La siguiente etapa pendiente es el corte de estado/cálculo/render de snap guides en `editor.js`, seguido por los cortes documentados de `app.js`. Referencia antes de reanudar: `editor.js` 457 líneas y `app.js` 4492, medidos mediante `git show <ref>:<archivo> | wc -l`. Mantener los ratchets en lint 119/tipos 16. Push, CI de GitHub, smoke test con IA real y `npm audit` con red siguen pendientes del usuario/entorno.
