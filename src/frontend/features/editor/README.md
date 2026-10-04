@@ -73,10 +73,6 @@ editor callbacks.
 targets used during drag and resize. It reads geometry from the supplied slide
 and editable-element callback and retains no mutable state.
 
-`toolbar-events.js` registers toolbar size, color, image, delete, duplicate, and
-quick-swatch listeners. It receives editor state/actions through callbacks and
-keeps registration and bubbling behavior in the editor bootstrap's order.
-
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.
