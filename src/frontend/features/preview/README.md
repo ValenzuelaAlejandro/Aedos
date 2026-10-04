@@ -9,6 +9,11 @@ together without changing event order.
 `app.js` calls its factory at the former initialization point and keeps the
 returned operations for the existing iframe scaling flow.
 
+`slide-navigation.js` owns slide scrolling, cooldown navigation, desktop/mobile
+dots, and counters. It receives the live preview state, existing DOM nodes, and
+the overlay refresh getter; its `window.*` compatibility helpers are registered
+at the former navigation initialization point.
+
 `overlay-labels.js` creates the parent-side input and label for each image slot.
 The factory receives the live overlay map and replacement callbacks; the app
 invokes it at the former assignment point, so listener registration order stays
