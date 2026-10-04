@@ -92,5 +92,8 @@ toggle, and color application callbacks for editor text and fills.
 `element-operations.js` owns grouped element deletion and duplication. It
 receives the existing group, history, normalization, freeze, and selection APIs.
 
+`toolbar-events.js` binds the toolbar controls and quick swatches while editor
+state and operations remain callback-owned by the bootstrap.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
