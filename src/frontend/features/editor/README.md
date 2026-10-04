@@ -32,6 +32,10 @@ existing toolbar edge fallbacks as a pure helper. It is loaded before
 deliberately preserves the legacy 340px fallback
 toolbar width, 50px small-selection threshold, and 10/12px viewport margins.
 
+`collision-geometry.js` owns the pure drag position and resize minimum-size
+calculations used by the iframe editor. It accepts the original element and
+slide arguments for API compatibility and retains no editor state.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.

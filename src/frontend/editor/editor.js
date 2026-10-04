@@ -5,6 +5,7 @@
 import { createAedosEditorSemantics } from '../features/editor/semantics.js';
 import { createEditorHistory } from '../features/editor/history.js';
 import { calculateEditorSelectionGeometry } from '../features/editor/selection-geometry.js';
+import { resolveDragCollision, resolveResizeCollision } from '../features/editor/collision-geometry.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -727,66 +728,6 @@ function initEditor() {
             });
     }
 
-    /**
-     * Check if two rectangles intersect.
-     */
-    function rectIntersects(r1, r2) {
-        const margin = 2; // tolerance minimum in px
-        return !(r2.left >= r1.left + r1.width - margin ||
-            r2.left + r2.width <= r1.left + margin ||
-            r2.top >= r1.top + r1.height - margin ||
-            r2.top + r2.height <= r1.top + margin);
-    }
-
-    /**
-     * Get element position and size relative to its slide container.
-     */
-    function getElementRect(el, slide) {
-        if (!el || !slide) return { left: 0, top: 0, width: 0, height: 0 };
-        const r = el.getBoundingClientRect();
-        const s = slide.getBoundingClientRect();
-        return {
-            left: r.left - s.left,
-            top: r.top - s.top,
-            width: r.width,
-            height: r.height
-        };
-    }
-
-    /**
-     * Clamps element position to slide boundaries.
-     */
-    function resolveDragCollision(proposedRect, slide, excludeEl) {
-        return {
-            left: proposedRect.left,
-            top: proposedRect.top,
-        };
-    }
-
-    /**
-     * Clamps resizing to slide boundaries and enforces minimum size.
-     */
-    function resolveResizeCollision(proposedRect, handle, slide, excludeEl, fixed = {}) {
-        const minSize = 20;
-
-        let res = { ...proposedRect };
-
-        // Min size enforcement
-        if (res.width < minSize) {
-            res.width = minSize;
-            if (handle.includes('w') && fixed.fixedRight !== undefined) {
-                res.left = fixed.fixedRight - minSize;
-            }
-        }
-        if (res.height < minSize) {
-            res.height = minSize;
-            if (handle.includes('n') && fixed.fixedBottom !== undefined) {
-                res.top = fixed.fixedBottom - minSize;
-            }
-        }
-
-        return res;
-    }
 
 
     document.body.addEventListener('mousedown', (e) => {
