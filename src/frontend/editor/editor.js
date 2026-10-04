@@ -9,6 +9,7 @@ import { resolveDragCollision, resolveResizeCollision } from '../features/editor
 import { createEditorTargeting } from '../features/editor/targeting.js';
 import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js';
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
+import { createEditorSlideFreeze } from '../features/editor/slide-freeze.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -452,35 +453,14 @@ function initEditor() {
             .reduce((sum, side) => sum + (parseFloat(style[`padding${side}`]) || 0), 0) > 0.5;
     }
 
-    function freezeSlideLayout(slide) {
-        if (!slide || _isFrozenMap.has(slide)) return;
-        _isFrozenMap.set(slide, true);
-
-        const allEditables = getEditableElementsInSlide(slide);
-        if (allEditables.length === 0) return;
-
-        // Only normalize top-level editables. Elements that live inside a semantic
-        // container must NOT be independently normalized: normalizeElement would
-        // call slide.appendChild() on them, physically extracting them from their
-        // parent and leaving the container empty.
-        const topLevel = getTopLevelEditableElements(slide);
-
-        if (topLevel.length === 0) return;
-
-        // Capture all positions FIRST before any element is moved
-        const data = topLevel.map(el => ({
-            el,
-            rect: el.getBoundingClientRect()
-        }));
-
-        // Save state ONCE for the whole batch
-        saveState();
-
-        // Normalize all elements using captured positions
-        data.forEach(({ el, rect }) => {
-            normalizeElement(el, slide, true, rect);
-        });
-    }
+    const freezeSlideLayout = createEditorSlideFreeze({
+        frozenSlides: _isFrozenMap,
+        saveState: () => saveState(),
+        getEditableElementsInSlide: (slide, excludeEl) => getEditableElementsInSlide(slide, excludeEl),
+        getTopLevelEditableElements: (root, excludeEl, includeRoot) =>
+            getTopLevelEditableElements(root, excludeEl, includeRoot),
+        normalizeElement: (element, slide, silent, rect) => normalizeElement(element, slide, silent, rect),
+    });
 
     // Exposed for parent frame: freeze all slides before PDF export without
     // polluting the undo history. Slides already frozen are skipped.
