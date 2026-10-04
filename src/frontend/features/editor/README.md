@@ -115,6 +115,11 @@ coordinates, drag/resize mode, selection, snap guides, lock status, and history
 restoration. The editor bootstrap continues to own the interaction logic and
 listener registration order while reading and updating these same state fields.
 
+`body-pointer-events.js` installs the existing body mousedown listener for
+editable-target selection, drag initialization, and snap-target collection.
+Late selection lifecycle bindings are lazy callbacks so registering this
+listener retains its original order without evaluating later `const` bindings.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
 
