@@ -91,3 +91,6 @@ toggle, and color application callbacks for editor text and fills.
 
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
+
+`toolbar-events.js` binds the existing toolbar controls and quick swatches. It
+receives editor state and operations explicitly and owns no mutable state.
