@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const generationState = window.AedosStores.generation.state;
     const previewState = window.AedosStores.previewEditor.state;
+    const chatState = {};
     const uiLog = window.BrowserLogger
         ? window.BrowserLogger.createLogger({ scope: 'UI', minLevel: 'debug' })
         : {
@@ -887,31 +888,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // ── Button cycling message state ──────────────────────────────────────
-    const BTN_LOADING_KEYS_DESKTOP = [
+    chatState.BTN_LOADING_KEYS_DESKTOP = [
         'gen_loading_1', 'gen_loading_2', 'gen_loading_3', 'gen_loading_4',
         'gen_loading_5', 'gen_loading_6', 'gen_loading_7', 'gen_loading_8',
         'gen_loading_9', 'gen_loading_final'
     ];
-    let _activeBtnLoadingKeys = BTN_LOADING_KEYS_DESKTOP;
-    let _btnMsgTimer = null;
-    let _btnMsgIndex = 0;
+    chatState.activeBtnLoadingKeys = chatState.BTN_LOADING_KEYS_DESKTOP;
+    chatState.btnMsgTimer = null;
+    chatState.btnMsgIndex = 0;
 
     function _resolveBtnLoadingKeys() {
         if (window.MobileRuntime && typeof window.MobileRuntime.resolveLoadingKeys === 'function') {
-            return window.MobileRuntime.resolveLoadingKeys(BTN_LOADING_KEYS_DESKTOP);
+            return window.MobileRuntime.resolveLoadingKeys(chatState.BTN_LOADING_KEYS_DESKTOP);
         }
         if (window.innerWidth <= 768) {
-            return BTN_LOADING_KEYS_DESKTOP.map(key => key + '_mobile');
+            return chatState.BTN_LOADING_KEYS_DESKTOP.map(key => key + '_mobile');
         }
-        return BTN_LOADING_KEYS_DESKTOP;
+        return chatState.BTN_LOADING_KEYS_DESKTOP;
     }
 
     function _scheduleNextBtnMsg() {
-        if (_btnMsgIndex >= _activeBtnLoadingKeys.length - 1) return;
-        _btnMsgTimer = setTimeout(() => {
-            _btnMsgIndex++;
-            const key = _activeBtnLoadingKeys[_btnMsgIndex];
-            const fallbackKey = BTN_LOADING_KEYS_DESKTOP[_btnMsgIndex] || 'gen_loading_final';
+        if (chatState.btnMsgIndex >= chatState.activeBtnLoadingKeys.length - 1) return;
+        chatState.btnMsgTimer = setTimeout(() => {
+            chatState.btnMsgIndex++;
+            const key = chatState.activeBtnLoadingKeys[chatState.btnMsgIndex];
+            const fallbackKey = chatState.BTN_LOADING_KEYS_DESKTOP[chatState.btnMsgIndex] || 'gen_loading_final';
             const newText = window.__t(key, window.__t(fallbackKey));
             animateHeroTitle(newText);
             _scheduleNextBtnMsg();
@@ -954,33 +955,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    let _heroResetTimer = null;
+    chatState.heroResetTimer = null;
     function startBtnMessages() {
-        if (_heroResetTimer) { clearTimeout(_heroResetTimer); _heroResetTimer = null; }
-        _activeBtnLoadingKeys = _resolveBtnLoadingKeys();
-        _btnMsgIndex = 0;
-        _btnMsgTimer = null;
-        const key = _activeBtnLoadingKeys[0];
-        const newText = window.__t(key, window.__t(BTN_LOADING_KEYS_DESKTOP[0]));
+        if (chatState.heroResetTimer) { clearTimeout(chatState.heroResetTimer); chatState.heroResetTimer = null; }
+        chatState.activeBtnLoadingKeys = _resolveBtnLoadingKeys();
+        chatState.btnMsgIndex = 0;
+        chatState.btnMsgTimer = null;
+        const key = chatState.activeBtnLoadingKeys[0];
+        const newText = window.__t(key, window.__t(chatState.BTN_LOADING_KEYS_DESKTOP[0]));
         animateHeroTitle(newText);
         _scheduleNextBtnMsg();
     }
 
     function pauseBtnMessages() {
-        if (_btnMsgTimer) { clearTimeout(_btnMsgTimer); _btnMsgTimer = null; }
+        if (chatState.btnMsgTimer) { clearTimeout(chatState.btnMsgTimer); chatState.btnMsgTimer = null; }
     }
 
     function resumeBtnMessages() {
-        if (!_btnMsgTimer) _scheduleNextBtnMsg();
+        if (!chatState.btnMsgTimer) _scheduleNextBtnMsg();
     }
 
     function stopBtnMessages() {
         pauseBtnMessages();
-        _btnMsgIndex = 0;
-        if (_heroResetTimer) clearTimeout(_heroResetTimer);
-        _heroResetTimer = setTimeout(() => {
+        chatState.btnMsgIndex = 0;
+        if (chatState.heroResetTimer) clearTimeout(chatState.heroResetTimer);
+        chatState.heroResetTimer = setTimeout(() => {
             animateHeroTitle(window.__t('hero_line_1', 'Got a spicy idea?'));
-            _heroResetTimer = null;
+            chatState.heroResetTimer = null;
         }, 3000);
     }
     // ─────────────────────────────────────────────────────────────────────
