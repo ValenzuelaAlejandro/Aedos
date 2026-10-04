@@ -25,6 +25,10 @@ replacement functions were defined.
 `overlay-positioning.js` owns stale-label cleanup and viewport positioning. It
 receives the current overlay map each time the iframe overlay setup runs.
 
+`state-restore.js` owns the `state-restored` listener and re-keys existing slot
+labels after editor undo/redo. Getters keep the overlay map and slot helpers
+live across preview resets.
+
 `overlay-labels.js` creates the parent-side input and label for each image slot.
 The factory receives the live overlay map and replacement callbacks; the app
 invokes it at the former assignment point, so listener registration order stays
