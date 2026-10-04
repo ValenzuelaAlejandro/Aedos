@@ -22,6 +22,7 @@ import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js'
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
 import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
+import { installEditorSlideObservers } from '../features/editor/slide-observers.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -81,43 +82,13 @@ function initEditor() {
     const { selectionBox, handleEls, toolbar, guideH, guideV, ensureUI } = createEditorSelectionDom({ document });
     ensureUI();
 
-    // Deselect current element when navigating to another slide to prevent UI overlap
-    const handleSlideChange = () => {
-        if (selectedElement) deselectGroup();
-    };
-
-    window.addEventListener('navigate-prev', handleSlideChange);
-    window.addEventListener('navigate-next', handleSlideChange);
-
-    // Robust detection for any slide change (e.g., via pagination dots or parent UI)
-    // by observing when a section starts being 'active'
-    const slideActivationObserver = new MutationObserver((mutations) => {
-        mutations.forEach(m => {
-            if (m.target.classList.contains('active') && selectedElement) {
-                deselectGroup();
-            }
-        });
+    installEditorSlideObservers({
+        document,
+        window,
+        MutationObserver,
+        getSelectedElement: () => selectedElement,
+        deselect: () => deselectGroup(),
     });
-
-    // Observe existing slides and any that might be added later
-    function observeSlides() {
-        document.querySelectorAll('section.s').forEach(s => {
-            slideActivationObserver.observe(s, { attributes: true, attributeFilter: ['class'] });
-        });
-    }
-    observeSlides();
-
-    // Also watch for newly added slides (e.g. after undo/redo or dynamic generation)
-    const slideStructureObserver = new MutationObserver(() => {
-        observeSlides();
-    });
-    // The script can be injected while the generated document is still being
-    // parsed.  Guard the target so a missing body does not abort the entire
-    // editor bootstrap with "parameter 1 is not of type Node".
-    const structureObservationTarget = document.body || document.documentElement;
-    if (structureObservationTarget) {
-        slideStructureObserver.observe(structureObservationTarget, { childList: true, subtree: true });
-    }
 
 
     // Toolbar content

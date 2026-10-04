@@ -98,5 +98,8 @@ relative starting coordinates from the editor's supplied semantic predicate.
 `selection-dom.js` creates the existing selection box, resize handles, toolbar,
 and alignment guide elements, and attaches them to the document root on demand.
 
+`slide-observers.js` installs the legacy navigation events and mutation
+observers that clear editor selection when the active slide changes.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
