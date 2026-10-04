@@ -104,8 +104,5 @@ observers that clear editor selection when the active slide changes.
 `arrow-movement.js` applies the existing keyboard and compatibility-facade
 arrow movement with undo grouping, collision resolution, and selection refresh.
 
-`background-pointer.js` handles iframe background hit-testing, editable target
-selection, and the original drag-start and snap-target capture.
-
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
