@@ -4034,14 +4034,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Global navigation helpers for editor and other modules
-    let _lastNavScroll = 0;
+    const navigationState = { lastNavScroll: 0 };
     const NAV_COOLDOWN = 350; // ms to Wait between slide transitions to prevent skipping
 
     function tryNavigate(targetIndex) {
-        if (Date.now() - _lastNavScroll < NAV_COOLDOWN) return false;
+        if (Date.now() - navigationState.lastNavScroll < NAV_COOLDOWN) return false;
         if (targetIndex < 0 || targetIndex >= previewState.totalSlides) return false;
 
-        _lastNavScroll = Date.now();
+        navigationState.lastNavScroll = Date.now();
         scrollToSlide(targetIndex);
         return true;
     }
@@ -4240,10 +4240,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', handleSlideKeyboardNav);
 
     // Mouse wheel navigation for slides
-    let wheelCooldown = false;
+    navigationState.wheelCooldown = false;
     function handleSlideWheelNav(e) {
         if (previewContainer.classList.contains('hidden')) return;
-        if (wheelCooldown) return;
+        if (navigationState.wheelCooldown) return;
 
         // Ignore small/accidental/slow inertial wheel events
         const dx = Math.abs(e.deltaX);
@@ -4266,9 +4266,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (navigated) {
-            wheelCooldown = true;
+            navigationState.wheelCooldown = true;
             setTimeout(() => {
-                wheelCooldown = false;
+                navigationState.wheelCooldown = false;
             }, 600); // 600ms cooldown is perfect to absorb trackpad/mouse swipe inertia
         }
     }
@@ -4285,15 +4285,15 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             : null;
 
-    let touchStartX = 0;
-    let touchEndX = 0;
+    navigationState.touchStartX = 0;
+    navigationState.touchEndX = 0;
 
     function handleTouchStart(e) {
         if (mobileSwipeHandlers) {
             mobileSwipeHandlers.onTouchStart(e);
             return;
         }
-        touchStartX = e.changedTouches[0].screenX;
+        navigationState.touchStartX = e.changedTouches[0].screenX;
     }
 
     function handleTouchEnd(e) {
@@ -4301,16 +4301,16 @@ document.addEventListener('DOMContentLoaded', () => {
             mobileSwipeHandlers.onTouchEnd(e);
             return;
         }
-        touchEndX = e.changedTouches[0].screenX;
+        navigationState.touchEndX = e.changedTouches[0].screenX;
         handleSwipe();
     }
 
     function handleSwipe() {
         const threshold = 50;
-        if (touchEndX < touchStartX - threshold) {
+        if (navigationState.touchEndX < navigationState.touchStartX - threshold) {
             // Swipe Left -> Next
             tryNavigate(previewState.currentSlide + 1);
-        } else if (touchEndX > touchStartX + threshold) {
+        } else if (navigationState.touchEndX > navigationState.touchStartX + threshold) {
             // Swipe Right -> Prev
             tryNavigate(previewState.currentSlide - 1);
         }
