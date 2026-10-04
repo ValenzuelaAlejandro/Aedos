@@ -112,3 +112,7 @@ arrow movement with undo grouping, collision resolution, and selection refresh.
 
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
+
+`pointer-transform-events.js` installs the existing document `mousemove` handler
+for drag and resize. Pointer/selection state remains in `editor.js` and crosses
+the module boundary through explicit snapshot/update callbacks.
