@@ -64,6 +64,10 @@ getter callbacks into the editor's per-iframe state.
 buffer. Selection and editing commands are passed as callbacks; the keydown
 listener remains registered at the same bootstrap point.
 
+`content-editing.js` owns the plain-text paste handler and double-click text
+editing lifecycle. Both DOM listeners are registered in their prior order;
+selection, normalization, and history remain editor callbacks.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.

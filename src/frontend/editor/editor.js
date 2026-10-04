@@ -12,6 +12,7 @@ import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 import { createEditorSlideFreeze, createEditorElementNormalizer } from '../features/editor/slide-freeze.js';
 import { createEditorSelectionLifecycle } from '../features/editor/selection-lifecycle.js';
 import { createEditorKeyboardHandler } from '../features/editor/keyboard.js';
+import { createEditorPasteHandler, createEditorTextEditingHandler } from '../features/editor/content-editing.js';
 import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
 
 function initEditor() {
@@ -715,114 +716,21 @@ function initEditor() {
         }
     });
 
-    // Handle Paste as Plain Text (Clean & Safe version)
-    document.addEventListener('paste', (e) => {
-        const target = e.target.closest('[contenteditable="true"]');
-        if (!target) return;
+    document.addEventListener('paste', createEditorPasteHandler({ document, window }));
 
-        e.preventDefault();
-        const clipboardData = e.clipboardData || window.clipboardData;
-        const text = clipboardData.getData('text/plain') || clipboardData.getData('text');
-
-        if (text) {
-            try {
-                // This is the standard way to insert text into contenteditable
-                // It maintains undo/redo history and works in most modern browsers.
-                document.execCommand('insertText', false, text);
-            } catch (err) {
-                // Minimal fallback for restricted environments
-                const selection = window.getSelection();
-                if (selection.rangeCount) {
-                    const range = selection.getRangeAt(0);
-                    range.deleteContents();
-                    range.insertNode(document.createTextNode(text));
-                    range.collapse(false); // Move cursor to end of inserted text
-                }
-            }
-        }
-    });
-
-    selectionBox.addEventListener('dblclick', (e) => {
-        if (_isLocked) return;
-        e.stopPropagation();
-        if (!selectedElement) return;
-
-        // If it's an image slot, trigger the picker in the parent
-        if (selectedElement.dataset.imageSlot !== undefined) {
-            if (window.parent && window.parent._triggerImagePicker) {
-                window.parent._triggerImagePicker(selectedElement);
-            } else {
-                // Fallback to event if direct call fails
-                document.dispatchEvent(new CustomEvent('trigger-image-picker', {
-                    detail: { element: selectedElement },
-                    bubbles: true
-                }));
-            }
-            return;
-        }
-
-        // Find if the selected element is editable text or contains editable text
-        const isEditable = (el) => isTextEditableElement(el);
-        let textTarget = isEditable(selectedElement) ? selectedElement : selectedElement.querySelector(TEXT_EDITABLE_SELECTORS);
-
-        if (textTarget && !textTarget.closest('.editor-toolbar')) {
-            // Normalize only if not yet done and only for standalone elements.
-            if (!textTarget._normalized) {
-                const slide = textTarget.closest('.s') || textTarget.closest('section') || document.body;
-                normalizeElement(textTarget, slide);
-            }
-
-            // Grow-upwards / height:auto only for standalone absolute elements.
-            // Container children (h3/p inside .card etc.) must NOT have their height
-            // changed or their top adjusted — it displaces siblings and jumps the box.
-            const isAbsoluteEl = textTarget.style.position === 'absolute';
-
-            textTarget.contentEditable = "true";
-            textTarget.style.outline = "none";
-            textTarget.style.boxShadow = "none";
-            if (isAbsoluteEl) {
-                textTarget.style.height = "auto";
-                textTarget.style.overflow = "visible";
-            }
-            textTarget.focus();
-
-            if (isAbsoluteEl) {
-                const rect = textTarget.getBoundingClientRect();
-                const slide = textTarget.closest('.s') || document.body;
-                const slideRect = slide.getBoundingClientRect();
-                textTarget._baseBottom = rect.bottom - slideRect.top;
-            }
-
-            selectionBox.style.pointerEvents = "none";
-            selectionBox.classList.add('editor-editing-text');
-
-            // Select all text
-            const range = document.createRange();
-            range.selectNodeContents(textTarget);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-
-            textTarget.addEventListener('blur', function onBlur() {
-                textTarget.contentEditable = "false";
-                textTarget.style.outline = "";
-                if (textTarget.style.position === 'absolute') {
-                    const newHeight = textTarget.getBoundingClientRect().height;
-                    textTarget.style.height = newHeight + "px";
-                }
-                delete textTarget._baseBottom;
-                textTarget.removeEventListener('blur', onBlur);
-                window.getSelection().removeAllRanges();
-
-                selectionBox.style.pointerEvents = "auto";
-                selectionBox.classList.remove('editor-editing-text');
-
-                saveState();
-
-                selectElement(selectedElement);
-            }, { once: true });
-        }
-    });
+    selectionBox.addEventListener('dblclick', createEditorTextEditingHandler({
+        document,
+        window,
+        CustomEvent,
+        selectionBox,
+        getSelectedElement: () => selectedElement,
+        getIsLocked: () => _isLocked,
+        isTextEditableElement,
+        normalizeElement,
+        textEditableSelectors: TEXT_EDITABLE_SELECTORS,
+        saveState: () => saveState(),
+        selectElement: element => selectElement(element),
+    }));
 
     selectionBox.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('editor-resize-handle')) {
