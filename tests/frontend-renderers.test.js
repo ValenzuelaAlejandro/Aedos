@@ -8,6 +8,7 @@ const test = require('node:test');
 const root = path.resolve(__dirname, '..');
 const rendererPath = path.join(root, 'src/frontend/features/chat/attachment-renderer.js');
 const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/attachment-chip-cases.json');
+const contentUtilsPath = path.join(root, 'src/frontend/features/shared/content-utils.js');
 
 function loadRenderer() {
     const window = {};
@@ -31,4 +32,20 @@ test('shared escaping keeps the classic global and exact entity mapping', () => 
     assert.equal(window.escapeHtml('<tag & "quote" \'single\'>'), '&lt;tag &amp; &quot;quote&quot; &#039;single&#039;&gt;');
     assert.equal(window.escapeHtml(42), '');
     assert.equal(window.escapeHtml(null), '');
+});
+
+test('content utilities preserve sanitization output and GIF compatibility globals', () => {
+    const window = {};
+    vm.runInNewContext(fs.readFileSync(contentUtilsPath, 'utf8'), {
+        window,
+        FileReader: function FileReader() {},
+        URL: {},
+        Image: function Image() {},
+        document: {},
+    }, { filename: contentUtilsPath });
+    const input = '<div onclick="x()"><script>alert(1)</script><link href="x">ok</div>';
+    assert.equal(window.AedosContentUtils.sanitizeModelOutput(input), '<div>ok</div>');
+    assert.equal(window.sanitizeModelOutput, window.AedosContentUtils.sanitizeModelOutput);
+    assert.equal(window.gifToStaticDataUrl, window.AedosContentUtils.gifToStaticDataUrl);
+    assert.equal(window.AedosContentUtils.sanitizeModelOutput(null), null);
 });

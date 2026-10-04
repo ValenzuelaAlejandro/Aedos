@@ -4,6 +4,11 @@ Classic scripts in this folder load before feature scripts from `index.html`.
 Keep each file focused on one cross-feature browser service and preserve its
 documented `window.*` API until consumers are migrated in a later phase.
 
+`content-utils.js` owns streamed model-output sanitization and first-frame GIF
+conversion. `window.AedosContentUtils` is the namespaced API; the classic
+`window.sanitizeModelOutput` and `window.gifToStaticDataUrl` names remain as
+compatibility aliases for existing callers.
+
 `http-sse.js` owns framing and incremental UTF-8 decoding for HTTP response
 streams. `window.AedosHttpSse.openResponse(response, options)` returns the
 underlying reader (so existing watchdog cancellation remains possible) and an

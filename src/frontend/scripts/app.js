@@ -1,60 +1,3 @@
-function sanitizeModelOutput(html) {
-    if (typeof html !== 'string') return html;
-    // Strip ALL inline script blocks from AI-generated content.
-    // External scripts (<script src="...">) are allowed through but subject to CSP script-src.
-    html = html.replace(/<script[^>]*>(\s*)<\/script>/gi, '$1'); // keep empty external wrappers
-    html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // strip scripts with content
-    html = html.replace(/<script[^>]*>/gi, ''); // strip complete opening tags
-    html = html.replace(/<script\b[^>]*/gi, ''); // strip partial tags split across SSE chunks
-    html = html.replace(/<\/script>/gi, '');     // strip orphaned closing tags from stripped split-chunk scripts
-    html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
-    html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
-    html = html.replace(/\s+(href|src|action)\s*=\s*["']javascript:[^"']*["']/gi, '');
-    // Strip ALL <link> tags from streaming chunks — same rationale as server-side cleanSSEChunk.
-    // A <link href="url('https://fonts...."> can split across two SSE chunks so any regex that
-    // targets 'fonts.googleapis.com' will miss it when that string straddles a chunk boundary.
-    // Stripping all <link> tags is safe: the streaming iframe is visual-only and initPreview()
-    // always writes the server-sanitized final HTML which already has correct font links injected.
-    html = html.replace(/<link[^>]*\/?>/gi, '');   // complete link tags
-    html = html.replace(/<link\b[^>]*/gi, '');      // partial/unclosed link tags (cross-chunk)
-    return html;
-}
-
-/**
- * Converts a File to a data URL, snapshotting the first frame if it's a GIF.
- * Returns a Promise<string> with a JPEG data URL (PNG for non-GIF).
- */
-function gifToStaticDataUrl(file) {
-    if (!file.type.includes('gif')) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(file);
-        });
-    }
-    // GIF: draw the first frame onto a canvas and export as JPEG
-    return new Promise((resolve) => {
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth || img.width;
-            canvas.height = img.naturalHeight || img.height;
-            canvas.getContext('2d').drawImage(img, 0, 0);
-            URL.revokeObjectURL(url);
-            resolve(canvas.toDataURL('image/jpeg', 0.9));
-        };
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-            // Fallback: plain FileReader
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(file);
-        };
-        img.src = url;
-    });
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     const generationState = window.AedosStores.generation.state;
     const previewState = window.AedosStores.previewEditor.state;
@@ -2198,7 +2141,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tail) {
                     try {
                         const parsed = JSON.parse(dataStr);
-                        if (parsed.chunk) queuePreviewMarkup(sanitizeModelOutput(parsed.chunk));
+                        if (parsed.chunk) queuePreviewMarkup(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
                         if (parsed.done && parsed.html) previewState.generatedHtml = parsed.html;
                     } catch (e) { }
                     continue;
@@ -2352,7 +2295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // Only AI chunks go through sanitizeModelOutput.
                                 iframeDoc.write(skelStyle);
                             }
-                                queuePreviewMarkup(sanitizeModelOutput(parsed.chunk));
+                                queuePreviewMarkup(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
                         }
                         if (parsed.refused) {
                             _pendingTransitionFn = null;
@@ -4106,7 +4049,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function replaceSlotImage(slot, file) {
-        gifToStaticDataUrl(file).then((dataUrl) => applyImageToSlot(slot, dataUrl));
+        window.AedosContentUtils.gifToStaticDataUrl(file).then((dataUrl) => applyImageToSlot(slot, dataUrl));
     }
 
     function replaceSlotWithUrl(slot, url) {
