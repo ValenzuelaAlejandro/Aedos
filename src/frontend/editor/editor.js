@@ -7,6 +7,7 @@ import { createEditorHistory } from '../features/editor/history.js';
 import { calculateEditorSelectionGeometry } from '../features/editor/selection-geometry.js';
 import { resolveDragCollision, resolveResizeCollision } from '../features/editor/collision-geometry.js';
 import { createEditorTargeting } from '../features/editor/targeting.js';
+import { createEditorGrouping } from '../features/editor/grouping.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -59,35 +60,7 @@ function initEditor() {
     // Selection Observer to update box on property changes
     let selectionObserver = null;
 
-    /**
-     * Grouping Helper: Finds elements visually inside a container to treat them as a unit
-     */
-    function collectGroup(target) {
-        const group = [];
-        const slide = target.closest('.s') || target.closest('section') || document.body;
-        const isContainer = isSemanticContainer(target, slide);
-        if (!isContainer) return group;
-
-        const rect = target.getBoundingClientRect();
-        const slideRect = slide.getBoundingClientRect();
-        const others = getEditableElementsInSlide(slide, target);
-
-        others.forEach(other => {
-            const otherRect = other.getBoundingClientRect();
-            // Intersection with tolerance
-            if (otherRect.left >= rect.left - 2 &&
-                otherRect.right <= rect.right + 2 &&
-                otherRect.top >= rect.top - 2 &&
-                otherRect.bottom <= rect.bottom + 2) {
-                group.push({
-                    el: other,
-                    startLeft: otherRect.left - slideRect.left,
-                    startTop: otherRect.top - slideRect.top
-                });
-            }
-        });
-        return group;
-    }
+    const collectGroup = createEditorGrouping({ document, isSemanticContainer, getEditableElementsInSlide });
 
     // UI Elements
     const selectionBox = document.createElement('div');

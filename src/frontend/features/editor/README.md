@@ -41,6 +41,10 @@ stable drag-target selection. Its factory receives the iframe document,
 constructors, and the shared semantic predicates explicitly; it retains no
 mutable editor state.
 
+`grouping.js` owns the visual containment test for drag-group members. The
+editor supplies slide discovery, semantic-container classification, and the
+existing editable-elements query as explicit dependencies.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.
