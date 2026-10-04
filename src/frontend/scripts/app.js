@@ -3738,69 +3738,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // =========================================================
-    // 9. FINALIZE — Download PDF or editable PowerPoint
-    // =========================================================
-    finalizeBtn.addEventListener('click', async () => {
-        const exportFormat = generationState.requestedExportFormat;
-        generationState.requestedExportFormat = 'pdf';
-        finalizeBtn.disabled = true;
-        finalizeBtn.classList.add('loading');
-
-        const progressFill = finalizeBtn.querySelector('.btn-progress-fill');
-        if (progressFill) progressFill.style.width = '0%';
-
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-            progress += (90 - progress) * 0.1;
-            if (progressFill) progressFill.style.width = `${progress}%`;
-        }, 300);
-
-        try {
-            const finalHtml = window.AedosExportSnapshot.createHtml(previewState.previewIframe);
-
-            const response = await fetch(exportFormat === 'pptx' ? '/finalize-pptx' : '/finalize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ html: finalHtml, title: previewState.currentTitle })
-            });
-
-            const data = await response.json();
-
-            const downloadUrl = exportFormat === 'pptx' ? data.pptxUrl : data.pdfUrl;
-            if (response.ok && downloadUrl) {
-                if (progressFill) progressFill.style.width = '100%';
-
-                const link = document.createElement('a');
-                link.href = downloadUrl;
-                link.setAttribute('download', '');
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            } else {
-                throw new Error(data.error || 'Error generating PDF');
-            }
-
-        } catch (error) {
-            // Export error: overlay the preview WITHOUT hiding it
-            errorMessage.textContent = error.message;
-            const errTitleEl = document.getElementById('t-error-title');
-            const errSubtitleEl = document.getElementById('t-error-subtitle');
-            const errorTitle = exportFormat === 'pptx' ? 'PowerPoint could not be generated' : 'PDF could not be generated';
-            const errorSubtitle = exportFormat === 'pptx' ? 'Something went wrong while creating the editable file. Your presentation is still there — you can try again.' : 'Something went wrong while creating the file. Your presentation is still there — you can try again.';
-            if (errTitleEl) errTitleEl.textContent = window.__t ? window.__t(exportFormat === 'pptx' ? 'pptx_error_title' : 'pdf_error_title', errorTitle) : errorTitle;
-            if (errSubtitleEl) errSubtitleEl.textContent = window.__t ? window.__t(exportFormat === 'pptx' ? 'pptx_error_subtitle' : 'pdf_error_subtitle', errorSubtitle) : errorSubtitle;
-            // Dismiss just closes the modal — the user stays in the editor
-            showErrorModal(null);
-        } finally {
-            clearInterval(progressInterval);
-            setTimeout(() => {
-                finalizeBtn.disabled = false;
-                finalizeBtn.classList.remove('loading');
-                if (progressFill) progressFill.style.width = '0%';
-            }, 500);
-        }
-    });
+    window.AedosExport.createExportActions({ finalizeBtn, errorMessage, previewState, generationState, showErrorModal });
 
     // =========================================================
     // 10. RESET
