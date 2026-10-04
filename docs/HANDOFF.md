@@ -322,4 +322,34 @@ Diagnóstico sobre el HEAD inicial:
 - Se revirtió el primer commit del harness (`4224910`) porque `verify:all` detectó dos `no-undef` (`requestAnimationFrame`) y el ratchet subió a 121. La declaración del global se añade en el reintento. La reversión `f13d619` pasó `verify:all` con lint 119, tipos 16 y formato correcto.
 - Durante la exploración se probó y descartó una espera visual global: tres ejecuciones capturaron incorrectamente el panel de herramientas en `flow-13-editor-undo` (140276 píxeles, 10.8238%, región 41,9). El estado de DOM/estilos no representaba el compuesto del screenshot. Ese helper global no está en el cambio final; capturas: `%TEMP%\aedos-stage0-visual-831c184\flow-13-editor-undo-{actual,baseline,diff}.png`.
 
-Este cambio es exclusivamente de sincronización del harness. Siguiente etapa: corte de estado/cálculo/render de snap guides en `editor.js`, seguido por los cortes de `app.js`. Referencia inicial: `editor.js` 457 líneas y `app.js` 4492, medidas con `git show <ref>:<archivo> | wc -l`. Mantener ratchets lint 119/tipos 16. Push, CI de GitHub, smoke test con IA real y `npm audit` con red siguen pendientes del usuario/entorno.
+Este cambio fue exclusivamente de sincronización del harness. Se registra debajo el resultado de la continuación.
+
+### Ejecución posterior — editor/app y cierre (2026-10-04)
+
+El corte de cálculo de snap guides quedó en `bb44e47` (`refactor(editor): extract snap guide calculation`). El intento `819ae70` falló en los loaders VM con `SyntaxError: Cannot use import statement outside a module`; fue revertido en `1facf87` y el `verify:all` del revert pasó. Se adaptaron los loaders de drag/resize para inyectar el módulo en el sandbox y se volvió a aplicar el corte. Pruebas enfocadas y `verify:all` pasaron. La función conserva el orden de candidatos/targets, tolerancia estricta y desempate. No hubo cambios en CSS, markup o eventos.
+
+Diez ejecuciones seriales finales de `npm run check:editor-safety`: 10/10 códigos 0, todas con “Editor safety browser flow passed” y 13/13 sentinels. Logs fuera del repo: `%TEMP%\aedos-stage8e-final-editor-safety\run-1.log` a `run-10.log`.
+
+Tamaños en refs de código `831c184` → `bb44e47`, mediante `git show <ref>:<archivo> | wc -l`: `src/frontend/editor/editor.js` 457 → 457; `src/frontend/scripts/app.js` 4,492 → 4,492. Objetivos ≤300/≤400 no alcanzados. El store `pointer-state.js`, targets y módulos de drag/resize ya existían; el nuevo `snap-guide-calculation.js` tiene 26 líneas. La coordinación del listener de movimiento (normalización, selección, transformaciones e historial) permanece en el editor.
+
+El router fue el primer corte app considerado, pero no se extrajo ni se reporta como fallo de test: la acción de volver a home reinicia conjuntamente DOM, stores/draft, adjuntos, generación y transición pendiente, y no hay API explícita verificada para conservar identidad/orden. Por ese motivo los demás cortes de app (adjuntos, overlays, navegación, zoom, exportación, preview, chat/renderizado, transición, SSE y orquestación) tampoco se ejecutaron. Sus fronteras y causa de riesgo están en `docs/FRONTEND-INVENTORY.md`. `window.*` no se eliminó.
+
+| Commit | Resultado de su compuerta |
+| --- | --- |
+| `4224910` | Primer intento de estabilidad; `verify:all` detectó lint 121 por `requestAnimationFrame` no declarado. Revertido. |
+| `f13d619` | Revert anterior; `verify:all` pasó con lint 119/tipos 16. |
+| `da491ef` | Espera determinista focalizada del tile de minimapa; `verify:all` pasó y 20/20 editor-safety quedó verde. |
+| `819ae70` | Primer intento del cálculo snap; verify falló por import ESM no transformado en loaders VM. |
+| `1facf87` | Revert del intento snap; `verify:all` pasó. |
+| `bb44e47` | Reintento con loaders VM adaptados; pruebas enfocadas y `verify:all` pasaron. |
+
+En la compuerta final: visual 6/6, mutaciones visuales 8/8, PPTX 14/14, PDF,
+editor safety browser flow y 13/13 sentinels, lint 119, tipos 16 y formato
+correcto. PowerPoint COM no corrió (requiere PowerPoint). Variaciones regionales
+pequeñas que pasaron: `mobile-light` RGB 9.3, `flow-19` RGB 10.3, `flow-20`
+RGB 9.9, con cero píxeles sobre umbral. No se modificaron tolerancias ni
+baselines.
+
+Pendientes: terminar los cortes editor/app; push manual (no realizado), CI de
+GitHub, smoke test con IA real y `npm audit` con red. No se leyó `.env`, no se
+usó red, no hubo proveedores reales, dependencias nuevas ni `npm audit fix`.

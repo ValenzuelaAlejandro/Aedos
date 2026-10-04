@@ -36,7 +36,7 @@ siga coincidiendo con el hash revisado; publica una por una en este orden.
 | 26 | `refactor/fase-8b-inventario` | `a1cd537d6190c81aeb8027c378e7c31a0d5bb9f7` | `git push -u origin refactor/fase-8b-inventario` |
 | 27 | `refactor/fase-8c-outline` | `d730eeabf3d144f5d71273b1dc0b3abffcd3dc75` | `git push -u origin refactor/fase-8c-outline` |
 | 28 | `refactor/fase-8d-editor` | `97168e4f54f1d6f704a0700f9d5d43b608882d53` | `git push -u origin refactor/fase-8d-editor` |
-| 29 | `refactor/fase-8e-app` | `32a3980` (cierre documental; verifique la punta final con `git rev-parse`) | `git push -u origin refactor/fase-8e-app` |
+| 29 | `refactor/fase-8e-app` | `bb44e47` (código verificado; el commit documental posterior actualiza la punta) | `git push -u origin refactor/fase-8e-app` |
 
 El último hash de `fase-7-limpieza` cambia al commit de estos documentos; para
 ese valor final usa `git rev-parse refactor/fase-7-limpieza`. No usar `--force`,

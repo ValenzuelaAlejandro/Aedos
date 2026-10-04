@@ -245,3 +245,15 @@ registration point in `app.js`. It registers the delegated `mouseover`,
 `font-size-actions.js` own only their specified controls; event selector order,
 callbacks, and legacy editor globals remain unchanged. These are transitional
 APIs, not authorization to remove existing `window.*` compatibility names.
+
+## Snapshot de refactor frontend 8e (2026-10-04)
+
+No se cambiaron endpoints, payloads, eventos SSE, markup visible ni nombres
+`window.*` en esta continuación. `features/editor/snap-guide-calculation.js`
+recibe arrays y tolerancia y devuelve `{ value, delta }`; es interno al módulo
+del iframe, no un contrato de aplicación. Preserva la búsqueda previa: distancia
+estrictamente menor que la tolerancia, iteración candidato/target en el orden
+original y primer resultado en empates. El primer intento tuvo que adaptarse a
+los loaders VM; el commit final `bb44e47` y su gate pasan. Los cortes restantes
+de `app.js` y la orquestación de puntero siguen pendientes; esto no declara
+completada la modularización de Etapa 8.

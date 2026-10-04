@@ -315,3 +315,34 @@ no se extrajo: arrastra más de doce campos mutables y cruza selección,
 normalización, snap guides e historial. Requiere una API explícita de estado
 live probada antes de moverlo; no compartir un snapshot ni cambiar el momento
 de registro de esos listeners.
+
+## Actualización de ejecución 8e (2026-10-04)
+
+Mediciones del HEAD inicial `831c184` y el HEAD de código `bb44e47`, calculadas
+con `git show <ref>:<archivo> | wc -l`: `src/frontend/editor/editor.js` 457 →
+457 y `src/frontend/scripts/app.js` 4,492 → 4,492. Los objetivos ≤300/≤400 no
+se alcanzaron.
+
+El estado de puntero ya estaba encapsulado en `features/editor/pointer-state.js`
+(drag/resize, selección, snap lines e historial); no se creó un segundo store.
+También existían `snap-targets.js`, `drag-interaction.js` y
+`resize-interaction.js`. Esta continuación añadió `snap-guide-calculation.js`
+(26 líneas) para el match más cercano, preservando orden de candidatos,
+tolerancia estricta y desempate por primer match. El render/ocultación de guías
+permanece en drag/resize; la orquestación de eventos, normalización, selección e
+historial sigue en el editor.
+
+El primer intento `819ae70` extrajo el cálculo, pero los loaders VM de las
+pruebas drag/resize no retiraban el import ESM nuevo: `SyntaxError: Cannot use
+import statement outside a module`. Se revirtió en `1facf87`; su `verify:all`
+pasó. El segundo intento `bb44e47` adaptó ambos loaders y agregó cobertura para
+desempate/límite estricto; pruebas enfocadas y `verify:all` pasaron. No hubo un
+segundo fallo del corte.
+
+El router fue el primer corte app considerado y quedó sin extraer, no por fallo
+de test: `navigateToHome` acopla invalidación de generación/transición, reset de
+DOM, stores/draft de outline, adjuntos y preview. No hay una API de transición
+probada que preserve orden e identidad de controllers, object URLs y listeners.
+Quedan router, adjuntos, overlays, navegación, zoom, exportación, preview,
+chat/renderizado, transiciones, SSE y orquestación; `app.js` conserva ese wiring
+y estado léxico. No se cambió comportamiento para forzar los límites de tamaño.

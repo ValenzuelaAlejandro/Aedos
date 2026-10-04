@@ -13,7 +13,7 @@ clásicos.
 | `index.html`, `vercel.json` | Documento SPA, carga de assets y rewrites de hosting. |
 | `styles/` | CSS principal dividido en seis segmentos concatenables en orden; `outline.css` mantiene el outline aparte. |
 | `features/shared/` | i18n, logger, cliente HTTP/SSE, stores, tema, carga de vendor assets y bootstrap compartido. |
-| `features/chat/` | Chips de adjuntos y panel de razonamiento. |
+| `features/chat/` | Renderers de chips de chat, panel de razonamiento y servicios de adjuntos. |
 | `features/outline/`, `features/skeleton/` | Render de slides de outline e inyección del skeleton. |
 | `features/modals/` | Ciclo de vida del modal de error. |
 | `features/export/` | Preparación aislada del snapshot de exportación. |
@@ -37,8 +37,9 @@ clásicos.
    aislado en `features/outline/slide-renderer.js`.
 4. Al generar, el HTML se monta como preview/iframe. `editor/editor.js` se carga
    como módulo nativo dentro del iframe y usa imports relativos para sus helpers
-   puros de semántica, historial y geometría. Los bridges públicos editor,
-   tools y minimap siguen comunicándose entre iframe y página padre.
+   puros de semántica, historial, geometría e interacción de puntero. Los
+   bridges públicos editor, tools y minimap siguen comunicándose entre iframe
+   y página padre.
 5. Antes de exportar, `features/export/export-snapshot.js` congela/copía el
    estado live con el orden histórico; luego la página llama a PDF/PPTX en el
    backend y consume la URL de descarga.
@@ -110,15 +111,23 @@ No traduzcas ni reescribas prompts de IA desde la capa de i18n.
 
 ## Continuación Etapa 8
 
-La rama `refactor/fase-8e-app` empieza desde el editor verificado de 8d. En el
-primer tramo se aislaron las utilidades clásicas compartidas
-(`features/shared/content-utils.js`) y tooltips (`features/app/tooltips.js`),
-manteniendo sus fachadas `window.*` y su punto de inicialización. El editor
-separó el binding por grupo de controles y las acciones de tamaño, además del
-cleanup mouseup; su interacción de puntero sigue pendiente porque drag, resize,
-normalización, selección y undo comparten muchas variables capturadas. No
-introducir una copia local de ese estado: primero definir y probar un contexto
-explícito de getter/setter o mantener el bloque en un único propietario.
+La rama `refactor/fase-8e-app` empezó desde el editor verificado de 8d. Se
+aislaron las utilidades compartidas y tooltips, manteniendo sus fachadas
+`window.*` y puntos de inicialización. El editor ya tenía estado explícito de
+puntero, preparación de resize, normalización, drag/resize, destinos snap y
+cleanup mouseup en módulos; esta continuación extrajo el cálculo puro de
+coincidencia de guías. `editor/editor.js` sigue en 457 líneas: su listener de
+movimiento aún coordina normalización, selección, drag, resize e historial con
+estado compartido. No se redujo a 300 líneas; los bindings deben separarse en el
+punto de registro original y con callbacks tardíos que eviten TDZ.
+
+`scripts/app.js` sigue en 4,492 líneas. El corte del router no se aplicó: el
+retorno a home sincroniza generación, transición pendiente, DOM, adjuntos y
+draft de outline dentro de un mismo cierre, sin una API explícita probada que
+preserve el orden y la identidad de esos recursos. Router, adjuntos, overlays,
+navegación, zoom, exportación, preview, chat/renderizado, transiciones, SSE y
+orquestación siguen pendientes; véase `docs/HANDOFF.md` para los cortes no
+extraídos y los resultados de compuerta.
 
 Las recetas anteriores para renderizador, store, herramienta del editor e
 idioma siguen vigentes. En particular, un renderizador nuevo debe tener casos
