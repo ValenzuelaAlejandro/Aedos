@@ -14,6 +14,7 @@ import { createEditorSelectionLifecycle } from '../features/editor/selection-lif
 import { createEditorKeyboardHandler } from '../features/editor/keyboard.js';
 import { createEditorPasteHandler, createEditorTextEditingHandler } from '../features/editor/content-editing.js';
 import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
+import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -581,39 +582,9 @@ function initEditor() {
             startTop = rect.top - slideRect.top;
 
             // Build snap targets
-            snapLinesX = [];
-            snapLinesY = [];
-            if (slide) {
-                const sRect = slide.getBoundingClientRect();
-                snapLinesX.push({ val: sRect.width / 2 });
-                snapLinesX.push({ val: 0 });
-                snapLinesX.push({ val: sRect.width });
-                snapLinesY.push({ val: sRect.height / 2 });
-                snapLinesY.push({ val: 0 });
-                snapLinesY.push({ val: sRect.height });
-
-                const padding = 40;
-                snapLinesX.push({ val: padding });
-                snapLinesX.push({ val: sRect.width - padding });
-                snapLinesY.push({ val: padding });
-                snapLinesY.push({ val: sRect.height - padding });
-
-                const others = getEditableElementsInSlide(slide, activeDragTarget);
-                others.forEach(el => {
-                    if (el === activeDragTarget || el.classList.contains('editor-phantom')) return;
-                    const oRect = el.getBoundingClientRect();
-                    const rL = oRect.left - sRect.left;
-                    const rT = oRect.top - sRect.top;
-
-                    snapLinesX.push({ val: rL });
-                    snapLinesX.push({ val: rL + oRect.width / 2 });
-                    snapLinesX.push({ val: rL + oRect.width });
-
-                    snapLinesY.push({ val: rT });
-                    snapLinesY.push({ val: rT + oRect.height / 2 });
-                    snapLinesY.push({ val: rT + oRect.height });
-                });
-            }
+            const snapTargets = createEditorSnapTargets(slide, activeDragTarget, getEditableElementsInSlide);
+            snapLinesX = snapTargets.snapLinesX;
+            snapLinesY = snapTargets.snapLinesY;
 
             if (e.target.contentEditable !== 'true') {
                 e.preventDefault();

@@ -68,6 +68,10 @@ listener remains registered at the same bootstrap point.
 editing lifecycle. Both DOM listeners are registered in their prior order;
 selection, normalization, and history remain editor callbacks.
 
+`snap-targets.js` builds the ordered slide-edge, padding, and peer alignment
+targets used during drag and resize. It reads geometry from the supplied slide
+and editable-element callback and retains no mutable state.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.
