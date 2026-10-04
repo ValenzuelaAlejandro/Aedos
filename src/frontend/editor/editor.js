@@ -31,6 +31,7 @@ import { installEditorSlideObservers } from '../features/editor/slide-observers.
 import { createEditorArrowMover } from '../features/editor/arrow-movement.js';
 import { createEditorPointerState } from '../features/editor/pointer-state.js';
 import { bindEditorBodyPointerDown } from '../features/editor/body-pointer-events.js';
+import { beginEditorResize } from '../features/editor/resize-start.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -268,24 +269,7 @@ function initEditor() {
     selectionBox.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('editor-resize-handle')) {
             e.stopPropagation();
-            if (!pointerState.selectedElement) return;
-
-            saveState(); // Save state before resize
-
-            pointerState.isResizing = true;
-            pointerState.currentHandle = e.target.dataset.handler;
-            pointerState.startX = e.clientX;
-            pointerState.startY = e.clientY;
-
-            const rect = pointerState.selectedElement.getBoundingClientRect();
-            const slide = pointerState.selectedElement.closest('.s') || pointerState.selectedElement.closest('section') || document.body;
-            const slideRect = slide.getBoundingClientRect();
-
-            pointerState.startWidth = rect.width;
-            pointerState.startHeight = rect.height;
-            pointerState.startLeft = rect.left - slideRect.left;
-            pointerState.startTop = rect.top - slideRect.top;
-            e.preventDefault();
+            beginEditorResize(e, pointerState, document, () => saveState());
         } else if (!e.target.classList.contains('editor-resize-handle')) {
             // Drag via selection box proxy (anywhere that isn't a handle)
             e.stopPropagation();

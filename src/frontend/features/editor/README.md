@@ -120,6 +120,9 @@ editable-target selection, drag initialization, and snap-target collection.
 Late selection lifecycle bindings are lazy callbacks so registering this
 listener retains its original order without evaluating later `const` bindings.
 
+`resize-start.js` captures the selected element's original resize geometry and
+handle after the selection-box mousedown branch saves its history snapshot.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
 
