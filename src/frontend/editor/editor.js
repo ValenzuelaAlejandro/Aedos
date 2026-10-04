@@ -8,6 +8,7 @@ import { calculateEditorSelectionGeometry } from '../features/editor/selection-g
 import { resolveDragCollision, resolveResizeCollision } from '../features/editor/collision-geometry.js';
 import { createEditorTargeting } from '../features/editor/targeting.js';
 import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js';
+import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -1355,52 +1356,15 @@ function initEditor() {
         }
     }
 
-    function updateSelectionBox() {
-        if (!selectedElement) return;
-        const rect = selectedElement.getBoundingClientRect();
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
-
-        const geometry = calculateEditorSelectionGeometry(
-            rect,
-            { width: winW, height: winH },
-            toolbar.offsetWidth,
-        );
-
-        // If the element is entirely outside the viewport, hide the UI and bail.
-        if (!geometry.isVisible) {
-            selectionBox.style.display = 'none';
-            toolbar.style.display = 'none';
-            return;
-        }
-
-        selectionBox.style.left = `${geometry.left}px`;
-        selectionBox.style.top = `${geometry.top}px`;
-        selectionBox.style.width = `${geometry.width}px`;
-        selectionBox.style.height = `${geometry.height}px`;
-
-        if (geometry.isSmall) {
-            selectionBox.classList.add('editor-small-selection');
-        } else {
-            selectionBox.classList.remove('editor-small-selection');
-        }
-
-        if (!isDragging && !isResizing) {
-            toolbar.style.display = 'flex';
-            selectionBox.style.display = 'block';
-        } else {
-            toolbar.style.display = 'none';
-        }
-
-        // SMART POSITIONING: Keep toolbar within window boundaries
-        toolbar.style.left = `${geometry.toolbarLeft}px`;
-        toolbar.style.top = `${geometry.toolbarTop}px`;
-
-        if (!isDragging && !isResizing) {
-            toolbar.style.opacity = '1';
-            toolbar.style.transform = 'translateY(0)';
-        }
-    }
+    const updateSelectionBox = createEditorSelectionUi({
+        getSelectedElement: () => selectedElement,
+        selectionBox,
+        toolbar,
+        window,
+        getIsDragging: () => isDragging,
+        getIsResizing: () => isResizing,
+        calculateGeometry: calculateEditorSelectionGeometry,
+    });
 
     // --- UNDO / REDO LOGIC ---
     const editorHistory = createEditorHistory({

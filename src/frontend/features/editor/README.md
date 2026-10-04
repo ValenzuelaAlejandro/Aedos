@@ -45,6 +45,9 @@ mutable editor state.
 normalization. It receives the iframe's computed-style function and stores no
 state.
 
+`selection-ui.js` positions the selection rectangle and floating toolbar from
+the current selection, viewport, and drag/resize state supplied by the editor.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.
