@@ -45,6 +45,10 @@ callbacks explicitly; it does not retain or replace the outline store.
 finalization, and stop cleanup. It reads the live outline state through a
 getter and receives the existing rendering and validation callbacks.
 
+`resume.js` owns restoring the outline drawer, dropdowns, and hero message. It
+receives the live draft, timer accessors, translation, and animation callbacks;
+`scripts/outline.js` retains `window.resumeOutlineEditor` as the facade.
+
 `chips-renderer.js` owns suggested-chip creation, its existing one-second delay,
 and chip DOM events. Translation, generation actions and animation are supplied
 by `scripts/outline.js`; `window.renderOutlineSuggestedChips` remains the
