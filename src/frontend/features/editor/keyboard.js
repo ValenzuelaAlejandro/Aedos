@@ -16,8 +16,7 @@
  * @property {(element: Element|null) => void} deleteElement
  * @property {(element: Element) => void} selectElement
  * @property {(element: Element) => void} duplicateElement
- * @property {(rect: {left: number, top: number, width: number, height: number}, slide: Element, exclude: Element) => {left: number, top: number}} resolveDragCollision
- * @property {() => void} updateSelectionBox
+ * @property {(key: string, shift: boolean) => void} moveSelectedElementByArrow
  */
 
 /** Creates keyboard shortcuts and the editor's per-iframe copy/paste buffer. @param {AedosEditorKeyboardOptions} options @returns {(event: KeyboardEvent) => void} */
@@ -38,8 +37,7 @@ export function createEditorKeyboardHandler({
     deleteElement,
     selectElement,
     duplicateElement,
-    resolveDragCollision,
-    updateSelectionBox,
+    moveSelectedElementByArrow,
 }) {
     let clipboard = null;
 
@@ -162,33 +160,7 @@ export function createEditorKeyboardHandler({
             } else if (e.key.startsWith('Arrow')) {
                 if (selectedElement) {
                     e.preventDefault();
-                    if (!selectedElement._undoSavingArrow) {
-                        saveState();
-                        selectedElement._undoSavingArrow = true;
-                        setTimeout(() => {
-                            const currentSelection = getSelectedElement();
-                            if (currentSelection) currentSelection._undoSavingArrow = false;
-                        }, 500);
-                    }
-                    let newLeft = parseFloat(selectedElement.style.left) || 0;
-                    let newTop = parseFloat(selectedElement.style.top) || 0;
-                    const amount = e.shiftKey ? 10 : 1;
-                    if (e.key === 'ArrowUp') newTop -= amount;
-                    if (e.key === 'ArrowDown') newTop += amount;
-                    if (e.key === 'ArrowLeft') newLeft -= amount;
-                    if (e.key === 'ArrowRight') newLeft += amount;
-
-                    const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-                    const eRect = selectedElement.getBoundingClientRect();
-                    const resolved = resolveDragCollision({
-                        left: newLeft,
-                        top: newTop,
-                        width: eRect.width,
-                        height: eRect.height,
-                    }, slide, selectedElement);
-                    selectedElement.style.left = `${resolved.left}px`;
-                    selectedElement.style.top = `${resolved.top}px`;
-                    updateSelectionBox();
+                    moveSelectedElementByArrow(e.key, e.shiftKey);
                 }
             }
         }

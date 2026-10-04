@@ -23,6 +23,7 @@ import { createEditorElementOperations } from '../features/editor/element-operat
 import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
 import { installEditorSlideObservers } from '../features/editor/slide-observers.js';
+import { createEditorArrowMover } from '../features/editor/arrow-movement.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -629,6 +630,15 @@ function initEditor() {
         return elementOperations.duplicateElement(el);
     }
 
+    const moveSelectedElementByArrow = createEditorArrowMover({
+        getSelectedElement: () => selectedElement,
+        document,
+        setTimeout,
+        saveState,
+        resolveDragCollision,
+        updateSelectionBox,
+    });
+
     document.addEventListener('keydown', createEditorKeyboardHandler({
         document,
         window,
@@ -646,42 +656,11 @@ function initEditor() {
         deleteElement,
         selectElement,
         duplicateElement,
-        resolveDragCollision,
-        updateSelectionBox,
+        moveSelectedElementByArrow,
     }));
 
     // Save initial state
     saveState();
-
-    function moveSelectedElementByArrow(key, shift) {
-        if (!selectedElement) return;
-        if (!selectedElement._undoSavingArrow) {
-            saveState();
-            selectedElement._undoSavingArrow = true;
-            setTimeout(() => selectedElement._undoSavingArrow = false, 500);
-        }
-        const amount = shift ? 10 : 1;
-        let newLeft = parseFloat(selectedElement.style.left) || 0;
-        let newTop = parseFloat(selectedElement.style.top) || 0;
-
-        if (key === 'ArrowUp') newTop -= amount;
-        if (key === 'ArrowDown') newTop += amount;
-        if (key === 'ArrowLeft') newLeft -= amount;
-        if (key === 'ArrowRight') newLeft += amount;
-
-        const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-        const eRect = selectedElement.getBoundingClientRect();
-        const resolved = resolveDragCollision({
-            left: newLeft,
-            top: newTop,
-            width: eRect.width,
-            height: eRect.height
-        }, slide, selectedElement);
-
-        selectedElement.style.left = `${resolved.left}px`;
-        selectedElement.style.top = `${resolved.top}px`;
-        updateSelectionBox();
-    }
 
     installEditorCompatibilityFacade({
         window,

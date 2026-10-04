@@ -101,5 +101,8 @@ and alignment guide elements, and attaches them to the document root on demand.
 `slide-observers.js` installs the legacy navigation events and mutation
 observers that clear editor selection when the active slide changes.
 
+`arrow-movement.js` applies the existing keyboard and compatibility-facade
+arrow movement with undo grouping, collision resolution, and selection refresh.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.

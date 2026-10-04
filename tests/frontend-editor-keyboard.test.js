@@ -47,6 +47,7 @@ function createHandler(overrides = {}) {
         duplicateElement: element => calls.push(['duplicate', element]),
         resolveDragCollision: rect => ({ left: rect.left, top: rect.top }),
         updateSelectionBox: () => calls.push(['update']),
+        moveSelectedElementByArrow: (key, shift) => calls.push(['arrow', key, shift]),
     };
     const handler = loadKeyboardHandler()({ ...defaults, ...overrides });
     return { handler, calls, windowEvents };
