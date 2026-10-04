@@ -88,3 +88,6 @@ existing start state supplied by the editor.
 
 `color-picker.js` provides the same theme-aware swatch palette, visibility
 toggle, and color application callbacks for editor text and fills.
+
+`toolbar-markup.js` renders the existing text, image, and shape toolbar branches
+from the selected element's semantic predicates and palette.
