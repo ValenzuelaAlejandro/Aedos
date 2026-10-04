@@ -10,6 +10,7 @@ import { createEditorTargeting } from '../features/editor/targeting.js';
 import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js';
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 import { createEditorSlideFreeze, createEditorElementNormalizer } from '../features/editor/slide-freeze.js';
+import { createEditorToolbarEvents } from '../features/editor/toolbar-events.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -239,94 +240,20 @@ function initEditor() {
         deselectGroup();
     }
 
-    function bindToolbarEvents() {
-        const btnSizeDown = document.getElementById('editor-btn-size-down');
-        const btnSizeUp = document.getElementById('editor-btn-size-up');
-        const btnTextColor = document.getElementById('editor-btn-text-color');
-        const btnBgColor = document.getElementById('editor-btn-bg-color');
-        const btnDelete = document.getElementById('editor-btn-delete');
-        const btnDuplicate = document.getElementById('editor-btn-duplicate');
-        const btnReplaceImg = document.getElementById('editor-btn-replace-img');
-
-        if (btnSizeDown) {
-            btnSizeDown.addEventListener('click', (e) => {
-                e.stopPropagation();
-                changeFontSize(-2);
-            });
-        }
-
-        if (btnSizeUp) {
-            btnSizeUp.addEventListener('click', (e) => {
-                e.stopPropagation();
-                changeFontSize(2);
-            });
-        }
-
-        if (btnTextColor) {
-            btnTextColor.addEventListener('click', (e) => {
-                e.stopPropagation();
-                activeColorAction = 'text';
-                showColorPicker(e.currentTarget);
-            });
-        }
-
-        if (btnBgColor) {
-            btnBgColor.addEventListener('click', (e) => {
-                e.stopPropagation();
-                activeColorAction = 'bg';
-                showColorPicker(e.currentTarget);
-            });
-        }
-
-        if (btnReplaceImg) {
-            btnReplaceImg.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (selectedElement) {
-                    if (window.parent && window.parent._triggerImagePicker) {
-                        window.parent._triggerImagePicker(selectedElement);
-                    }
-                }
-            });
-        }
-
-        if (btnDelete) {
-            btnDelete.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deleteElement(selectedElement);
-            });
-        }
-
-        if (btnDuplicate) {
-            btnDuplicate.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (selectedElement) duplicateElement(selectedElement);
-            });
-        }
-
-        // Quick colors binding if they exist
-        toolbar.querySelectorAll('.editor-color-swatches-mini .editor-color-swatch').forEach(swatch => {
-            swatch.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (selectedElement) {
-                    saveState();
-                    const color = swatch.dataset.color;
-                    if (isTextEditableElement(selectedElement) || selectedElement.matches('button, i, svg, [data-lucide], .lucide, .lucide-icon')) {
-                        selectedElement.style.color = color;
-                        selectedElement.style.webkitTextFillColor = color;
-                        // For SVGs, also try setting fill and stroke if they don't use currentColor
-                        if (selectedElement.tagName.toLowerCase() === 'svg' || selectedElement.querySelector('svg')) {
-                            const svg = selectedElement.tagName.toLowerCase() === 'svg' ? selectedElement : selectedElement.querySelector('svg');
-                            // Only apply if it's not a complex SVG with multiple colors? 
-                            // For simplicity, we just set the color. Lucide will handle it via currentColor.
-                        }
-                    } else {
-                        selectedElement.style.backgroundColor = color;
-                    }
-                    window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element: selectedElement } }));
-                }
-            });
-        });
-    }
+    const bindToolbarEvents = createEditorToolbarEvents({
+        document,
+        toolbar,
+        window,
+        CustomEvent,
+        getSelectedElement: () => selectedElement,
+        setActiveColorAction: action => { activeColorAction = action; },
+        changeFontSize,
+        showColorPicker,
+        deleteElement,
+        duplicateElement,
+        saveState: () => saveState(),
+        isTextEditableElement,
+    });
 
     bindToolbarEvents();
 
