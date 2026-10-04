@@ -257,3 +257,14 @@ original y primer resultado en empates. El primer intento tuvo que adaptarse a
 los loaders VM; el commit final `bb44e47` y su gate pasan. Los cortes restantes
 de `app.js` y la orquestación de puntero siguen pendientes; esto no declara
 completada la modularización de Etapa 8.
+
+## Continuación de estado frontend 9a (parcial)
+
+Los commits de la rama `refactor/fase-9a-app-estado` agrupan datos locales del
+callback en objetos (`chatState`, `navigationState`, `zoomState` y
+`previewUiState`) sin cambiar los nombres o contratos públicos de `window.*`.
+No se alteraron endpoints, payloads, eventos SSE, markup, apariencia ni
+timings intencionalmente. Los objetos no son API externa ni contrato para
+consumidores; no se deben importar fuera de `app.js` mientras sigan dentro del
+callback. Los detalles de inicialización, verificaciones y trabajo pendiente
+se documentan en `docs/FRONTEND-INVENTORY.md` y `docs/HANDOFF.md`.

@@ -129,6 +129,36 @@ navegación, zoom, exportación, preview, chat/renderizado, transiciones, SSE y
 orquestación siguen pendientes; véase `docs/HANDOFF.md` para los cortes no
 extraídos y los resultados de compuerta.
 
+## Continuación Etapa 9 (parcial)
+
+La rama 9a comenzó a agrupar estado del callback de `app.js` sin mover sus
+funciones: `chatState` contiene timers/mensajes del botón de generación y
+estado del placeholder/warmup; `navigationState` contiene cooldown y
+coordenadas fallback de swipe; `zoomState` contiene límites/paso y el último
+modo móvil fallback; `previewUiState` contiene los flags del lifecycle de
+minimap/tools y skeleton. Los cambios se dejaron en los puntos originales de
+inicialización para conservar orden y capturas de closures. Los bridges
+`window.*` se conservaron.
+
+Esto es una migración parcial de estado, no una modularización terminada:
+`dom` aún no centraliza las referencias cacheadas y quedan otras familias del
+inventario. Tampoco se alcanzaron los objetivos de tamaño de `app.js` o
+`editor.js`. Las ramas 9b-app-bloques y 9c-editor quedaron creadas desde
+`dc2c832`; no contienen extracciones en esta continuación. El registro por
+commit y los límites verificables están en `docs/HANDOFF.md` y
+`docs/FRONTEND-INVENTORY.md`.
+
+### Receta de extracción sin adelantar estado
+
+Primero se agrupa una familia de bindings mutables conservando cada valor
+inicial y su punto de inicialización. Después, y en un commit distinto, se
+extrae un bloque como `createX(ctx)`, pasando stores, `dom` y callbacks tardíos
+explícitos. La factory debe instanciarse donde antes se registraban listeners;
+no debe resolver selectores anticipadamente ni cambiar el orden de eventos.
+Cada módulo debe tener una sola responsabilidad, JSDoc de su contexto/API,
+README en su carpeta, menos de 300 líneas y pruebas de equivalencia antes de
+pasar `npm run verify:all`.
+
 Las recetas anteriores para renderizador, store, herramienta del editor e
 idioma siguen vigentes. En particular, un renderizador nuevo debe tener casos
 byte-identical; un store debe ser dueño único del estado y conservar el bridge;

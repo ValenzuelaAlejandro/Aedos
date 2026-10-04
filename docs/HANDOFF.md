@@ -334,6 +334,61 @@ Tamaños en refs de código `831c184` → `bb44e47`, mediante `git show <ref>:<a
 
 El router fue el primer corte app considerado, pero no se extrajo ni se reporta como fallo de test: la acción de volver a home reinicia conjuntamente DOM, stores/draft, adjuntos, generación y transición pendiente, y no hay API explícita verificada para conservar identidad/orden. Por ese motivo los demás cortes de app (adjuntos, overlays, navegación, zoom, exportación, preview, chat/renderizado, transición, SSE y orquestación) tampoco se ejecutaron. Sus fronteras y causa de riesgo están en `docs/FRONTEND-INVENTORY.md`. `window.*` no se eliminó.
 
+## Continuación autónoma Etapa 9 (2026-10-04, parcial)
+
+### Ramas locales
+
+Se parte de `refactor/fase-8e-app` en `2ebf64c`. Rama 9a: `refactor/fase-9a-app-estado`; rama 9b: `refactor/fase-9b-app-bloques`; rama 9c actual: `refactor/fase-9c-editor`. Tras los commits de estado, `dc2c832` es la punta de 9a y la base con que se crearon 9b y 9c. No se hicieron commits de extracción en 9b/9c durante esta ejecución y no se hizo push. Este commit documental actualizará únicamente la punta de 9c; confirma los refs con `git rev-parse` al terminar.
+
+### Cortes 9a ejecutados y compuertas
+
+| Commit | Corte | Resultado de `npm run verify:all` | Ratchets medidos |
+| --- | --- | --- | --- |
+| `ff0e2f3` | Inventario estado app | Pasó | 119 / 16 |
+| `7160b31` | Grupo de mensajes/timers de botón de generación | Pasó | 119 / 16 |
+| `f16d863` | Estado de placeholder y warmup del input | Pasó | lint 117 / tipos 16 |
+| `d4cf892` | Baseline lint reducida en commit separado | Pasó | 117 / 16 |
+| `87acebd` | Estado mutable de navegación/cooldown/swipe | Pasó | 117 / 16 |
+| `4f63ea3` | Constantes y fallback de viewport/zoom | Pasó | 117 / 16 |
+| `5412b9d` | Flags de lifecycle preview/minimap | Pasó | lint 115 / tipos 16 |
+| `dc2c832` | Baseline lint reducida en commit separado | Pasó | 115 / 16 |
+
+Las pruebas editor-safety y visuales se mantuvieron en verde en las compuertas;
+mutaciones editoriales detectadas: 13/13. La verificación PPTX reportó 14
+paquetes OK y PDF igual a su manifiesto. PowerPoint COM no está disponible en
+este entorno. No se regeneraron baselines visuales/PDF/PPTX. Una ejecución
+manual de `npx eslint src/frontend/scripts/app.js` mostró 5 errores en otras
+zonas del archivo (`no-useless-assignment` y `no-useless-escape`); el
+ratchet oficial de lint siguió pasando con 115 advertencias. No se atribuyen al
+corte de navegación.
+
+### Límites y pendientes de refactor
+
+Estado de `app.js` movido a `chatState`, `navigationState`, `zoomState` y
+`previewUiState`, sin mover funciones ni quitar `window.*`. No se completó la
+migración de todas las variables del callback ni el `dom` único; faltan estado
+de router/adjuntos/SSE/overlays/exportación/tema y consultas DOM cacheadas.
+`app.js` y `editor.js` no alcanzan ≤400/≤300 líneas. No se ejecutaron cortes de
+bloques en 9b ni de editor en 9c. Por lo tanto esta entrega es un avance
+verificado, no la finalización de la refactorización pedida. La estrategia
+segura pendiente es extraer primero stores/estado y una API explícita de DOM,
+y solo luego bloques como factories `createX(ctx)` en su punto original de
+registro, con un gate completo por commit.
+
+Medidas con `git show <ref>:<archivo> | wc -l`: desde `2ebf64c`,
+`src/frontend/scripts/app.js` 4,492 → `dc2c832` 4,497; el crecimiento neto de
+5 líneas corresponde a los objetos de estado, no a una extracción de funciones.
+`src/frontend/editor/editor.js` permanece 457 → 457.
+
+Validación actual: 10 ejecuciones seriales nuevas de `npm run
+check:editor-safety` sobre el código de la punta `dc2c832`, 10/10 en verde;
+cada ejecución completó el flujo browser y detectó 13/13 sentinels. Logs:
+`%TEMP%\aedos-stage9-editor-safety\run-1.log` a `run-10.log`. Los únicos
+cambios posteriores a esa validación son documentación.
+
+Push manual, CI de GitHub, smoke test con IA real y `npm audit` con red dependen
+del usuario. No hubo push, llamadas reales a proveedores ni acceso a `.env`.
+
 | Commit | Resultado de su compuerta |
 | --- | --- |
 | `4224910` | Primer intento de estabilidad; `verify:all` detectó lint 121 por `requestAnimationFrame` no declarado. Revertido. |

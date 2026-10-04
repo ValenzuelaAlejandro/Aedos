@@ -37,10 +37,16 @@ siga coincidiendo con el hash revisado; publica una por una en este orden.
 | 27 | `refactor/fase-8c-outline` | `d730eeabf3d144f5d71273b1dc0b3abffcd3dc75` | `git push -u origin refactor/fase-8c-outline` |
 | 28 | `refactor/fase-8d-editor` | `97168e4f54f1d6f704a0700f9d5d43b608882d53` | `git push -u origin refactor/fase-8d-editor` |
 | 29 | `refactor/fase-8e-app` | `bb44e47` (código verificado; el commit documental posterior actualiza la punta) | `git push -u origin refactor/fase-8e-app` |
+| 30 | `refactor/fase-9a-app-estado` | `dc2c832` | `git push -u origin refactor/fase-9a-app-estado` |
+| 31 | `refactor/fase-9b-app-bloques` | `dc2c832` (rama creada; sin commits propios) | `git push -u origin refactor/fase-9b-app-bloques` |
+| 32 | `refactor/fase-9c-editor` | `dc2c832` (base actual; documentación de cierre pendiente de este commit) | `git push -u origin refactor/fase-9c-editor` |
 
 El último hash de `fase-7-limpieza` cambia al commit de estos documentos; para
 ese valor final usa `git rev-parse refactor/fase-7-limpieza`. No usar `--force`,
 no publicar tags y nunca incluir `main` en la lista de push.
 
 La Etapa 8e puede avanzar al añadir documentación de cierre; comprueba siempre
-su hash publicable final con `git rev-parse refactor/fase-8e-app`.
+su hash publicable final con `git rev-parse refactor/fase-8e-app`. La cadena
+9a→9b→9c se creó localmente desde `dc2c832`; en este cierre 9b/9c no tienen
+commits de extracción propios. Actualiza estos hashes solo después de verificar
+los commits finales; no se ha ejecutado push.

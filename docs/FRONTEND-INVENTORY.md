@@ -373,8 +373,26 @@ corte mecánico. Ninguna se elimina durante el paso de estado.
    orden, TDZ, timers ni registro de listeners.
 
 Estado al registrar este inventario: aún no se movió ninguna variable de
-`app.js`; el archivo sigue en 4,492 líneas. La etapa de estado todavía requiere
-los commits atómicos por familia y sus compuertas.
+`app.js`; el archivo estaba en 4,492 líneas. La continuación 9a movió después
+solo las familias indicadas en el apéndice de `docs/HANDOFF.md`; no completó
+el inventario de estado, no consolidó todas las referencias DOM en `dom`, y no
+cumple la etapa de estado completa.
+
+### Continuación de ejecución 9a (2026-10-04)
+
+En `f16d863` y `7160b31` se agruparon el ciclo de mensajes del botón de
+generación y el estado del placeholder/warmup. En `87acebd`, `4f63ea3` y
+`5412b9d` se agruparon navegación de slides, constantes/fallback de zoom y
+flags del lifecycle de preview/minimap. Cada corte de código pasó
+`npm run verify:all`; los ratchets fueron reducidos en commits separados a
+lint 115 y tipos 16. El detalle y hashes están en `docs/HANDOFF.md`.
+
+Pendiente explícito: no se creó todavía el objeto único `dom`; quedan sin
+migrar otras familias de estado de router, adjuntos, generación/SSE, overlays,
+exportación, idioma/tema y preview. La regla de preservar el momento de cada
+consulta DOM sigue vigente. Las ramas 9b (bloques de app) y 9c (editor) se
+crearon desde la punta 9a `dc2c832`, pero no se ejecutaron extracciones en
+ellas en esta continuación.
 
 ## Actualización de ejecución 8e (2026-10-04)
 
