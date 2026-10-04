@@ -41,6 +41,10 @@ receives state, navigation, translation and generation-cancellation callbacks.
 actions for outline containers. It receives the existing state and action
 callbacks explicitly; it does not retain or replace the outline store.
 
+`stream-lifecycle.js` owns outline preparation, partial rendering dispatch,
+finalization, and stop cleanup. It reads the live outline state through a
+getter and receives the existing rendering and validation callbacks.
+
 `chips-renderer.js` owns suggested-chip creation, its existing one-second delay,
 and chip DOM events. Translation, generation actions and animation are supplied
 by `scripts/outline.js`; `window.renderOutlineSuggestedChips` remains the

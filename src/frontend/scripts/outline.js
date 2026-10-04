@@ -28,6 +28,21 @@ const {
     createFollowUpOutlineContainer
 } = outlineContainerUi;
 
+const outlineStreaming = window.AedosOutlineStreaming.createOutlineStreaming({
+    document,
+    getState: () => window.outlineEditorState,
+    getActiveContainer: () => getActiveOutlineContainer(),
+    mountActiveContainer: container => mountActiveOutlineContainer(container),
+    getOutlineDom: container => getOutlineDom(container),
+    getChipsTimeout: () => window._chipsRenderTimeout,
+    scrollToBottom,
+    renderSlides: () => renderOutlineSlides(),
+    renderChips: skeleton => window.renderOutlineSuggestedChips(skeleton),
+    validateGenerateButton: () => {
+        if (typeof window.validateGenerateButton === 'function') window.validateGenerateButton();
+    }
+});
+
 function showOutlineEditorLoading(slideCount = 8) {
     return window.AedosOutlineLoadingView.showOutlineEditorLoading(slideCount, {
         state: window.outlineEditorState,
@@ -54,91 +69,11 @@ function parsePartialSkeleton(text) {
 }
 window.parsePartialSkeleton = parsePartialSkeleton;
 
-window.prepareOutlineStreaming = function(mode) {
-    window.outlineEditorState.isLoading = true;
-    window.outlineEditorState.skeleton = null;
-    window.outlineEditorState.mode = mode;
-    window.outlineEditorState.maxSlides = mode === 'pro' ? 8 : 15;
+window.prepareOutlineStreaming = function(mode) { return outlineStreaming.prepareOutlineStreaming(mode); };
 
-    const activeOutlineDom = mountActiveOutlineContainer(getActiveOutlineContainer());
-    const container = activeOutlineDom.slidesContainer;
-    if (container) container.innerHTML = '';
-    
-    const btnGenerate = document.getElementById('btn-generate');
-    const btnLang = document.getElementById('btn-lang-dropdown');
-    if (btnGenerate) {
-        btnGenerate.classList.add('is-generating');
-        btnGenerate.disabled = false;
-    }
-    if (btnLang) btnLang.disabled = true;
-    
-    const pills = document.getElementById('suggestion-pills-row');
-    if (pills) { pills.style.transition = 'opacity 0.3s'; pills.style.opacity = '0'; pills.style.pointerEvents = 'none'; }
-    const microcopy = document.querySelector('.app-microcopy');
-    if (microcopy) { microcopy.style.transition = 'opacity 0.3s'; microcopy.style.opacity = '0'; }
-    const counter = document.querySelector('.chat-counter-row');
-    if (counter) { counter.style.transition = 'opacity 0.3s'; counter.style.opacity = '0'; }
+window.renderStreamingOutline = function(partialSkeleton) { return outlineStreaming.renderStreamingOutline(partialSkeleton); };
 
-    const outlineContainer = activeOutlineDom.container;
-    if (outlineContainer) outlineContainer.classList.remove('hidden');
-
-    const chipsContainer = activeOutlineDom.chipsContainer;
-    if (chipsContainer) {
-        chipsContainer.innerHTML = '';
-        if (window._chipsRenderTimeout) clearTimeout(window._chipsRenderTimeout);
-    }
-};
-
-window.renderStreamingOutline = function(partialSkeleton) {
-    const container = getOutlineDom().slidesContainer;
-    if (!container) return;
-    window.AedosOutlineStreamRenderer.renderPartialOutline(container, partialSkeleton, scrollToBottom);
-};
-
-window.finalizeStreamingOutline = function(finalSkeleton) {
-    window.outlineEditorState.skeleton = finalSkeleton;
-    
-    // Populate hidden config tags
-    const titleInput = document.getElementById('outline-title-input');
-    if (titleInput) { titleInput.value = finalSkeleton.topic || ''; titleInput.disabled = false; }
-    const toneVal = finalSkeleton.tone || 'academic';
-    const toneEl = document.getElementById('outline-tone-select');
-    if (toneEl) { toneEl.value = toneVal; if (!toneEl.value) toneEl.value = 'academic'; }
-    const audEl = document.getElementById('outline-audience-select');
-    if (audEl) audEl.value = finalSkeleton.audience || 'general';
-    const densEl = document.getElementById('outline-density-select');
-    if (densEl) densEl.value = finalSkeleton.density || finalSkeleton.text_density || 'medium';
-    const subEl = document.getElementById('outline-subtitle-input');
-    if (subEl) subEl.value = finalSkeleton.subtitle_context || '';
-
-    // Render standard slides to replace disabled textareas and bind all events (like draggable, inputs etc.)
-    renderOutlineSlides();
-    
-    // Render Suggested Action Chips Row
-    window.renderOutlineSuggestedChips(finalSkeleton);
-
-    // Mark loading as false and enable controls
-    window.outlineEditorState.isLoading = false;
-    
-    // Re-enable global buttons and remove is-generating class
-    const btnGenerate = document.getElementById('btn-generate');
-    if (btnGenerate) {
-        btnGenerate.classList.remove('is-generating');
-        btnGenerate.disabled = false;
-    }
-    const btnLang = document.getElementById('btn-lang-dropdown');
-    if (btnLang) btnLang.disabled = false;
-    
-    const outlineDom = getOutlineDom();
-    const btnGen = outlineDom.generateButton;
-    const btnAdd = outlineDom.addSlideButton;
-    if (btnGen) btnGen.disabled = false;
-    if (btnAdd) btnAdd.disabled = false;
-    
-    if (typeof window.validateGenerateButton === 'function') {
-        window.validateGenerateButton();
-    }
-};
+window.finalizeStreamingOutline = function(finalSkeleton) { return outlineStreaming.finalizeStreamingOutline(finalSkeleton); };
 
 window.renderOutlineSuggestedChips = function(skeletonData) {
     const chipsContainer = getOutlineDom().chipsContainer;
@@ -197,35 +132,7 @@ function bindOutlineEvents() {
     });
 }
 
-window.stopOutlineGeneration = function () {
-    // 1. Render all slides statically right away so the user doesn't lose what was streamed so far
-    if (window.outlineEditorState && window.outlineEditorState.skeleton) {
-        renderOutlineSlides();
-        window.renderOutlineSuggestedChips(window.outlineEditorState.skeleton);
-    }
-
-    // 2. Mark loading as false and enable controls
-    window.outlineEditorState.isLoading = false;
-
-    // 3. Re-enable global buttons and remove is-generating class
-    const btnGenerate = document.getElementById('btn-generate');
-    if (btnGenerate) {
-        btnGenerate.classList.remove('is-generating');
-        btnGenerate.disabled = false;
-    }
-    const btnLang = document.getElementById('btn-lang-dropdown');
-    if (btnLang) btnLang.disabled = false;
-
-    const outlineDom = getOutlineDom();
-    const btnGen = outlineDom.generateButton;
-    const btnAdd = outlineDom.addSlideButton;
-    if (btnGen) btnGen.disabled = false;
-    if (btnAdd) btnAdd.disabled = false;
-
-    if (typeof window.validateGenerateButton === 'function') {
-        window.validateGenerateButton();
-    }
-};
+window.stopOutlineGeneration = function () { return outlineStreaming.stopOutlineGeneration(); };
 
 function updateOutlineSlideCount() {
     const slides = window.outlineEditorState.skeleton.slides || [];
