@@ -92,5 +92,8 @@ toggle, and color application callbacks for editor text and fills.
 `element-operations.js` owns grouped element deletion and duplication. It
 receives the existing group, history, normalization, freeze, and selection APIs.
 
+`grouping.js` computes the existing visually-contained child set and slide-
+relative starting coordinates from the editor's supplied semantic predicate.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.

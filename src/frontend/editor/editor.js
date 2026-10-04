@@ -20,6 +20,7 @@ import { applyEditorDrag } from '../features/editor/drag-interaction.js';
 import { createEditorColorPicker } from '../features/editor/color-picker.js';
 import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
+import { createEditorGrouping } from '../features/editor/grouping.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -73,30 +74,7 @@ function initEditor() {
      * Grouping Helper: Finds elements visually inside a container to treat them as a unit
      */
     function collectGroup(target) {
-        const group = [];
-        const slide = target.closest('.s') || target.closest('section') || document.body;
-        const isContainer = isSemanticContainer(target, slide);
-        if (!isContainer) return group;
-
-        const rect = target.getBoundingClientRect();
-        const slideRect = slide.getBoundingClientRect();
-        const others = getEditableElementsInSlide(slide, target);
-
-        others.forEach(other => {
-            const otherRect = other.getBoundingClientRect();
-            // Intersection with tolerance
-            if (otherRect.left >= rect.left - 2 &&
-                otherRect.right <= rect.right + 2 &&
-                otherRect.top >= rect.top - 2 &&
-                otherRect.bottom <= rect.bottom + 2) {
-                group.push({
-                    el: other,
-                    startLeft: otherRect.left - slideRect.left,
-                    startTop: otherRect.top - slideRect.top
-                });
-            }
-        });
-        return group;
+        return editorGrouping(target);
     }
 
     // UI Elements
@@ -399,6 +377,8 @@ function initEditor() {
                 return true;
             });
     }
+
+    const editorGrouping = createEditorGrouping({ document, isSemanticContainer, getEditableElementsInSlide });
 
 
 
