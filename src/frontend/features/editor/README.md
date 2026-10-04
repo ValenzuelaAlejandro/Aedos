@@ -101,9 +101,6 @@ and alignment guide elements, and attaches them to the document root on demand.
 `slide-observers.js` installs the legacy navigation events and mutation
 observers that clear editor selection when the active slide changes.
 
-`pointer-cleanup.js` resets pointer state, guides, selection normalization, and
-the per-mousedown save marker on the original document mouseup event.
-
 `arrow-movement.js` applies the existing keyboard and compatibility-facade
 arrow movement with undo grouping, collision resolution, and selection refresh.
 
