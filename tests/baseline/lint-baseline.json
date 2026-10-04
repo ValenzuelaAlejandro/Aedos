@@ -1,10 +1,10 @@
 {
-  "totalWarnings": 123,
+  "totalWarnings": 122,
   "byRule": {
     "no-empty": 9,
     "complexity": 27,
     "max-lines-per-function": 20,
-    "max-lines": 8,
+    "max-lines": 7,
     "no-unused-vars": 20,
     "no-shadow": 18,
     "eqeqeq": 2,
@@ -30,7 +30,7 @@
     "src\\frontend\\mobile\\js\\app-mobile.js": 1,
     "src\\frontend\\mobile\\js\\bridge.js": 5,
     "src\\frontend\\scripts\\app.js": 68,
-    "src\\frontend\\scripts\\outline.js": 4,
+    "src\\frontend\\scripts\\outline.js": 3,
     "tests\\pptx-export-advanced.test.js": 1
   },
   "topFiles": [
@@ -60,7 +60,7 @@
     ],
     [
       "src\\frontend\\scripts\\outline.js",
-      4
+      3
     ],
     [
       "scripts\\verify-pptx-export.js",
