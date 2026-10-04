@@ -11,6 +11,7 @@ function loadSlideFreeze() {
     const sourcePath = path.join(__dirname, '../src/frontend/features/editor/slide-freeze.js');
     const source = fs.readFileSync(sourcePath, 'utf8')
         .replace('export function createEditorSlideFreeze', 'function createEditorSlideFreeze')
+        .replace('export function createEditorFreezeAllSlides', 'function createEditorFreezeAllSlides')
         .replace('export function createEditorElementNormalizer', 'function createEditorElementNormalizer') +
         '\nmodule.exports = { createEditorSlideFreeze, createEditorElementNormalizer };';
     vm.runInContext(source, context, { filename: sourcePath });

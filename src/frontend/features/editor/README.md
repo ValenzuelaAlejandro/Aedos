@@ -101,6 +101,9 @@ and alignment guide elements, and attaches them to the document root on demand.
 `slide-observers.js` installs the legacy navigation events and mutation
 observers that clear editor selection when the active slide changes.
 
+`slide-freeze.js` also exposes the export-only all-slide layout freeze, which
+retains the legacy window wrapper and intentionally avoids creating undo state.
+
 `arrow-movement.js` applies the existing keyboard and compatibility-facade
 arrow movement with undo grouping, collision resolution, and selection refresh.
 

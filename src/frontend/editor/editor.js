@@ -9,7 +9,7 @@ import { resolveDragCollision, resolveResizeCollision } from '../features/editor
 import { createEditorTargeting } from '../features/editor/targeting.js';
 import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js';
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
-import { createEditorSlideFreeze, createEditorElementNormalizer } from '../features/editor/slide-freeze.js';
+import { createEditorSlideFreeze, createEditorElementNormalizer, createEditorFreezeAllSlides } from '../features/editor/slide-freeze.js';
 import { createEditorSelectionLifecycle } from '../features/editor/selection-lifecycle.js';
 import { createEditorKeyboardHandler } from '../features/editor/keyboard.js';
 import { createEditorPasteHandler, createEditorTextEditingHandler, createEditorDirectTextEditingHandler } from '../features/editor/content-editing.js';
@@ -265,23 +265,13 @@ function initEditor() {
 
     // Exposed for parent frame: freeze all slides before PDF export without
     // polluting the undo history. Slides already frozen are skipped.
-    window.freezeAllSlides = function () {
-        document.querySelectorAll('section.s').forEach(slide => {
-            if (_isFrozenMap.has(slide)) return;
-            _isFrozenMap.set(slide, true);
-
-            const allEditables = getEditableElementsInSlide(slide);
-            if (allEditables.length === 0) return;
-
-            const topLevel = getTopLevelEditableElements(slide);
-            if (topLevel.length === 0) return;
-
-            // Capture positions before any DOM mutation
-            const data = topLevel.map(el => ({ el, rect: el.getBoundingClientRect() }));
-            // Normalize silently — do NOT call saveState() to avoid polluting undo history
-            data.forEach(({ el, rect }) => normalizeElement(el, slide, true, rect));
-        });
-    };
+    window.freezeAllSlides = createEditorFreezeAllSlides({
+        document,
+        frozenSlides: _isFrozenMap,
+        getEditableElementsInSlide,
+        getTopLevelEditableElements,
+        normalizeElement: (element, slide, silent, rect) => normalizeElement(element, slide, silent, rect),
+    });
 
     const getInheritedStyles = createEditorStyleSnapshot(window.getComputedStyle.bind(window));
 

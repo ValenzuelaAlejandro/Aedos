@@ -47,6 +47,31 @@ export function createEditorSlideFreeze({
     };
 }
 
+/** Creates the export-only all-slide freeze without saving undo state. @param {{document: Document, frozenSlides: WeakMap<Element, boolean>, getEditableElementsInSlide: (slide: Element) => Element[], getTopLevelEditableElements: (slide: Element) => Element[], normalizeElement: (element: Element, slide: Element, silent: boolean, rect: DOMRect) => void}} options @returns {() => void} */
+export function createEditorFreezeAllSlides({
+    document,
+    frozenSlides,
+    getEditableElementsInSlide,
+    getTopLevelEditableElements,
+    normalizeElement,
+}) {
+    return function freezeAllSlides() {
+        document.querySelectorAll('section.s').forEach(slide => {
+            if (frozenSlides.has(slide)) return;
+            frozenSlides.set(slide, true);
+
+            const allEditables = getEditableElementsInSlide(slide);
+            if (allEditables.length === 0) return;
+
+            const topLevel = getTopLevelEditableElements(slide);
+            if (topLevel.length === 0) return;
+
+            const data = topLevel.map(element => ({ element, rect: element.getBoundingClientRect() }));
+            data.forEach(({ element, rect }) => normalizeElement(element, slide, true, rect));
+        });
+    };
+}
+
 /** @typedef {object} AedosEditorNormalizeOptions
  * @property {Window} window
  * @property {(callback: () => void, delay: number) => number} setTimeout
