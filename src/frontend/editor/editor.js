@@ -10,6 +10,7 @@ import { createEditorTargeting } from '../features/editor/targeting.js';
 import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js';
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 import { createEditorSlideFreeze, createEditorElementNormalizer } from '../features/editor/slide-freeze.js';
+import { createEditorSelectionLifecycle } from '../features/editor/selection-lifecycle.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -1138,109 +1139,6 @@ function initEditor() {
         }
     });
 
-    function selectElement(el) {
-        if (!el || selectedElement === el) return;
-        if (_isLocked) return;
-
-        const slide = el.closest('.s') || el.closest('section') || document.body;
-
-        // Freeze layout of the whole slide immediately to prevent reflows during editing
-        freezeSlideLayout(slide);
-
-        if (selectionObserver) selectionObserver.disconnect();
-
-        // Ensure the iframe has focus so keyboard shortcuts (Ctrl+C/V/D) work immediately
-        window.focus();
-
-        selectedElement = el;
-
-        // CRITICAL FIX: Keep UI tools in document body to avoid 'overflow: hidden' clipping in slides.
-        // We ensure they are always present and visible.
-        ensureUI();
-
-        // Refresh toolbar content
-        toolbar.innerHTML = getToolbarHTML();
-        bindToolbarEvents();
-
-        // Ensure tools are always above everything else
-        selectionBox.style.zIndex = '10000';
-        toolbar.style.zIndex = '10001';
-
-
-        updateSelectionBox();
-        updateSizeDisplay();
-        const colorPicker = document.getElementById('editor-color-picker');
-        if (colorPicker) colorPicker.style.display = 'none';
-
-        // Observe changes to the element (like style or classes) to update the selection box automatically
-        selectionObserver = new MutationObserver((mutations) => {
-            updateSelectionBox();
-
-            // If the element's Z-index changed or it was moved in DOM, refresh tool z-index
-            const elStyle = window.getComputedStyle(el);
-            const elZ = parseInt(elStyle.zIndex) || 1;
-            selectionBox.style.zIndex = Math.max(1000, elZ + 1);
-            toolbar.style.zIndex = Math.max(1001, elZ + 2);
-        });
-        selectionObserver.observe(el, {
-            attributes: true,
-            attributeFilter: ['style', 'class'],
-            characterData: true,
-            subtree: true
-        });
-
-        // Add ResizeObserver for robust layout tracking (growth, text wrapping, etc)
-        if (window.ResizeObserver) {
-            const resizeObs = new ResizeObserver(() => {
-                // Grow-upwards: only for standalone absolute elements that were
-                // normalized as direct children of the slide. Elements that live
-                // inside containers (cards, stat-boxes…) are NOT position:absolute
-                // via our code, so adjusting `top` on them would offset them
-                // relative to their natural flow position, sending them off-screen.
-                if (el.isContentEditable && el._baseBottom !== undefined && el.style.position === 'absolute') {
-                    const rect = el.getBoundingClientRect();
-                    const slide = el.closest('.s') || document.body;
-                    const slideRect = slide.getBoundingClientRect();
-                    const currentHeight = rect.height;
-                    // Clamp so the element never grows above the slide top
-                    const newTop = Math.max(0, el._baseBottom - currentHeight);
-                    el.style.top = newTop + "px";
-                }
-                updateSelectionBox();
-            });
-            resizeObs.observe(el);
-            selectionObserver._resizeObs = resizeObs;
-        }
-
-        // Notify parent UI
-        window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element: el } }));
-
-        // Mark as just selected to prevent immediate deselection by trailing click events
-        _justSelected = true;
-        setTimeout(() => { _justSelected = false; }, 250);
-    }
-
-    function deselectGroup(silent = false) {
-        if (selectionObserver) {
-            if (selectionObserver._parentObs) selectionObserver._parentObs.disconnect();
-            if (selectionObserver._resizeObs) selectionObserver._resizeObs.disconnect();
-            selectionObserver.disconnect();
-            selectionObserver = null;
-        }
-
-        selectedElement = null;
-        selectionBox.style.display = 'none';
-        toolbar.style.display = 'none';
-
-        const colorPicker = document.getElementById('editor-color-picker');
-        if (colorPicker) colorPicker.style.display = 'none';
-
-        // Notify parent UI only if not silent
-        if (!silent) {
-            window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element: null } }));
-        }
-    }
-
     const updateSelectionBox = createEditorSelectionUi({
         getSelectedElement: () => selectedElement,
         selectionBox,
@@ -1249,6 +1147,27 @@ function initEditor() {
         getIsDragging: () => isDragging,
         getIsResizing: () => isResizing,
         calculateGeometry: calculateEditorSelectionGeometry,
+    });
+
+    const { selectElement, deselectGroup } = createEditorSelectionLifecycle({
+        document,
+        window,
+        MutationObserver,
+        ResizeObserver,
+        CustomEvent,
+        setTimeout,
+        getSelectedElement: () => selectedElement,
+        setSelectedElement: element => { selectedElement = element; },
+        getIsLocked: () => _isLocked,
+        setJustSelected: value => { _justSelected = value; },
+        freezeSlideLayout,
+        ensureUI,
+        getToolbarHTML,
+        bindToolbarEvents,
+        updateSelectionBox,
+        updateSizeDisplay,
+        selectionBox,
+        toolbar,
     });
 
     // --- UNDO / REDO LOGIC ---

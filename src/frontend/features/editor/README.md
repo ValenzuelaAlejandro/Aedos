@@ -52,6 +52,10 @@ the current selection, viewport, and drag/resize state supplied by the editor.
 elements, and freezes a slide as one undoable operation. Its dependencies are
 explicit callbacks and the existing per-iframe `WeakMap`.
 
+`selection-lifecycle.js` owns selection/deselection and the associated
+MutationObserver/ResizeObserver lifecycle. Selection state, UI updates, and
+commands remain explicit callbacks into the editor coordinator.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.
