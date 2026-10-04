@@ -1,8 +1,8 @@
 {
-  "totalWarnings": 122,
+  "totalWarnings": 121,
   "byRule": {
     "no-empty": 9,
-    "complexity": 27,
+    "complexity": 26,
     "max-lines-per-function": 20,
     "max-lines": 7,
     "no-unused-vars": 20,
@@ -30,7 +30,7 @@
     "src\\frontend\\mobile\\js\\app-mobile.js": 1,
     "src\\frontend\\mobile\\js\\bridge.js": 5,
     "src\\frontend\\scripts\\app.js": 68,
-    "src\\frontend\\scripts\\outline.js": 3,
+    "src\\frontend\\scripts\\outline.js": 2,
     "tests\\pptx-export-advanced.test.js": 1
   },
   "topFiles": [
@@ -59,10 +59,6 @@
       5
     ],
     [
-      "src\\frontend\\scripts\\outline.js",
-      3
-    ],
-    [
       "scripts\\verify-pptx-export.js",
       2
     ],
@@ -72,6 +68,10 @@
     ],
     [
       "src\\backend\\prompts\\stage2-design.js",
+      2
+    ],
+    [
+      "src\\backend\\prompts\\stage3-compositor.js",
       2
     ]
   ]
