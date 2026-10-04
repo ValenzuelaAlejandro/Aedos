@@ -52,10 +52,6 @@ the current selection, viewport, and drag/resize state supplied by the editor.
 elements, and freezes a slide as one undoable operation. Its dependencies are
 explicit callbacks and the existing per-iframe `WeakMap`.
 
-`toolbar-events.js` binds the existing toolbar controls and color swatches.
-The editor still calls the binder at its original initialization point, with
-selection and command callbacks supplied explicitly.
-
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.
