@@ -21,6 +21,7 @@ import { createEditorColorPicker } from '../features/editor/color-picker.js';
 import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
 import { bindEditorToolbarSizeEvents } from '../features/editor/toolbar-size-events.js';
 import { bindEditorToolbarActionEvents } from '../features/editor/toolbar-action-events.js';
+import { bindEditorToolbarSwatchEvents } from '../features/editor/toolbar-swatch-events.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
 import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
@@ -126,28 +127,12 @@ function initEditor() {
             duplicateSelected: () => duplicateElement(selectedElement),
         });
 
-        // Quick colors binding if they exist
-        toolbar.querySelectorAll('.editor-color-swatches-mini .editor-color-swatch').forEach(swatch => {
-            swatch.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (selectedElement) {
-                    saveState();
-                    const color = swatch.dataset.color;
-                    if (isTextEditableElement(selectedElement) || selectedElement.matches('button, i, svg, [data-lucide], .lucide, .lucide-icon')) {
-                        selectedElement.style.color = color;
-                        selectedElement.style.webkitTextFillColor = color;
-                        // For SVGs, also try setting fill and stroke if they don't use currentColor
-                        if (selectedElement.tagName.toLowerCase() === 'svg' || selectedElement.querySelector('svg')) {
-                            const svg = selectedElement.tagName.toLowerCase() === 'svg' ? selectedElement : selectedElement.querySelector('svg');
-                            // Only apply if it's not a complex SVG with multiple colors? 
-                            // For simplicity, we just set the color. Lucide will handle it via currentColor.
-                        }
-                    } else {
-                        selectedElement.style.backgroundColor = color;
-                    }
-                    window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element: selectedElement } }));
-                }
-            });
+        bindEditorToolbarSwatchEvents({
+            toolbar,
+            getSelectedElement: () => selectedElement,
+            saveState: () => saveState(),
+            isTextEditableElement: element => isTextEditableElement(element),
+            dispatchSelectionChanged: element => window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element } })),
         });
     }
 

@@ -40,6 +40,18 @@ function loadToolbarActionEvents() {
     return module.exports.bindEditorToolbarActionEvents;
 }
 
+function loadToolbarSwatchEvents() {
+    const module = { exports: {} };
+    const context = { module };
+    vm.createContext(context);
+    const sourcePath = path.join(__dirname, '../src/frontend/features/editor/toolbar-swatch-events.js');
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace('export function bindEditorToolbarSwatchEvents', 'function bindEditorToolbarSwatchEvents') +
+        '\nmodule.exports = { bindEditorToolbarSwatchEvents };';
+    vm.runInContext(source, context, { filename: sourcePath });
+    return module.exports.bindEditorToolbarSwatchEvents;
+}
+
 test('toolbar markup retains text controls and shared actions', () => {
     const render = loadToolbarMarkup();
     const html = render({
@@ -111,4 +123,36 @@ test('toolbar action events retain selector order, callbacks and propagation', (
     assert.deepEqual(calls.slice(5, 7).map(({ action }) => action), ['text', 'bg']);
     assert.equal(calls[7].replace, selected);
     assert.equal(stopped.length, 5);
+});
+
+test('toolbar swatches preserve text and fill updates and selection notification', () => {
+    const bind = loadToolbarSwatchEvents();
+    const calls = [];
+    const listeners = [];
+    const toolbar = { querySelectorAll: selector => {
+        calls.push(selector);
+        return [{ dataset: { color: '#123456' }, addEventListener: (type, listener) => listeners.push({ type, listener }) }];
+    } };
+    const text = {
+        style: {},
+        matches: () => false,
+        tagName: 'P',
+        querySelector: () => null,
+    };
+    bind({
+        toolbar,
+        getSelectedElement: () => text,
+        saveState: () => calls.push('save'),
+        isTextEditableElement: () => true,
+        dispatchSelectionChanged: element => calls.push(element),
+    });
+    assert.deepEqual(calls, ['.editor-color-swatches-mini .editor-color-swatch']);
+    assert.equal(listeners[0].type, 'click');
+    let stopped = false;
+    listeners[0].listener({ stopPropagation: () => { stopped = true; } });
+    assert.equal(stopped, true);
+    assert.equal(text.style.color, '#123456');
+    assert.equal(text.style.webkitTextFillColor, '#123456');
+    assert.equal(calls[1], 'save');
+    assert.equal(calls[2], text);
 });

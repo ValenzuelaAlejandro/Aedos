@@ -121,3 +121,7 @@ selection state.
 and duplicate controls in their prior order. Late editor state and actions are
 provided as callbacks so listener registration does not eagerly read bindings
 initialized later in the editor bootstrap.
+
+`toolbar-swatch-events.js` binds the existing palette swatches and delegates
+selection lookup, undo snapshot, semantic text detection, and change dispatch
+to the editor through callbacks.
