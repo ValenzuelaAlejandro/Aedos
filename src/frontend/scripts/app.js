@@ -3316,66 +3316,10 @@ document.addEventListener('DOMContentLoaded', () => {
             _overlayMap.forEach(({ label }) => { label.style.pointerEvents = 'none'; });
         });
 
-        function pruneDeadSlotOverlays() {
-            const iDoc = previewState.previewIframe.contentDocument;
-            _overlayMap.forEach((entry, slotEl) => {
-                if (!iDoc || !iDoc.contains(slotEl)) {
-                    entry.label.remove();
-                    entry.input.remove();
-                    _overlayMap.delete(slotEl);
-                }
-            });
-        }
-        window._pruneDeadSlotOverlays = pruneDeadSlotOverlays; // Expose for internal use
-
-
-        // Position overlays for the slots on the CURRENT slide, hide others
-        function _positionOverlays() {
-            const iDoc = previewState.previewIframe.contentDocument;
-            if (!iDoc || !iDoc.defaultView) return;
-            const matrix = new DOMMatrix(getComputedStyle(previewState.previewIframe).transform);
-            const scale = matrix.a || 1;
-            const fr = previewState.previewIframe.getBoundingClientRect();
-
-            // iDoc.defaultView.innerWidth is the "native" viewport width of the iframe
-            const viewW = iDoc.defaultView.innerWidth;
-            const viewH = iDoc.defaultView.innerHeight;
-
-            _overlayMap.forEach(({ label }, slotEl) => {
-                const r = slotEl.getBoundingClientRect(); // iframe-internal coords
-
-                // Resilience: Check if slot is actually visible in the iframe viewport
-                // We allow a small buffer for precision
-                const isVisible = r.width > 0 && r.height > 0 &&
-                    r.left < viewW - 1 &&
-                    r.right > 1 &&
-                    r.top < viewH - 1 &&
-                    r.bottom > 1;
-
-                if (!isVisible) {
-                    label.style.display = 'none';
-                    label.style.pointerEvents = 'none';
-                    return;
-                }
-
-                // Show and position
-                label.style.display = 'block';
-                label.style.left = (fr.left + r.left * scale) + 'px';
-                label.style.top = (fr.top + r.top * scale) + 'px';
-                label.style.width = (r.width * scale) + 'px';
-                label.style.height = (r.height * scale) + 'px';
-                // On mobile, make label interactive so touch events go directly
-                // to the label (above the touch-capture-overlay in z-order),
-                // bypassing the overlay's preventDefault that would block input.click()
-                if (isMobileViewport()) {
-                    label.style.pointerEvents = 'auto';
-                }
-            });
-        }
-
-        // Expose so scrollToSlide and scaleIframe can call it
-        _refreshSlotOverlays = _positionOverlays;
-        window._refreshSlotOverlays = _positionOverlays;
+        const { pruneDeadSlotOverlays, positionOverlays } = window.AedosPreview.createOverlayPositioning({ previewState, overlayMap: _overlayMap, isMobileViewport });
+        window._pruneDeadSlotOverlays = pruneDeadSlotOverlays;
+        _refreshSlotOverlays = positionOverlays;
+        window._refreshSlotOverlays = positionOverlays;
         window._buildOverlayForSlot = _buildOverlayForSlot;
 
         // Message handler is no longer needed since overlays handle everything directly
@@ -3491,9 +3435,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Initial positioning after all slots are set up
         // (done after multiple delays to account for carousel transition, font loading, etc.)
-        setTimeout(_positionOverlays, 100);
-        setTimeout(_positionOverlays, 500);
-        setTimeout(_positionOverlays, 1500);
+        setTimeout(positionOverlays, 100);
+        setTimeout(positionOverlays, 500);
+        setTimeout(positionOverlays, 1500);
     }
 
 
