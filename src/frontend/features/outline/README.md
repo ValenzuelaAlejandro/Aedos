@@ -24,6 +24,15 @@ reordering. Each command receives callbacks for the current slides, slide limit
 and existing renderer; it does not retain the shared outline store. The legacy
 global command functions remain wrappers in `scripts/outline.js`.
 
+`loading-view.js` owns the existing loading/chat transition and attachment
+presentation. It receives the outline store, attachment accessors and DOM
+orchestration callbacks explicitly; `window.showOutlineEditorLoading` remains
+the compatibility wrapper.
+
+`loading-legacy-bridge.js` adapts the explicit loading dependencies to the
+window-shaped object expected by the preserved legacy loading implementation.
+It is a call-scoped adapter and retains no shared state.
+
 `chips-renderer.js` owns suggested-chip creation, its existing one-second delay,
 and chip DOM events. Translation, generation actions and animation are supplied
 by `scripts/outline.js`; `window.renderOutlineSuggestedChips` remains the
