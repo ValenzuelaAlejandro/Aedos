@@ -13,6 +13,7 @@ test('iframe editor loads its native module and imports private feature helpers'
     assert.match(app, /<script type="module" src="\/editor\/editor\.js\?v=4"><\/script>/);
     assert.match(editor, /import \{ createAedosEditorSemantics \} from '\.\.\/features\/editor\/semantics\.js';/);
     assert.match(editor, /import \{ createEditorHistory \} from '\.\.\/features\/editor\/history\.js';/);
+    assert.match(editor, /import \{ createEditorPointerState \} from '\.\.\/features\/editor\/pointer-state\.js';/);
     assert.match(editor, /import \{ calculateEditorSelectionGeometry \} from '\.\.\/features\/editor\/selection-geometry\.js';/);
     assert.doesNotMatch(app, /<script src="\/features\/editor\/(?:semantics|history|selection-geometry)\.js/);
 });

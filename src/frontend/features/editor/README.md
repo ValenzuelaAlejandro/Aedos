@@ -110,6 +110,11 @@ retains the legacy window wrapper and intentionally avoids creating undo state.
 `arrow-movement.js` applies the existing keyboard and compatibility-facade
 arrow movement with undo grouping, collision resolution, and selection refresh.
 
+`pointer-state.js` creates the explicit per-iframe state container for pointer
+coordinates, drag/resize mode, selection, snap guides, lock status, and history
+restoration. The editor bootstrap continues to own the interaction logic and
+listener registration order while reading and updating these same state fields.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
 
