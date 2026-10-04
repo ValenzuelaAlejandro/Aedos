@@ -5,6 +5,10 @@ point in preview initialization. The remaining overlay lifecycle still lives
 in `scripts/app.js` until its listener and state dependencies can be moved
 together without changing event order.
 
+`zoom-controls.js` owns the zoom values, display updates, and button listeners.
+`app.js` calls its factory at the former initialization point and keeps the
+returned operations for the existing iframe scaling flow.
+
 `overlay-labels.js` creates the parent-side input and label for each image slot.
 The factory receives the live overlay map and replacement callbacks; the app
 invokes it at the former assignment point, so listener registration order stays
