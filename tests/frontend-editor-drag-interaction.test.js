@@ -6,15 +6,32 @@ const vm = require('node:vm');
 
 function loadDragInteraction() {
     const module = { exports: {} };
-    const context = { module, resolveDragCollision: rect => ({ left: rect.left, top: rect.top }) };
+    const context = {
+        module,
+        resolveDragCollision: rect => ({ left: rect.left, top: rect.top }),
+        findEditorSnapGuideMatch: loadSnapGuideMatch(),
+    };
     vm.createContext(context);
     const sourcePath = path.join(__dirname, '../src/frontend/features/editor/drag-interaction.js');
     const source = fs.readFileSync(sourcePath, 'utf8')
         .replace("import { resolveDragCollision } from './collision-geometry.js';", '')
+        .replace("import { findEditorSnapGuideMatch } from './snap-guide-calculation.js';", '')
         .replace('export function applyEditorDrag', 'function applyEditorDrag') +
         '\nmodule.exports = { applyEditorDrag };';
     vm.runInContext(source, context, { filename: sourcePath });
     return module.exports.applyEditorDrag;
+}
+
+function loadSnapGuideMatch() {
+    const module = { exports: {} };
+    const context = { module };
+    vm.createContext(context);
+    const sourcePath = path.join(__dirname, '../src/frontend/features/editor/snap-guide-calculation.js');
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace('export function findEditorSnapGuideMatch', 'function findEditorSnapGuideMatch') +
+        '\nmodule.exports = { findEditorSnapGuideMatch };';
+    vm.runInContext(source, context, { filename: sourcePath });
+    return module.exports.findEditorSnapGuideMatch;
 }
 
 function loadPointerNormalization() {

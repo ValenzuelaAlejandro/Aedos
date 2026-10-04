@@ -8,6 +8,7 @@ function loadResizeInteraction() {
     const module = { exports: {} };
     const context = {
         module,
+        findEditorSnapGuideMatch: loadSnapGuideMatch(),
         resolveResizeCollision: (rect, _handle, _slide, _selected, fixed) => ({
             ...rect,
             width: Math.max(20, rect.width),
@@ -20,10 +21,23 @@ function loadResizeInteraction() {
     const sourcePath = path.join(__dirname, '../src/frontend/features/editor/resize-interaction.js');
     const source = fs.readFileSync(sourcePath, 'utf8')
         .replace("import { resolveResizeCollision } from './collision-geometry.js';", '')
+        .replace("import { findEditorSnapGuideMatch } from './snap-guide-calculation.js';", '')
         .replace('export function applyEditorResize', 'function applyEditorResize') +
         '\nmodule.exports = { applyEditorResize };';
     vm.runInContext(source, context, { filename: sourcePath });
     return module.exports.applyEditorResize;
+}
+
+function loadSnapGuideMatch() {
+    const module = { exports: {} };
+    const context = { module };
+    vm.createContext(context);
+    const sourcePath = path.join(__dirname, '../src/frontend/features/editor/snap-guide-calculation.js');
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace('export function findEditorSnapGuideMatch', 'function findEditorSnapGuideMatch') +
+        '\nmodule.exports = { findEditorSnapGuideMatch };';
+    vm.runInContext(source, context, { filename: sourcePath });
+    return module.exports.findEditorSnapGuideMatch;
 }
 
 test('resize interaction applies pointer delta and refreshes selection', () => {
