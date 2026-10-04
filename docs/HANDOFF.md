@@ -245,7 +245,7 @@ no se alcanzó; el inventario actualizado y las razones están en
 | `refactor/fase-8b-inventario` | `a1cd537d6190c81aeb8027c378e7c31a0d5bb9f7` | Base anterior, inventario |
 | `refactor/fase-8c-outline` | `d730eeabf3d144f5d71273b1dc0b3abffcd3dc75` | Base anterior, outline |
 | `refactor/fase-8d-editor` | `97168e4f54f1d6f704a0700f9d5d43b608882d53` | Base verificada antes de nuevos cortes |
-| `refactor/fase-8e-app` | `523464fb98da490855dbbe02c46ce56aff4f0a93` | Código verificado antes del cierre documental |
+| `refactor/fase-8e-app` | `32a3980` | Cierre documental previo al resultado 10/10 |
 
 El commit documental que actualiza este handoff avanzará el HEAD de 8e; como
 un documento no puede contener su propio hash, la punta publicable exacta es el
@@ -301,7 +301,10 @@ sentinels, lint 119, tipos 16 y formato correcto. PowerPoint COM se omitió por
 requerir Windows/PowerPoint. Son pruebas locales con providers simulados; no
 son CI de GitHub ni un smoke test de IA real.
 
-Antes de cerrar, ejecutar las 10 corridas seriales requeridas de
-`npm run check:editor-safety` y registrar el resultado real. Pendientes del
-usuario/entorno: push manual, CI de GitHub, smoke test con IA real y `npm audit`
-con red. No publicar `main`, tags ni usar force.
+Diez corridas seriales consecutivas de `npm run check:editor-safety` terminaron
+en código 0 (10/10): cada una pasó el browser flow, `flow-16-editor-layer`
+marcó 0 píxeles distintos y detectó 13/13 sentinels. Logs temporales locales:
+`%TEMP%\aedos-editor-safety-1.log` a `%TEMP%\aedos-editor-safety-10.log`.
+
+Pendientes del usuario/entorno: push manual, CI de GitHub, smoke test con IA
+real y `npm audit` con red. No publicar `main`, tags ni usar force.
