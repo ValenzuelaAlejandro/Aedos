@@ -227,3 +227,81 @@ providers reales y `npm audit` conectado continúan pendientes del usuario/
 entorno. Ratchets actuales: lint 119 y tipos 16; el último `verify:all` tras el
 revert `669d83a` terminó en código 0 con baselines y pruebas aprobadas. La
 reproducción diagnóstica de iframe no modificó archivos.
+
+## Continuación Etapa 8 — 2026-10-04
+
+Trabajo local sin push ni red, en `refactor/fase-8e-app`, creado desde el estado
+verificado `refactor/fase-8d-editor` (`97168e4`). No se leyó `.env`, no se
+hicieron llamadas reales a proveedores y no se añadieron dependencias. Este
+tramo es parcial: la meta de ≤300 líneas para `editor.js` y ≤400 para `app.js`
+no se alcanzó; el inventario actualizado y las razones están en
+`docs/FRONTEND-INVENTORY.md`. No se regeneró ninguna baseline.
+
+### Ramas 8a–8e
+
+| Rama | Hash de referencia al cierre | Estado |
+| --- | --- | --- |
+| `refactor/fase-8a-red-estable` | `565a8f0d296fa85b1ec92ba1a08c24dc7c74c9e6` | Base anterior, Etapa 1 |
+| `refactor/fase-8b-inventario` | `a1cd537d6190c81aeb8027c378e7c31a0d5bb9f7` | Base anterior, inventario |
+| `refactor/fase-8c-outline` | `d730eeabf3d144f5d71273b1dc0b3abffcd3dc75` | Base anterior, outline |
+| `refactor/fase-8d-editor` | `97168e4f54f1d6f704a0700f9d5d43b608882d53` | Base verificada antes de nuevos cortes |
+| `refactor/fase-8e-app` | `523464fb98da490855dbbe02c46ce56aff4f0a93` | Código verificado antes del cierre documental |
+
+El commit documental que actualiza este handoff avanzará el HEAD de 8e; como
+un documento no puede contener su propio hash, la punta publicable exacta es el
+resultado de `git rev-parse refactor/fase-8e-app` al terminar.
+
+### Medidas y módulos
+
+LOC medidos con `git show <ref>:<archivo> | wc -l`:
+
+| Archivo | Inicio 8d (`d7c69cc`) | Código verificado 8e (`523464f`) |
+| --- | ---: | ---: |
+| `src/frontend/scripts/app.js` | 4,618 | 4,492 |
+| `src/frontend/scripts/outline.js` | 230 | 230 |
+| `src/frontend/editor/editor.js` | 660 | 582 |
+
+Módulos nuevos del tramo (todos <300 líneas):
+`editor/toolbar-size-events.js` (23), `toolbar-action-events.js` (57),
+`toolbar-swatch-events.js` (32), `mouseup-cleanup.js` (37),
+`font-size-actions.js` (28), `shared/content-utils.js` (55),
+`app/tooltips.js` (57). Sus READMEs quedaron en cada carpeta.
+
+### Cortes completados y pendientes
+
+- Diagnóstico de toolbar documentado: los dos fallos descartados fueron TDZ por
+  evaluar referencias `const` tardías al registrar listeners; no fue un `this`,
+  selector, iframe-ready ni orden de listener roto. Se extrajeron size/action/
+  swatch bindings, cleanup mouseup y font-size actions con callbacks explícitos.
+- App: utilidades compartidas (sanitización/GIF) y tooltips extraídos, dejando
+  sus aliases globales y el punto original de registro de tooltips.
+- `editor.js` queda en 582 líneas. No se extrajo el bloque body/selection
+  pointer-event (mousedown/mousemove/resize): drag, resize, normalización,
+  selección, snap guides, historial y flags comparten más de una docena de
+  valores léxicos. Un corte mecánico sin un contexto getter/setter probado
+  podría cambiar orden de eventos o capturar un snapshot. Es el siguiente corte
+  que requiere diseñar/testear un único API de estado explícito.
+- `app.js` queda en 4,492 líneas. Solo se extrajeron 2 de los 18 cortes
+  inventariados; dropdowns, router/adjuntos, SSE, transición preview, zoom,
+  overlays, navegación y exportación siguen en el orquestador porque comparten
+  stores, DOM, timers/controllers y bridges. No se eliminaron globals.
+- Conservados: `window.sanitizeModelOutput`, `window.gifToStaticDataUrl`,
+  `window.AedosContentUtils`, `window.AedosAppTooltips`, todas las fachadas de
+  editor, outline, preview, navegación y generación. Ningún `window.*` existente
+  se retiró; los dos nuevos namespaces son aditivos.
+- Ratchets antes/después: lint `119 → 119`; typecheck `16 → 16`.
+
+### Compuertas verificadas
+
+`npm run verify:all` terminó en código 0 tras cada commit: `a0d830a`, `d6ffaed`,
+`f65a134`, `79eb502`, `97168e4`, `3d3da98`, `f15a8b9`, `e165685` y `523464f`.
+En los resultados recientes: visual 6/6, 8/8 mutaciones visuales, PPTX 14/14,
+PDF con 8 páginas/hashes estables, editor safety browser flow en verde y 13/13
+sentinels, lint 119, tipos 16 y formato correcto. PowerPoint COM se omitió por
+requerir Windows/PowerPoint. Son pruebas locales con providers simulados; no
+son CI de GitHub ni un smoke test de IA real.
+
+Antes de cerrar, ejecutar las 10 corridas seriales requeridas de
+`npm run check:editor-safety` y registrar el resultado real. Pendientes del
+usuario/entorno: push manual, CI de GitHub, smoke test con IA real y `npm audit`
+con red. No publicar `main`, tags ni usar force.

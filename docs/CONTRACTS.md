@@ -228,3 +228,20 @@ error catalog, but a deterministic concurrent queue fixture would require a
 stable blocking seam. Mid-stream provider failure and Gemini-to-OpenRouter
 fallback likewise require provider-failure injection; these seams are
 intentionally deferred to Phase 3 rather than changing production behavior.
+
+## Frontend compatibility APIs during Etapa 8
+
+`src/frontend/features/shared/content-utils.js` loads as a classic script before
+`scripts/app.js`. `window.AedosContentUtils.sanitizeModelOutput(value)` and
+`gifToStaticDataUrl(file)` are the named service; the historical
+`window.sanitizeModelOutput` and `window.gifToStaticDataUrl` aliases remain.
+Model chunks still pass through the same sanitizer, and image consumers retain
+the same GIF first-frame conversion behavior.
+
+`window.AedosAppTooltips.initialize()` is called from the former tooltip
+registration point in `app.js`. It registers the delegated `mouseover`,
+`mouseout`, `mousedown`, and capture-phase `scroll` listeners in that order.
+`src/frontend/features/editor/toolbar-{size,action,swatch}-events.js` and
+`font-size-actions.js` own only their specified controls; event selector order,
+callbacks, and legacy editor globals remain unchanged. These are transitional
+APIs, not authorization to remove existing `window.*` compatibility names.

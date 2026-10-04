@@ -107,3 +107,22 @@ No traduzcas ni reescribas prompts de IA desde la capa de i18n.
   helpers independientes ya están extraídos. Para las medidas exactas por
   commit, véase `docs/HANDOFF.md` y el inventario histórico en
   `docs/FRONTEND-INVENTORY.md`.
+
+## Continuación Etapa 8
+
+La rama `refactor/fase-8e-app` empieza desde el editor verificado de 8d. En el
+primer tramo se aislaron las utilidades clásicas compartidas
+(`features/shared/content-utils.js`) y tooltips (`features/app/tooltips.js`),
+manteniendo sus fachadas `window.*` y su punto de inicialización. El editor
+separó el binding por grupo de controles y las acciones de tamaño, además del
+cleanup mouseup; su interacción de puntero sigue pendiente porque drag, resize,
+normalización, selección y undo comparten muchas variables capturadas. No
+introducir una copia local de ese estado: primero definir y probar un contexto
+explícito de getter/setter o mantener el bloque en un único propietario.
+
+Las recetas anteriores para renderizador, store, herramienta del editor e
+idioma siguen vigentes. En particular, un renderizador nuevo debe tener casos
+byte-identical; un store debe ser dueño único del estado y conservar el bridge;
+una herramienta debe delegar selección/historial; un idioma debe completar las
+claves de `i18n.js` y sus fallbacks. El orden exacto de cortes del coordinador
+está en `docs/FRONTEND-INVENTORY.md`.

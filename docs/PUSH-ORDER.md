@@ -32,7 +32,15 @@ siga coincidiendo con el hash revisado; publica una por una en este orden.
 | 22 | `refactor/fase-5-esm` | `19d6dab545ac9bae9a7b638b01e6bc40e9ab6c9f` | `git push -u origin refactor/fase-5-esm` |
 | 23 | `refactor/fase-6-tipos` | `3e466ce92df4e93dbb4c679b76943fdf0cedb9b3` | `git push -u origin refactor/fase-6-tipos` |
 | 24 | `refactor/fase-7-limpieza` | `e221fd7295397fa9d69ee2fa161effb62d2bfd13` (antes del commit de este documento) | `git push -u origin refactor/fase-7-limpieza` |
+| 25 | `refactor/fase-8a-red-estable` | `565a8f0d296fa85b1ec92ba1a08c24dc7c74c9e6` | `git push -u origin refactor/fase-8a-red-estable` |
+| 26 | `refactor/fase-8b-inventario` | `a1cd537d6190c81aeb8027c378e7c31a0d5bb9f7` | `git push -u origin refactor/fase-8b-inventario` |
+| 27 | `refactor/fase-8c-outline` | `d730eeabf3d144f5d71273b1dc0b3abffcd3dc75` | `git push -u origin refactor/fase-8c-outline` |
+| 28 | `refactor/fase-8d-editor` | `97168e4f54f1d6f704a0700f9d5d43b608882d53` | `git push -u origin refactor/fase-8d-editor` |
+| 29 | `refactor/fase-8e-app` | `523464fb98da490855dbbe02c46ce56aff4f0a93` (HEAD de código antes del cierre documental) | `git push -u origin refactor/fase-8e-app` |
 
 El último hash de `fase-7-limpieza` cambia al commit de estos documentos; para
 ese valor final usa `git rev-parse refactor/fase-7-limpieza`. No usar `--force`,
 no publicar tags y nunca incluir `main` en la lista de push.
+
+La Etapa 8e puede avanzar al añadir documentación de cierre; comprueba siempre
+su hash publicable final con `git rev-parse refactor/fase-8e-app`.

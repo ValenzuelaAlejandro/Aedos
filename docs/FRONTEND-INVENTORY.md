@@ -298,3 +298,20 @@ duplicados de timer, controller SSE, overlays, índice de slide, adjuntos, zoom 
 iframe lifecycle. Cortes 7–18 deben esperar una API/store explícita si cruzan
 estado mutable. No eliminar ninguna fachada `window.*` sin búsqueda documentada
 en JS, HTML, templates iframe, `docs/CONTRACTS.md` y tests.
+
+### Estado inicial de 8e
+
+En `523464f` se completaron dos cortes de la tabla: (1) sanitización/conversión
+GIF pasó a `features/shared/content-utils.js`, conservando ambas funciones
+globales previas y añadiendo `window.AedosContentUtils`; (2) tooltips pasó a
+`features/app/tooltips.js`, cuya `initialize()` se invoca exactamente en el
+punto original. El resto de los cortes sigue pendiente. `app.js` mide 4,492
+líneas tras esos dos movimientos; ninguna baseline cambió.
+
+El editor se mantiene en 582 líneas. En `refactor/fase-8d-editor` quedaron
+verificados los cortes separados de toolbar size, action, swatches, mouseup
+cleanup y font-size actions. El bloque combinado de mousedown/mousemove/resize
+no se extrajo: arrastra más de doce campos mutables y cruza selección,
+normalización, snap guides e historial. Requiere una API explícita de estado
+live probada antes de moverlo; no compartir un snapshot ni cambiar el momento
+de registro de esos listeners.
