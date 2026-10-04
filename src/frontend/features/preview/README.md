@@ -18,6 +18,10 @@ at the former navigation initialization point.
 factory registers document keyboard/wheel listeners at their former point and
 returns wheel/touch handlers for iframe registration by `app.js`.
 
+`slot-image-replacement.js` owns file/URL image replacement and slot styling.
+It receives the existing content utility and is instantiated where the old
+replacement functions were defined.
+
 `overlay-labels.js` creates the parent-side input and label for each image slot.
 The factory receives the live overlay map and replacement callbacks; the app
 invokes it at the former assignment point, so listener registration order stays
