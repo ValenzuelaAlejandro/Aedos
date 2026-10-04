@@ -49,3 +49,43 @@ test('content utilities preserve sanitization output and GIF compatibility globa
     assert.equal(window.gifToStaticDataUrl, window.AedosContentUtils.gifToStaticDataUrl);
     assert.equal(window.AedosContentUtils.sanitizeModelOutput(null), null);
 });
+
+test('app tooltips preserve delegated listener order and viewport placement', () => {
+    const tooltipPath = path.join(root, 'src/frontend/features/app/tooltips.js');
+    const listeners = [];
+    const classes = new Set();
+    const tip = {
+        style: {},
+        offsetWidth: 80,
+        offsetHeight: 30,
+        classList: {
+            add: value => classes.add(value),
+            remove: value => classes.delete(value),
+        },
+    };
+    const window = { innerWidth: 400, innerHeight: 300 };
+    vm.runInNewContext(fs.readFileSync(tooltipPath, 'utf8'), {
+        window,
+        document: {
+            getElementById: id => id === 'js-tooltip' ? tip : null,
+            addEventListener: (...args) => listeners.push(args),
+        },
+    }, { filename: tooltipPath });
+    window.AedosAppTooltips.initialize();
+    assert.deepEqual(listeners.map(([type, , capture]) => [type, capture]), [
+        ['mouseover', undefined], ['mouseout', undefined], ['mousedown', undefined], ['scroll', true],
+    ]);
+    const trigger = {
+        dataset: { tooltip: 'help' },
+        disabled: false,
+        classList: { contains: () => false },
+        getBoundingClientRect: () => ({ top: 100, bottom: 120, left: 100, width: 30 }),
+    };
+    listeners[0][1]({ target: { closest: () => trigger } });
+    assert.equal(tip.textContent, 'help');
+    assert.equal(tip.style.top, '130px');
+    assert.equal(tip.style.left, '75px');
+    assert.equal(classes.has('visible'), true);
+    listeners[1][1]({ target: { closest: () => trigger } });
+    assert.equal(classes.has('visible'), false);
+});

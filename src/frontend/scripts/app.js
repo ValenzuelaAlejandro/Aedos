@@ -299,76 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     window.AedosThemeController.initialize(previewState);
 
-    // ── Smart Tooltips (JS singleton, position: fixed) ────────────────────
-    (function initSmartTooltips() {
-        const tip = document.getElementById('js-tooltip');
-        if (!tip) return;
-
-        const MARGIN = 8; // px from viewport edge
-        const GAP = 10; // px between trigger and tooltip
-
-        function showTip(trigger) {
-            const text = trigger.dataset.tooltip;
-            if (!text) return;
-
-            // Set text and reset position so it can size freely while still hidden
-            tip.textContent = text;
-            tip.style.left = '0';
-            tip.style.top = '0';
-
-            // Measure while still invisible (visibility:hidden has correct layout)
-            const tr = trigger.getBoundingClientRect();
-            const tw = tip.offsetWidth;
-            const th = tip.offsetHeight;
-            const vw = window.innerWidth;
-            const vh = window.innerHeight;
-
-            // Prefer above for btn-mode-toggle, below for header icons
-            const preferAbove = trigger.classList.contains('btn-mode-toggle');
-
-            const spaceAbove = tr.top;
-            const spaceBelow = vh - tr.bottom;
-
-            let top;
-            if (preferAbove) {
-                top = spaceAbove >= th + GAP
-                    ? tr.top - th - GAP
-                    : tr.bottom + GAP; // flip below
-            } else {
-                top = spaceBelow >= th + GAP
-                    ? tr.bottom + GAP
-                    : tr.top - th - GAP; // flip above
-            }
-
-            // Center horizontally, clamped to viewport
-            let left = tr.left + tr.width / 2 - tw / 2;
-            left = Math.max(MARGIN, Math.min(left, vw - tw - MARGIN));
-
-            tip.style.top = top + 'px';
-            tip.style.left = left + 'px';
-
-            // Show only after positioned — prevents first-hover flash at wrong size
-            tip.classList.add('visible');
-        }
-
-        function hideTip() {
-            tip.classList.remove('visible');
-        }
-
-        // Event delegation — works for all 3 tooltip triggers
-        document.addEventListener('mouseover', function (e) {
-            const trigger = e.target.closest('[data-tooltip]');
-            if (trigger && trigger.dataset.tooltip && !trigger.disabled) showTip(trigger);
-        });
-
-        document.addEventListener('mouseout', function (e) {
-            const trigger = e.target.closest('[data-tooltip]');
-            if (trigger) hideTip();
-        });
-
-        document.addEventListener('mousedown', hideTip);
-        document.addEventListener('scroll', hideTip, true);
-    })();
+    window.AedosAppTooltips.initialize();
 
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
         window.lucide.createIcons();
