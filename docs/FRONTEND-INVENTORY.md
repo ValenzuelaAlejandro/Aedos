@@ -316,6 +316,66 @@ normalización, snap guides e historial. Requiere una API explícita de estado
 live probada antes de moverlo; no compartir un snapshot ni cambiar el momento
 de registro de esos listeners.
 
+## Etapa 9a — inventario de estado de `app.js` (2026-10-04)
+
+Base `refactor/fase-8e-app@2ebf64c`. `app.js` contiene una única llamada
+`DOMContentLoaded`; debajo, las declaraciones enumeradas son las vinculaciones
+del scope de ese callback (incluye declaraciones de bloques, excluye locales de
+funciones anidadas). Las referencias DOM se crean en varios hitos entre el
+inicio y la línea 3,328; para conservar cuándo cada selector se resuelve, el
+futuro objeto `dom` debe ser único pero recibir sus propiedades en esos mismos
+lugares y orden, no consultar todos los selectores al inicio.
+
+| Familia | Estado / binding de nivel del callback | Ventana aproximada / dueño actual |
+| --- | --- | --- |
+| Stores y logger | `generationState`, `previewState`, `uiLog` | Líneas 2–4; generation/preview stores y logger compartidos |
+| Chat / modales / refs de pantalla | DOM: `chatScreen`, `resultContainer`, `errorContainer`, `refusedContainer`, `refusedMessage`, `downloadBtn`, `resultSubtitle`, `resetBtn`, `backBtn`, `errorMessage`, `temaError`, `_errCloseBtnEl`, `_refCloseBtnEl`; `errorModal`, `showErrorModal`; `debugLastGeneratedBtn` | 29–51; estado del modal y handlers registrados en bootstrap |
+| Preview / refs DOM | DOM: `slideDots`, `slideLabel`, `mobileSlideDots`, `mobileSlideLabel`, `previewHeader`, `finalizeBtn`, `progressBarEl`, `previewStreamStatus`, `previewStreamStatusText`; `previewContainer` (inicial), más el `previewState.previewIframe` asignado | 30, 64–72; preview/editor store y refs del iframe |
+| Overlay / preview lifecycle | `_refreshSlotOverlays`, `_overlayMap`, `_stabilizeMinimapOnNextPreviewInit`, `_buildOverlayForSlot`, `_savedStagePadding` | 82–84, 3,446, 3,489; object URLs/inputs y callbacks también cruzan el bridge parent/iframe |
+| Tema, idioma y dropdowns | `MOBILE_BREAKPOINT`; DOM: `modeBtn`, `modeMenu`, `langBtn`, `langMenu`, `exportMenuBtn`, `exportMenu`, `exportPptxBtn`, `currentModeLabel`, `currentLangLabel`, `chatInputWrapper` | 113–135; valores y traducción dependen de `window.__t`, stores y archivos adjuntos |
+| Chat / entrada / generación UI | `typewriterCursor`, `chatPlaceholderContainer`, `typewriterRunning`, DOM `temaInput`, `btnGenerate`, `heroCursor`, `generateBtn`; `warmedUp`, `BTN_LOADING_KEYS_DESKTOP`, `_activeBtnLoadingKeys`, `_btnMsgTimer`, `_btnMsgIndex`, `_heroResetTimer`; `btnBackToChat`, `btnEditTopic` | 311–313, 556–557, 805, 864–897, 957, 2,613–2,634; warmup fetch, status text y timers de UI |
+| Adjuntos | DOM `btnAttachFile`, `fileUploadInput`, `attachmentPreviewContainer`; array `window._attachedFiles` (bridge global) | 560–562; dueño lógico en app, chip renderer puede llamar de vuelta a render/validación |
+| Router / navegación de slides | `initialHash`, `topBrand`, `_lastNavScroll`, `NAV_COOLDOWN`, `wheelCooldown`, `mobileSwipeHandlers`, `touchStartX`, `touchEndX` | 508–515, 4,036–4,037, 4,242, 4,277–4,288; listeners y gestos mantienen orden de registro |
+| Preview / zoom / minimap | `minimapAlreadyInit`, `toolsAlreadyInit`, `_skipMinimapSkeleton`, `MIN_ZOOM`, `MAX_ZOOM`, `ZOOM_STEP`, `_fallbackLastIsMobileLayoutForZoom`, `syncZoomStateWithViewportMode`; DOM `btnZoomIn`, `btnZoomOut` | 2,864–2,869, 3,287–3,329; window zoom/pan y mobile runtime son bridges legacy |
+| Constantes de ciclo | `initialHash`, `topBrand`, `syncZoomStateWithViewportMode`, `mobileSwipeHandlers` y callbacks de configuración | Inicializados en su punto actual; no se deben adelantar si capturan DOM, viewport o handlers |
+
+El inventario AST también halló `window.*` públicos/compatibilidad: `navigateToHome`,
+`navigateToChat`, `navigateToEditor`, `validateGenerateButton`,
+`startFinalGeneration`, `proceedWithCurrentOutline`, `fillInput`, navegación de
+slides (`scrollToSlide`, `prevSlide`, `nextSlide`, getters de slide), inicializadores
+minimap/tools/editor, APIs de overlay/slots (`_buildOverlayForSlot`, `_refreshSlotOverlays`,
+`_ensureInternalOverlay`, `_pruneDeadSlotOverlays`, `_triggerImagePicker`,
+`_slotMsgHandler`), control de generación (`_activeGenController`, `_backupSkeleton`,
+`_pendingGenerateBodyData`, `_pendingGenerateHeaders`, timers) y APIs compartidas
+como `AedosStores`, `AedosHttpSse`, `AedosExportSnapshot`, `AedosModals`,
+`AedosThemeController`, `AedosThinking`, `BrowserLogger`, `MobileRuntime` e i18n.
+También se identificaron globals legacy de viewport/slide/tema (`_manualZoomScale`,
+`_baseScale`, `_mobile_zoom`, `_pan`, `currentSlide`, `currentLang`) y timers
+(`_heroTypewriterTimer`, `_chipsRenderTimeout`, `_proceedMsgInterval`,
+`_restoreBatchT`). `_pendingTransitionFn` se asigna sin declaración léxica en
+este script; el browser lo resuelve como binding global implícito. Debe
+registrarse y migrarse preservando esa semántica, no “corregirse” durante un
+corte mecánico. Ninguna se elimina durante el paso de estado.
+
+### Plan mecánico estado-primero
+
+1. Añadir `const dom = {}` al inicio del callback. Migrar cada consulta cacheada
+   a la propiedad equivalente en su punto/orden actual; no agrupar consultas
+   antes de donde hoy se ejecutan. Primero validar que no quedan usos libres.
+2. Agrupar por commits, sin cambiar valores iniciales: chat/loading/timers;
+   generación y SSE; adjuntos; preview y lifecycle; zoom/pan; overlays; router y
+   navegación; exportación; idioma/tema. El objeto `state` de cada familia se
+   declara donde se inicializan hoy sus bindings. Cada reemplazo debe preservar
+   la referencia del objeto capturada por callbacks y los setters de window.
+3. Solo tras cerrar los objetos, mover cada bloque entero a fábrica
+   `createX(ctx)`; el `ctx` pasa esos mismos objetos, `dom` y callbacks tardíos.
+   Instanciar las fábricas en el punto actual de inicialización para no cambiar
+   orden, TDZ, timers ni registro de listeners.
+
+Estado al registrar este inventario: aún no se movió ninguna variable de
+`app.js`; el archivo sigue en 4,492 líneas. La etapa de estado todavía requiere
+los commits atómicos por familia y sus compuertas.
+
 ## Actualización de ejecución 8e (2026-10-04)
 
 Mediciones del HEAD inicial `831c184` y el HEAD de código `bb44e47`, calculadas
