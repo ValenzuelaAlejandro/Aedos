@@ -17,7 +17,6 @@ test('iframe editor loads its native module and imports private feature helpers'
     assert.match(editor, /import \{ bindEditorBodyPointerDown \} from '\.\.\/features\/editor\/body-pointer-events\.js';/);
     assert.match(editor, /import \{ beginEditorResize \} from '\.\.\/features\/editor\/resize-start\.js';/);
     assert.match(editor, /import \{ normalizePointerTarget \} from '\.\.\/features\/editor\/pointer-normalization\.js';/);
-    assert.match(read('src/frontend/features/editor/body-pointer-events.js'), /import \{ initializePointerSnapGuides \} from '\.\/pointer-snap-guides\.js';/);
     assert.match(editor, /import \{ calculateEditorSelectionGeometry \} from '\.\.\/features\/editor\/selection-geometry\.js';/);
     assert.doesNotMatch(app, /<script src="\/features\/editor\/(?:semantics|history|selection-geometry)\.js/);
 });

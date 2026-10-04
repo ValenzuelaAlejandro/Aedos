@@ -127,9 +127,6 @@ handle after the selection-box mousedown branch saves its history snapshot.
 layout normalization, abort path, and origin reset before drag/resize applies
 its existing deltas.
 
-`pointer-snap-guides.js` stores the same horizontal and vertical snap targets
-at the body mousedown point where the editor previously computed them inline.
-
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
 

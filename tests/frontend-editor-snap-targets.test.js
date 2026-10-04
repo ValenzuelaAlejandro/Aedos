@@ -16,18 +16,6 @@ function loadSnapTargets() {
     return module.exports.createEditorSnapTargets;
 }
 
-function loadPointerSnapGuides() {
-    const module = { exports: {} };
-    const context = { module };
-    vm.createContext(context);
-    const sourcePath = path.join(__dirname, '../src/frontend/features/editor/pointer-snap-guides.js');
-    const source = fs.readFileSync(sourcePath, 'utf8')
-        .replace('export function initializePointerSnapGuides', 'function initializePointerSnapGuides') +
-        '\nmodule.exports = { initializePointerSnapGuides };';
-    vm.runInContext(source, context, { filename: sourcePath });
-    return module.exports.initializePointerSnapGuides;
-}
-
 test('snap targets preserve slide guides, padding, and peer edge order', () => {
     const createEditorSnapTargets = loadSnapTargets();
     const active = { classList: { contains: () => false } };
@@ -47,22 +35,4 @@ test('snap targets are empty when there is no slide', () => {
     const targets = createEditorSnapTargets(null, null, () => []);
     assert.deepEqual(Array.from(targets.snapLinesX), []);
     assert.deepEqual(Array.from(targets.snapLinesY), []);
-});
-
-test('pointer snap guides preserve factory arguments and store both axes', () => {
-    const initializePointerSnapGuides = loadPointerSnapGuides();
-    const slide = {};
-    const target = {};
-    const getEditableElements = () => [];
-    const state = { snapLinesX: [], snapLinesY: [] };
-    const snapLinesX = [{ val: 11 }];
-    const snapLinesY = [{ val: 22 }];
-
-    initializePointerSnapGuides(slide, target, state, (...args) => {
-        assert.deepEqual(args, [slide, target, getEditableElements]);
-        return { snapLinesX, snapLinesY };
-    }, getEditableElements);
-
-    assert.equal(state.snapLinesX, snapLinesX);
-    assert.equal(state.snapLinesY, snapLinesY);
 });
