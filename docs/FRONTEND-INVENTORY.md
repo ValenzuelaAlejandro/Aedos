@@ -237,3 +237,64 @@ al seleccionar). Cada grupo debe probar tanto registro temprano como
 invocación posterior y revisar que todos los handlers conservan el mismo
 receptor/evento. Si un grupo falla otra vez, registrarlo como no extraído y
 pasar al siguiente corte independiente.
+
+## Inventario y plan de extracción de `app.js` (inicio de 8e)
+
+Base: rama `refactor/fase-8d-editor`, commit `97168e4`. El archivo medía 4,618
+líneas con `git show 97168e4:src/frontend/scripts/app.js | wc -l`. Casi todo el
+código vive dentro del callback de `DOMContentLoaded`; sus funciones internas
+comparten cierres, referencias DOM y fachadas clásicas. Los rangos son bloques
+aproximados al inicio; volver a medirlos antes de cada corte.
+
+| Rango inicial | Responsabilidad / funciones | Estado mutable que lee o escribe | `window.*` relevantes | Destino propuesto |
+| --- | --- | --- | --- | --- |
+| 1–57 | Sanitizar salida y convertir GIF; `sanitizeModelOutput`, `gifToStaticDataUrl` | Solo entradas y temporales locales | `window.sanitizeModelOutput` | `features/shared/content-utils.js` |
+| 58–130 | Bootstrap, stores, referencias DOM, modales y listeners globales de drag | generation/preview stores, logger y referencias DOM | `window.AedosStores`, `BrowserLogger`, `AedosModals` | `features/app/bootstrap-dom.js`, con DI desde app |
+| 131–182 | Estado de indicador SSE, padding del stage, zoom móvil/breakpoint | status, settling tween, generación/iframe, `_mobile_zoom`, `_pan` | `window._mobile_zoom`, `_pan` | `features/preview/viewport-state.js`, store preview y API viewport |
+| 183–312 | Menús modo/idioma/export y modo Pro condicionado a adjuntos | menú, preferencia de modo/idioma, lista adjuntos | `_syncModeWithFiles` | `features/app/dropdowns.js`, callbacks de preferencias/adjuntos |
+| 313–359 | Mensajes del iframe en skeleton/preview y labels | generación actual, slides/minimap, título | `window.__t` | `features/preview/frame-messages.js`, con identidad/store explícitos |
+| 360–434 | Tooltips dinámicos y placeholder nativo; typewriter actualmente stub | DOM y cursor local | Ninguno | `features/app/tooltips.js`; no extraer stubs vacíos |
+| 446–680 | Router home/chat/editor, historial, confirmación al abandonar borrador | stores generation/preview, outline, adjuntos, pantallas | `navigateToHome`, `navigateToChat`, `navigateToEditor`, hash/history | `features/app/router.js`, recibe estado y comando reset |
+| 681–926 | Validación de tema, elegir/arrastrar adjuntos y chips | tema, archivos, object URLs, DOM adjuntos | `_attachedFiles`, `validateGenerateButton`, `__t` | `features/chat/attachments.js` + `input-validation.js`, API de adjuntos |
+| 927–1024 | Botón generar, resize del input, contador, Enter y cursor hero | tema, loading y DOM chat/hero | `validateGenerateButton` | `features/chat/generate-control.js`, valida mediante store/callback |
+| 1025–1192 | Mensajes del botón, título hero, loading y reset de superficie preview | timers, título/idioma, loading, refs preview | `_heroTypewriterTimer` y métodos de loading | `features/chat/generation-status.js`, preservar nombres/timers legacy |
+| 1193–1338 | Título/HTML preview y canvas debug | previewState, tema, iframe, zoom | `currentSlide`, `_manualZoomScale`, helpers debug | `features/preview/preview-bootstrap.js`, estado preview permanece en store |
+| 1339–1760 | Generación skeleton, parseo/respuesta SSE, intención y errores | skeleton controller, outline store, chat/progreso | `_backupSkeleton`, `_pendingGenerateBodyData/Headers`, timers proceed | `features/generation/skeleton-flow.js`, generation-store + http-sse |
+| 1761–1919 | Continuar outline aprobado y preparar segunda petición | skeleton, chips, locks, body/headers, timers | `proceedWithCurrentOutline`, pending globals | `features/generation/outline-continuation.js`, API explícita skeleton/request |
+| 1920–2737 | Generación final, SSE HTML, transición/settling a preview y errores | controller, HTML parcial, title, iframe, GSAP/timers, minimap | `startFinalGeneration`, zoom y proceed globals | `features/generation/final-stream.js` + `features/preview/generation-transition.js`, callbacks/store |
+| 2738–2945 | Acciones preview editar/regenerar/volver, saneo e inicio del iframe | previewState, generación, iframe lifecycle | callbacks de preview/iframe | `features/preview/actions.js` + `iframe-lifecycle.js` |
+| 2946–3410 | Detección de slides, carrusel, editor bridge, minimap, dots y reinit | slideContainer/currentSlide/totalSlides, observers, minimap, overlays | `regenerateDotsCount` y mensajes iframe | `features/preview/carousel.js` + `features/minimap/controller.js`, preview store |
+| 3411–3616 | Zoom, escala iframe, pan móvil, fullscreen stage | zoom/baseScale/mobileZoom/pan/padding/tween | campos globales zoom/pan | `features/preview/zoom-controller.js`, window compat mediante getters/setters |
+| 3617–4138 | Image slots: overlays, picker, drag/drop y reemplazo | overlay map, slot refs, iframe/document, object URLs | `_triggerImagePicker`, `_ensureInternalOverlay`, `_pruneDeadSlotOverlays`, `_refreshSlotOverlays`, `_buildOverlayForSlot`, `_slotMsgHandler` | `features/preview/image-slots.js`, registry con único owner |
+| 4139–4447 | Navegación slides/dots/minimap, shortcuts, rueda y swipe | índice/total, cooldowns, touch, iframe/preview store | `scrollToSlide`, `prevSlide`, `nextSlide`, `getCurrentSlide`, `getTotalSlides`, `currentSlide` | `features/preview/slide-navigation.js` + `features/mobile/preview-gestures.js` |
+| 4448–4510 | Export PDF/PPTX, progreso, snapshot, descarga y errores | formato, iframe, botón/progreso | `AedosExportSnapshot`, `__t` | `features/export/download-flow.js`, conservar payload/endpoint |
+| 4511–4620 | Reset total, click externo preview y sugerencias que llenan el tema | stores, overlays, DOM preview/chat, input | `fillInput` | `features/app/reset.js` + `features/chat/suggestion-actions.js` |
+
+### Orden de extracción propuesto: menor a mayor riesgo (18 cortes)
+
+| # | Corte | Límite del estado compartido |
+| ---: | --- | --- |
+| 1 | Sanitizador/conversión GIF | Funciones puras; mantener fachadas |
+| 2 | Tooltips | DOM/document y viewport como argumentos; sin store |
+| 3 | Render de chips adjuntos | Files/URL/document inyectados; dueño único revoca object URLs |
+| 4 | Validación de input y sugerencias | Callbacks de input y traducción |
+| 5 | Modal/errores/loading | Callbacks UI; no alterar delays ni orden |
+| 6 | Dropdowns modo/idioma/export | API de preferencias y getter de adjuntos |
+| 7 | Router/historial de pantallas | generation/preview stores y comando reset |
+| 8 | Drag/drop y selección adjuntos | Una API de adjuntos compartida |
+| 9 | Navegación dots/minimap/gestos | preview store es dueño de índice/total; bridges solo delegan |
+| 10 | Zoom/fullscreen | viewport controller posee medidas; getters/setters legacy |
+| 11 | Image slots/overlays | Registry único; app solicita refresh/picker |
+| 12 | Exportación/descarga | Snapshot/iframe/formato por parámetros; payload inalterado |
+| 13 | Acciones/lifecycle iframe | Preview posee registro y reporta readiness |
+| 14 | Transición generación→preview | Reutilizar zoom/minimap; preservar GSAP, rAF, timers y orden |
+| 15 | Chat/render de skeleton SSE | generation-store, http-sse y renderers existentes |
+| 16 | Continuación outline aprobado | API explícita skeleton/request y eventos outline |
+| 17 | SSE de generación final | generation-store dueño del controller; callbacks UI mismo orden |
+| 18 | Orquestador final | Deja wiring DOM y fachadas hasta probar cero consumidores |
+
+No pasar snapshots mutables a listeners de larga vida ni crear owners
+duplicados de timer, controller SSE, overlays, índice de slide, adjuntos, zoom o
+iframe lifecycle. Cortes 7–18 deben esperar una API/store explícita si cruzan
+estado mutable. No eliminar ninguna fachada `window.*` sin búsqueda documentada
+en JS, HTML, templates iframe, `docs/CONTRACTS.md` y tests.
