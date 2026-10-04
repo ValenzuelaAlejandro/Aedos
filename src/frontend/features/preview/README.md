@@ -29,6 +29,9 @@ receives the current overlay map each time the iframe overlay setup runs.
 labels after editor undo/redo. Getters keep the overlay map and slot helpers
 live across preview resets.
 
+`iframe-scale.js` owns scaling and fullscreen padding state. `app.js` retains
+the two fullscreen listener registrations at their original point.
+
 `overlay-labels.js` creates the parent-side input and label for each image slot.
 The factory receives the live overlay map and replacement callbacks; the app
 invokes it at the former assignment point, so listener registration order stays
