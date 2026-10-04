@@ -24,7 +24,6 @@ import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
 import { installEditorSlideObservers } from '../features/editor/slide-observers.js';
 import { createEditorArrowMover } from '../features/editor/arrow-movement.js';
-import { installEditorPointerTransformEvents } from '../features/editor/pointer-transform-events.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -472,30 +471,79 @@ function initEditor() {
     });
 
 
-    installEditorPointerTransformEvents({
-        document,
-        getState: () => ({
-            selectedElement, activeDragTarget, isDragging, isResizing,
-            startX, startY, startLeft, startTop, startWidth, startHeight,
-            currentHandle, snapLinesX, snapLinesY,
-        }),
-        updateState: patch => {
-            if ('isDragging' in patch) isDragging = patch.isDragging;
-            if ('activeDragTarget' in patch) activeDragTarget = patch.activeDragTarget;
-            if ('startX' in patch) startX = patch.startX;
-            if ('startY' in patch) startY = patch.startY;
-            if ('startLeft' in patch) startLeft = patch.startLeft;
-            if ('startTop' in patch) startTop = patch.startTop;
-            if ('startWidth' in patch) startWidth = patch.startWidth;
-            if ('startHeight' in patch) startHeight = patch.startHeight;
-        },
-        normalizeElement,
-        selectElement: element => selectElement(element),
-        updateSelectionBox,
-        applyEditorDrag,
-        applyEditorResize,
-        guideH,
-        guideV,
+    document.addEventListener('mousemove', (e) => {
+        const currentElement = activeDragTarget || selectedElement;
+        if (!currentElement) return;
+
+        const slide = currentElement.closest('.s') || currentElement.closest('section') || document.body;
+
+        if (isDragging || isResizing) {
+            const dx = (e.clientX - startX);
+            const dy = (e.clientY - startY);
+
+            // NORMALIZATION ON DEMAND: Rip out of DOM when user actually starts transforming.
+            if (!currentElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+                if (isDragging && activeDragTarget && activeDragTarget !== selectedElement) {
+                    selectElement(activeDragTarget);
+                }
+
+                normalizeElement(currentElement, slide);
+
+                // If the chosen drag target still isn't absolutely positioned, abort the drag.
+                // This keeps unrelated elements untouched instead of extracting siblings.
+                if (currentElement.style.position !== 'absolute') {
+                    isDragging = false;
+                    activeDragTarget = null;
+                    updateSelectionBox();
+                    return;
+                }
+
+                // After normalization, we MUST reset the base values because style.left/top
+                // might differ from the visual start coordinates captured in mousedown.
+                startWidth = parseFloat(currentElement.style.width);
+                const _rawH = parseFloat(currentElement.style.height);
+                startHeight = isNaN(_rawH) ? currentElement.getBoundingClientRect().height : _rawH;
+                startLeft = parseFloat(currentElement.style.left);
+                startTop = parseFloat(currentElement.style.top);
+
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+        }
+
+        if (isDragging) {
+            applyEditorDrag(e, {
+                currentElement,
+                selectedElement,
+                slide,
+                startX,
+                startY,
+                startLeft,
+                startTop,
+                snapLinesX,
+                snapLinesY,
+                guideH,
+                guideV,
+                updateSelectionBox,
+            });
+        } else if (isResizing) {
+            applyEditorResize(e, {
+                selectedElement,
+                slide,
+                startX,
+                startY,
+                startLeft,
+                startTop,
+                startWidth,
+                startHeight,
+                currentHandle,
+                snapLinesX,
+                snapLinesY,
+                guideH,
+                guideV,
+                updateSelectionBox,
+            });
+        }
     });
 
     const updateSelectionBox = createEditorSelectionUi({
