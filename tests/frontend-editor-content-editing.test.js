@@ -11,8 +11,9 @@ function loadContentEditing() {
     const sourcePath = path.join(__dirname, '../src/frontend/features/editor/content-editing.js');
     const source = fs.readFileSync(sourcePath, 'utf8')
         .replace('export function createEditorPasteHandler', 'function createEditorPasteHandler')
-        .replace('export function createEditorTextEditingHandler', 'function createEditorTextEditingHandler') +
-        '\nmodule.exports = { createEditorPasteHandler, createEditorTextEditingHandler };';
+        .replace('export function createEditorTextEditingHandler', 'function createEditorTextEditingHandler')
+        .replace('export function createEditorDirectTextEditingHandler', 'function createEditorDirectTextEditingHandler') +
+        '\nmodule.exports = { createEditorPasteHandler, createEditorTextEditingHandler, createEditorDirectTextEditingHandler };';
     vm.runInContext(source, context, { filename: sourcePath });
     return module.exports;
 }
@@ -82,4 +83,44 @@ test('editing selected text enters contenteditable and restores selection UI on 
     assert.equal(classValues.has('editor-editing-text'), false);
     assert.equal(calls.includes('save'), true);
     assert.equal(calls.at(-1)[0], 'reselect');
+});
+
+test('body double-click preserves the direct-text edit and blur lifecycle', () => {
+    const { createEditorDirectTextEditingHandler } = loadContentEditing();
+    const calls = [];
+    const blurHandlers = [];
+    const textTarget = {
+        _normalized: true,
+        style: { position: 'relative' },
+        closest: selector => selector === '.editor-toolbar' ? null : null,
+        focus: () => calls.push('focus'),
+        addEventListener: (type, handler) => { if (type === 'blur') blurHandlers.push(handler); },
+        removeEventListener: () => {},
+    };
+    const classes = new Set();
+    const selectionBox = {
+        style: {},
+        classList: { add: name => classes.add(name), remove: name => classes.delete(name) },
+    };
+    const selection = { removeAllRanges: () => calls.push('clear'), addRange: () => calls.push('select') };
+    const handler = createEditorDirectTextEditingHandler({
+        document: { body: {}, createRange: () => ({ selectNodeContents: () => calls.push('range') }) },
+        window: { getSelection: () => selection },
+        selectionBox,
+        getIsLocked: () => false,
+        textEditableSelectors: 'p',
+        normalizeElement: () => { throw new Error('already normalized'); },
+        saveState: () => calls.push('save'),
+    });
+
+    const event = { target: { closest: selector => selector === 'p' ? textTarget : null }, stopPropagation: () => calls.push('stop') };
+    handler(event);
+    assert.equal(textTarget.contentEditable, 'true');
+    assert.equal(selectionBox.style.pointerEvents, 'none');
+    assert.equal(classes.has('editor-editing-text'), true);
+    blurHandlers[0]();
+    assert.equal(textTarget.contentEditable, 'false');
+    assert.equal(selectionBox.style.pointerEvents, 'auto');
+    assert.equal(classes.has('editor-editing-text'), false);
+    assert.equal(calls.includes('save'), true);
 });

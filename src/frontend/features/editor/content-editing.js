@@ -31,6 +31,80 @@ export function createEditorPasteHandler({ document, window }) {
 }
 
 /**
+ * @typedef {object} AedosEditorDirectTextEditingOptions
+ * @property {Document} document
+ * @property {Window} window
+ * @property {Element} selectionBox
+ * @property {() => boolean} getIsLocked
+ * @property {string} textEditableSelectors
+ * @property {(element: Element, slide: Element) => void} normalizeElement
+ * @property {() => void} saveState
+ */
+
+/** Creates the existing body double-click text-edit lifecycle. @param {AedosEditorDirectTextEditingOptions} options @returns {(event: MouseEvent) => void} */
+export function createEditorDirectTextEditingHandler({
+    document,
+    window,
+    selectionBox,
+    getIsLocked,
+    textEditableSelectors,
+    normalizeElement,
+    saveState,
+}) {
+    return function handleDirectTextDoubleClick(e) {
+        if (getIsLocked()) return;
+        const textTarget = e.target.closest(textEditableSelectors);
+        if (textTarget && (!textTarget.closest('.editor-toolbar'))) {
+            if (!textTarget._normalized) {
+                const slide = textTarget.closest('.s') || textTarget.closest('section') || document.body;
+                normalizeElement(textTarget, slide);
+            }
+
+            const isAbsoluteEl = textTarget.style.position === 'absolute';
+            textTarget.contentEditable = "true";
+            textTarget.style.outline = "none";
+            textTarget.style.boxShadow = "none";
+            if (isAbsoluteEl) {
+                textTarget.style.height = "auto";
+                textTarget.style.overflow = "visible";
+            }
+            textTarget.focus();
+
+            if (isAbsoluteEl) {
+                const rect = textTarget.getBoundingClientRect();
+                const slide = textTarget.closest('.s') || document.body;
+                const slideRect = slide.getBoundingClientRect();
+                textTarget._baseBottom = rect.bottom - slideRect.top;
+            }
+
+            selectionBox.style.pointerEvents = "none";
+            selectionBox.classList.add('editor-editing-text');
+            const range = document.createRange();
+            range.selectNodeContents(textTarget);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            e.stopPropagation();
+            textTarget.addEventListener('blur', function onBlur() {
+                textTarget.contentEditable = "false";
+                textTarget.style.outline = "";
+                if (textTarget.style.position === 'absolute') {
+                    const newHeight = textTarget.getBoundingClientRect().height;
+                    textTarget.style.height = newHeight + "px";
+                }
+                delete textTarget._baseBottom;
+                textTarget.removeEventListener('blur', onBlur);
+                window.getSelection().removeAllRanges();
+                selectionBox.style.pointerEvents = "auto";
+                selectionBox.classList.remove('editor-editing-text');
+                saveState();
+            }, { once: true });
+        }
+    };
+}
+
+/**
  * @typedef {object} AedosEditorTextEditingOptions
  * @property {Document} document
  * @property {Window} window

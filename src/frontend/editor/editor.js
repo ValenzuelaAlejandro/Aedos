@@ -12,7 +12,7 @@ import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 import { createEditorSlideFreeze, createEditorElementNormalizer } from '../features/editor/slide-freeze.js';
 import { createEditorSelectionLifecycle } from '../features/editor/selection-lifecycle.js';
 import { createEditorKeyboardHandler } from '../features/editor/keyboard.js';
-import { createEditorPasteHandler, createEditorTextEditingHandler } from '../features/editor/content-editing.js';
+import { createEditorPasteHandler, createEditorTextEditingHandler, createEditorDirectTextEditingHandler } from '../features/editor/content-editing.js';
 import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
 import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
 
@@ -619,73 +619,15 @@ function initEditor() {
     toolbar.addEventListener('click', (e) => e.stopPropagation());
 
     // Handle double-click to edit text
-    document.body.addEventListener('dblclick', (e) => {
-        if (_isLocked) return;
-        const textSelectors = TEXT_EDITABLE_SELECTORS;
-        const textTarget = e.target.closest(textSelectors);
-        if (textTarget && (!textTarget.closest('.editor-toolbar'))) {
-            // Normalize only if not yet done and only for standalone (non-container) elements.
-            if (!textTarget._normalized) {
-                const slide = textTarget.closest('.s') || textTarget.closest('section') || document.body;
-                normalizeElement(textTarget, slide);
-            }
-
-            // Whether this element is a standalone absolute element (direct child of
-            // the slide) vs. a flow element nested inside a card/container.
-            // height:auto and grow-upwards logic must ONLY apply to absolute elements:
-            // setting them on flow elements pushes siblings and jumps the selection box.
-            const isAbsoluteEl = textTarget.style.position === 'absolute';
-
-            textTarget.contentEditable = "true";
-            textTarget.style.outline = "none";
-            textTarget.style.boxShadow = "none";
-            if (isAbsoluteEl) {
-                textTarget.style.height = "auto"; // allow upward growth
-                textTarget.style.overflow = "visible";
-            }
-            textTarget.focus();
-
-            // Grow-upwards anchor: only for standalone absolute elements
-            if (isAbsoluteEl) {
-                const rect = textTarget.getBoundingClientRect();
-                const slide = textTarget.closest('.s') || document.body;
-                const slideRect = slide.getBoundingClientRect();
-                textTarget._baseBottom = rect.bottom - slideRect.top;
-            }
-
-            // Make selection box non-interactive so we can edit text through it
-            selectionBox.style.pointerEvents = "none";
-            selectionBox.classList.add('editor-editing-text');
-
-            // Select all text
-            const range = document.createRange();
-            range.selectNodeContents(textTarget);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-
-            e.stopPropagation();
-
-            textTarget.addEventListener('blur', function onBlur() {
-                textTarget.contentEditable = "false";
-                textTarget.style.outline = "";
-                // Only fix the height for standalone absolute elements.
-                // For container children, leave their CSS height untouched.
-                if (textTarget.style.position === 'absolute') {
-                    const newHeight = textTarget.getBoundingClientRect().height;
-                    textTarget.style.height = newHeight + "px";
-                }
-                delete textTarget._baseBottom;
-                textTarget.removeEventListener('blur', onBlur);
-                window.getSelection().removeAllRanges();
-
-                selectionBox.style.pointerEvents = "auto";
-                selectionBox.classList.remove('editor-editing-text');
-
-                saveState();
-            }, { once: true });
-        }
-    });
+    document.body.addEventListener('dblclick', createEditorDirectTextEditingHandler({
+        document,
+        window,
+        selectionBox,
+        getIsLocked: () => _isLocked,
+        textEditableSelectors: TEXT_EDITABLE_SELECTORS,
+        normalizeElement,
+        saveState: () => saveState(),
+    }));
 
     document.addEventListener('paste', createEditorPasteHandler({ document, window }));
 

@@ -64,9 +64,10 @@ getter callbacks into the editor's per-iframe state.
 buffer. Selection and editing commands are passed as callbacks; the keydown
 listener remains registered at the same bootstrap point.
 
-`content-editing.js` owns the plain-text paste handler and double-click text
-editing lifecycle. Both DOM listeners are registered in their prior order;
-selection, normalization, and history remain editor callbacks.
+`content-editing.js` owns the plain-text paste handler and both direct-content
+and selection-box double-click text-edit lifecycles. DOM listeners are
+registered in their prior order; selection, normalization, and history remain
+editor callbacks.
 
 `snap-targets.js` builds the ordered slide-edge, padding, and peer alignment
 targets used during drag and resize. It reads geometry from the supplied slide
