@@ -19,6 +19,7 @@ import { applyEditorResize } from '../features/editor/resize-interaction.js';
 import { applyEditorDrag } from '../features/editor/drag-interaction.js';
 import { createEditorColorPicker } from '../features/editor/color-picker.js';
 import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
+import { createEditorElementOperations } from '../features/editor/element-operations.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -190,17 +191,7 @@ function initEditor() {
     let activeColorAction = null; // 'text' or 'bg'
 
     function deleteElement(el) {
-        if (!el) return;
-        const slide = el.closest('.s') || el.closest('section') || document.body;
-        freezeSlideLayout(slide);
-        saveState();
-        
-        // Also delete visual group members
-        const group = collectGroup(el);
-        group.forEach(item => item.el.remove());
-        
-        el.remove();
-        deselectGroup();
+        return elementOperations.deleteElement(el);
     }
 
     function bindToolbarEvents() {
@@ -704,41 +695,22 @@ function initEditor() {
         ensureUI
     });
     const { saveState, undo, redo } = editorHistory;
+    const elementOperations = createEditorElementOperations({
+        document,
+        saveState,
+        freezeSlideLayout,
+        collectGroup,
+        deselectGroup,
+        normalizeElement,
+        selectElement,
+    });
 
     // Initial Save!
     setTimeout(saveState, 500);
 
 
     function duplicateElement(el) {
-        saveState();
-        const slide = el.closest('.s') || el.closest('section') || document.body;
-        normalizeElement(el, slide);
-
-        // Identify children to duplicate as well
-        const group = collectGroup(el);
-        const clones = [];
-
-        const mainClone = el.cloneNode(true);
-        delete mainClone._stateSavedSinceMousedown;
-        clones.push({ original: el, clone: mainClone });
-
-        group.forEach(item => {
-            normalizeElement(item.el, slide);
-            const childClone = item.el.cloneNode(true);
-            delete childClone._stateSavedSinceMousedown;
-            clones.push({ original: item.el, clone: childClone });
-        });
-
-        // Offset all together
-        clones.forEach(pair => {
-            const currentLeft = parseFloat(pair.original.style.left) || 0;
-            const currentTop = parseFloat(pair.original.style.top) || 0;
-            pair.clone.style.left = (currentLeft + 20) + 'px';
-            pair.clone.style.top = (currentTop + 20) + 'px';
-            slide.appendChild(pair.clone);
-        });
-
-        selectElement(mainClone);
+        return elementOperations.duplicateElement(el);
     }
 
     document.addEventListener('keydown', createEditorKeyboardHandler({
