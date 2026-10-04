@@ -9,7 +9,7 @@ import { resolveDragCollision, resolveResizeCollision } from '../features/editor
 import { createEditorTargeting } from '../features/editor/targeting.js';
 import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js';
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
-import { createEditorSlideFreeze } from '../features/editor/slide-freeze.js';
+import { createEditorSlideFreeze, createEditorElementNormalizer } from '../features/editor/slide-freeze.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -484,112 +484,17 @@ function initEditor() {
 
     const getInheritedStyles = createEditorStyleSnapshot(window.getComputedStyle.bind(window));
 
-    function normalizeElement(el, slide, silent = false, providedRect = null, force = false) {
-        if (el._normalized) return;
-
-        // Guard: never extract an element from inside a semantic container.
-        // If its direct parent is a container (card, stat-box, etc.), marking it
-        // normalized without mutations is enough — the container itself will be
-        // normalized as a whole and its children stay intact inside it.
-        // Pass force=true to bypass this (e.g. when the user explicitly drags a child out).
-        if (!force && getNearestSemanticContainerAncestor(el, slide)) {
-            el._normalized = true;
-            return;
-        }
-
-        el._normalized = true;
-        if (!silent) saveState();
-
-        const rect = providedRect || el.getBoundingClientRect();
-        const slideRect = slide.getBoundingClientRect();
-        const inherited = getInheritedStyles(el);
-        const style = window.getComputedStyle(el);
-
-        const originalTransition = el.style.transition;
-        el.style.transition = 'none';
-
-        if (style.position !== 'absolute') {
-            // Move to slide while maintaining z-index
-            const currentZ = el.style.zIndex;
-            if (el.parentElement !== slide) slide.appendChild(el);
-            if (currentZ) el.style.zIndex = currentZ; // preserve
-
-            const isText = isTextEditableElement(el);
-            // Text-containing containers (cards, stat-boxes, etc.) use height:auto so
-            // their content is never clipped when fonts render with slightly different
-            // metrics in the PDF. overflow stays 'hidden' to keep card visual appearance.
-            const isTextContainer = isTextContainerElement(el, slide);
-            const isFlexible = isText || isTextContainer;
-            // Single-line heading heuristic: height fits within ~1.5 line-heights.
-            // Use nowrap to prevent sub-pixel font-metric drift from splitting words.
-            const lhPx = parseFloat(inherited.lineHeight) || parseFloat(inherited.fontSize) * 1.2;
-            const isHeading = isHeadingLikeElement(el);
-            const isSingleLine = isHeading && rect.height <= lhPx * 1.8;
-
-            el.style.boxSizing = 'border-box';
-            el.style.position = 'absolute';
-            el.style.margin = '0';
-            el.style.overflow = isText ? 'visible' : 'hidden';
-            el.style.minHeight = '0';
-            el.style.minWidth = '0';
-            // Add a small buffer to text width to absorb sub-pixel rendering differences
-            // after the element is extracted from its original CSS context.
-            el.style.width = rect.width + 'px';
-            el.style.height = isFlexible ? 'auto' : (rect.height + 'px');
-            el.style.minHeight = isFlexible ? (rect.height + 'px') : '0';
-            el.style.left = (rect.left - slideRect.left) + 'px';
-            el.style.top = (rect.top - slideRect.top) + 'px';
-            el.style.transform = 'none';
-            if (isSingleLine) el.style.whiteSpace = 'nowrap';
-        } else {
-            // Already absolute - DO NOT move in DOM, only update coordinates
-            // Moving in DOM would break the z-order established by Send to Back/Front
-            const isText = isTextEditableElement(el);
-            const isTextContainer = isTextContainerElement(el, slide);
-            const isFlexible = isText || isTextContainer;
-            const lhPx = parseFloat(inherited.lineHeight) || parseFloat(inherited.fontSize) * 1.2;
-            const isHeading = isHeadingLikeElement(el);
-            const isSingleLine = isHeading && rect.height <= lhPx * 1.8;
-
-            el.style.boxSizing = 'border-box';
-            el.style.margin = '0';
-            el.style.overflow = isText ? 'visible' : 'hidden';
-            el.style.minHeight = '0';
-            el.style.minWidth = '0';
-            // Use a 10px buffer for absolute text to absorb sub-pixel rendering differences
-            el.style.width = isText ? (rect.width + 10) + 'px' : rect.width + 'px';
-            el.style.height = isFlexible ? 'auto' : (rect.height + 'px');
-            el.style.minHeight = isFlexible ? (rect.height + 'px') : '0';
-            el.style.left = (rect.left - slideRect.left) + 'px';
-            el.style.top = (rect.top - slideRect.top) + 'px';
-            el.style.transform = 'none';
-            if (isSingleLine) el.style.whiteSpace = 'nowrap';
-        }
-
-        if (inherited) {
-            el.style.fontSize = inherited.fontSize;
-            el.style.fontFamily = inherited.fontFamily;
-            el.style.color = inherited.color;
-            el.style.lineHeight = inherited.lineHeight;
-            el.style.textAlign = inherited.textAlign;
-            el.style.fontWeight = inherited.fontWeight;
-            el.style.letterSpacing = inherited.letterSpacing;
-            el.style.textTransform = inherited.textTransform;
-            el.style.fontVariant = inherited.fontVariant;
-            el.style.fontStyle = inherited.fontStyle;
-            el.style.textDecoration = inherited.textDecoration;
-        }
-
-        const textElements = el.querySelectorAll(TEXT_EDITABLE_SELECTORS);
-        textElements.forEach(item => {
-            const comp = window.getComputedStyle(item);
-            item.style.fontSize = comp.fontSize;
-        });
-
-        setTimeout(() => {
-            if (el) el.style.transition = originalTransition;
-        }, 50);
-    }
+    const normalizeElement = createEditorElementNormalizer({
+        window,
+        setTimeout,
+        saveState: () => saveState(),
+        getNearestSemanticContainerAncestor,
+        isTextEditableElement,
+        isTextContainerElement,
+        isHeadingLikeElement,
+        textEditableSelectors: editorSemantics.textEditableSelectors,
+        getInheritedStyles,
+    });
 
     /**
      * Helper to get all editable elements in the same slide, excluding the one being edited.

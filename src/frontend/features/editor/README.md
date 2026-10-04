@@ -48,9 +48,9 @@ state.
 `selection-ui.js` positions the selection rectangle and floating toolbar from
 the current selection, viewport, and drag/resize state supplied by the editor.
 
-`slide-freeze.js` captures top-level editable bounds and normalizes a slide as
-one undoable operation. Its dependencies are explicit callbacks and the
-existing per-iframe `WeakMap`.
+`slide-freeze.js` captures top-level editable bounds, normalizes individual
+elements, and freezes a slide as one undoable operation. Its dependencies are
+explicit callbacks and the existing per-iframe `WeakMap`.
 
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
