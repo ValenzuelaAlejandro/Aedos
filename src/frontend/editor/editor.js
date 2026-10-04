@@ -21,6 +21,7 @@ import { createEditorColorPicker } from '../features/editor/color-picker.js';
 import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
 import { createEditorGrouping } from '../features/editor/grouping.js';
+import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -77,43 +78,7 @@ function initEditor() {
         return editorGrouping(target);
     }
 
-    // UI Elements
-    const selectionBox = document.createElement('div');
-    selectionBox.className = 'editor-selection-box';
-    selectionBox.style.display = 'none';
-    selectionBox.style.zIndex = '1000'; // Always on top
-
-
-    // Resize handles
-    const handles = ['nw', 'ne', 'sw', 'se', 'n', 'e', 's', 'w'];
-    const handleEls = {};
-    handles.forEach(pos => {
-        const h = document.createElement('div');
-        h.className = `editor-resize-handle editor-resize-${pos}`;
-        h.dataset.handler = pos;
-        selectionBox.appendChild(h);
-        handleEls[pos] = h;
-    });
-
-    // Context Toolbar
-    const toolbar = document.createElement('div');
-    toolbar.className = 'editor-toolbar';
-    toolbar.style.display = 'none';
-    toolbar.style.zIndex = '1001'; // Above selection box
-
-
-    // Snapping guides
-    const guideH = document.createElement('div');
-    guideH.className = 'editor-guide editor-guide-h';
-    const guideV = document.createElement('div');
-    guideV.className = 'editor-guide editor-guide-v';
-
-    function ensureUI() {
-        if (!selectionBox.parentElement) document.documentElement.appendChild(selectionBox);
-        if (!toolbar.parentElement) document.documentElement.appendChild(toolbar);
-        if (!guideH.parentElement) document.documentElement.appendChild(guideH);
-        if (!guideV.parentElement) document.documentElement.appendChild(guideV);
-    }
+    const { selectionBox, handleEls, toolbar, guideH, guideV, ensureUI } = createEditorSelectionDom({ document });
     ensureUI();
 
     // Deselect current element when navigating to another slide to prevent UI overlap

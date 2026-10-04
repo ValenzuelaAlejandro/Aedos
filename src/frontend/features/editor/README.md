@@ -95,5 +95,8 @@ receives the existing group, history, normalization, freeze, and selection APIs.
 `grouping.js` computes the existing visually-contained child set and slide-
 relative starting coordinates from the editor's supplied semantic predicate.
 
+`selection-dom.js` creates the existing selection box, resize handles, toolbar,
+and alignment guide elements, and attaches them to the document root on demand.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
