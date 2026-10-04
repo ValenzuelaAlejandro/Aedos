@@ -127,11 +127,6 @@ handle after the selection-box mousedown branch saves its history snapshot.
 layout normalization, abort path, and origin reset before drag/resize applies
 its existing deltas.
 
-`snap-guide-calculation.js` is the pure first-stage extraction of closest-guide
-matching. Drag and resize continue rendering the same guide elements at the
-same event point; the helper preserves candidate order, strict tolerance, and
-first-match tie behavior.
-
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
 

@@ -1,5 +1,4 @@
 import { resolveResizeCollision } from './collision-geometry.js';
-import { findEditorSnapGuideMatch } from './snap-guide-calculation.js';
 
 /** @typedef {{val: number}} EditorResizeSnapTarget */
 
@@ -63,7 +62,15 @@ export function applyEditorResize(event, {
         const snapTolerance = 8;
 
         if (currentHandle.includes('w')) {
-            const { value: bestSnapX, delta: bestDiffX } = findEditorSnapGuideMatch([newLeft], snapLinesX, snapTolerance);
+            let bestSnapX = null, bestDiffX = 0, minDistX = snapTolerance;
+            for (let tg of snapLinesX) {
+                const dist = Math.abs(newLeft - tg.val);
+                if (dist < minDistX) {
+                    minDistX = dist;
+                    bestSnapX = tg.val;
+                    bestDiffX = tg.val - newLeft;
+                }
+            }
             if (bestSnapX !== null) {
                 newLeft += bestDiffX;
                 newWidth -= bestDiffX;
@@ -75,8 +82,16 @@ export function applyEditorResize(event, {
                 guideV.style.display = 'none';
             }
         } else if (currentHandle.includes('e')) {
-            const rightEdge = newLeft + newWidth;
-            const { value: bestSnapX, delta: bestDiffX } = findEditorSnapGuideMatch([rightEdge], snapLinesX, snapTolerance);
+            let rightEdge = newLeft + newWidth;
+            let bestSnapX = null, bestDiffX = 0, minDistX = snapTolerance;
+            for (let tg of snapLinesX) {
+                const dist = Math.abs(rightEdge - tg.val);
+                if (dist < minDistX) {
+                    minDistX = dist;
+                    bestSnapX = tg.val;
+                    bestDiffX = tg.val - rightEdge;
+                }
+            }
             if (bestSnapX !== null) {
                 newWidth += bestDiffX;
                 guideV.style.left = (sRect.left + bestSnapX) + 'px';
@@ -89,7 +104,15 @@ export function applyEditorResize(event, {
         }
 
         if (currentHandle.includes('n')) {
-            const { value: bestSnapY, delta: bestDiffY } = findEditorSnapGuideMatch([newTop], snapLinesY, snapTolerance);
+            let bestSnapY = null, bestDiffY = 0, minDistY = snapTolerance;
+            for (let tg of snapLinesY) {
+                const dist = Math.abs(newTop - tg.val);
+                if (dist < minDistY) {
+                    minDistY = dist;
+                    bestSnapY = tg.val;
+                    bestDiffY = tg.val - newTop;
+                }
+            }
             if (bestSnapY !== null) {
                 newTop += bestDiffY;
                 newHeight -= bestDiffY;
@@ -101,8 +124,16 @@ export function applyEditorResize(event, {
                 guideH.style.display = 'none';
             }
         } else if (currentHandle.includes('s')) {
-            const bottomEdge = newTop + newHeight;
-            const { value: bestSnapY, delta: bestDiffY } = findEditorSnapGuideMatch([bottomEdge], snapLinesY, snapTolerance);
+            let bottomEdge = newTop + newHeight;
+            let bestSnapY = null, bestDiffY = 0, minDistY = snapTolerance;
+            for (let tg of snapLinesY) {
+                const dist = Math.abs(bottomEdge - tg.val);
+                if (dist < minDistY) {
+                    minDistY = dist;
+                    bestSnapY = tg.val;
+                    bestDiffY = tg.val - bottomEdge;
+                }
+            }
             if (bestSnapY !== null) {
                 newHeight += bestDiffY;
                 guideH.style.top = (sRect.top + bestSnapY) + 'px';

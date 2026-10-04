@@ -1,5 +1,4 @@
 import { resolveDragCollision } from './collision-geometry.js';
-import { findEditorSnapGuideMatch } from './snap-guide-calculation.js';
 
 /** @typedef {{val: number}} EditorDragSnapTarget */
 
@@ -37,7 +36,17 @@ export function applyEditorDrag(event, {
         const myLinesX = [newLeft, newLeft + eRect.width / 2, newLeft + eRect.width];
         const myLinesY = [newTop, newTop + eRect.height / 2, newTop + eRect.height];
         const snapTolerance = 8;
-        const { value: bestSnapX, delta: bestDiffX } = findEditorSnapGuideMatch(myLinesX, snapLinesX, snapTolerance);
+        let bestSnapX = null, bestDiffX = 0, minDistX = snapTolerance;
+        for (let mx of myLinesX) {
+            for (let tg of snapLinesX) {
+                const dist = Math.abs(mx - tg.val);
+                if (dist < minDistX) {
+                    minDistX = dist;
+                    bestSnapX = tg.val;
+                    bestDiffX = tg.val - mx;
+                }
+            }
+        }
         if (bestSnapX !== null) {
             newLeft += bestDiffX;
             guideV.style.left = (sRect.left + bestSnapX) + 'px';
@@ -48,7 +57,17 @@ export function applyEditorDrag(event, {
             guideV.style.display = 'none';
         }
 
-        const { value: bestSnapY, delta: bestDiffY } = findEditorSnapGuideMatch(myLinesY, snapLinesY, snapTolerance);
+        let bestSnapY = null, bestDiffY = 0, minDistY = snapTolerance;
+        for (let my of myLinesY) {
+            for (let tg of snapLinesY) {
+                const dist = Math.abs(my - tg.val);
+                if (dist < minDistY) {
+                    minDistY = dist;
+                    bestSnapY = tg.val;
+                    bestDiffY = tg.val - my;
+                }
+            }
+        }
         if (bestSnapY !== null) {
             newTop += bestDiffY;
             guideH.style.top = (sRect.top + bestSnapY) + 'px';
