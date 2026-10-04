@@ -76,3 +76,7 @@ and editable-element callback and retains no mutable state.
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.
+
+`resize-interaction.js` applies the iframe editor's pointer resize delta,
+minimum-size collision handling, snapping guides, and inline styles using the
+existing start state supplied by the editor.
