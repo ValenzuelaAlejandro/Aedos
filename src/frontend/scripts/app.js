@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // During soft-regen the minimap stays frozen on the old thumbnails until
             // buildMinimap() replaces them after the final render.
             if (typeof buildDots === 'function') buildDots();
-            if (!_skipMinimapSkeleton) updateMinimapSkeleton(count);
+            if (!previewUiState.skipMinimapSkeleton) updateMinimapSkeleton(count);
         }
         if (e.data.type === 'titleUpdate') {
             const previewLabel = document.getElementById('preview-topic-label');
@@ -1042,8 +1042,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetPreviewSurface() {
         window.removeEventListener('resize', scaleIframe);
 
-        minimapAlreadyInit = false;
-        toolsAlreadyInit = false;
+        previewUiState.minimapAlreadyInit = false;
+        previewUiState.toolsAlreadyInit = false;
         const rawIframe = previewState.previewIframe.cloneNode();
         previewState.previewIframe.parentNode.replaceChild(rawIframe, previewState.previewIframe);
         previewState.previewIframe = rawIframe;
@@ -1887,8 +1887,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('resize', scaleIframe);
         }
 
-        minimapAlreadyInit = false;
-        toolsAlreadyInit = false;
+        previewUiState.minimapAlreadyInit = false;
+        previewUiState.toolsAlreadyInit = false;
         const rawIframe = previewState.previewIframe.cloneNode();
         previewState.previewIframe.parentNode.replaceChild(rawIframe, previewState.previewIframe);
         previewState.previewIframe = rawIframe;
@@ -2321,8 +2321,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // We still clone here even on soft-regen: by this point streaming is finished, so
             // replacing the iframe does not disturb the surrounding editor chrome, and it gives
             // editor.js a fresh window so its one-time guards don't block re-initialization.
-            minimapAlreadyInit = false;
-            toolsAlreadyInit = false;
+            previewUiState.minimapAlreadyInit = false;
+            previewUiState.toolsAlreadyInit = false;
             const rawIframe = previewState.previewIframe.cloneNode();
             previewState.previewIframe.parentNode.replaceChild(rawIframe, previewState.previewIframe);
             previewState.previewIframe = rawIframe;
@@ -2598,7 +2598,7 @@ document.addEventListener('DOMContentLoaded', () => {
             generationState.activeController = null;
             toggleGenerateLoading(false);
             // Re-enable minimap skeleton updates for subsequent normal generations.
-            _skipMinimapSkeleton = false;
+            previewUiState.skipMinimapSkeleton = false;
             // is-generating is cleared by the reveal callback (success) or catch block (error).
             // Do NOT remove it here — that would cause panels to flash before the reveal animation.
             _pendingTransitionFn = null;
@@ -2862,12 +2862,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return Array.from(slides); // fallback to whatever last matched
     }
 
-    let minimapAlreadyInit = false;
-    let toolsAlreadyInit = false;
+    const previewUiState = {
+        minimapAlreadyInit: false,
+        toolsAlreadyInit: false,
+        skipMinimapSkeleton: false
+    };
     // True during soft-regen streaming: blocks updateMinimapSkeleton so the existing
     // real thumbnails stay visible (instead of being cleared and replaced by skeleton items
     // the moment skeleton-injector fires its first postMessage).
-    let _skipMinimapSkeleton = false;
     function setupPreviewInteractions(targetIndex = 0) {
         const iframeDoc = previewState.previewIframe.contentDocument || previewState.previewIframe.contentWindow.document;
         if (!iframeDoc || !iframeDoc.body) return;
@@ -3087,12 +3089,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (typeof window.initMinimap === 'function' && !iframeDoc._aedosMinimapReady) {
                         window.initMinimap(previewState.previewIframe);
                         iframeDoc._aedosMinimapReady = true;
-                        minimapAlreadyInit = true;
+                        previewUiState.minimapAlreadyInit = true;
                     }
                     if (typeof window.initTools === 'function' && !iframeDoc._aedosToolsReady) {
                         window.initTools(previewState.previewIframe);
                         iframeDoc._aedosToolsReady = true;
-                        toolsAlreadyInit = true;
+                        previewUiState.toolsAlreadyInit = true;
                     }
                 } catch (error) {
                     uiLog.warn('PREVIEW', 'Editor subsystem initialization failed; keeping carousel active', {
