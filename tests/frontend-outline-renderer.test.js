@@ -11,6 +11,7 @@ const parserPath = path.join(root, 'src/frontend/features/outline/stream-parser.
 const chipsPath = path.join(root, 'src/frontend/features/outline/chips-renderer.js');
 const editorBindingsPath = path.join(root, 'src/frontend/features/outline/editor-bindings.js');
 const slideCommandsPath = path.join(root, 'src/frontend/features/outline/slide-commands.js');
+const drawerControlsPath = path.join(root, 'src/frontend/features/outline/drawer-controls.js');
 const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/outline-slide-cases.json');
 
 function createDocument() {
@@ -360,4 +361,65 @@ test('outline slide deletion preserves confirmation and rerender behavior', () =
     commands.deleteSlide(0, dependencies);
     assert.deepEqual(slides, []);
     assert.equal(getRenders(), 1);
+});
+
+test('outline drawer controls preserve translated dropdown sync and bootstrap timing', () => {
+    const items = [{ active: false }, { active: false }];
+    items.forEach(item => {
+        item.classList = {
+            toggle(name, value) {
+                assert.equal(name, 'active');
+                item.active = value;
+            },
+        };
+    });
+    const selectedItem = items[1];
+    selectedItem.textContent = 'Balanced';
+    selectedItem.getAttribute = name => name === 'data-i18n' ? 'tone_balanced' : null;
+    const label = {
+        attributes: {},
+        setAttribute(name, value) { this.attributes[name] = value; },
+        removeAttribute(name) { delete this.attributes[name]; },
+    };
+    const trigger = { querySelector: () => label };
+    const select = { value: 'balanced' };
+    const ids = new Map([
+        ['outline-tone-select', select],
+        ['btn-outline-tone-dropdown', trigger],
+    ]);
+    let readyCallback;
+    const document = {
+        addEventListener(name, callback) {
+            if (name === 'DOMContentLoaded') readyCallback = callback;
+        },
+        getElementById: id => ids.get(id) || null,
+        querySelector: selector => selector === '#outline-tone-dropdown-menu .dropdown-item[data-value="balanced"]'
+            ? selectedItem
+            : null,
+        querySelectorAll: selector => selector === '#outline-tone-dropdown-menu .dropdown-item' ? items : [],
+    };
+    const window = {};
+    vm.runInNewContext(fs.readFileSync(drawerControlsPath, 'utf8'), { document, window }, { filename: drawerControlsPath });
+
+    let boundContainer = 'not-called';
+    const controls = window.AedosOutlineDrawerControls.createOutlineDrawerControls({
+        getSkeleton: () => null,
+        bindOutlineBubbleActions: container => { boundContainer = container; },
+        getActiveOutlineContainer: () => null,
+        resumeOutlineEditor() {},
+        confirm: () => true,
+        translate: (key, fallback) => fallback,
+        applyTranslations() {},
+        abortActiveGeneration() {},
+        navigateHome() {},
+    });
+    controls.syncCustomDropdowns();
+    assert.equal(label.textContent, 'Balanced');
+    assert.equal(label.attributes['data-i18n'], 'tone_balanced');
+    assert.deepEqual(items.map(item => item.active), [false, true]);
+
+    controls.register();
+    assert.equal(typeof readyCallback, 'function');
+    readyCallback();
+    assert.equal(boundContainer, null);
 });

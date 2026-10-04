@@ -33,6 +33,10 @@ the compatibility wrapper.
 window-shaped object expected by the preserved legacy loading implementation.
 It is a call-scoped adapter and retains no shared state.
 
+`drawer-controls.js` owns outline option dropdowns and drawer/backdrop controls.
+It registers listeners only when called by the existing outline bootstrap and
+receives state, navigation, translation and generation-cancellation callbacks.
+
 `chips-renderer.js` owns suggested-chip creation, its existing one-second delay,
 and chip DOM events. Translation, generation actions and animation are supplied
 by `scripts/outline.js`; `window.renderOutlineSuggestedChips` remains the

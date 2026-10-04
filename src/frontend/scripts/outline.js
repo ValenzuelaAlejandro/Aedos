@@ -547,143 +547,25 @@ window.moveSlideUp = moveSlideUp;
 window.moveSlideDown = moveSlideDown;
 
 function syncCustomDropdowns() {
-    ['tone', 'audience', 'density'].forEach(type => {
-        const select = document.getElementById(`outline-${type}-select`);
-        const trigger = document.getElementById(`btn-outline-${type}-dropdown`);
-        if (select && trigger) {
-            const val = select.value;
-            const activeItem = document.querySelector(`#outline-${type}-dropdown-menu .dropdown-item[data-value="${val}"]`);
-            const labelSpan = trigger.querySelector('.trigger-label');
-            if (activeItem && labelSpan) {
-                // Keep the exact data-i18n translation key to support dynamic translations
-                if (activeItem.getAttribute('data-i18n')) {
-                    labelSpan.setAttribute('data-i18n', activeItem.getAttribute('data-i18n'));
-                } else {
-                    labelSpan.removeAttribute('data-i18n');
-                }
-                labelSpan.textContent = activeItem.textContent;
-
-                // Toggle active styling
-                document.querySelectorAll(`#outline-${type}-dropdown-menu .dropdown-item`).forEach(btn => {
-                    btn.classList.toggle('active', btn === activeItem);
-                });
-            }
-        }
-    });
+    return outlineDrawerControls.syncCustomDropdowns();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Custom Sidebar Select Dropdowns
-    ['tone', 'audience', 'density'].forEach(type => {
-        const container = document.getElementById(`outline-${type}-dropdown-container`);
-        if (!container) return;
-
-        const trigger = document.getElementById(`btn-outline-${type}-dropdown`);
-        const menu = document.getElementById(`outline-${type}-dropdown-menu`);
-        const select = document.getElementById(`outline-${type}-select`);
-
-        if (trigger && menu && select) {
-            trigger.addEventListener('click', (e) => {
-                e.stopPropagation();
-                // Close other custom menus
-                document.querySelectorAll('.outline-custom-dropdown .dropdown-menu').forEach(otherMenu => {
-                    if (otherMenu !== menu) {
-                        otherMenu.classList.add('hidden');
-                        otherMenu.parentElement.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
-                    }
-                });
-
-                const isHidden = menu.classList.toggle('hidden');
-                trigger.setAttribute('aria-expanded', !isHidden);
-            });
-
-            menu.querySelectorAll('.dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const val = item.getAttribute('data-value');
-                    select.value = val;
-
-                    // Dispatch change event to notify skeleton builder
-                    select.dispatchEvent(new Event('change'));
-
-                    syncCustomDropdowns();
-                    menu.classList.add('hidden');
-                    trigger.setAttribute('aria-expanded', 'false');
-                });
-            });
+const outlineDrawerControls = window.AedosOutlineDrawerControls.createOutlineDrawerControls({
+    getSkeleton: () => window.outlineEditorState.skeleton,
+    bindOutlineBubbleActions,
+    getActiveOutlineContainer,
+    resumeOutlineEditor,
+    confirm: message => window.confirm(message),
+    translate: (key, fallback) => window.__t ? window.__t(key, fallback) : fallback,
+    applyTranslations: () => { if (window.__applyTranslations) window.__applyTranslations(); },
+    abortActiveGeneration: () => {
+        if (window._activeGenController) {
+            window._activeGenController.abort();
+            window._activeGenController = null;
         }
-    });
-
-    // Close custom dropdowns on document click
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.outline-custom-dropdown .dropdown-menu').forEach(menu => {
-            menu.classList.add('hidden');
-            menu.parentElement.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
-        });
-    });
-
-    bindOutlineBubbleActions(document.getElementById('outline-container'));
-
-    // Back to Chat button
-    const btnBack = document.getElementById('btn-outline-back');
-    if (btnBack) {
-        btnBack.addEventListener('click', () => {
-            const msg = window.__t ? window.__t('confirm_exit_draft', 'Are you sure you want to go back? Your progress will be lost.') : 'Are you sure you want to go back? Your progress will be lost.';
-            if (!confirm(msg)) return;
-
-            // Fix #6: Abort any in-flight skeleton or generation fetch
-            if (window._activeGenController) {
-                window._activeGenController.abort();
-                window._activeGenController = null;
-            }
-
-            // Hide container so beforeunload doesn't fire a duplicate warning
-            const container = getActiveOutlineContainer();
-            if (container) container.classList.add('hidden');
-
-            // Cleanly return to the main menu with a pristine Home URL (no hashes)
-            window.location.href = window.location.origin + window.location.pathname;
-        });
-    }
-
-    // Backdrop click closes the drawer
-    const backdrop = document.getElementById('outline-backdrop');
-    if (backdrop && btnBack) {
-        backdrop.addEventListener('click', () => {
-            btnBack.click();
-        });
-    }
-
-    // Edge tab opens/closes the drawer
-    const edgeTab = document.getElementById('outline-edge-tab');
-    if (edgeTab) {
-        edgeTab.addEventListener('click', () => {
-            if (edgeTab.classList.contains('is-open')) {
-                const btnBack = document.getElementById('btn-outline-back');
-                if (btnBack) btnBack.click();
-            } else if (window.outlineEditorState.skeleton) {
-                // There is a draft — resume it normally
-                resumeOutlineEditor();
-            } else {
-                // No draft generated yet — open the panel showing ONLY the empty state
-                const container = document.getElementById('outline-container');
-                if (container) container.classList.remove('hidden');
-
-                // Show empty state, hide all editing UI
-                const emptyState = document.getElementById('outline-empty-state');
-                if (emptyState) emptyState.classList.remove('hidden');
-                document.querySelector('.outline-sidebar')?.style.setProperty('display', 'none');
-                document.querySelector('.outline-main-header')?.style.setProperty('display', 'none');
-                document.getElementById('legacy-outline-title-input')?.style.setProperty('display', 'none');
-                document.querySelector('.outline-floating-footer')?.style.setProperty('display', 'none');
-
-                edgeTab.classList.add('is-open');
-                const tabText = edgeTab.querySelector('span');
-                if (tabText) tabText.textContent = window.__t ? window.__t('close_draft', 'Close draft') : 'Close draft';
-
-                // Apply translations so the empty state shows the correct language
-                if (window.__applyTranslations) window.__applyTranslations();
-            }
-        });
+    },
+    navigateHome: () => {
+        window.location.href = window.location.origin + window.location.pathname;
     }
 });
+outlineDrawerControls.register();
