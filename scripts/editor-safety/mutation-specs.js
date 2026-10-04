@@ -52,12 +52,12 @@ const specs = [
         expected: { count: 2 },
     },
     {
-        name: 'editor-selection-bridge', probe: 'selection', file: '/editor/editor.js',
+        name: 'editor-selection-bridge', probe: 'selection', file: '/features/editor/compatibility-facade.js',
         edits: [['window.editorSelect = selectElement;', 'window.editorSelect = () => {};']],
         expected: { selected: 'H1' },
     },
     {
-        name: 'editor-undo-bridge', probe: 'undo', file: '/editor/editor.js',
+        name: 'editor-undo-bridge', probe: 'undo', file: '/features/editor/compatibility-facade.js',
         edits: [['window.editorUndo = undo;', 'window.editorUndo = () => {};']],
         expected: { restored: true },
     },
