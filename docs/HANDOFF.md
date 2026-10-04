@@ -151,11 +151,17 @@ el único archivo no alcanzado es `contracts/types.js`, typedef puro permitido.
 No hay módulos nuevos huérfanos. `tmp/` no tiene archivos rastreados; no se
 borraron artifacts ignorados del usuario.
 
-## Etapa 8 — cierre parcial (2026-10-03)
+## Etapa 8 — cierre parcial (actualizado 2026-10-03)
 
-La ejecución se detuvo en la Etapa 3 por la compuerta de dos intentos: dos
-extracciones del binder de edición fueron rechazadas por `verify:all` y se
-revirtieron. No se crearon las ramas 8d/8e ni se inició la Etapa 6.
+La continuación avanzó hasta `refactor/fase-8d-editor` (`669d83a`). La Etapa 8d
+no se completó: las extracciones intentadas para reducir `editor.js` tuvieron
+que revertirse tras fallar `verify:all`; los dos intentos más recientes de
+extraer los bindings de toolbar tampoco quedaron verdes. De acuerdo con la
+compuerta de dos intentos, el trabajo de código se detuvo. Una reproducción
+diagnóstica local posterior sí observó `EDITOR_READY` y no encontró excepción
+de inicialización del iframe; solo apareció un error de consola de recurso
+bloqueado por el interceptor. Esto no identifica la causa de los timeouts del
+gate y no se considera explicación concluyente.
 
 Cadena local, sin push:
 
@@ -164,11 +170,12 @@ Cadena local, sin push:
 | `refactor/fase-7-limpieza` | `e472f37` | Base de esta ejecución |
 | `refactor/fase-8a-red-estable` | `565a8f0d296fa85b1ec92ba1a08c24dc7c74c9e6` | Safety estabilizado; verify verde |
 | `refactor/fase-8b-inventario` | `a1cd537d6190c81aeb8027c378e7c31a0d5bb9f7` | Inventario y parser streaming extraído |
-| `refactor/fase-8c-outline` | `7df25906d15fa59005a88c8ddf0e04bd5bb8dddc` | Código: parser/render streaming y chips; binder revertido |
+| `refactor/fase-8c-outline` | `d730eea` | Outline dividido; ratchet actualizado |
+| `refactor/fase-8d-editor` | `669d83af7896db0d4ccad5c96f6f67366a8861fc` | Editor parcialmente dividido; varias extracciones revertidas |
 
-Después de esta punta de código se añadió el handoff en el commit docs-only
-`eea84173f5c2500c8c24b2ed5a786a587e0e6005`; ese commit pasó `verify:all` y no
-cambió los blobs de código medidos abajo.
+Los hashes de ramas 8a–8c y la secuencia histórica indicada arriba proceden del
+handoff anterior; la rama 8d y el HEAD aquí registrados corresponden a la
+continuación actual. No se hizo push.
 
 Commits relevantes en 8c:
 
@@ -188,22 +195,20 @@ Commits relevantes en 8c:
   de crear otro commit.
 
 Los verifies exitosos de esta cadena acabaron en código 0, lint 129, tipos 16 y
-formato correcto. El último verify fue el del revert `7df2590`. No se tocaron
+formato correcto. En 8c, el último verify fue el del revert `7df2590`; en 8d,
+el último verify fue el del revert `669d83a`. No se tocaron
 baselines. La verificación incluye solo providers simulados/locales; no hubo
 llamadas reales ni acceso a red externa. No se leyó `.env`.
 
-Medidas de archivos obtenidas con `git show <ref>:<archivo> | wc -l`:
+Medidas actuales de archivos obtenidas con `git show <ref>:<archivo> | wc -l`:
 
-| Archivo | Inicio 8a (`565a8f0`) | Código 8c (`7df2590`) |
+| Archivo | Inicio 8a (`565a8f0`) | HEAD 8d (`669d83a`) |
 | --- | ---: | ---: |
 | `src/frontend/scripts/app.js` | 4,618 | 4,618 |
-| `src/frontend/scripts/outline.js` | 1,308 | 1,147 |
-| `src/frontend/editor/editor.js` | 1,898 | 1,898 |
-| `features/outline/stream-parser.js` | — | 51 |
-| `features/outline/stream-renderer.js` | — | 85 |
-| `features/outline/chips-renderer.js` | — | 94 |
+| `src/frontend/scripts/outline.js` | 1,308 | 230 |
+| `src/frontend/editor/editor.js` | 1,898 | 660 |
 
-El objetivo de `outline.js` ≤300 líneas no se alcanzó. Los globals legacy
+En HEAD 8d, `outline.js` mide 230 líneas y cumple el objetivo ≤300. Los globals legacy
 `window.parsePartialSkeleton`, `window.renderStreamingOutline` y
 `window.renderOutlineSuggestedChips` se conservaron como fachadas; no se eliminó
 ningún `window.*`. El helper `addSlideWithAI` sigue definido localmente, pero la
@@ -214,7 +219,11 @@ a un módulo; decidir si retirar ese helper o reconectar el botón queda pendien
 La Etapa 1 terminó con 30/30 ejecuciones consecutivas de
 `npm run check:editor-safety` en verde y 13/13 sentinels detectados. La Etapa 2
 está documentada en `docs/FRONTEND-INVENTORY.md`. Pendiente al reanudar: resolver
-el probe de mutación del binder sin elevar lint/type ratchets; terminar los
-cortes de outline, luego crear 8d/8e y completar arquitectura, contratos,
-handoff y orden de push. Push, CI de GitHub, smoke test con providers reales y
-`npm audit` conectado continúan pendientes del usuario/entorno.
+la causa de los fallos intermitentes del editor-safety gate en las extracciones
+de toolbar, completar `editor.js` ≤300, extraer `app.js` hasta ≤400, actualizar
+`docs/ARCHITECTURE-FRONTEND.md`, `docs/CONTRACTS.md` y `docs/PUSH-ORDER.md` para
+la cadena final. La Etapa 8e no se inició. Push, CI de GitHub, smoke test con
+providers reales y `npm audit` conectado continúan pendientes del usuario/
+entorno. Ratchets actuales: lint 119 y tipos 16; el último `verify:all` tras el
+revert `669d83a` terminó en código 0 con baselines y pruebas aprobadas. La
+reproducción diagnóstica de iframe no modificó archivos.
