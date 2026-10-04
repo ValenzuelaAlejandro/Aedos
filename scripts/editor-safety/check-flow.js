@@ -238,6 +238,27 @@ async function waitForThumbnailLoad(page, watch) {
     if (!frame) throw new Error(`Minimap thumbnail has no content frame: ${watch.selector}`);
     await frame.waitForFunction(() => document.readyState === 'complete' && document.fonts?.status !== 'loading', { timeout: 10000 });
     await frame.evaluate(() => new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
+    await page.evaluate(() => document.fonts?.ready);
+    await page.waitForFunction((selector) => new Promise((resolve) => {
+        let previous = '';
+        let stableFrames = 0;
+        const sample = () => {
+            const thumbnail = document.querySelector(selector);
+            const tile = thumbnail?.closest('.minimap-item');
+            if (!tile) throw new Error(`Minimap tile disappeared: ${selector}`);
+            const rect = tile.getBoundingClientRect();
+            const style = getComputedStyle(tile);
+            const signature = JSON.stringify([
+                rect.x, rect.y, rect.width, rect.height,
+                style.transform, style.opacity, style.borderColor, style.borderWidth, style.boxShadow,
+            ]);
+            stableFrames = signature === previous ? stableFrames + 1 : 0;
+            previous = signature;
+            if (stableFrames >= 3) resolve(true);
+            else requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+    }), { timeout: 5000 }, watch.selector);
 }
 
 async function runMinimapFlow(page, checkpoint) {
