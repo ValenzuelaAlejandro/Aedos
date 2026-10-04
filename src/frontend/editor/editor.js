@@ -22,6 +22,7 @@ import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js'
 import { bindEditorToolbarSizeEvents } from '../features/editor/toolbar-size-events.js';
 import { bindEditorToolbarActionEvents } from '../features/editor/toolbar-action-events.js';
 import { bindEditorToolbarSwatchEvents } from '../features/editor/toolbar-swatch-events.js';
+import { registerEditorMouseupCleanup } from '../features/editor/mouseup-cleanup.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
 import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
@@ -311,24 +312,18 @@ function initEditor() {
         }
     });
 
-    // Cleanup _stateSavedSinceMousedown on mouseup
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-        isResizing = false;
-        currentHandle = null;
-        dragGroup = [];
-        activeDragTarget = null;
-        guideH.style.display = 'none';
-        guideV.style.display = 'none';
-
-        if (selectedElement) {
-            delete selectedElement._normalized;
-            updateSelectionBox();
-        }
-
-        // Reset the flag for the next mousedown
-        const allEditables = getAllEditableElements();
-        allEditables.forEach(el => delete el._stateSavedSinceMousedown);
+    registerEditorMouseupCleanup({
+        document,
+        setDragging: value => { isDragging = value; },
+        setResizing: value => { isResizing = value; },
+        setCurrentHandle: value => { currentHandle = value; },
+        clearDragGroup: () => { dragGroup = []; },
+        setActiveDragTarget: value => { activeDragTarget = value; },
+        guideH,
+        guideV,
+        getSelectedElement: () => selectedElement,
+        updateSelectionBox: () => updateSelectionBox(),
+        getAllEditables: () => getAllEditableElements(),
     });
 
     // Prevent click events on the selection UI from bubbling to the background deselect listener

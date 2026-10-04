@@ -125,3 +125,7 @@ initialized later in the editor bootstrap.
 `toolbar-swatch-events.js` binds the existing palette swatches and delegates
 selection lookup, undo snapshot, semantic text detection, and change dispatch
 to the editor through callbacks.
+
+`mouseup-cleanup.js` owns the document mouseup listener that resets drag/resize
+state, hides guides, refreshes the current selection, and clears per-mousedown
+flags on editable elements. All shared state remains behind bootstrap callbacks.

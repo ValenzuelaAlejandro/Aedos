@@ -52,6 +52,18 @@ function loadToolbarSwatchEvents() {
     return module.exports.bindEditorToolbarSwatchEvents;
 }
 
+function loadMouseupCleanup() {
+    const module = { exports: {} };
+    const context = { module };
+    vm.createContext(context);
+    const sourcePath = path.join(__dirname, '../src/frontend/features/editor/mouseup-cleanup.js');
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace('export function registerEditorMouseupCleanup', 'function registerEditorMouseupCleanup') +
+        '\nmodule.exports = { registerEditorMouseupCleanup };';
+    vm.runInContext(source, context, { filename: sourcePath });
+    return module.exports.registerEditorMouseupCleanup;
+}
+
 test('toolbar markup retains text controls and shared actions', () => {
     const render = loadToolbarMarkup();
     const html = render({
@@ -155,4 +167,33 @@ test('toolbar swatches preserve text and fill updates and selection notification
     assert.equal(text.style.webkitTextFillColor, '#123456');
     assert.equal(calls[1], 'save');
     assert.equal(calls[2], text);
+});
+
+test('mouseup cleanup preserves reset, guide, selection and per-mousedown order', () => {
+    const register = loadMouseupCleanup();
+    const calls = [];
+    const selected = { _normalized: true };
+    const editable = { _stateSavedSinceMousedown: true };
+    let listener;
+    register({
+        document: { addEventListener: (type, callback) => { calls.push(['listen', type]); listener = callback; } },
+        setDragging: value => calls.push(['dragging', value]),
+        setResizing: value => calls.push(['resizing', value]),
+        setCurrentHandle: value => calls.push(['handle', value]),
+        clearDragGroup: () => calls.push(['group']),
+        setActiveDragTarget: value => calls.push(['target', value]),
+        guideH: { style: { set display(value) { calls.push(['guideH', value]); } } },
+        guideV: { style: { set display(value) { calls.push(['guideV', value]); } } },
+        getSelectedElement: () => selected,
+        updateSelectionBox: () => calls.push(['selection']),
+        getAllEditables: () => { calls.push(['editables']); return [editable]; },
+    });
+    listener();
+    assert.deepEqual(calls, [
+        ['listen', 'mouseup'], ['dragging', false], ['resizing', false], ['handle', null],
+        ['group'], ['target', null], ['guideH', 'none'], ['guideV', 'none'],
+        ['selection'], ['editables'],
+    ]);
+    assert.equal('_normalized' in selected, false);
+    assert.equal('_stateSavedSinceMousedown' in editable, false);
 });
