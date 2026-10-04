@@ -1,3 +1,5 @@
+import { initializePointerSnapGuides } from './pointer-snap-guides.js';
+
 /** @typedef {{isLocked: boolean, isDragging: boolean, dragGroup: Element[], activeDragTarget: Element|null, startX: number, startY: number, startLeft: number, startTop: number, snapLinesX: Array<{val: number}>, snapLinesY: Array<{val: number}>}} EditorPointerState */
 
 /**
@@ -87,9 +89,7 @@ export function bindEditorBodyPointerDown({
             pointerState.startTop = rect.top - slideRect.top;
 
             // Build snap targets
-            const snapTargets = createSnapTargets(slide, pointerState.activeDragTarget, getEditableElementsInSlide);
-            pointerState.snapLinesX = snapTargets.snapLinesX;
-            pointerState.snapLinesY = snapTargets.snapLinesY;
+            initializePointerSnapGuides(slide, pointerState.activeDragTarget, pointerState, createSnapTargets, getEditableElementsInSlide);
 
             if (e.target.contentEditable !== 'true') {
                 e.preventDefault();
