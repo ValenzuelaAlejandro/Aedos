@@ -191,3 +191,49 @@ responsibilities move, not duplicate these mutable variables.
 - Each extraction block is one commit followed immediately by
   `npm run verify:all`. Never refresh a baseline to make a move pass. Lint/type
   ratchets remain at or below 129/16 respectively.
+
+## 2026-10-03: diagnóstico de los dos cortes fallidos de toolbar
+
+Los commits descartados `0e28d88` y `675f875` se recuperaron desde el reflog y
+se verificaron en worktrees aislados. El checkout limpio de Git convirtió a LF
+los dos fixtures grandes de sanitización marcados `eol=lf`, mientras el checkout
+compartido conservaba CRLF; por eso, la primera ejecución de cada worktree
+falló antes con dos hashes distintos. No se regeneró baseline: para continuar
+la reproducción se copiaron en los worktrees temporales los mismos bytes ya
+presentes en el checkout compartido; los worktrees se desecharán al terminar.
+Tras esa corrección de entorno, ambas ejecuciones pasaron visual 6/6, PPTX
+14/14 y PDF, y fallaron en `check:editor-safety`, antes del checkpoint 09, al
+esperar `window.editorSelect` durante 10 segundos en `getEditorFrame()`.
+
+| Intento | Primer error en el flujo del editor | Evidencia |
+| --- | --- | --- |
+| `0e28d88` | `ReferenceError: Cannot access 'showColorPicker' before initialization` | `editor.js:121:13`, en `bindToolbarEvents`; `initEditor` falló en la inicialización y `flow-01`–`flow-08` sí habían pasado; el timeout final fue `getEditorFrame` en `check-flow.js:56`, llamado desde `runMainFlow` antes de capturar `flow-09`. |
+| `675f875` | `ReferenceError: Cannot access 'isTextEditableElement' before initialization` | `editor.js:122:13`, misma llamada/orden; el wrapper perezoso de `showColorPicker` quitó el primer TDZ, pero la referencia directa a `isTextEditableElement` seguía evaluándose antes de su inicialización. Mismos checkpoints y timeout 10 s en `getEditorFrame`. |
+
+Los errores se capturaron adicionalmente escuchando `pageerror` del iframe; el
+script previo solo acumulaba los errores del page y el timeout ocultaba la
+excepción original. No hay evidencia de un selector ausente, de `this` perdido
+ni de una carrera de registro del listener. `ensureUI()` crea el chrome del
+editor antes del binding; el binder vuelve a ejecutarse desde el lifecycle de
+selección después de instalar el markup dinámico. El comportamiento original
+podía cerrar sobre constantes declaradas más tarde porque las leía al disparar
+el evento, ya inicializadas. Al pasar esas constantes como argumentos de una
+factory extraída, JavaScript las evalúa inmediatamente en el punto de registro,
+y el TDZ dispara antes de instalar/terminar la inicialización.
+
+### Estrategia segura para continuar editor.js
+
+No reintentar el corte monolítico de todos los bindings. Dividirlo por grupos
+de controles cohesivos, cada uno en su propio corte, y conservar en el
+bootstrap la llamada a registro en el mismo punto y orden actuales. El API del
+módulo recibirá callbacks que consulten estado tarde (por ejemplo,
+`isTextEditableElement: (...args) => isTextEditableElement(...args)` y
+`showColorPicker: (...args) => showColorPicker(...args)`), nunca el valor de
+una `const` todavía en TDZ. El callback solo se invoca al evento, no durante el
+registro. Pasar selección, historial y acciones mediante getters/funciones
+explícitos; conservar `e.currentTarget`, el orden de `addEventListener`, los
+selectores y el doble momento de binding (bootstrap y actualización del markup
+al seleccionar). Cada grupo debe probar tanto registro temprano como
+invocación posterior y revisar que todos los handlers conservan el mismo
+receptor/evento. Si un grupo falla otra vez, registrarlo como no extraído y
+pasar al siguiente corte independiente.
