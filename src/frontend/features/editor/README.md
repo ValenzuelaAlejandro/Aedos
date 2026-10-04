@@ -48,6 +48,10 @@ state.
 `selection-ui.js` positions the selection rectangle and floating toolbar from
 the current selection, viewport, and drag/resize state supplied by the editor.
 
+`toolbar-markup.js` creates the legacy toolbar markup for text, image, or other
+targets. It receives selection, palette, classification, and translation
+functions explicitly.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.
