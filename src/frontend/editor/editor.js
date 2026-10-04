@@ -24,6 +24,7 @@ import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
 import { installEditorSlideObservers } from '../features/editor/slide-observers.js';
 import { createEditorArrowMover } from '../features/editor/arrow-movement.js';
+import { installEditorPointerStartEvents } from '../features/editor/pointer-start-events.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -424,50 +425,25 @@ function initEditor() {
         selectElement: element => selectElement(element),
     }));
 
-    selectionBox.addEventListener('mousedown', (e) => {
-        if (e.target.classList.contains('editor-resize-handle')) {
-            e.stopPropagation();
-            if (!selectedElement) return;
-
-            saveState(); // Save state before resize
-
-            isResizing = true;
-            currentHandle = e.target.dataset.handler;
-            startX = e.clientX;
-            startY = e.clientY;
-
-            const rect = selectedElement.getBoundingClientRect();
-            const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-            const slideRect = slide.getBoundingClientRect();
-
-            startWidth = rect.width;
-            startHeight = rect.height;
-            startLeft = rect.left - slideRect.left;
-            startTop = rect.top - slideRect.top;
-            e.preventDefault();
-        } else if (!e.target.classList.contains('editor-resize-handle')) {
-            // Drag via selection box proxy (anywhere that isn't a handle)
-            e.stopPropagation();
-            if (!selectedElement) return;
-
-            saveState(); // Save state before drag
-
-            isDragging = true;
-            dragGroup = [];
-            activeDragTarget = getStableDragTarget(selectedElement);
-
-            const rect = activeDragTarget.getBoundingClientRect();
-            const slide = activeDragTarget.closest('.s') || activeDragTarget.closest('section') || document.body;
-            const slideRect = slide.getBoundingClientRect();
-
-            startX = e.clientX;
-            startY = e.clientY;
-
-            startLeft = rect.left - slideRect.left;
-            startTop = rect.top - slideRect.top;
-
-            e.preventDefault();
-        }
+    installEditorPointerStartEvents({
+        selectionBox,
+        getState: () => ({ selectedElement }),
+        updateState: patch => {
+            if ('isResizing' in patch) isResizing = patch.isResizing;
+            if ('currentHandle' in patch) currentHandle = patch.currentHandle;
+            if ('isDragging' in patch) isDragging = patch.isDragging;
+            if ('dragGroup' in patch) dragGroup = patch.dragGroup;
+            if ('activeDragTarget' in patch) activeDragTarget = patch.activeDragTarget;
+            if ('startX' in patch) startX = patch.startX;
+            if ('startY' in patch) startY = patch.startY;
+            if ('startWidth' in patch) startWidth = patch.startWidth;
+            if ('startHeight' in patch) startHeight = patch.startHeight;
+            if ('startLeft' in patch) startLeft = patch.startLeft;
+            if ('startTop' in patch) startTop = patch.startTop;
+        },
+        saveState,
+        getStableDragTarget,
+        document,
     });
 
 

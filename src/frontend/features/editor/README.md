@@ -110,5 +110,9 @@ retains the legacy window wrapper and intentionally avoids creating undo state.
 `arrow-movement.js` applies the existing keyboard and compatibility-facade
 arrow movement with undo grouping, collision resolution, and selection refresh.
 
+`pointer-start-events.js` owns selection-box mouse-down drag/resize initiation.
+The editor remains the sole owner of mutable pointer state and supplies the
+selection, state-update, history, and stable-target APIs explicitly.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
