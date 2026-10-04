@@ -17,6 +17,7 @@ import { installEditorCompatibilityFacade } from '../features/editor/compatibili
 import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
 import { applyEditorResize } from '../features/editor/resize-interaction.js';
 import { applyEditorDrag } from '../features/editor/drag-interaction.js';
+import { createEditorColorPicker } from '../features/editor/color-picker.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -352,77 +353,13 @@ function initEditor() {
         }
     }
 
-    function showColorPicker(anchorEl) {
-        const picker = document.getElementById('editor-color-picker');
-        const isCurrentlyVisible = picker.style.display === 'grid';
-
-        if (isCurrentlyVisible && picker.dataset.anchor === anchorEl.id) {
-            picker.style.display = 'none';
-            return;
-        }
-
-        // Generate dynamic palette
-        const palette = getDynamicPalette();
-        picker.innerHTML = palette.map(color => `
-            <div class="editor-color-swatch" style="background:${color};" data-color="${color}"></div>
-        `).join('') + `
-            <div class="editor-color-swatch" style="background:transparent; border: 1px dashed #ccc; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999;" data-color="transparent">✕</div>
-        `;
-
-        // Re-bind swatches
-        picker.querySelectorAll('.editor-color-swatch').forEach(swatch => {
-            swatch.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (selectedElement && activeColorAction) {
-                    saveState();
-                    const color = swatch.dataset.color;
-                    if (activeColorAction === 'text') {
-                        selectedElement.style.color = color;
-                        selectedElement.style.webkitTextFillColor = color;
-                        const icons = selectedElement.querySelectorAll('svg, [data-lucide]');
-                        if (icons) icons.forEach(i => i.style.color = color);
-                    } else if (activeColorAction === 'bg') {
-                        selectedElement.style.background = color;
-                    }
-                    picker.style.display = 'none';
-                }
-            });
-        });
-
-        picker.style.display = 'grid';
-        picker.dataset.anchor = anchorEl.id;
-    }
-
-    function getDynamicPalette() {
-        const colors = new Set();
-
-        // 1. Extract from presentation variables (Priority)
-        const rootStyle = window.getComputedStyle(document.documentElement);
-        const vars = ['--presentation-accent', '--accent', '--accent-2', '--bg', '--surface'];
-        vars.forEach(v => {
-            const val = rootStyle.getPropertyValue(v).trim();
-            if (val && val !== 'none' && val !== 'transparent') colors.add(val);
-        });
-
-        // 2. Extract from existing elements in the slide (to find actual theme colors used)
-        const slide = selectedElement?.closest('.s') || document.body;
-        const allInSlide = slide.querySelectorAll('*');
-        allInSlide.forEach(el => {
-            if (colors.size >= 8) return;
-            const style = window.getComputedStyle(el);
-            if (style.color && !style.color.includes('rgba(0, 0, 0, 0)') && style.color !== 'transparent') colors.add(style.color);
-            if (style.backgroundColor && !style.backgroundColor.includes('rgba(0, 0, 0, 0)') && style.backgroundColor !== 'transparent') colors.add(style.backgroundColor);
-        });
-
-        // 3. Essential fallbacks
-        colors.add('#FFFFFF');
-        colors.add('#000000');
-        colors.add('#5D5DFF');
-        colors.add('#FF5D5D');
-        colors.add('#5DFF5D');
-
-        return Array.from(colors).slice(0, 16);
-    }
+    const { getDynamicPalette, showColorPicker } = createEditorColorPicker({
+        document,
+        window,
+        getSelectedElement: () => selectedElement,
+        getActiveColorAction: () => activeColorAction,
+        saveState: () => saveState(),
+    });
 
 
     // Editable Elements Target Mapping

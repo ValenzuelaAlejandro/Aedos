@@ -85,3 +85,6 @@ iframe API, DOM, styles, timers, or event order. Add a focused test under
 `resize-interaction.js` applies the iframe editor's pointer resize delta,
 minimum-size collision handling, snapping guides, and inline styles using the
 existing start state supplied by the editor.
+
+`color-picker.js` provides the same theme-aware swatch palette, visibility
+toggle, and color application callbacks for editor text and fills.
