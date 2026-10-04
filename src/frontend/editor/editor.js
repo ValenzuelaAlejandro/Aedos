@@ -19,6 +19,7 @@ import { applyEditorResize } from '../features/editor/resize-interaction.js';
 import { applyEditorDrag } from '../features/editor/drag-interaction.js';
 import { createEditorColorPicker } from '../features/editor/color-picker.js';
 import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
+import { bindEditorToolbarSizeEvents } from '../features/editor/toolbar-size-events.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
 import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
@@ -110,27 +111,12 @@ function initEditor() {
     }
 
     function bindToolbarEvents() {
-        const btnSizeDown = document.getElementById('editor-btn-size-down');
-        const btnSizeUp = document.getElementById('editor-btn-size-up');
+        bindEditorToolbarSizeEvents({ document, changeFontSize });
         const btnTextColor = document.getElementById('editor-btn-text-color');
         const btnBgColor = document.getElementById('editor-btn-bg-color');
         const btnDelete = document.getElementById('editor-btn-delete');
         const btnDuplicate = document.getElementById('editor-btn-duplicate');
         const btnReplaceImg = document.getElementById('editor-btn-replace-img');
-
-        if (btnSizeDown) {
-            btnSizeDown.addEventListener('click', (e) => {
-                e.stopPropagation();
-                changeFontSize(-2);
-            });
-        }
-
-        if (btnSizeUp) {
-            btnSizeUp.addEventListener('click', (e) => {
-                e.stopPropagation();
-                changeFontSize(2);
-            });
-        }
 
         if (btnTextColor) {
             btnTextColor.addEventListener('click', (e) => {

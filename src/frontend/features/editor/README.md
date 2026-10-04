@@ -112,3 +112,7 @@ arrow movement with undo grouping, collision resolution, and selection refresh.
 
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
+
+`toolbar-size-events.js` binds the two existing font-size controls when their
+markup is present. It receives the font-size action explicitly and owns no
+selection state.
