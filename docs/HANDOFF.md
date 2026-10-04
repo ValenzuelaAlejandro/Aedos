@@ -153,9 +153,10 @@ borraron artifacts ignorados del usuario.
 
 ## Etapa 8 — cierre parcial (2026-10-03)
 
-La ejecución se detuvo en la Etapa 3 por la compuerta de dos intentos: dos
-extracciones del binder de edición fueron rechazadas por `verify:all` y se
-revirtieron. No se crearon las ramas 8d/8e ni se inició la Etapa 6.
+La primera ejecución se detuvo en la Etapa 3 por la compuerta de dos intentos:
+dos extracciones del binder de edición fueron rechazadas por `verify:all` y se
+revirtieron. En una continuación posterior se crearon 8d y se completaron varias
+extracciones del editor; 8d aún está incompleta y no se creó 8e.
 
 Cadena local, sin push:
 
@@ -213,8 +214,46 @@ a un módulo; decidir si retirar ese helper o reconectar el botón queda pendien
 
 La Etapa 1 terminó con 30/30 ejecuciones consecutivas de
 `npm run check:editor-safety` en verde y 13/13 sentinels detectados. La Etapa 2
-está documentada en `docs/FRONTEND-INVENTORY.md`. Pendiente al reanudar: resolver
-el probe de mutación del binder sin elevar lint/type ratchets; terminar los
-cortes de outline, luego crear 8d/8e y completar arquitectura, contratos,
-handoff y orden de push. Push, CI de GitHub, smoke test con providers reales y
-`npm audit` conectado continúan pendientes del usuario/entorno.
+está documentada en `docs/FRONTEND-INVENTORY.md`. El objetivo de `outline.js`
+≤300 líneas sigue abierto (230 líneas al 8d actual, pero el plan de outline
+anterior no se completó íntegramente). Push, CI de GitHub, smoke test con
+providers reales y `npm audit` conectado continúan pendientes del usuario/entorno.
+
+## Continuación Etapa 8d (2026-10-03)
+
+Rama actual local: `refactor/fase-8d-editor`, sin push. HEAD `b9a0a59`
+(`Revert "refactor: extract editor pointer start events"`). El `verify:all` de
+este revert terminó con código 0; ratchets: lint 119, tipos 16; formato correcto;
+sentinels de editor 13/13. El árbol quedó limpio. Tamaños comprobados con
+`git show <ref>:<archivo> | wc -l`: `editor.js` 660, `app.js` 4,618 y
+`outline.js` 230.
+
+Extracciones de editor que permanecen en la rama incluyen geometría de colisión,
+targeting, agrupación, snapshot de estilos, UI y ciclo de vida de selección,
+freeze/normalización, fachada de compatibilidad, teclado, edición de contenido,
+snap targets, resize/drag, color picker, operaciones de elementos, DOM de
+selección, observers de slides y movimiento por flechas. Los wrappers `window.*`
+se mantienen.
+
+Dos intentos consecutivos de extraer listeners de eventos de puntero hicieron
+fallar `verify:all` en `check:editor-safety`, ambos con el mismo error antes de
+la suite de módulos:
+
+```
+TimeoutError: Waiting failed: 10000ms exceeded
+  at getEditorFrame (scripts/editor-safety/check-flow.js:56:17)
+  at runMainFlow (scripts/editor-safety/check-flow.js:309:25)
+  at run (scripts/editor-safety/check-flow.js:329:9)
+```
+
+Fallaron en los intentos `6468664` y `f9c6474`, y se revirtieron con `fc6a75d`
+y `b9a0a59`, respectivamente. Cada verify completo posterior al revert terminó
+en verde, incluido el checkpoint flow-16 y 13/13 sentinels. La causa no está
+determinada; la repetición correlaciona los fallos con esas revisiones, pero no
+prueba una regresión del módulo ni una causa ambiental. Esos dos módulos y sus
+tests no están en HEAD. No regenerar baselines para ocultar el fallo.
+
+Pendiente al reanudar: continuar 8d hasta `editor.js` ≤300 con gates por commit;
+después crear `refactor/fase-8e-app`, extraer `app.js` hasta ≤400, completar
+documentación de arquitectura/contratos y revisar la cadena final de ramas y
+hashes. No se hizo push ni se contactaron proveedores reales.
