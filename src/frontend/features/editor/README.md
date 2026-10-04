@@ -60,6 +60,10 @@ commands remain explicit callbacks into the editor coordinator.
 hooks, including layer and arrow-move commands. The values remain live through
 getter callbacks into the editor's per-iframe state.
 
+`keyboard.js` owns the editor keydown shortcuts and its per-iframe clipboard
+buffer. Selection and editing commands are passed as callbacks; the keydown
+listener remains registered at the same bootstrap point.
+
 Add an editor-only shared service here when it can be moved without changing the
 iframe API, DOM, styles, timers, or event order. Add a focused test under
 `tests/` and include it in `verify:baseline` before extracting the old block.

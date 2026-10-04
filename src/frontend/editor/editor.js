@@ -11,6 +11,7 @@ import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js'
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 import { createEditorSlideFreeze, createEditorElementNormalizer } from '../features/editor/slide-freeze.js';
 import { createEditorSelectionLifecycle } from '../features/editor/selection-lifecycle.js';
+import { createEditorKeyboardHandler } from '../features/editor/keyboard.js';
 import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
 
 function initEditor() {
@@ -53,8 +54,6 @@ function initEditor() {
     let snapLinesY = [];
     let activeDragTarget = null;
 
-    // Clipboard for copy/paste
-    let _clipboard = null;
     let dragGroup = [];
 
     // Track which slides have been "frozen" into absolute layout to avoid reflows
@@ -1210,180 +1209,26 @@ function initEditor() {
         selectElement(mainClone);
     }
 
-    document.addEventListener('keydown', (e) => {
-        // Support arrow navigation even when locked (for presentation mode)
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-            const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-            const isEditingText = activeTag === 'input' || activeTag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable);
-
-            // If nothing is selected or locked, we let it bubble out or handle it as slide navigation
-            if (!isEditingText && (!selectedElement || _isLocked)) {
-                if (e.key === 'ArrowLeft') {
-                    window.dispatchEvent(new CustomEvent('navigate-prev'));
-                } else {
-                    window.dispatchEvent(new CustomEvent('navigate-next'));
-                }
-                e.preventDefault();
-                return;
-            }
-        }
-
-        if (_isLocked) return;
-        // Ignore if native text editing
-        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-        const isEditingText = activeTag === 'input' || activeTag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable);
-
-        if (e.ctrlKey || e.metaKey) {
-            if (e.key.toLowerCase() === 'z') {
-                if (e.shiftKey) {
-                    redo();
-                } else {
-                    undo();
-                }
-                e.preventDefault();
-            } else if (e.key.toLowerCase() === 'y') {
-                redo();
-                e.preventDefault();
-            } else if (e.key.toLowerCase() === 'c' && !isEditingText) {
-                if (selectedElement) {
-                    const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-
-                    // Build a clipboard-ready clone WITHOUT mutating the original element.
-                    // normalizeElement must never be called on the original during copy because
-                    // it calls saveState() and may move the element in the DOM (slide.appendChild),
-                    // which leaves the original parent container visually empty.
-                    function cloneForClipboard(el) {
-                        if (el._normalized) {
-                            // Already absolute-positioned — safe to clone as-is.
-                            return el.cloneNode(true);
-                        }
-                        // Not yet normalized: capture geometry from live DOM, apply to clone.
-                        const elRect = el.getBoundingClientRect();
-                        const slideRect = slide.getBoundingClientRect();
-                        const inherited = getInheritedStyles(el);
-                        const clone = el.cloneNode(true);
-                        clone.style.boxSizing = 'border-box';
-                        clone.style.position = 'absolute';
-                        clone.style.margin = '0';
-                        clone.style.transform = 'none';
-                        clone.style.left = (elRect.left - slideRect.left) + 'px';
-                        clone.style.top = (elRect.top - slideRect.top) + 'px';
-                        clone.style.width = elRect.width + 'px';
-                        clone.style.height = elRect.height + 'px';
-                        clone.style.fontSize = inherited.fontSize;
-                        clone.style.fontFamily = inherited.fontFamily;
-                        clone.style.color = inherited.color;
-                        clone.style.lineHeight = inherited.lineHeight;
-                        clone._normalized = true;
-                        return clone;
-                    }
-
-                    const group = collectGroup(selectedElement);
-                    _clipboard = [cloneForClipboard(selectedElement)];
-                    group.forEach(item => {
-                        _clipboard.push(cloneForClipboard(item.el));
-                    });
-
-                    // Show brief visual feedback — no side effects on the original
-                    selectedElement.style.outline = '2px solid rgba(255,255,255,0.6)';
-                    setTimeout(() => { if (selectedElement) selectedElement.style.outline = ''; }, 300);
-                    e.preventDefault();
-                }
-            } else if (e.key.toLowerCase() === 'x' && !isEditingText) {
-                if (selectedElement) {
-                    // Context-aware target selection:
-                    // If we're inside or are an image slot, we always want to cut the whole block
-                    // as it's a logical visual unit with complex internal layers (gradients).
-                    // For other things (cards), we respect the granular selection.
-                    const isInsideImgSlot = selectedElement.matches('.img-slot, [data-image-slot]') || selectedElement.closest('.img-slot, [data-image-slot]');
-                    const target = isInsideImgSlot ? getStableDragTarget(selectedElement) : selectedElement;
-                    
-                    const slide = target.closest('.s') || target.closest('section') || document.body;
-                    
-                    normalizeElement(target, slide);
-                    
-                    const group = collectGroup(target);
-                    _clipboard = [target.cloneNode(true)];
-                    group.forEach(item => {
-                        normalizeElement(item.el, slide);
-                        _clipboard.push(item.el.cloneNode(true));
-                        item.el.remove();
-                    });
-                    
-                    deleteElement(target);
-                    e.preventDefault();
-                }
-            } else if (e.key.toLowerCase() === 'v' && !isEditingText) {
-                if (_clipboard && _clipboard.length > 0) {
-                    saveState();
-                    const activeSlide = document.querySelector('section.active') || document.querySelector('section') || document.body;
-                    
-                    let mainClone = null;
-                    _clipboard.forEach((node, idx) => {
-                        const clone = node.cloneNode(true);
-                        // Offset slightly
-                        const curLeft = parseFloat(clone.style.left) || 0;
-                        const curTop = parseFloat(clone.style.top) || 0;
-                        clone.style.left = (curLeft + 20) + 'px';
-                        clone.style.top = (curTop + 20) + 'px';
-                        
-                        activeSlide.appendChild(clone);
-                        if (idx === 0) mainClone = clone;
-                    });
-                    
-                    if (mainClone) selectElement(mainClone);
-                    e.preventDefault();
-                }
-            } else if (e.key.toLowerCase() === 'd') {
-                e.preventDefault();
-                if (isEditingText) return;
-
-                if (selectedElement) {
-                    duplicateElement(selectedElement);
-                } else {
-                    window.dispatchEvent(new CustomEvent('duplicate-slide'));
-                }
-            }
-        } else if (!isEditingText) {
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                if (selectedElement) {
-                    deleteElement(selectedElement);
-                    e.preventDefault();
-                }
-            } else if (e.key.startsWith('Arrow')) {
-                if (selectedElement) {
-                    e.preventDefault();
-                    if (!selectedElement._undoSavingArrow) {
-                        saveState();
-                        selectedElement._undoSavingArrow = true;
-                        setTimeout(() => selectedElement._undoSavingArrow = false, 500);
-                    }
-                    let newLeft = parseFloat(selectedElement.style.left) || 0;
-                    let newTop = parseFloat(selectedElement.style.top) || 0;
-                    const amount = e.shiftKey ? 10 : 1;
-
-                    if (e.key === 'ArrowUp') newTop -= amount;
-                    if (e.key === 'ArrowDown') newTop += amount;
-                    if (e.key === 'ArrowLeft') newLeft -= amount;
-                    if (e.key === 'ArrowRight') newLeft += amount;
-
-                    const slide = selectedElement.closest('.s') || selectedElement.closest('section') || document.body;
-                    const eRect = selectedElement.getBoundingClientRect();
-                    const resolved = resolveDragCollision({
-                        left: newLeft,
-                        top: newTop,
-                        width: eRect.width,
-                        height: eRect.height
-                    }, slide, selectedElement);
-
-                    selectedElement.style.left = `${resolved.left}px`;
-                    selectedElement.style.top = `${resolved.top}px`;
-
-                    updateSelectionBox();
-                }
-            }
-        }
-    });
+    document.addEventListener('keydown', createEditorKeyboardHandler({
+        document,
+        window,
+        CustomEvent,
+        setTimeout,
+        getSelectedElement: () => selectedElement,
+        getIsLocked: () => _isLocked,
+        undo,
+        redo,
+        saveState,
+        collectGroup,
+        getInheritedStyles,
+        getStableDragTarget,
+        normalizeElement,
+        deleteElement,
+        selectElement,
+        duplicateElement,
+        resolveDragCollision,
+        updateSelectionBox,
+    }));
 
     // Save initial state
     saveState();
