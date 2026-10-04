@@ -18,11 +18,6 @@ at the former navigation initialization point.
 factory registers document keyboard/wheel listeners at their former point and
 returns wheel/touch handlers for iframe registration by `app.js`.
 
-`iframe-lifecycle.js` owns iframe HTML preparation, load/poll setup, and slide
-discovery. It receives the existing preview state, logger, and interaction
-callback; the small `previewUiState` remains page-owned because other features
-read and update it directly.
-
 `overlay-labels.js` creates the parent-side input and label for each image slot.
 The factory receives the live overlay map and replacement callbacks; the app
 invokes it at the former assignment point, so listener registration order stays
