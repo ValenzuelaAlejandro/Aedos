@@ -1,12 +1,12 @@
 {
-  "totalWarnings": 125,
+  "totalWarnings": 123,
   "byRule": {
     "no-empty": 9,
     "complexity": 27,
-    "max-lines-per-function": 21,
+    "max-lines-per-function": 20,
     "max-lines": 8,
     "no-unused-vars": 20,
-    "no-shadow": 19,
+    "no-shadow": 18,
     "eqeqeq": 2,
     "prefer-const": 8,
     "no-undef": 11
@@ -30,7 +30,7 @@
     "src\\frontend\\mobile\\js\\app-mobile.js": 1,
     "src\\frontend\\mobile\\js\\bridge.js": 5,
     "src\\frontend\\scripts\\app.js": 68,
-    "src\\frontend\\scripts\\outline.js": 6,
+    "src\\frontend\\scripts\\outline.js": 4,
     "tests\\pptx-export-advanced.test.js": 1
   },
   "topFiles": [
@@ -41,10 +41,6 @@
     [
       "src\\backend\\utils\\pptx-export.js",
       11
-    ],
-    [
-      "src\\frontend\\scripts\\outline.js",
-      6
     ],
     [
       "src\\backend\\server.js",
@@ -61,6 +57,10 @@
     [
       "src\\frontend\\mobile\\js\\bridge.js",
       5
+    ],
+    [
+      "src\\frontend\\scripts\\outline.js",
+      4
     ],
     [
       "scripts\\verify-pptx-export.js",
