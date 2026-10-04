@@ -123,6 +123,10 @@ listener retains its original order without evaluating later `const` bindings.
 `resize-start.js` captures the selected element's original resize geometry and
 handle after the selection-box mousedown branch saves its history snapshot.
 
+`pointer-normalization.js` retains the pointer movement threshold, deferred
+layout normalization, abort path, and origin reset before drag/resize applies
+its existing deltas.
+
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
 

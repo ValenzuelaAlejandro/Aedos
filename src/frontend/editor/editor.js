@@ -32,6 +32,7 @@ import { createEditorArrowMover } from '../features/editor/arrow-movement.js';
 import { createEditorPointerState } from '../features/editor/pointer-state.js';
 import { bindEditorBodyPointerDown } from '../features/editor/body-pointer-events.js';
 import { beginEditorResize } from '../features/editor/resize-start.js';
+import { normalizePointerTarget } from '../features/editor/pointer-normalization.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -303,37 +304,8 @@ function initEditor() {
         const slide = currentElement.closest('.s') || currentElement.closest('section') || document.body;
 
         if (pointerState.isDragging || pointerState.isResizing) {
-            const dx = (e.clientX - pointerState.startX);
-            const dy = (e.clientY - pointerState.startY);
-
             // NORMALIZATION ON DEMAND: Rip out of DOM when user actually starts transforming.
-            if (!currentElement._normalized && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
-                if (pointerState.isDragging && pointerState.activeDragTarget && pointerState.activeDragTarget !== pointerState.selectedElement) {
-                    selectElement(pointerState.activeDragTarget);
-                }
-
-                normalizeElement(currentElement, slide);
-
-                // If the chosen drag target still isn't absolutely positioned, abort the drag.
-                // This keeps unrelated elements untouched instead of extracting siblings.
-                if (currentElement.style.position !== 'absolute') {
-                    pointerState.isDragging = false;
-                    pointerState.activeDragTarget = null;
-                    updateSelectionBox();
-                    return;
-                }
-
-                // After normalization, we MUST reset the base values because style.left/top
-                // might differ from the visual start coordinates captured in mousedown.
-                pointerState.startWidth = parseFloat(currentElement.style.width);
-                const _rawH = parseFloat(currentElement.style.height);
-                pointerState.startHeight = isNaN(_rawH) ? currentElement.getBoundingClientRect().height : _rawH;
-                pointerState.startLeft = parseFloat(currentElement.style.left);
-                pointerState.startTop = parseFloat(currentElement.style.top);
-
-                pointerState.startX = e.clientX;
-                pointerState.startY = e.clientY;
-            }
+            if (normalizePointerTarget(e, currentElement, slide, pointerState, normalizeElement, element => selectElement(element), () => updateSelectionBox())) return;
         }
 
         if (pointerState.isDragging) {
