@@ -112,3 +112,5 @@ arrow movement with undo grouping, collision resolution, and selection refresh.
 
 `toolbar-markup.js` renders the existing text, image, and shape toolbar branches
 from the selected element's semantic predicates and palette.
+The same already-loaded module binds the toolbar's size, color, image, delete,
+duplicate, and quick-swatch actions through explicit editor callbacks.
