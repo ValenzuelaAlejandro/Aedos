@@ -61,7 +61,6 @@ function initEditor() {
     let _isRestoring = false; // Flag to prevent state saving during undo/redo
 
     // Selection Observer to update box on property changes
-    let selectionObserver = null;
 
     /**
      * Grouping Helper: Finds elements visually inside a container to treat them as a unit
@@ -448,11 +447,6 @@ function initEditor() {
         findEditableTarget,
         getStableDragTarget,
     } = createEditorTargeting({ document, Element, Node, semantics: editorSemantics });
-
-    function hasPadding(style) {
-        return ['Top', 'Right', 'Bottom', 'Left']
-            .reduce((sum, side) => sum + (parseFloat(style[`padding${side}`]) || 0), 0) > 0.5;
-    }
 
     const freezeSlideLayout = createEditorSlideFreeze({
         frozenSlides: _isFrozenMap,
