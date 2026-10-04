@@ -24,6 +24,7 @@ import { createEditorGrouping } from '../features/editor/grouping.js';
 import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
 import { installEditorSlideObservers } from '../features/editor/slide-observers.js';
 import { createEditorArrowMover } from '../features/editor/arrow-movement.js';
+import { installEditorPointerCleanup } from '../features/editor/pointer-cleanup.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -400,24 +401,18 @@ function initEditor() {
         }
     });
 
-    // Cleanup _stateSavedSinceMousedown on mouseup
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-        isResizing = false;
-        currentHandle = null;
-        dragGroup = [];
-        activeDragTarget = null;
-        guideH.style.display = 'none';
-        guideV.style.display = 'none';
-
-        if (selectedElement) {
-            delete selectedElement._normalized;
-            updateSelectionBox();
-        }
-
-        // Reset the flag for the next mousedown
-        const allEditables = getAllEditableElements();
-        allEditables.forEach(el => delete el._stateSavedSinceMousedown);
+    installEditorPointerCleanup({
+        document,
+        setIsDragging: value => { isDragging = value; },
+        setIsResizing: value => { isResizing = value; },
+        setCurrentHandle: value => { currentHandle = value; },
+        setDragGroup: value => { dragGroup = value; },
+        setActiveDragTarget: value => { activeDragTarget = value; },
+        guideH,
+        guideV,
+        getSelectedElement: () => selectedElement,
+        updateSelectionBox,
+        getAllEditables: getAllEditableElements,
     });
 
     // Prevent click events on the selection UI from bubbling to the background deselect listener
