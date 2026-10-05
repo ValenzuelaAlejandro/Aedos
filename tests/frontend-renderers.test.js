@@ -321,16 +321,34 @@ test('existing HTML preview writes its title to the legacy input or text label',
     const input = { tagName: 'INPUT', value: '' };
     const textLabel = { tagName: 'DIV', textContent: '' };
     let currentLabel = input;
+    const previewUiState = { minimapAlreadyInit: true, toolsAlreadyInit: true };
+    const slideDots = { innerHTML: 'dots' };
+    const minimapList = { innerHTML: 'items', style: { transform: 'translateY(1px)' } };
+    const accent = { removeProperty: () => {} };
+    const minimap = { style: accent };
+    const createIframe = () => ({
+        cloneNode: createIframe,
+        parentNode: { replaceChild: (_next, old) => assert.notEqual(old, null) },
+    });
+    const oldIframe = createIframe();
+    const previewState = { previewIframe: oldIframe, slideContainer: {} };
     const makeNode = () => ({ classList: { add: () => {}, remove: () => {} }, style: {} });
     const sandbox = { window, document: {} };
     vm.runInNewContext(fs.readFileSync(debugCanvasPath, 'utf8'), sandbox, { filename: debugCanvasPath });
     const openPreview = sandbox.AedosPreview.createExistingHtmlPreview({
         window,
         document: {
-            getElementById: id => id === 'preview-topic-label' ? currentLabel : null,
+            getElementById: id => ({
+                'preview-topic-label': currentLabel,
+                'minimap-list': minimapList,
+                'editor-minimap': minimap,
+            })[id] || null,
             body: { classList: { add: () => {} } },
         },
-        previewState: {},
+        previewState,
+        getPreviewUiState: () => previewUiState,
+        removePreviewResizeListener: () => {},
+        resetOverlayState: () => {},
         clearPendingTransition: () => {},
         updateZoomDisplay: () => {},
         resultContainer: null,
@@ -338,8 +356,8 @@ test('existing HTML preview writes its title to the legacy input or text label',
         refusedContainer: null,
         previewContainer: makeNode(),
         chatScreen: { ...makeNode(), style: {} },
-        resetPreviewSurface: () => {},
         slideLabel: { textContent: '' },
+        slideDots,
         updateMinimapSkeleton: () => {},
         previewHeader: makeNode(),
         initPreview: () => {},
@@ -348,6 +366,13 @@ test('existing HTML preview writes its title to the legacy input or text label',
 
     openPreview('<html></html>', 'Input title');
     assert.equal(input.value, 'Input title');
+    assert.equal(previewUiState.minimapAlreadyInit, false);
+    assert.equal(previewUiState.toolsAlreadyInit, false);
+    assert.notEqual(previewState.previewIframe, oldIframe);
+    assert.equal(previewState.slideContainer, null);
+    assert.equal(slideDots.innerHTML, '');
+    assert.equal(minimapList.innerHTML, '');
+    assert.equal(minimapList.style.transform, 'none');
     currentLabel = textLabel;
     openPreview('<html></html>', 'Text title');
     assert.equal(textLabel.textContent, 'Text title');
