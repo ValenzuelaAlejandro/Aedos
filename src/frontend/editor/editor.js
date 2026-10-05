@@ -28,33 +28,19 @@ import { createEditorArrowMover } from '../features/editor/arrow-movement.js';
 import { createEditorPointerState } from '../features/editor/pointer-state.js';
 import { bindEditorBodyPointerDown } from '../features/editor/body-pointer-events.js';
 import { bindEditorPointerInteractions } from '../features/editor/pointer-interactions.js';
+import { bindEditorLockLifecycle } from '../features/editor/lock-lifecycle.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
     window._editorInitialized = true;
 
     const pointerState = createEditorPointerState();
-    window.setLocked = (locked) => {
-        pointerState.isLocked = locked;
-        if (locked) {
-            document.body.classList.add('editor-locked');
-            deselectGroup();
-            pointerState.isDragging = false;
-            pointerState.isResizing = false;
-        } else {
-            document.body.classList.remove('editor-locked');
-        }
-    };
-
-    // Auto-lock if parent goes fullscreen
-    const syncLockWithFullscreen = () => {
-        const isFS = !!(document.fullscreenElement || window.parent.document.fullscreenElement || document.webkitFullscreenElement || window.parent.document.webkitFullscreenElement);
-        window.setLocked(isFS);
-    };
-    document.addEventListener('fullscreenchange', syncLockWithFullscreen);
-    window.parent.document.addEventListener('fullscreenchange', syncLockWithFullscreen);
-    document.addEventListener('webkitfullscreenchange', syncLockWithFullscreen);
-    window.parent.document.addEventListener('webkitfullscreenchange', syncLockWithFullscreen);
+    bindEditorLockLifecycle({
+        document,
+        window,
+        pointerState,
+        deselectGroup: () => deselectGroup(),
+    });
 
     // Track which slides have been "frozen" into absolute layout to avoid reflows
     const _isFrozenMap = new WeakMap();

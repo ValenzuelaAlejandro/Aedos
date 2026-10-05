@@ -126,6 +126,11 @@ selection, and history operations remain injected callbacks.
 `toolbar-bindings.js` preserves the toolbar's size, action, and swatch binding
 order while receiving selection, history, and editor actions as callbacks.
 
+`lock-lifecycle.js` installs `window.setLocked` and the same document/parent
+fullscreen listeners immediately after pointer-state creation. It receives the
+late selection operation through a lazy callback to avoid a temporal-dead-zone
+read while preserving the facade and listener timing.
+
 `body-pointer-events.js` installs the existing body mousedown listener for
 editable-target selection, drag initialization, and snap-target collection.
 Late selection lifecycle bindings are lazy callbacks so registering this
