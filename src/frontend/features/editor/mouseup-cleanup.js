@@ -35,3 +35,25 @@ export function registerEditorMouseupCleanup({
         allEditables.forEach(element => delete element._stateSavedSinceMousedown);
     });
 }
+
+/**
+ * @typedef {{document: Document, pointerState: Object, guideH: HTMLElement, guideV: HTMLElement, getSelectedElement: () => Element|null, updateSelectionBox: () => void, getAllEditables: () => Element[]}} EditorPointerCleanupDependencies
+ */
+
+/** Adapt the editor's shared pointer state to the existing mouseup cleanup API. */
+export function bindEditorPointerCleanup(deps) {
+    const { document, pointerState, guideH, guideV, getSelectedElement, updateSelectionBox, getAllEditables } = deps;
+    registerEditorMouseupCleanup({
+        document,
+        setDragging: value => { pointerState.isDragging = value; },
+        setResizing: value => { pointerState.isResizing = value; },
+        setCurrentHandle: value => { pointerState.currentHandle = value; },
+        clearDragGroup: () => { pointerState.dragGroup = []; },
+        setActiveDragTarget: value => { pointerState.activeDragTarget = value; },
+        guideH,
+        guideV,
+        getSelectedElement,
+        updateSelectionBox,
+        getAllEditables,
+    });
+}

@@ -24,6 +24,10 @@ test('iframe editor loads its native module and imports private feature helpers'
     assert.match(editor, /import \{ bindEditorLockLifecycle \} from '\.\.\/features\/editor\/lock-lifecycle\.js';/);
     assert.match(editor, /bindEditorLockLifecycle\(\{/);
     assert.match(read('src/frontend/features/editor/lock-lifecycle.js'), /window\.setLocked =/);
+    assert.match(editor, /import \{ bindEditorKeyboardEvents \} from '\.\.\/features\/editor\/keyboard-bindings\.js';/);
+    assert.match(editor, /bindEditorKeyboardEvents\(\{/);
+    assert.match(editor, /import \{ bindEditorPointerCleanup \} from '\.\.\/features\/editor\/mouseup-cleanup\.js';/);
+    assert.match(editor, /bindEditorPointerCleanup\(\{/);
     const pointerInteractions = read('src/frontend/features/editor/pointer-interactions.js');
     assert.match(pointerInteractions, /import \{ beginEditorResize \} from '\.\/resize-start\.js';/);
     assert.match(pointerInteractions, /import \{ normalizePointerTarget \} from '\.\/pointer-normalization\.js';/);

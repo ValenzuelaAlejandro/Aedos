@@ -58,7 +58,8 @@ function loadMouseupCleanup() {
     vm.createContext(context);
     const sourcePath = path.join(__dirname, '../src/frontend/features/editor/mouseup-cleanup.js');
     const source = fs.readFileSync(sourcePath, 'utf8')
-        .replace('export function registerEditorMouseupCleanup', 'function registerEditorMouseupCleanup') +
+        .replace('export function registerEditorMouseupCleanup', 'function registerEditorMouseupCleanup')
+        .replace('export function bindEditorPointerCleanup', 'function bindEditorPointerCleanup') +
         '\nmodule.exports = { registerEditorMouseupCleanup };';
     vm.runInContext(source, context, { filename: sourcePath });
     return module.exports.registerEditorMouseupCleanup;

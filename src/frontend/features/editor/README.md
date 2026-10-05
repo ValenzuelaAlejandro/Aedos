@@ -131,6 +131,13 @@ fullscreen listeners immediately after pointer-state creation. It receives the
 late selection operation through a lazy callback to avoid a temporal-dead-zone
 read while preserving the facade and listener timing.
 
+`keyboard-bindings.js` registers the existing keydown handler at the editor's
+original bootstrap point and passes selection, history, and command APIs
+through the handler's dependency object.
+
+`mouseup-cleanup.js` also exposes `bindEditorPointerCleanup`, an adapter from
+the shared pointer-state object to the unchanged cleanup registration API.
+
 `body-pointer-events.js` installs the existing body mousedown listener for
 editable-target selection, drag initialization, and snap-target collection.
 Late selection lifecycle bindings are lazy callbacks so registering this
