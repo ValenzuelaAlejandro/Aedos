@@ -15,6 +15,7 @@ const errorPresenterPath = path.join(root, 'src/frontend/features/generation/err
 const imageSlotOverlaysPath = path.join(root, 'src/frontend/features/preview/image-slot-overlays.js');
 const appDropdownsPath = path.join(root, 'src/frontend/features/app/dropdowns.js');
 const slideDiscoveryPath = path.join(root, 'src/frontend/features/preview/slide-discovery.js');
+const generationPreviewTransitionPath = path.join(root, 'src/frontend/features/generation/preview-transition.js');
 
 test('generation error presenter preserves message, cleanup, and modal callback', () => {
     const classes = [];
@@ -133,6 +134,58 @@ test('slide discovery preserves selector precedence and editor-chrome exclusions
     const fallbackSlides = findSlides(fallbackDoc);
     assert.equal(fallbackSlides.length, 1);
     assert.equal(fallbackSlides[0], content);
+});
+
+test('generation preview transition keeps route, chrome, double-frame, and timer order', () => {
+    const window = { location: { hash: '#chat' }, addEventListener: type => events.push(`window.${type}`) };
+    vm.runInNewContext(fs.readFileSync(generationPreviewTransitionPath, 'utf8'), { window }, {
+        filename: generationPreviewTransitionPath,
+    });
+    const events = [];
+    const classes = name => ({
+        add: (...values) => events.push(`${name}.add:${values.join(',')}`),
+        remove: (...values) => events.push(`${name}.remove:${values.join(',')}`),
+    });
+    const chatScreen = { classList: classes('chat'), style: {} };
+    const previewHeader = { classList: classes('header') };
+    const previewContainer = { classList: classes('preview') };
+    const body = { classList: classes('body') };
+    const settlingAnimation = { kill: () => events.push('settle.kill') };
+    const generation = {};
+    const generationState = { activeGeneration: generation };
+    let hasTransitioned = false;
+    const timers = [];
+    const document = {
+        body,
+        getElementById: id => id === 'preview-wrapper-scrollable' ? { style: {} } : null,
+        querySelector: () => null,
+    };
+    window.navigateToEditor = () => { events.push('navigate'); window.location.hash = '#editor'; };
+    const transition = window.AedosGeneration.createGenerationPreviewTransition({
+        window, document, generationState, generation, chatScreen, previewHeader,
+        previewContainer, previewState: { settlingAnimation },
+        getHasTransitioned: () => hasTransitioned,
+        setHasTransitioned: value => { hasTransitioned = value; },
+        stopBtnMessages: () => events.push('stop-messages'),
+        resetMobileZoomState: () => events.push('reset-mobile-zoom'),
+        updateZoomDisplay: () => events.push('zoom-display'),
+        clearStageInlinePadding: () => events.push('clear-stage-padding'),
+        scaleIframe: () => events.push('scale-iframe'),
+        requestAnimationFrame: callback => { events.push('raf'); callback(); },
+        setTimeout: (callback, delay) => { timers.push({ callback, delay }); },
+    });
+
+    transition();
+    transition();
+    assert.equal(generation.transitionStarted, true);
+    assert.equal(events.filter(event => event === 'navigate').length, 1);
+    assert.equal(events.filter(event => event === 'raf').length, 2);
+    assert.deepEqual(timers.map(timer => timer.delay), [380, 300]);
+    assert.ok(events.indexOf('stop-messages') < events.indexOf('navigate'));
+    assert.ok(events.indexOf('navigate') < events.indexOf('body.remove:split-outline-active'));
+    assert.ok(events.indexOf('clear-stage-padding') < events.indexOf('raf'));
+    assert.ok(events.includes('settle.kill'));
+    assert.ok(events.includes('window.resize'));
 });
 
 function loadRenderer() {
