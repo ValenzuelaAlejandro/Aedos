@@ -15,9 +15,6 @@
      * @property {Function} extractTitle
      * @property {Function} openPreview
      * @property {Object} previewState
-     * @property {Function} getPreviewUiState
-     * @property {Function} removePreviewResizeListener
-     * @property {Function} resetOverlayState
      * @property {HTMLElement|null} resultContainer
      * @property {HTMLElement|null} refusedContainer
      * @property {HTMLElement|null} previewHeader
@@ -107,32 +104,6 @@
      * @returns {(html: string, title: string) => void}
      */
     function createExistingHtmlPreview(deps) {
-        function resetPreviewSurface() {
-            deps.removePreviewResizeListener();
-
-            const previewUiState = deps.getPreviewUiState();
-            previewUiState.minimapAlreadyInit = false;
-            previewUiState.toolsAlreadyInit = false;
-            const rawIframe = deps.previewState.previewIframe.cloneNode();
-            deps.previewState.previewIframe.parentNode.replaceChild(rawIframe, deps.previewState.previewIframe);
-            deps.previewState.previewIframe = rawIframe;
-
-            const minimapList = deps.document.getElementById('minimap-list');
-            if (minimapList) {
-                minimapList.innerHTML = '';
-                minimapList.style.transform = 'none';
-                const mmContainer = deps.document.getElementById('editor-minimap');
-                if (mmContainer) {
-                    mmContainer.style.removeProperty('--presentation-accent');
-                    mmContainer.style.removeProperty('--accent');
-                }
-            }
-
-            if (deps.slideDots) deps.slideDots.innerHTML = '';
-            deps.previewState.slideContainer = null;
-            deps.resetOverlayState();
-        }
-
         function setPreviewTitle(title) {
             const previewLabel = deps.document.getElementById('preview-topic-label');
             if (!previewLabel) return;
@@ -169,7 +140,7 @@
             deps.chatScreen.classList.add('hidden');
             deps.document.body.classList.add('no-scroll');
 
-            resetPreviewSurface();
+            deps.resetPreviewSurface();
             setPreviewTitle(title);
 
             deps.slideLabel.textContent = '1 / 1';
