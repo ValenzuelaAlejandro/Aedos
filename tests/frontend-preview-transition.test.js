@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const appSource = fs.readFileSync(
     path.join(__dirname, '..', 'src', 'frontend', 'scripts', 'app.js'),
@@ -79,4 +80,40 @@ test('implementation enters preview before HTML and flushes chunks on a short ca
     assert.match(appSource, /doTransitionToPreview\(\);\s*\/\/ Writing every model token/s);
     assert.match(appSource, /const STREAM_FLUSH_INTERVAL_MS = 80/);
     assert.match(appSource, /schedulePreviewMarkupFlush\(\)/);
+});
+
+test('existing HTML preview resets live iframe and minimap before initialization', () => {
+    const previewPath = path.join(__dirname, '..', 'src', 'frontend', 'features', 'preview', 'debug-canvas.js');
+    const window = { location: { hash: '#editor' }, innerWidth: 700 };
+    const makeIframe = () => ({ cloneNode: makeIframe, parentNode: { replaceChild: () => {} } });
+    const previewState = { previewIframe: makeIframe(), slideContainer: {} };
+    const previewUiState = { minimapAlreadyInit: true, toolsAlreadyInit: true };
+    const minimapList = { innerHTML: 'old', style: { transform: 'translateY(2px)' } };
+    const slideDots = { innerHTML: 'old' };
+    const title = { tagName: 'INPUT', value: '' };
+    const document = {
+        body: { classList: { add: () => {} } },
+        getElementById: id => ({ 'preview-topic-label': title, 'minimap-list': minimapList, 'editor-minimap': null })[id] || null,
+    };
+    const sandbox = { window };
+    vm.runInNewContext(fs.readFileSync(previewPath, 'utf8'), sandbox, { filename: previewPath });
+    let resizeRemoved = false;
+    const open = sandbox.AedosPreview.createExistingHtmlPreview({
+        window, document, previewState, getPreviewUiState: () => previewUiState,
+        removePreviewResizeListener: () => { resizeRemoved = true; }, resetOverlayState: () => {},
+        clearPendingTransition: () => {}, updateZoomDisplay: () => {}, previewContainer: { classList: { remove: () => {} } },
+        chatScreen: { style: {}, classList: { add: () => {} } }, slideLabel: { textContent: '' }, slideDots,
+        updateMinimapSkeleton: () => {}, previewHeader: { classList: { remove: () => {}, add: () => {} } },
+        initPreview: () => {}, getScaleIframe: () => () => {},
+    });
+
+    open('<html></html>', 'Preview title');
+    assert.equal(resizeRemoved, true);
+    assert.equal(previewUiState.minimapAlreadyInit, false);
+    assert.equal(previewUiState.toolsAlreadyInit, false);
+    assert.equal(previewState.slideContainer, null);
+    assert.equal(slideDots.innerHTML, '');
+    assert.equal(minimapList.innerHTML, '');
+    assert.equal(minimapList.style.transform, 'none');
+    assert.equal(title.value, 'Preview title');
 });
