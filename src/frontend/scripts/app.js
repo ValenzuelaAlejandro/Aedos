@@ -1693,15 +1693,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // -- Suggestion Pills Logic ---------------------------------------------------
-document.querySelectorAll('.suggestion-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-        const temaInput = document.getElementById('w-tema');
-        if (temaInput) {
-            const key = pill.dataset.topicKey;
-            temaInput.value = key ? window.__t(key, pill.dataset.topic || '') : (pill.dataset.topic || '');
-            temaInput.focus();
-            const event = new Event('input', { bubbles: true });
-            temaInput.dispatchEvent(event);
-        }
-    });
-});
+window.AedosChatInput.registerSuggestionPills({ document, window, Event });

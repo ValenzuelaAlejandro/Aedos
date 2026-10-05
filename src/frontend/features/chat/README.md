@@ -18,6 +18,8 @@ count, and cursor bindings. Its factory is called where those listeners were
 previously registered, preserving their order and the existing DOM behavior.
 It also exposes `registerFillInput`; `app.js` calls it at the previous global
 registration point to keep translated prompt-chip insertion available.
+The suggestion-pill binder is likewise invoked at the script's original
+document-level point, outside the DOMContentLoaded callback.
 
 `loading-controller.js` owns the generate-button loading state, hero typewriter
 messages, and the existing control-disable behavior. The app creates it at the
