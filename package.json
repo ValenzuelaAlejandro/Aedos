@@ -23,7 +23,7 @@
         "check:editor-safety": "node scripts/editor-safety/check-flow.js && node scripts/editor-safety/check-mutations.js",
         "test:frontend-http-sse": "node --test tests/frontend-http-sse.test.js",
         "test:frontend-stores": "node --test tests/frontend-stores.test.js",
-    "test:frontend-renderers": "node --test tests/frontend-renderers.test.js tests/frontend-attachments.test.js",
+        "test:frontend-renderers": "node --test tests/frontend-renderers.test.js tests/frontend-attachments.test.js tests/frontend-chat-input.test.js",
         "test:frontend-outline-renderer": "node --test tests/frontend-outline-renderer.test.js",
         "test:frontend-outline-container-ui": "node --test tests/frontend-outline-container-ui.test.js",
         "test:frontend-outline-stream-lifecycle": "node --test tests/frontend-outline-stream-lifecycle.test.js",
