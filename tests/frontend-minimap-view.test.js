@@ -3,6 +3,38 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const root = path.join(__dirname, '..');
+
+test('streaming minimap skeleton preserves item labels and centering transform', () => {
+    const sourcePath = path.join(root, 'src/frontend/features/minimap/minimap-skeleton.js');
+    const window = {};
+    vm.runInNewContext(fs.readFileSync(sourcePath, 'utf8'), { window }, { filename: sourcePath });
+    const children = [];
+    const minimapList = {
+        style: {},
+        set innerHTML(value) { if (value === '') children.length = 0; },
+        querySelectorAll: () => children,
+        appendChild: child => children.push(child),
+    };
+    const minimapContainer = { clientHeight: 300, style: { removeProperty() {} } };
+    const document = {
+        getElementById: id => id === 'minimap-list' ? minimapList : minimapContainer,
+        createElement: () => ({
+            children: [],
+            classList: { toggle(name, active) { if (name === 'active') this.active = active; } },
+            appendChild(child) { this.children.push(child); },
+        }),
+    };
+
+    window.AedosMinimapSkeleton.createMinimapSkeletonUpdater({ document })(2);
+
+    assert.equal(children.length, 2);
+    assert.equal(children[0].children[1].textContent, 1);
+    assert.equal(children[1].children[1].textContent, 2);
+    assert.equal(children[1].classList.active, true);
+    assert.equal(minimapList.style.transition, 'transform 0.8s cubic-bezier(0.25, 1, 0.5, 1)');
+    assert.equal(minimapList.style.transform, 'translateY(-20.375px)');
+});
 
 function makeMinimapFixture() {
     const items = [
