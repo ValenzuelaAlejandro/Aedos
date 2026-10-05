@@ -315,14 +315,6 @@ document.addEventListener('DOMContentLoaded', () => {
         _overlayMap = new Map();
     }
 
-    function setPreviewTitle(title) {
-        const previewLabel = document.getElementById('preview-topic-label');
-        if (!previewLabel) return;
-
-        if (previewLabel.tagName === 'INPUT') previewLabel.value = title;
-        else previewLabel.textContent = title;
-    }
-
     function extractPreviewTitleFromHtml(html, fallbackTitle = 'Debug Canvas') {
         return window.AedosPreview.extractDebugCanvasTitle(html, fallbackTitle);
     }
@@ -1557,7 +1549,6 @@ document.addEventListener('DOMContentLoaded', () => {
         previewHeader,
         slideLabel,
         resetPreviewSurface,
-        setPreviewTitle,
         updateZoomDisplay: () => updateZoomDisplay(),
         updateMinimapSkeleton,
         initPreview,

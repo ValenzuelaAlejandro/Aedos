@@ -316,6 +316,43 @@ test('debug canvas factory keeps localhost gating, endpoint order, and button be
     assert.deepEqual(calls.find(([kind]) => kind === 'openPreview'), ['openPreview', '<title>Example</title>', 'Example']);
 });
 
+test('existing HTML preview writes its title to the legacy input or text label', () => {
+    const window = { location: { hash: '#editor' }, innerWidth: 768 };
+    const input = { tagName: 'INPUT', value: '' };
+    const textLabel = { tagName: 'DIV', textContent: '' };
+    let currentLabel = input;
+    const makeNode = () => ({ classList: { add: () => {}, remove: () => {} }, style: {} });
+    const sandbox = { window, document: {} };
+    vm.runInNewContext(fs.readFileSync(debugCanvasPath, 'utf8'), sandbox, { filename: debugCanvasPath });
+    const openPreview = sandbox.AedosPreview.createExistingHtmlPreview({
+        window,
+        document: {
+            getElementById: id => id === 'preview-topic-label' ? currentLabel : null,
+            body: { classList: { add: () => {} } },
+        },
+        previewState: {},
+        clearPendingTransition: () => {},
+        updateZoomDisplay: () => {},
+        resultContainer: null,
+        errorContainer: null,
+        refusedContainer: null,
+        previewContainer: makeNode(),
+        chatScreen: { ...makeNode(), style: {} },
+        resetPreviewSurface: () => {},
+        slideLabel: { textContent: '' },
+        updateMinimapSkeleton: () => {},
+        previewHeader: makeNode(),
+        initPreview: () => {},
+        getScaleIframe: () => () => {},
+    });
+
+    openPreview('<html></html>', 'Input title');
+    assert.equal(input.value, 'Input title');
+    currentLabel = textLabel;
+    openPreview('<html></html>', 'Text title');
+    assert.equal(textLabel.textContent, 'Text title');
+});
+
 test('reset controller clears the same live preview state and restarts the empty composer', () => {
     const window = {};
     const sandbox = { window };

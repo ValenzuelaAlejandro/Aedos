@@ -20,7 +20,6 @@
      * @property {HTMLElement|null} previewHeader
      * @property {HTMLElement|null} slideLabel
      * @property {Function} resetPreviewSurface
-     * @property {Function} setPreviewTitle
      * @property {Function} updateZoomDisplay
      * @property {Function} updateMinimapSkeleton
      * @property {Function} initPreview
@@ -105,6 +104,14 @@
      * @returns {(html: string, title: string) => void}
      */
     function createExistingHtmlPreview(deps) {
+        function setPreviewTitle(title) {
+            const previewLabel = deps.document.getElementById('preview-topic-label');
+            if (!previewLabel) return;
+
+            if (previewLabel.tagName === 'INPUT') previewLabel.value = title;
+            else previewLabel.textContent = title;
+        }
+
         return function openPreviewFromExistingHtml(html, title) {
             if (!html || typeof html !== 'string') {
                 throw new Error('Debug HTML is empty or invalid.');
@@ -134,7 +141,7 @@
             deps.document.body.classList.add('no-scroll');
 
             deps.resetPreviewSurface();
-            deps.setPreviewTitle(title);
+            setPreviewTitle(title);
 
             deps.slideLabel.textContent = '1 / 1';
             deps.updateMinimapSkeleton(1);
