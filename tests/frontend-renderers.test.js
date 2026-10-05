@@ -11,6 +11,51 @@ const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/attachmen
 const contentUtilsPath = path.join(root, 'src/frontend/features/shared/content-utils.js');
 const debugCanvasPath = path.join(root, 'src/frontend/features/preview/debug-canvas.js');
 const resetControllerPath = path.join(root, 'src/frontend/features/app/reset-controller.js');
+const errorPresenterPath = path.join(root, 'src/frontend/features/generation/error-presenter.js');
+
+test('generation error presenter preserves message, cleanup, and modal callback', () => {
+    const classes = [];
+    const title = { textContent: '' };
+    const subtitle = { textContent: '' };
+    const message = { textContent: '' };
+    let modalCallback;
+    let closed = false;
+    const window = {
+        __t: (_key, fallback) => fallback,
+        navigateToHome: () => {},
+    };
+    const document = {
+        body: { classList: { remove: value => classes.push(['body', value]) } },
+        getElementById: id => ({
+            't-error-title': title,
+            't-error-subtitle': subtitle,
+            'btn-outline-generate': null,
+            'chat-thinking': null,
+        })[id] || null,
+        querySelector: () => null,
+        querySelectorAll: () => [],
+    };
+    vm.runInNewContext(fs.readFileSync(errorPresenterPath, 'utf8'), { window }, {
+        filename: errorPresenterPath,
+    });
+    const presenter = window.AedosGeneration.createErrorPresenter({
+        window,
+        document,
+        uiLog: { error: () => {} },
+        errorMessage: message,
+        previewContainer: { classList: { remove: (...values) => classes.push(['preview', ...values]) } },
+        chatScreen: { style: { cssText: 'transition: opacity 1s' }, classList: { remove: value => classes.push(['chat', value]) } },
+        showErrorModal: callback => { modalCallback = callback; },
+        clearInterval: () => {},
+    });
+    presenter(new Error('test generation failure'), { close: () => { closed = true; } }, false);
+    assert.equal(title.textContent, "Something didn't go as planned");
+    assert.equal(subtitle.textContent, 'The AI service is temporarily unavailable. This is usually resolved quickly.');
+    assert.equal(message.textContent, 'test generation failure');
+    assert.equal(closed, true);
+    assert.equal(classes.some(entry => entry[0] === 'chat' && entry[1] === 'hidden'), true);
+    assert.equal(typeof modalCallback, 'function');
+});
 
 function loadRenderer() {
     const window = {};
