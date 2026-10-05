@@ -17,9 +17,7 @@ import { installEditorCompatibilityFacade } from '../features/editor/compatibili
 import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
 import { createEditorColorPicker } from '../features/editor/color-picker.js';
 import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
-import { bindEditorToolbarSizeEvents } from '../features/editor/toolbar-size-events.js';
-import { bindEditorToolbarActionEvents } from '../features/editor/toolbar-action-events.js';
-import { bindEditorToolbarSwatchEvents } from '../features/editor/toolbar-swatch-events.js';
+import { bindEditorToolbarEvents } from '../features/editor/toolbar-bindings.js';
 import { registerEditorMouseupCleanup } from '../features/editor/mouseup-cleanup.js';
 import { createEditorFontSizeActions } from '../features/editor/font-size-actions.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
@@ -106,23 +104,17 @@ function initEditor() {
     }
 
     function bindToolbarEvents() {
-        bindEditorToolbarSizeEvents({ document, changeFontSize });
-        bindEditorToolbarActionEvents({
+        bindEditorToolbarEvents({
             document,
             window,
+            toolbar,
+            changeFontSize,
             getSelectedElement: () => pointerState.selectedElement,
-            showColorPicker: (action, anchor) => {
-                activeColorAction = action;
-                showColorPicker(anchor);
-            },
+            setActiveColorAction: action => { activeColorAction = action; },
+            showColorPicker: anchor => showColorPicker(anchor),
             replaceImage: element => window.parent._triggerImagePicker(element),
             deleteSelected: () => deleteElement(pointerState.selectedElement),
             duplicateSelected: () => duplicateElement(pointerState.selectedElement),
-        });
-
-        bindEditorToolbarSwatchEvents({
-            toolbar,
-            getSelectedElement: () => pointerState.selectedElement,
             saveState: () => saveState(),
             isTextEditableElement: element => isTextEditableElement(element),
             dispatchSelectionChanged: element => window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element } })),

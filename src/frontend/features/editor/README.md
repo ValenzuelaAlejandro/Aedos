@@ -123,6 +123,9 @@ registration point; state and late editor operations are injected explicitly.
 paste, and selection-box text-edit listeners in their original order. Editing,
 selection, and history operations remain injected callbacks.
 
+`toolbar-bindings.js` preserves the toolbar's size, action, and swatch binding
+order while receiving selection, history, and editor actions as callbacks.
+
 `body-pointer-events.js` installs the existing body mousedown listener for
 editable-target selection, drag initialization, and snap-target collection.
 Late selection lifecycle bindings are lazy callbacks so registering this
