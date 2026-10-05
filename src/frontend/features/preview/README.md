@@ -86,3 +86,6 @@ It reads later-initialized navigation dependencies only for slide updates.
 
 `exit-actions.js` registers the existing back-to-chat and edit-topic confirmation
 buttons and preserves their abort, navigation, resize, and focus ordering.
+
+`surface-reset.js` clears the preview iframe, minimap, dots, and overlay state
+through explicit setters when the existing error/reset path invokes it.

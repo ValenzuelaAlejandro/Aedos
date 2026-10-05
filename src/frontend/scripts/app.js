@@ -231,31 +231,12 @@ document.addEventListener('DOMContentLoaded', () => {
         getUpdateZoomDisplay: () => typeof updateZoomDisplay === 'function' ? updateZoomDisplay : null,
     });
 
-    function resetPreviewSurface() {
-        window.removeEventListener('resize', scaleIframe);
-
-        previewUiState.minimapAlreadyInit = false;
-        previewUiState.toolsAlreadyInit = false;
-        const rawIframe = previewState.previewIframe.cloneNode();
-        previewState.previewIframe.parentNode.replaceChild(rawIframe, previewState.previewIframe);
-        previewState.previewIframe = rawIframe;
-
-        const minimapList = document.getElementById('minimap-list');
-        if (minimapList) {
-            minimapList.innerHTML = '';
-            minimapList.style.transform = 'none';
-            const mmContainer = document.getElementById('editor-minimap');
-            if (mmContainer) {
-                mmContainer.style.removeProperty('--presentation-accent');
-                mmContainer.style.removeProperty('--accent');
-            }
-        }
-
-        if (slideDots) slideDots.innerHTML = '';
-        previewState.slideContainer = null;
-        _refreshSlotOverlays = null;
-        _overlayMap = new Map();
-    }
+    const resetPreviewSurface = window.AedosPreview.createPreviewSurfaceReset({
+        window, document, previewState, slideDots,
+        getDeps: () => ({ scaleIframe, previewUiState }),
+        setRefreshSlotOverlays: value => { _refreshSlotOverlays = value; },
+        setOverlayMap: value => { _overlayMap = value; },
+    });
 
     const handleProceedFlow = window.AedosGeneration.createProceedFlow({ window, document });
     const handleSkeletonError = window.AedosGeneration.createSkeletonErrorPresenter({
