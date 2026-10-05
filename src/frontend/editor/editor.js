@@ -11,14 +11,14 @@ import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js'
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 import { createEditorSlideFreeze, createEditorElementNormalizer, createEditorFreezeAllSlides } from '../features/editor/slide-freeze.js';
 import { createEditorSelectionLifecycle } from '../features/editor/selection-lifecycle.js';
-import { bindEditorKeyboardEvents } from '../features/editor/keyboard-bindings.js';
+import { createEditorKeyboardHandler } from '../features/editor/keyboard.js';
 import { bindEditorContentEvents } from '../features/editor/content-bindings.js';
 import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
 import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
 import { createEditorColorPicker } from '../features/editor/color-picker.js';
 import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
 import { bindEditorToolbarEvents } from '../features/editor/toolbar-bindings.js';
-import { bindEditorPointerCleanup } from '../features/editor/mouseup-cleanup.js';
+import { registerEditorMouseupCleanup } from '../features/editor/mouseup-cleanup.js';
 import { createEditorFontSizeActions } from '../features/editor/font-size-actions.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
 import { createEditorGrouping } from '../features/editor/grouping.js';
@@ -197,9 +197,13 @@ function initEditor() {
         getEditableElementsInSlide,
     });
 
-    bindEditorPointerCleanup({
+    registerEditorMouseupCleanup({
         document,
-        pointerState,
+        setDragging: value => { pointerState.isDragging = value; },
+        setResizing: value => { pointerState.isResizing = value; },
+        setCurrentHandle: value => { pointerState.currentHandle = value; },
+        clearDragGroup: () => { pointerState.dragGroup = []; },
+        setActiveDragTarget: value => { pointerState.activeDragTarget = value; },
         guideH,
         guideV,
         getSelectedElement: () => pointerState.selectedElement,
@@ -301,7 +305,7 @@ function initEditor() {
         updateSelectionBox,
     });
 
-    bindEditorKeyboardEvents({
+    document.addEventListener('keydown', createEditorKeyboardHandler({
         document,
         window,
         CustomEvent,
@@ -319,7 +323,7 @@ function initEditor() {
         selectElement,
         duplicateElement,
         moveSelectedElementByArrow,
-    });
+    }));
 
     // Save initial state
     saveState();
