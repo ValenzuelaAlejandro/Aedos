@@ -288,10 +288,6 @@ document.addEventListener('DOMContentLoaded', () => {
         _overlayMap = new Map();
     }
 
-    function extractPreviewTitleFromHtml(html, fallbackTitle = 'Debug Canvas') {
-        return window.AedosPreview.extractDebugCanvasTitle(html, fallbackTitle);
-    }
-
     async function handleGenerate() {
         // If already generating, act as a CANCEL/STOP button!
         if (generateBtn && generateBtn.classList.contains('is-generating')) {
@@ -1538,7 +1534,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMessage,
         showErrorModal,
         resetUI,
-        extractTitle: extractPreviewTitleFromHtml,
+        extractTitle: window.AedosPreview.extractDebugCanvasTitle,
         openPreview: openPreviewFromExistingHtml,
     }).initialize();
 

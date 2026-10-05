@@ -126,3 +126,14 @@ test('iframe scale helper clears the same inline stage padding fields', () => {
     sandbox.document.getElementById = () => null;
     assert.doesNotThrow(() => scale.clearStageInlinePadding());
 });
+
+test('debug preview title extractor keeps its fallback and title parsing', () => {
+    const titlePath = path.join(__dirname, '..', 'src', 'frontend', 'features', 'preview', 'debug-title.js');
+    const window = {};
+    window.window = window;
+    vm.runInNewContext(fs.readFileSync(titlePath, 'utf8'), window, { filename: titlePath });
+    const extractTitle = window.AedosPreview.extractDebugCanvasTitle;
+    assert.equal(extractTitle('<title>Example</title>'), 'Example');
+    assert.equal(extractTitle('', 'Fallback'), 'Fallback');
+    assert.equal(extractTitle('<!-- CONFIG {"topic":"From config"} -->'), 'From config');
+});
