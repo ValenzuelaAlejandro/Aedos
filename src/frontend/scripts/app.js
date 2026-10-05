@@ -114,13 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ? window.MobileConfig.breakpoint
             : 850;
 
-    function isMobileViewport() {
-        if (window.MobileRuntime && typeof window.MobileRuntime.isMobileLayout === 'function') {
-            return window.MobileRuntime.isMobileLayout();
-        }
-        return window.innerWidth <= MOBILE_BREAKPOINT;
-    }
-
     const modeBtn = document.getElementById('btn-mode-dropdown');
     const modeMenu = document.getElementById('mode-dropdown-menu');
     const langBtn = document.getElementById('btn-lang-dropdown');
@@ -1789,7 +1782,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // True during soft-regen streaming: blocks updateMinimapSkeleton so the existing
     // real thumbnails stay visible (instead of being cleared and replaced by skeleton items
     // the moment skeleton-injector fires its first postMessage).
-    const { setupPreviewInteractions, syncZoomStateWithViewportMode, updateZoomDisplay } = window.AedosPreview.createPreviewInteractions({
+    const { setupPreviewInteractions, syncZoomStateWithViewportMode, updateZoomDisplay, isMobileViewport } = window.AedosPreview.createPreviewInteractions({
         getDeps: () => ({ previewState, previewUiState, previewHeader, uiLog, handleSlideWheelNav, handleTouchStart, handleTouchEnd, injectImageReplacementSystem, scrollToSlide, updateSlideCounter, buildDots, scaleIframe, updateMinimapSkeleton, isMobileViewport, findSlides, getRefreshSlotOverlays: () => _refreshSlotOverlays, getOverlayMap: () => _overlayMap, getBuildOverlayForSlot: () => _buildOverlayForSlot, getStabilizeMinimapOnNextPreviewInit: () => _stabilizeMinimapOnNextPreviewInit, setStabilizeMinimapOnNextPreviewInit: (value) => { _stabilizeMinimapOnNextPreviewInit = value; } }),
         MOBILE_BREAKPOINT,
         resetMobileZoomState

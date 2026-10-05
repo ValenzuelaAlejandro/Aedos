@@ -219,8 +219,8 @@
     };
 
 
-    const { syncZoomStateWithViewportMode, updateZoomDisplay } = window.AedosPreview.createZoomControls({ MOBILE_BREAKPOINT, resetMobileZoomState });
-        return { setupPreviewInteractions, syncZoomStateWithViewportMode, updateZoomDisplay };
+    const { syncZoomStateWithViewportMode, updateZoomDisplay, isMobileViewport } = window.AedosPreview.createZoomControls({ MOBILE_BREAKPOINT, resetMobileZoomState });
+        return { setupPreviewInteractions, syncZoomStateWithViewportMode, updateZoomDisplay, isMobileViewport };
     }
 
     global.AedosPreview = global.AedosPreview || {};

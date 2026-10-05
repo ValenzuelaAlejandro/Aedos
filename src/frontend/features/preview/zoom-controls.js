@@ -4,9 +4,16 @@
     /**
      * Register preview zoom controls at the page's original initialization point.
      * @param {{MOBILE_BREAKPOINT: number, resetMobileZoomState: Function}} deps
-     * @returns {{zoomState: Object, syncZoomStateWithViewportMode: Function, updateZoomDisplay: Function, setZoom: Function}}
+     * @returns {{zoomState: Object, syncZoomStateWithViewportMode: Function, updateZoomDisplay: Function, setZoom: Function, isMobileViewport: Function}}
      */
     function createZoomControls({ MOBILE_BREAKPOINT, resetMobileZoomState }) {
+        function isMobileViewport() {
+            if (window.MobileRuntime && typeof window.MobileRuntime.isMobileLayout === 'function') {
+                return window.MobileRuntime.isMobileLayout();
+            }
+            return window.innerWidth <= MOBILE_BREAKPOINT;
+        }
+
         // Initialize zoom state
         window._manualZoomScale = 1.0; // Manual zoom factor (1.0 = fill available area; panels reserve space via stage padding)
         const zoomState = {
@@ -68,7 +75,7 @@
 
         // Ensure initial display matches the new default
         updateZoomDisplay();
-        return { zoomState, syncZoomStateWithViewportMode, updateZoomDisplay, setZoom };
+        return { zoomState, syncZoomStateWithViewportMode, updateZoomDisplay, setZoom, isMobileViewport };
     }
 
     global.AedosPreview = global.AedosPreview || {};

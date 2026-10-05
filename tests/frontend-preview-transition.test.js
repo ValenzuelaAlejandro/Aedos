@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const appSource = fs.readFileSync(
     path.join(__dirname, '..', 'src', 'frontend', 'scripts', 'app.js'),
@@ -79,4 +80,25 @@ test('implementation enters preview before HTML and flushes chunks on a short ca
     assert.match(appSource, /doTransitionToPreview\(\);\s*\/\/ Writing every model token/s);
     assert.match(appSource, /const STREAM_FLUSH_INTERVAL_MS = 80/);
     assert.match(appSource, /schedulePreviewMarkupFlush\(\)/);
+});
+
+test('preview zoom retains MobileRuntime preference and width fallback', () => {
+    const zoomPath = path.join(__dirname, '..', 'src', 'frontend', 'features', 'preview', 'zoom-controls.js');
+    let runtimeMobile = true;
+    const window = {
+        innerWidth: 1200,
+        MobileRuntime: { isMobileLayout: () => runtimeMobile },
+        addEventListener: () => {},
+    };
+    const sandbox = { window, document: { fullscreenElement: null, getElementById: () => null } };
+    vm.runInNewContext(fs.readFileSync(zoomPath, 'utf8'), sandbox, { filename: zoomPath });
+    const controls = window.AedosPreview.createZoomControls({ MOBILE_BREAKPOINT: 850, resetMobileZoomState: () => {} });
+    assert.equal(controls.isMobileViewport(), true);
+    runtimeMobile = false;
+    assert.equal(controls.isMobileViewport(), false);
+    window.MobileRuntime = null;
+    window.innerWidth = 850;
+    assert.equal(controls.isMobileViewport(), true);
+    window.innerWidth = 851;
+    assert.equal(controls.isMobileViewport(), false);
 });
