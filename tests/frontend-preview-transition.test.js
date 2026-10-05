@@ -101,6 +101,14 @@ test('preview zoom retains MobileRuntime preference and width fallback', () => {
     assert.equal(controls.isMobileViewport(), true);
     window.innerWidth = 851;
     assert.equal(controls.isMobileViewport(), false);
+    controls.resetMobileZoomState();
+    assert.equal(window._mobile_zoom, 1);
+    assert.equal(window._pan.x, 0);
+    assert.equal(window._pan.y, 0);
+    let resetCalls = 0;
+    window.MobileRuntime = { resetZoomState: () => { resetCalls += 1; } };
+    controls.resetMobileZoomState();
+    assert.equal(resetCalls, 1);
 });
 
 test('iframe scale helper clears the same inline stage padding fields', () => {

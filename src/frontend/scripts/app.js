@@ -89,15 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // starts (prevents the previous onComplete from firing showFloatingPills mid-stream).
     // Generation/iframe identity used to ignore late messages and callbacks from
     // a previous stream after the preview iframe has been replaced.
-    function resetMobileZoomState() {
-        if (window.MobileRuntime && typeof window.MobileRuntime.resetZoomState === 'function') {
-            window.MobileRuntime.resetZoomState();
-            return;
-        }
-        window._mobile_zoom = 1;
-        window._pan = { x: 0, y: 0 };
-    }
-
     const MOBILE_BREAKPOINT =
         window.MobileConfig && Number.isFinite(window.MobileConfig.breakpoint)
             ? window.MobileConfig.breakpoint
@@ -1771,10 +1762,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // True during soft-regen streaming: blocks updateMinimapSkeleton so the existing
     // real thumbnails stay visible (instead of being cleared and replaced by skeleton items
     // the moment skeleton-injector fires its first postMessage).
-    const { setupPreviewInteractions, syncZoomStateWithViewportMode, updateZoomDisplay, isMobileViewport } = window.AedosPreview.createPreviewInteractions({
+    const { setupPreviewInteractions, syncZoomStateWithViewportMode, updateZoomDisplay, isMobileViewport, resetMobileZoomState } = window.AedosPreview.createPreviewInteractions({
         getDeps: () => ({ previewState, previewUiState, previewHeader, uiLog, handleSlideWheelNav, handleTouchStart, handleTouchEnd, injectImageReplacementSystem, scrollToSlide, updateSlideCounter, buildDots, scaleIframe, updateMinimapSkeleton, isMobileViewport, findSlides, getRefreshSlotOverlays: () => _refreshSlotOverlays, getOverlayMap: () => _overlayMap, getBuildOverlayForSlot: () => _buildOverlayForSlot, getStabilizeMinimapOnNextPreviewInit: () => _stabilizeMinimapOnNextPreviewInit, setStabilizeMinimapOnNextPreviewInit: (value) => { _stabilizeMinimapOnNextPreviewInit = value; } }),
         MOBILE_BREAKPOINT,
-        resetMobileZoomState
     });
 
     const { scaleIframe, handleFullscreenChange, clearStageInlinePadding } = window.AedosPreview.createIframeScale({ previewState, previewContainer, syncZoomStateWithViewportMode, updateZoomDisplay, getRefreshSlotOverlays: () => _refreshSlotOverlays });

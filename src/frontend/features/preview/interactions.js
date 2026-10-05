@@ -23,9 +23,9 @@
      * @property {Function} setStabilizeMinimapOnNextPreviewInit Writes the pending layout flag.
      */
 
-    /** Create iframe interactions and original preview globals. @param {{getDeps: () => PreviewInteractionDependencies, MOBILE_BREAKPOINT: number, resetMobileZoomState: Function}} deps */
+    /** Create iframe interactions and original preview globals. @param {{getDeps: () => PreviewInteractionDependencies, MOBILE_BREAKPOINT: number}} deps */
     // eslint-disable-next-line max-lines-per-function -- Setup, refresh compatibility, and zoom bootstrap preserve one initialization order.
-    function createPreviewInteractions({ getDeps, MOBILE_BREAKPOINT, resetMobileZoomState }) {
+    function createPreviewInteractions({ getDeps, MOBILE_BREAKPOINT }) {
         // eslint-disable-next-line max-lines-per-function, complexity -- Preserve the current preview setup sequence.
         function setupPreviewInteractions(targetIndex = 0) {
         const { previewState, previewUiState, previewHeader, uiLog, handleSlideWheelNav, handleTouchStart, handleTouchEnd, injectImageReplacementSystem, scrollToSlide, updateSlideCounter, buildDots, scaleIframe, isMobileViewport, findSlides, getRefreshSlotOverlays, getOverlayMap, getBuildOverlayForSlot, getStabilizeMinimapOnNextPreviewInit, setStabilizeMinimapOnNextPreviewInit } = getDeps();
@@ -219,8 +219,8 @@
     };
 
 
-    const { syncZoomStateWithViewportMode, updateZoomDisplay, isMobileViewport } = window.AedosPreview.createZoomControls({ MOBILE_BREAKPOINT, resetMobileZoomState });
-        return { setupPreviewInteractions, syncZoomStateWithViewportMode, updateZoomDisplay, isMobileViewport };
+    const { syncZoomStateWithViewportMode, updateZoomDisplay, isMobileViewport, resetMobileZoomState } = window.AedosPreview.createZoomControls({ MOBILE_BREAKPOINT });
+        return { setupPreviewInteractions, syncZoomStateWithViewportMode, updateZoomDisplay, isMobileViewport, resetMobileZoomState };
     }
 
     global.AedosPreview = global.AedosPreview || {};
