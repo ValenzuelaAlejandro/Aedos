@@ -12,7 +12,7 @@ import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 import { createEditorSlideFreeze, createEditorElementNormalizer, createEditorFreezeAllSlides } from '../features/editor/slide-freeze.js';
 import { createEditorSelectionLifecycle } from '../features/editor/selection-lifecycle.js';
 import { createEditorKeyboardHandler } from '../features/editor/keyboard.js';
-import { createEditorPasteHandler, createEditorTextEditingHandler, createEditorDirectTextEditingHandler } from '../features/editor/content-editing.js';
+import { bindEditorContentEvents } from '../features/editor/content-bindings.js';
 import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
 import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
 import { createEditorColorPicker } from '../features/editor/color-picker.js';
@@ -233,36 +233,20 @@ function initEditor() {
         getAllEditables: () => getAllEditableElements(),
     });
 
-    // Prevent click events on the selection UI from bubbling to the background deselect listener
-    selectionBox.addEventListener('click', (e) => e.stopPropagation());
-    toolbar.addEventListener('click', (e) => e.stopPropagation());
-
-    // Handle double-click to edit text
-    document.body.addEventListener('dblclick', createEditorDirectTextEditingHandler({
+    bindEditorContentEvents({
         document,
         window,
         selectionBox,
+        toolbar,
         getIsLocked: () => pointerState.isLocked,
-        textEditableSelectors: TEXT_EDITABLE_SELECTORS,
-        normalizeElement,
-        saveState: () => saveState(),
-    }));
-
-    document.addEventListener('paste', createEditorPasteHandler({ document, window }));
-
-    selectionBox.addEventListener('dblclick', createEditorTextEditingHandler({
-        document,
-        window,
-        CustomEvent,
-        selectionBox,
         getSelectedElement: () => pointerState.selectedElement,
-        getIsLocked: () => pointerState.isLocked,
         isTextEditableElement,
         normalizeElement,
-        textEditableSelectors: TEXT_EDITABLE_SELECTORS,
         saveState: () => saveState(),
         selectElement: element => selectElement(element),
-    }));
+        textEditableSelectors: TEXT_EDITABLE_SELECTORS,
+        CustomEvent,
+    });
 
     bindEditorPointerInteractions({
         document,

@@ -119,6 +119,10 @@ listener registration order while reading and updating these same state fields.
 pointer-move bindings for drag/resize. It is invoked at the former listener
 registration point; state and late editor operations are injected explicitly.
 
+`content-bindings.js` registers the existing selection click, direct edit,
+paste, and selection-box text-edit listeners in their original order. Editing,
+selection, and history operations remain injected callbacks.
+
 `body-pointer-events.js` installs the existing body mousedown listener for
 editable-target selection, drag initialization, and snap-target collection.
 Late selection lifecycle bindings are lazy callbacks so registering this

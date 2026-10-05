@@ -17,6 +17,8 @@ test('iframe editor loads its native module and imports private feature helpers'
     assert.match(editor, /import \{ bindEditorBodyPointerDown \} from '\.\.\/features\/editor\/body-pointer-events\.js';/);
     assert.match(editor, /import \{ bindEditorPointerInteractions \} from '\.\.\/features\/editor\/pointer-interactions\.js';/);
     assert.match(editor, /bindEditorPointerInteractions\(\{/);
+    assert.match(editor, /import \{ bindEditorContentEvents \} from '\.\.\/features\/editor\/content-bindings\.js';/);
+    assert.match(editor, /bindEditorContentEvents\(\{/);
     const pointerInteractions = read('src/frontend/features/editor/pointer-interactions.js');
     assert.match(pointerInteractions, /import \{ beginEditorResize \} from '\.\/resize-start\.js';/);
     assert.match(pointerInteractions, /import \{ normalizePointerTarget \} from '\.\/pointer-normalization\.js';/);
