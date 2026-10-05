@@ -1687,22 +1687,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Global helper for chips
-    window.fillInput = (keyOrText) => {
-        const input = document.getElementById('w-tema');
-        if (input) {
-            // Use translation if key exists, otherwise use as literal
-            const translated = (typeof window.__t === 'function')
-                ? window.__t(keyOrText)
-                : keyOrText;
-            // Prompts can come from i18n strings with HTML entities (&apos;, &amp;, etc.).
-            // Decode them before writing to textarea value.
-            const entityDecoder = document.createElement('textarea');
-            entityDecoder.innerHTML = translated;
-            input.value = entityDecoder.value;
-            input.focus();
-            input.dispatchEvent(new Event('input'));
-        }
-    };
+    window.AedosChatInput.registerFillInput({ window, document, Event });
 
     // Scroll is now native; no custom scroll-loop system
 });
