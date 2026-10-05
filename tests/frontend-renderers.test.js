@@ -14,6 +14,7 @@ const resetControllerPath = path.join(root, 'src/frontend/features/app/reset-con
 const errorPresenterPath = path.join(root, 'src/frontend/features/generation/error-presenter.js');
 const imageSlotOverlaysPath = path.join(root, 'src/frontend/features/preview/image-slot-overlays.js');
 const appDropdownsPath = path.join(root, 'src/frontend/features/app/dropdowns.js');
+const slideDiscoveryPath = path.join(root, 'src/frontend/features/preview/slide-discovery.js');
 
 test('generation error presenter preserves message, cleanup, and modal callback', () => {
     const classes = [];
@@ -91,6 +92,47 @@ test('app dropdown factory keeps its legacy global and event registration order'
     assert.ok(registrations.every(index => index >= 0));
     assert.deepEqual(registrations, [...registrations].sort((a, b) => a - b));
     assert.match(source, /window\._syncModeWithFiles\s*=/);
+});
+
+test('slide discovery preserves selector precedence and editor-chrome exclusions', () => {
+    const window = {};
+    vm.runInNewContext(fs.readFileSync(slideDiscoveryPath, 'utf8'), { window }, {
+        filename: slideDiscoveryPath,
+    });
+    const findSlides = window.AedosPreview.createSlideDiscovery();
+    const preferred = { id: 'preferred-section' };
+    const legacy = { id: 'legacy-class' };
+    const selectorCalls = [];
+    const doc = {
+        body: { children: [] },
+        querySelectorAll(selector) {
+            selectorCalls.push(selector);
+            if (selector === 'section.s') return [preferred];
+            if (selector === 'section[class*="slide"]') return [legacy];
+            return [];
+        },
+    };
+
+    const preferredSlides = findSlides(doc);
+    assert.equal(preferredSlides.length, 1);
+    assert.equal(preferredSlides[0], preferred);
+    assert.deepEqual(selectorCalls, ['section.s']);
+    assert.equal(findSlides(null).length, 0);
+
+    const makeBodyNode = (tagName, classes = []) => ({
+        tagName,
+        children: [],
+        classList: { contains: name => classes.includes(name) },
+    });
+    const content = makeBodyNode('MAIN');
+    const chrome = makeBodyNode('DIV', ['editor-toolbar']);
+    const fallbackDoc = {
+        body: { children: [chrome, content] },
+        querySelectorAll: () => [],
+    };
+    const fallbackSlides = findSlides(fallbackDoc);
+    assert.equal(fallbackSlides.length, 1);
+    assert.equal(fallbackSlides[0], content);
 });
 
 function loadRenderer() {

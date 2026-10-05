@@ -14,6 +14,9 @@ dots, and counters. It receives the live preview state, existing DOM nodes, and
 the overlay refresh getter; its `window.*` compatibility helpers are registered
 at the former navigation initialization point.
 
+`slide-discovery.js` preserves the ordered selector fallbacks used to locate
+slides across generated HTML and legacy preview documents.
+
 `slide-input.js` owns the existing keyboard, wheel, and swipe handlers. The
 factory registers document keyboard/wheel listeners at their former point and
 returns wheel/touch handlers for iframe registration by `app.js`.
