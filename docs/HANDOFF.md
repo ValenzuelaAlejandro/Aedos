@@ -408,3 +408,105 @@ baselines.
 Pendientes: terminar los cortes editor/app; push manual (no realizado), CI de
 GitHub, smoke test con IA real y `npm audit` con red. No se leyó `.env`, no se
 usó red, no hubo proveedores reales, dependencias nuevas ni `npm audit fix`.
+
+## Continuación fase 10: bloques verticales (2026-10-04)
+
+Base: `refactor/fase-9c-editor` en `c884fd8`. Ramas locales creadas en cadena:
+`refactor/fase-10a-app-bloques` (`dfa026778b9614b77a9fc66657911a8af56aef9b`)
+y `refactor/fase-10b-editor` (punta de código `ff46ad93e21bfd92535358a9fe2b271cd11ce9fb`; este cierre documental va en un commit posterior).
+No hubo push ni uso de red.
+
+Mediciones de blobs con `git show <ref>:<archivo> | wc -l`:
+
+| Archivo | Inicio `c884fd8` | Punta 10a | Punta de código 10b |
+|---|---:|---:|---:|
+| `src/frontend/scripts/app.js` | 4,497 | 2,765 | 2,633 |
+| `src/frontend/editor/editor.js` | 457 | 457 | 353 |
+
+Se redujeron 1,864 líneas netas de `app.js` y 104 de `editor.js`. No se llegó
+a ≤400/≤300. Se extrajeron router, adjuntos, sub-bloques de overlays, zoom,
+navegación, exportación, varios bloques de preview, entrada/loading del chat;
+en editor, bindings de puntero, contenido, toolbar y lock/fullscreen. Permanecen
+mensajes/renderizado, transiciones, `handleGenerate` y `startFinalGeneration`
+(incluido SSE), el lifecycle principal del iframe, parte de image-slots y la
+orquestación/reset. Sus closures interconectan stores, controllers, iframe
+actual, `window.*`, orden de timers/eventos y callbacks asíncronos; no se forzó
+el límite de líneas. El detalle de módulos y razones está en
+`docs/FRONTEND-INVENTORY.md`.
+
+Módulos nuevos de esta continuación (líneas del blob HEAD, cada uno ≤300):
+
+| Módulo | Líneas |
+|---|---:|
+| `features/chat/attachments.js` | 244 |
+| `features/chat/input-controller.js` | 95 |
+| `features/chat/loading-controller.js` | 182 |
+| `features/preview/overlay-style.js` | 126 |
+| `features/preview/overlay-labels.js` | 108 |
+| `features/preview/zoom-controls.js` | 76 |
+| `features/preview/slide-navigation.js` | 132 |
+| `features/export/export-actions.js` | 83 |
+| `features/preview/slide-input.js` | 167 |
+| `features/preview/slot-image-replacement.js` | 45 |
+| `features/preview/overlay-positioning.js` | 76 |
+| `features/preview/state-restore.js` | 132 |
+| `features/preview/iframe-scale.js` | 165 |
+| `features/preview/carousel-layout.js` | 111 |
+| `features/preview/layout-settler.js` | 50 |
+| `features/preview/interactions.js` | 228 |
+| `features/app/router.js` | 252 |
+| `features/editor/pointer-interactions.js` | 113 |
+| `features/editor/content-bindings.js` | 66 |
+| `features/editor/toolbar-bindings.js` | 61 |
+| `features/editor/lock-lifecycle.js` | 34 |
+
+Los `window.*` existentes se conservaron. Se añadieron los bootstraps
+`window.AedosChatInput` y `window.AedosChatLoading`; ningún global legacy fue
+eliminado. Ratchets medidos en los blobs: inicio lint 115 / tipos 16; final lint
+91 / tipos 16. El baseline de lint bajó solo de 92 a 91 en el commit separado
+`ff46ad9`; tipos permaneció igual.
+
+### Gates de código
+
+`verify:all` pasó en cada commit aceptado, salvo donde se indica. Los commits de
+baseline de lint fueron commits separados y también tuvieron gate completo.
+
+| Commits | Resultado real de `verify:all` |
+|---|---|
+| `c43d22e`, `dbc4cce`, `96a53c1`, `bab3f6d`, `14c02d4`, `abf5153`, `4073fc5`, `1cae126`, `7d8ae9c`, `8aac3e9` | Pasó |
+| `41697ba` | Falló: sentinel `app-preview-render` no encontró el ancla `doc.write('<!DOCTYPE html>' + html);` en el source servido |
+| `9e9f2cf` | Reversión del intento; pasó |
+| `0e75dc6` | Falló el mismo sentinel de preview (`scripts/editor-safety/runtime.js:89`; sonda `mutation-probes.js:84`) aunque el ancla estaba inline |
+| `03ad83e` | Reversión del intento; pasó |
+| `468d92c` | Pasó |
+| `fb96fef` | Falló visualmente: `presentation-iframe-desktop`, 30 píxeles (0,0023%), tile 30,0, máxima distancia RGB 252,9 |
+| `7854923` | Reversión; pasó |
+| `bbb3da0`, `c3be855`, `2744a30`, `9164bbd`, `536a422`, `21bdc05`, `9df3d20`, `301382c`, `dfeeedc`, `10388a6`, `2d1e90e`, `73d43ff`, `dfa0267` | Pasó |
+| `391d3eb` | Pasó al repetir tras checkpoint visual pequeño de `flow-19-editor-minimap`: 120 px (0,0093%), region 2,11; hubo pasadas verdes posteriores, sin cambios de tolerancia/baseline |
+| `24736b4` | Pasó |
+| `0b0e902`, `0309df2` | Pasó |
+| `d5c84f4` | Falló (no visual): `Cannot read properties of undefined (reading 'activeElement')`; binding de teclado omitió `document` al delegar |
+| `167a395` | Reversión obligatoria del corte fallido; pasó |
+| `a9056a7`, `ff46ad9` | Pasó |
+
+La `check:editor-safety` en serie terminó con 10 ejecuciones consecutivas
+verdes (cada una browser flow OK y sentinels 13/13). Logs fuera del repo:
+`%TEMP%\aedos-phase10-editor-safety-final-1.log` a `-10.log`. Hubo una corrida
+preliminar previa que falló solamente en `flow-19-editor-minimap` con 120 píxeles
+(0,0093%), región 2,11; la corrida verde siguiente y las diez consecutivas
+reportaron 0 píxeles distintos en el minimapa. No se cambiaron baselines,
+máscaras ni tolerancias.
+
+El gate final reportó lint 91, tipos 16, formato correcto, PPTX baseline 14/14,
+PDF idéntico, editor safety y sentinels 13/13. La verificación de render COM se
+omitió porque requiere PowerPoint. Las llamadas de proveedor permanecieron
+mockeadas/abortadas. Pendientes del usuario: push manual de las ramas, CI de
+GitHub, smoke test con proveedor IA real y `npm audit` con red. No se modificó
+`src/backend`, no se leyeron `.env`/claves, no se instalaron dependencias y no
+se ejecutó `npm audit fix`.
+
+Comando de push solicitado (no ejecutado):
+
+```powershell
+git branch --format="%(refname:short)" --list "refactor/*" | ForEach-Object { git push -u origin $_ }
+```

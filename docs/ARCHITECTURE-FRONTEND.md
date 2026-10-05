@@ -13,11 +13,11 @@ clásicos.
 | `index.html`, `vercel.json` | Documento SPA, carga de assets y rewrites de hosting. |
 | `styles/` | CSS principal dividido en seis segmentos concatenables en orden; `outline.css` mantiene el outline aparte. |
 | `features/shared/` | i18n, logger, cliente HTTP/SSE, stores, tema, carga de vendor assets y bootstrap compartido. |
-| `features/chat/` | Renderers de chips de chat, panel de razonamiento y servicios de adjuntos. |
+| `features/chat/` | Renderers de chips, razonamiento, adjuntos, bindings de entrada y estado de carga/generación. |
 | `features/outline/`, `features/skeleton/` | Render de slides de outline e inyección del skeleton. |
 | `features/modals/` | Ciclo de vida del modal de error. |
 | `features/export/` | Preparación aislada del snapshot de exportación. |
-| `features/editor/`, `editor/` | Semántica, historial, geometría, editor del iframe y controles. |
+| `features/editor/`, `editor/` | Semántica, historial, geometría, bindings de edición/puntero/toolbar y editor del iframe. |
 | `features/tools/` | Inserción de formas/iconos y herramientas del editor. |
 | `features/minimap/` | Vista, navegación y estado del minimapa. |
 | `mobile/` | Shell móvil, estilos, puntos de navegación y bridge con la SPA. |
@@ -165,3 +165,22 @@ byte-identical; un store debe ser dueño único del estado y conservar el bridge
 una herramienta debe delegar selección/historial; un idioma debe completar las
 claves de `i18n.js` y sus fallbacks. El orden exacto de cortes del coordinador
 está en `docs/FRONTEND-INVENTORY.md`.
+
+### Receta: extraer un bloque vertical con `createX(deps)`
+
+Marca el bloque completo junto con sus listeners, timers y estado; define un
+typedef JSDoc para sus dependencias y pásalas explícitamente (stores/estado,
+nodos DOM y callbacks). Invoca la fábrica exactamente donde antes se registraba
+el bloque y conserva en el coordinador la creación de deps, el orden de las
+instancias y todos los bridges `window.*`. Las referencias a bindings definidos
+más tarde deben llegar como callbacks perezosos, no leerse al construir la
+fábrica. Mantén cada módulo bajo 300 líneas y añade README en su carpeta; prueba
+la equivalencia del orden de listeners y cierra cada commit con `npm run
+verify:all`.
+
+En la continuación 10, `features/chat/attachments.js`, `input-controller.js` y
+`loading-controller.js` son ejemplos de este límite para chat; `features/editor/`
+contiene factories análogas para listeners de contenido, toolbar, puntero y
+lifecycle del iframe. Los grandes flujos SSE siguen dentro del coordinador:
+comparten cierres y orden asíncrono con preview y outline, por lo que requieren
+una API explícita antes de otra extracción.

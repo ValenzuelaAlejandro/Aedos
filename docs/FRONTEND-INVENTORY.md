@@ -424,3 +424,56 @@ probada que preserve orden e identidad de controllers, object URLs y listeners.
 Quedan router, adjuntos, overlays, navegación, zoom, exportación, preview,
 chat/renderizado, transiciones, SSE y orquestación; `app.js` conserva ese wiring
 y estado léxico. No se cambió comportamiento para forzar los límites de tamaño.
+
+## Ejecución fase 10 (desde `c884fd8`)
+
+Mediciones por blobs (`git show <ref>:<archivo> | wc -l`): app.js 4,497 en
+`c884fd8` → 2,765 en la punta de `refactor/fase-10a-app-bloques` (`dfa0267`)
+→ 2,633 en `refactor/fase-10b-editor` (`ff46ad9`, antes del cierre
+documental). editor.js 457 → 353. Los objetivos ≤400/≤300 no se alcanzaron.
+
+| Corte app | Módulo/fábrica | Líneas netas app.js | Estado |
+|---|---|---:|---|
+| Adjuntos | `features/chat/attachments.js` | -214 | Extraído; commit `c43d22e` |
+| Estilo overlay | `features/preview/overlay-style.js` | -111 | Extraído; `96a53c1` |
+| Labels de slot | `features/preview/overlay-labels.js` | -93 | Extraído; `bab3f6d` |
+| Zoom | `features/preview/zoom-controls.js` | -60 | Extraído; `14c02d4` |
+| Navegación de slides/dots | `features/preview/slide-navigation.js` | -104 | Extraído; `abf5153` |
+| Exportación | `features/export/export-actions.js` | -62 | Extraído; `4073fc5` |
+| Inputs de slide | `features/preview/slide-input.js` | -143 | Extraído; `7d8ae9c` |
+| Reemplazo de slot | `features/preview/slot-image-replacement.js` | -26 | Extraído; `468d92c` |
+| Cierre modal rechazado | módulo de modal existente | -9 | Extraído; `bbb3da0` |
+| Posicionamiento overlay | `features/preview/overlay-positioning.js` | -56 | Extraído; `c3be855` |
+| Restauración preview | `features/preview/state-restore.js` | -105 | Extraído; `2744a30` |
+| Escala iframe | `features/preview/iframe-scale.js` | -140 | Extraído; `536a422` |
+| Layout carousel | `features/preview/carousel-layout.js` | -86 | Extraído; `9df3d20` |
+| Settling preview | `features/preview/layout-settler.js` | -34 | Extraído; `301382c` |
+| Interacciones preview | `features/preview/interactions.js` | -186 | Extraído; `dfeeedc` |
+| Router | `features/app/router.js` | -236 | Extraído; `2d1e90e` |
+| Entrada chat | `features/chat/input-controller.js` | -67 | Extraído; `dfa0267` |
+| Loading/generación chat | `features/chat/loading-controller.js` | -132 | Extraído; `a9056a7` |
+
+La suma de los cortes aceptados es 1,864 líneas; `app.js` quedó además en 2,633
+desde el inicio medido de 4,497. Sin extraer: renderizado de mensajes,
+transiciones, `handleGenerate`/SSE, `proceedWithCurrentOutline`,
+`startFinalGeneration`, lifecycle principal del iframe, reset/orquestación y
+parte del overlay. Son bloques con estado léxico cruzado entre stores, callbacks
+asíncronos, iframe actual y legacy bridges; los intentos de lifecycle iframe
+fallaron el ancla de sentinel (`doc.write(...)` en el servidor de safety) y
+fueron revertidos; el corte de slide-refresh produjo diferencia determinista
+de 30 píxeles (0,0023%) en `presentation-iframe-desktop`, también revertido.
+
+| Corte editor | Módulo/fábrica | Cambio neto editor.js | Estado |
+|---|---|---:|---|
+| Drag/resize, normalización, snap rendering orchestration | `features/editor/pointer-interactions.js` | -66 | Extraído; `391d3eb` |
+| Selection/content listeners | `features/editor/content-bindings.js` | -16 | Extraído; `24736b4` |
+| Toolbar registration | `features/editor/toolbar-bindings.js` | -8 | Extraído; `0b0e902` |
+| Lock/fullscreen lifecycle | `features/editor/lock-lifecycle.js` | -14 | Extraído; `0309df2` |
+| Keyboard wrapper + pointer cleanup adapter | `features/editor/mouseup-cleanup.js` | -4 net en commit | Cambios incorporados con `d5c84f4`, luego commit revertido por defecto de teclado |
+
+`editor.js` conserva 353 líneas: selección y ensamblaje de deps, operaciones de
+elementos, freeze, observers, facade y orden de inicialización. El intento de
+extraer el wrapper de teclado se revirtió porque no inyectaba `document` y
+generaba `Cannot read properties of undefined (reading 'activeElement')`. No se
+eliminó ningún `window.*` legacy; `window.setLocked`, `editableSelectors`,
+`freezeAllSlides`, navegación, generación y overlays siguen disponibles.

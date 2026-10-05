@@ -268,3 +268,22 @@ timings intencionalmente. Los objetos no son API externa ni contrato para
 consumidores; no se deben importar fuera de `app.js` mientras sigan dentro del
 callback. Los detalles de inicialización, verificaciones y trabajo pendiente
 se documentan en `docs/FRONTEND-INVENTORY.md` y `docs/HANDOFF.md`.
+
+## Fase 10: fábricas verticales (parcial)
+
+Ramas locales encadenadas desde `refactor/fase-9c-editor` (`c884fd8`):
+`refactor/fase-10a-app-bloques` (`dfa0267`) y
+`refactor/fase-10b-editor` (punta de código `ff46ad9`; el commit de cierre
+documental se agrega después). No se retiró ningún contrato público existente:
+endpoints, payloads, SSE, markup, apariencia, timings y nombres `window.*`
+legacy se mantienen. Las factories son wiring interno y reciben deps explícitas.
+Se añadieron los bootstraps `window.AedosChatInput` y
+`window.AedosChatLoading`; no reemplazan ni eliminan bridges anteriores.
+
+`createChatLoadingController` mantiene timers, callbacks y la secuencia de
+disabled/enabled de controles. `bindEditorPointerInteractions`,
+`bindEditorContentEvents`, `bindEditorToolbarEvents` y
+`bindEditorLockLifecycle` conservan sus puntos de registro. El intento de
+wrapper de teclado omitió `document` al delegar al handler, causó errores de
+`activeElement` en navegador y se revirtió. Véase `docs/HANDOFF.md` para los
+gates y los límites pendientes.

@@ -50,3 +50,17 @@ su hash publicable final con `git rev-parse refactor/fase-8e-app`. La cadena
 9a→9b→9c se creó localmente desde `dc2c832`; en este cierre 9b/9c no tienen
 commits de extracción propios. Actualiza estos hashes solo después de verificar
 los commits finales; no se ha ejecutado push.
+
+## Continuación de bloque vertical (2026-10-04)
+
+| Orden | Rama | Hash de código verificado | Comando manual |
+|---:|---|---|---|
+| 33 | `refactor/fase-10a-app-bloques` | `dfa026778b9614b77a9fc66657911a8af56aef9b` | `git push -u origin refactor/fase-10a-app-bloques` |
+| 34 | `refactor/fase-10b-editor` | `ff46ad93e21bfd92535358a9fe2b271cd11ce9fb` (cierre documental posterior en la misma rama) | `git push -u origin refactor/fase-10b-editor` |
+
+Las dos ramas son locales y continúan desde `c884fd8` por 10a→10b. Hashes de
+código: rama 10a primero y 10b después. El comando masivo listado arriba sigue
+siendo solo una receta; esta tarea no hizo push, no usó `--force` ni publicó
+tags. Antes de un push, resolver los tips documentales reales con
+`git rev-parse refactor/fase-10a-app-bloques` y
+`git rev-parse refactor/fase-10b-editor`.
