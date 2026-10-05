@@ -582,6 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setPreviewStreamStatus,
         animateHeroTitle,
     });
+    const appendReasoningProgress = window.AedosGeneration.createReasoningProgress({ window, document });
 
     window.startFinalGeneration = async function (skeleton) {
         // Enter the live preview immediately. The server emits real SSE progress
@@ -822,24 +823,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // tags reasoning with a `stage` field so we can
                         // update the panel's accent color and label.
                         if (parsed.reasoning && typeof parsed.reasoning === 'string') {
-                            const allAiBodies = document.querySelectorAll('.chat-msg-ai .chat-ai-body');
-                            const _aiBody = allAiBodies[allAiBodies.length - 1];
-                            if (_aiBody && window.AedosThinking) {
-                                if (!window.AedosThinking.getPanel(_aiBody)) {
-                                    const stageMap = {
-                                        stage1: 'Analyzing request…',
-                                        stage2: 'Designing visuals…',
-                                        stage3: 'Composing slides…',
-                                        flash: 'Drafting slides…'
-                                    };
-                                    const fallbackLabel = stageMap[parsed.stage] || 'Thinking…';
-                                    window.AedosThinking.show(_aiBody, {
-                                        label: window.__t ? window.__t('chat_thinking', fallbackLabel) : fallbackLabel,
-                                        stage: parsed.stage || 'flash'
-                                    });
-                                }
-                                window.AedosThinking.appendReasoning(_aiBody, parsed.reasoning);
-                            }
+                            appendReasoningProgress(parsed);
                             continue;
                         }
 

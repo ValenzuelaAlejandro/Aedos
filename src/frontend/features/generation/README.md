@@ -19,3 +19,6 @@ shortcut, pending request payload, and progress-message timer lifecycle while
 
 `stage-progress.js` owns pipeline retry/stage text and the original status,
 hero, and button animations for final-generation SSE events.
+
+`reasoning-progress.js` routes reasoning tokens to the latest chat thinking
+panel, retaining the existing stage label and panel-creation behavior.
