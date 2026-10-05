@@ -7,14 +7,24 @@
      * @property {HTMLElement} previewContainer Existing preview container.
      * @property {Function} syncZoomStateWithViewportMode Existing responsive zoom sync.
      * @property {Function} updateZoomDisplay Existing zoom display callback.
-     * @property {Function} clearStageInlinePadding Existing stage reset callback.
      * @property {Function} getRefreshSlotOverlays Reads the current overlay positioner.
      */
 
     /** Create iframe scaling and fullscreen handling without moving listener registration. @param {IframeScaleDependencies} deps */
     // eslint-disable-next-line max-lines-per-function -- Scaling and fullscreen share the same page geometry state.
-    function createIframeScale({ previewState, previewContainer, syncZoomStateWithViewportMode, updateZoomDisplay, clearStageInlinePadding, getRefreshSlotOverlays }) {
+    function createIframeScale({ previewState, previewContainer, syncZoomStateWithViewportMode, updateZoomDisplay, getRefreshSlotOverlays }) {
         let _savedStagePadding = null;
+        function clearStageInlinePadding() {
+            const stageEl = document.getElementById('preview-stage');
+            if (!stageEl) return;
+            // GSAP writes longhand paddings during settle; clear each one explicitly.
+            stageEl.style.padding = '';
+            stageEl.style.paddingLeft = '';
+            stageEl.style.paddingRight = '';
+            stageEl.style.paddingTop = '';
+            stageEl.style.paddingBottom = '';
+        }
+
         // eslint-disable-next-line complexity -- Preserve the existing responsive and fullscreen scale branches.
         function scaleIframe() {
             // Measure from a static parent that doesn't collapse with scale to prevent loop
@@ -157,7 +167,7 @@
                 setTimeout(scaleIframe, 50);
             }
         }
-        return { scaleIframe, handleFullscreenChange };
+        return { scaleIframe, handleFullscreenChange, clearStageInlinePadding };
     }
 
     global.AedosPreview = global.AedosPreview || {};

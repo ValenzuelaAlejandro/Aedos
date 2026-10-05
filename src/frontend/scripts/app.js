@@ -89,17 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // starts (prevents the previous onComplete from firing showFloatingPills mid-stream).
     // Generation/iframe identity used to ignore late messages and callbacks from
     // a previous stream after the preview iframe has been replaced.
-    function clearStageInlinePadding() {
-        const stageEl = document.getElementById('preview-stage');
-        if (!stageEl) return;
-        // GSAP writes longhand paddings during settle; clear each one explicitly.
-        stageEl.style.padding = '';
-        stageEl.style.paddingLeft = '';
-        stageEl.style.paddingRight = '';
-        stageEl.style.paddingTop = '';
-        stageEl.style.paddingBottom = '';
-    }
-
     function resetMobileZoomState() {
         if (window.MobileRuntime && typeof window.MobileRuntime.resetZoomState === 'function') {
             window.MobileRuntime.resetZoomState();
@@ -1788,7 +1777,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetMobileZoomState
     });
 
-    const { scaleIframe, handleFullscreenChange } = window.AedosPreview.createIframeScale({ previewState, previewContainer, syncZoomStateWithViewportMode, updateZoomDisplay, clearStageInlinePadding, getRefreshSlotOverlays: () => _refreshSlotOverlays });
+    const { scaleIframe, handleFullscreenChange, clearStageInlinePadding } = window.AedosPreview.createIframeScale({ previewState, previewContainer, syncZoomStateWithViewportMode, updateZoomDisplay, getRefreshSlotOverlays: () => _refreshSlotOverlays });
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 

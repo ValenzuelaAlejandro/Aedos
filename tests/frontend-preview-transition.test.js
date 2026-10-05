@@ -102,3 +102,19 @@ test('preview zoom retains MobileRuntime preference and width fallback', () => {
     window.innerWidth = 851;
     assert.equal(controls.isMobileViewport(), false);
 });
+
+test('iframe scale helper clears the same inline stage padding fields', () => {
+    const scalePath = path.join(__dirname, '..', 'src', 'frontend', 'features', 'preview', 'iframe-scale.js');
+    const style = { padding: '8px', paddingLeft: '1px', paddingRight: '2px', paddingTop: '3px', paddingBottom: '4px' };
+    const window = {};
+    const sandbox = { window, document: { getElementById: id => id === 'preview-stage' ? { style } : null } };
+    vm.runInNewContext(fs.readFileSync(scalePath, 'utf8'), sandbox, { filename: scalePath });
+    const scale = window.AedosPreview.createIframeScale({
+        previewState: {}, previewContainer: {}, syncZoomStateWithViewportMode: () => false,
+        updateZoomDisplay: () => {}, getRefreshSlotOverlays: () => null,
+    });
+    scale.clearStageInlinePadding();
+    assert.deepEqual(style, { padding: '', paddingLeft: '', paddingRight: '', paddingTop: '', paddingBottom: '' });
+    sandbox.document.getElementById = () => null;
+    assert.doesNotThrow(() => scale.clearStageInlinePadding());
+});
