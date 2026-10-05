@@ -47,3 +47,7 @@ state getters defer access until the iframe setup event, avoiding TDZ changes.
 The factory receives the live overlay map and replacement callbacks; the app
 invokes it at the former assignment point, so listener registration order stays
 unchanged.
+
+`debug-title.js` extracts the existing title from localhost-only debug canvas
+HTML. It registers its helper on the already-established `window.AedosPreview`
+namespace; `app.js` retains its hoisted wrapper and fallback behavior.

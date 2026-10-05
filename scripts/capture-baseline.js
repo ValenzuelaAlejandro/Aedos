@@ -86,7 +86,7 @@ async function createScenarioPage(browser, origin, scenario) {
     await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded' });
     await page.addStyleTag({
         content:
-            '*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}',
+            `*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}${scenario.state === 'landing' ? '.hero-cursor{visibility:hidden!important}' : ''}`,
     });
     await page.evaluate(browserSnippets.applyTheme, scenario.theme);
     await page.evaluate(browserSnippets.waitForFrames);
