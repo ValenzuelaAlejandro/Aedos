@@ -25,6 +25,3 @@ panel, retaining the existing stage label and panel-creation behavior.
 
 `skeleton-generation.js` owns the original skeleton request, SSE parsing,
 outline updates, cancellation, and error handling as one vertical flow.
-
-`final-setup.js` prepares the streaming preview, iframe, transition, labels,
-and thinking panel before the final request, preserving their startup order.

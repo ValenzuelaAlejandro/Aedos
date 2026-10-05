@@ -9,11 +9,15 @@ const appSource = fs.readFileSync(
     'utf8',
 );
 const skeletonSource = fs.readFileSync(
-    path.resolve(__dirname, '../src/frontend/features/generation/skeleton-generation.js'),
-    'utf8',
-);
-const finalSetupSource = fs.readFileSync(
-    path.join(__dirname, '..', 'src', 'frontend', 'features', 'generation', 'final-setup.js'),
+    path.join(
+        __dirname,
+        '..',
+        'src',
+        'frontend',
+        'features',
+        'generation',
+        'skeleton-generation.js',
+    ),
     'utf8',
 );
 
@@ -62,12 +66,12 @@ test('a delayed slide event cannot re-enter streaming after final mount', () => 
 });
 
 test('implementation uses generation events instead of the fixed 670ms race', () => {
-    assert.match(finalSetupSource, /finalPreviewMounted/);
+    assert.match(appSource, /finalPreviewMounted/);
     assert.match(
-        finalSetupSource,
+        appSource,
         /setPreviewStreamStatus\((?:generationState\.)?proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/,
     );
-    assert.doesNotMatch(finalSetupSource, /setTimeout\(\(\) => fn\(\), 670\)/);
+    assert.doesNotMatch(appSource, /setTimeout\(\(\) => fn\(\), 670\)/);
 });
 
 function simulateStreamingPaints(durationMs, chunkTimes) {
@@ -94,10 +98,10 @@ test('optimistic loader and incremental paints start before 5s and 60s completio
 
 test('implementation enters preview before HTML and flushes chunks on a short cadence', () => {
     assert.match(
-        finalSetupSource,
+        appSource,
         /setPreviewStreamStatus\((?:generationState\.)?proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/,
     );
-    assert.match(finalSetupSource, /doTransitionToPreview\(\);\s*\/\/ Writing every model token/s);
+    assert.match(appSource, /doTransitionToPreview\(\);\s*\/\/ Writing every model token/s);
     const bufferSource = fs.readFileSync(
         path.resolve(__dirname, '../src/frontend/features/preview/markup-buffer.js'),
         'utf8',
