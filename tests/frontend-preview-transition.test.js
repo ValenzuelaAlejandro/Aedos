@@ -90,8 +90,15 @@ test('implementation enters preview before HTML and flushes chunks on a short ca
         /setPreviewStreamStatus\((?:generationState\.)?proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/,
     );
     assert.match(appSource, /doTransitionToPreview\(\);\s*\/\/ Writing every model token/s);
-    assert.match(appSource, /const STREAM_FLUSH_INTERVAL_MS = 80/);
-    assert.match(appSource, /schedulePreviewMarkupFlush\(\)/);
+    const bufferSource = fs.readFileSync(
+        path.resolve(__dirname, '../src/frontend/features/preview/markup-buffer.js'),
+        'utf8',
+    );
+    assert.match(bufferSource, /const STREAM_FLUSH_INTERVAL_MS = 80/);
+    assert.match(
+        appSource,
+        /previewMarkupBuffer\.queue\(window\.AedosContentUtils\.sanitizeModelOutput\(parsed\.chunk\)\)/,
+    );
 });
 
 test('preview zoom retains MobileRuntime preference and width fallback', () => {

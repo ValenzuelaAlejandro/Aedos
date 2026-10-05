@@ -71,3 +71,6 @@ selection API when the click is outside preview controls.
 
 `stream-status.js` owns the live generation status text and accessible label
 update. `app.js` retains the returned updater for the existing SSE event sites.
+
+`markup-buffer.js` owns the live iframe HTML queue, two-million-character
+limit, 80 ms flush timer, and success/error cleanup through one API.
