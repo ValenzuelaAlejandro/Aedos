@@ -3,7 +3,8 @@
 `minimap.js` owns the feature lifecycle: slide thumbnails, observers, add/delete/
 duplicate actions, and event wiring. `minimap-view.js` contains the view and
 ordering helpers (active centering, thumbnail scale recalculation, drag target,
-and persistence of slide order).
+and persistence of slide order), as well as the streaming skeleton updater used
+while slides arrive.
 
 The public compatibility entry points remain `window.initMinimap` and
 `window.syncMinimapActiveState`. The helper script must load before

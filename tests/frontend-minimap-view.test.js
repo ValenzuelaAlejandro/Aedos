@@ -136,3 +136,44 @@ test('minimap view persists drag order, rebuilds thumbnails and requests dot syn
     assert.equal(calls.dots, 1);
     assert.equal(calls.build, 1);
 });
+
+test('streaming minimap skeletons keep slide count, active item, and accent cleanup', () => {
+    const fixture = makeMinimapFixture();
+    const items = [];
+    const removedProperties = [];
+    const minimapList = {
+        _html: 'old',
+        get innerHTML() { return this._html; },
+        set innerHTML(value) { this._html = value; items.length = 0; },
+        style: {},
+        querySelectorAll: () => items,
+        appendChild(item) { items.push(item); },
+    };
+    const minimapContainer = {
+        clientHeight: 500,
+        style: { removeProperty: (name) => removedProperties.push(name) },
+    };
+    const document = {
+        getElementById: (id) => id === 'minimap-list' ? minimapList : id === 'editor-minimap' ? minimapContainer : null,
+        createElement: () => ({
+            classList: { toggle(name, active) { this.active = active; } },
+            appendChild(child) { (this.children ||= []).push(child); },
+            style: {},
+        }),
+    };
+    const sourcePath = path.join(__dirname, '../src/frontend/features/minimap/minimap-view.js');
+    vm.runInNewContext(fs.readFileSync(sourcePath, 'utf8'), fixture.context, { filename: sourcePath });
+
+    const update = fixture.context.window.AedosMinimapView.createSkeletonUpdater({ document });
+    update(2);
+    assert.equal(minimapList.innerHTML, '');
+    assert.equal(items.length, 2);
+    assert.equal(items[0].children[1].textContent, 1);
+    assert.equal(items[1].className, 'minimap-item skeleton active');
+    assert.equal(minimapList.style.transform, 'translateY(79.625px)');
+
+    update(1);
+    assert.deepEqual(removedProperties, ['--presentation-accent', '--accent', '--presentation-accent', '--accent']);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].className, 'minimap-item skeleton active');
+});
