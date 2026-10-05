@@ -10,6 +10,7 @@ const rendererPath = path.join(root, 'src/frontend/features/chat/attachment-rend
 const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/attachment-chip-cases.json');
 const contentUtilsPath = path.join(root, 'src/frontend/features/shared/content-utils.js');
 const debugCanvasPath = path.join(root, 'src/frontend/features/preview/debug-canvas.js');
+const resetControllerPath = path.join(root, 'src/frontend/features/app/reset-controller.js');
 
 function loadRenderer() {
     const window = {};
@@ -137,4 +138,51 @@ test('debug canvas factory keeps localhost gating, endpoint order, and button be
     assert.equal(fetchCalls()[1][2].method, undefined);
     assert.equal(fetchCalls()[1][2].cache, 'no-store');
     assert.deepEqual(calls.find(([kind]) => kind === 'openPreview'), ['openPreview', '<title>Example</title>', 'Example']);
+});
+
+test('reset controller clears the same live preview state and restarts the empty composer', () => {
+    const window = {};
+    const sandbox = { window };
+    vm.runInNewContext(fs.readFileSync(resetControllerPath, 'utf8'), sandbox, { filename: resetControllerPath });
+    const calls = [];
+    const makeNode = () => ({
+        classList: { add: (...values) => calls.push(['add', ...values]), remove: (...values) => calls.push(['remove', ...values]) },
+        style: {},
+    });
+    const previewState = { currentSlide: 4, totalSlides: 5, generatedHtml: 'html', slideContainer: {} };
+    const slideDots = { innerHTML: 'dots' };
+    const mobileSlideDots = { innerHTML: 'mobile dots' };
+    const mobileSlideLabel = { textContent: '4 / 5' };
+    const progressBarEl = { style: { transition: 'width 1s', width: '50%' } };
+    const document = {
+        body: { classList: { remove: (...args) => calls.push(['body.remove', ...args]) } },
+        querySelectorAll: selector => [{ remove: () => calls.push(['remove-node', selector]) }],
+        getElementById: () => ({ value: '' }),
+    };
+    const reset = sandbox.AedosAppReset.createResetController({
+        document,
+        errorModal: { clearOnDismiss: () => calls.push(['modal.clear']) },
+        resultContainer: makeNode(),
+        errorContainer: makeNode(),
+        refusedContainer: makeNode(),
+        previewContainer: makeNode(),
+        chatScreen: { ...makeNode(), style: { cssText: 'opacity: 0' } },
+        previewState,
+        clearSlotOverlays: () => calls.push(['overlays.clear']),
+        slideDots,
+        mobileSlideDots,
+        mobileSlideLabel,
+        progressBarEl,
+        chatState: { chatPlaceholderContainer: { style: {} } },
+        startTypewriter: () => calls.push(['typewriter.start']),
+    });
+
+    reset();
+    assert.deepEqual(previewState, { currentSlide: 0, totalSlides: 0, generatedHtml: '', slideContainer: null });
+    assert.equal(slideDots.innerHTML, '');
+    assert.equal(mobileSlideDots.innerHTML, '');
+    assert.equal(mobileSlideLabel.textContent, '1 / 1');
+    assert.equal(progressBarEl.style.width, '0%');
+    assert.equal(calls[0][0], 'body.remove');
+    assert.equal(calls.some(([kind]) => kind === 'typewriter.start'), true);
 });

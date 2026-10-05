@@ -64,6 +64,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let _overlayMap = new Map(); // slotEl -> { input, label }
     let _stabilizeMinimapOnNextPreviewInit = false;
 
+    const resetUI = window.AedosAppReset.createResetController({
+        document,
+        errorModal,
+        resultContainer,
+        errorContainer,
+        refusedContainer,
+        previewContainer,
+        chatScreen,
+        previewState,
+        clearSlotOverlays: () => { _refreshSlotOverlays = null; },
+        slideDots,
+        mobileSlideDots,
+        mobileSlideLabel,
+        progressBarEl,
+        chatState,
+        startTypewriter,
+    });
+
     // Panel insets used by scaleIframe to account for floating panel overlay.
     // GSAP tweens this object during the settling animation so scaleIframe can
     // call getBoundingClientRect once and derive both scale and centering offset.
@@ -2415,43 +2433,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const { handleSlideWheelNav, handleTouchStart, handleTouchEnd } = window.AedosPreview.createSlideInputHandlers({ previewContainer, previewState, navigationState, tryNavigate, uiLog });
 
     window.AedosExport.createExportActions({ finalizeBtn, errorMessage, previewState, generationState, showErrorModal });
-
-    // =========================================================
-    // 10. RESET
-    // =========================================================
-    function resetUI() {
-        document.body.classList.remove('no-scroll');
-        errorModal.clearOnDismiss();
-        // Show chat again
-        if (resultContainer) resultContainer.classList.add('hidden');
-        if (errorContainer) errorContainer.classList.add('hidden');
-        if (refusedContainer) refusedContainer.classList.add('hidden');
-        if (previewContainer) previewContainer.classList.add('hidden');
-        if (chatScreen) {
-            chatScreen.style.cssText = ''; // clear any in-progress fade
-            chatScreen.classList.remove('hidden');
-        }
-
-        previewState.currentSlide = 0;
-        previewState.totalSlides = 0;
-        previewState.generatedHtml = '';
-        previewState.slideContainer = null;
-        _refreshSlotOverlays = null;
-        // Remove persistent slot overlays from previous presentation
-        document.querySelectorAll('._slot-overlay-label').forEach(el => el.remove());
-        document.querySelectorAll('._slot-overlay-input').forEach(el => el.remove());
-        slideDots.innerHTML = '';
-        if (mobileSlideDots) mobileSlideDots.innerHTML = '';
-        if (mobileSlideLabel) mobileSlideLabel.textContent = '1 / 1';
-        progressBarEl.style.transition = 'none';
-        progressBarEl.style.width = '0%';
-
-        // restart typewriter if empty
-        if (document.getElementById('w-tema').value.trim() === '') {
-            if (chatState.chatPlaceholderContainer) chatState.chatPlaceholderContainer.style.display = '';
-            startTypewriter();
-        }
-    }
 
     resetBtn.addEventListener('click', resetUI);
     // back-btn: dismiss error modal then call the context-specific dismiss action
