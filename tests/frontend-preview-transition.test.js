@@ -16,6 +16,10 @@ const finalSetupSource = fs.readFileSync(
     path.resolve(__dirname, '../src/frontend/features/generation/final-setup.js'),
     'utf8',
 );
+const finalGenerationSource = fs.readFileSync(
+    path.resolve(__dirname, '../src/frontend/features/generation/final-generation.js'),
+    'utf8',
+);
 
 function simulatePreviewState({ finalAt, slideAt = 0 }) {
     const classes = new Set(['hidden']);
@@ -104,7 +108,7 @@ test('implementation enters preview before HTML and flushes chunks on a short ca
     );
     assert.match(bufferSource, /const STREAM_FLUSH_INTERVAL_MS = 80/);
     assert.match(
-        appSource,
+        finalGenerationSource,
         /previewMarkupBuffer\.queue\(window\.AedosContentUtils\.sanitizeModelOutput\(parsed\.chunk\)\)/,
     );
 });

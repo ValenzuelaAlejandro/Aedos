@@ -28,3 +28,7 @@ outline updates, cancellation, and error handling as one vertical flow.
 
 `final-setup.js` prepares the streaming preview, iframe, transition, labels,
 and thinking panel before the final request, preserving their startup order.
+
+`final-generation.js` owns the final HTTP/SSE lifecycle and the existing
+`window.startFinalGeneration` facade. Dependencies are read only when called,
+after later preview bindings have initialized.
