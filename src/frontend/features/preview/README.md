@@ -83,3 +83,6 @@ and reveals the settled editor chrome through the original timed sequence.
 
 `message-bridge.js` owns the existing iframe progress/title message listener.
 It reads later-initialized navigation dependencies only for slide updates.
+
+`exit-actions.js` registers the existing back-to-chat and edit-topic confirmation
+buttons and preserves their abort, navigation, resize, and focus ordering.
