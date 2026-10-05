@@ -68,3 +68,6 @@ operations through getters when the mount runs.
 `outside-deselect.js` registers the existing parent-document click-outside
 listener at its original initialization point and calls the live iframe editor
 selection API when the click is outside preview controls.
+
+`stream-status.js` owns the live generation status text and accessible label
+update. `app.js` retains the returned updater for the existing SSE event sites.

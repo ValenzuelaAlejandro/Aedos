@@ -52,11 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewStreamStatus = document.getElementById('preview-stream-status');
     const previewStreamStatusText = document.getElementById('preview-stream-status-text');
 
-    function setPreviewStreamStatus(text) {
-        if (!previewStreamStatusText || typeof text !== 'string' || !text.trim()) return;
-        previewStreamStatusText.textContent = text;
-        if (previewStreamStatus) previewStreamStatus.setAttribute('aria-label', text);
-    }
+    const setPreviewStreamStatus = window.AedosPreview.createPreviewStreamStatus({
+        statusText: previewStreamStatusText,
+        statusElement: previewStreamStatus,
+    });
 
     const updateMinimapSkeleton = window.AedosMinimapView.createSkeletonUpdater({ document });
 
