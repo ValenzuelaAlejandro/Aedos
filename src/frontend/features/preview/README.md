@@ -56,3 +56,9 @@ namespace; `app.js` retains its hoisted wrapper and fallback behavior.
 fetch/error lifecycle, plus the existing-HTML preview sequence. `app.js` injects
 the live preview callbacks and initializes the factories at the original point
 in the DOM-ready sequence.
+
+`iframe-lifecycle.js` owns slide discovery and iframe document setup, including
+the existing load event, 50/300/500ms checks, 250ms polling cadence, and callback
+ordering. The app keeps forwarding declarations so earlier closures still
+resolve the same entry points; the factory is initialized after preview
+interactions exist and before user actions can invoke it.
