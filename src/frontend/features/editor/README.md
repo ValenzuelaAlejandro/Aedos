@@ -115,6 +115,10 @@ coordinates, drag/resize mode, selection, snap guides, lock status, and history
 restoration. The editor bootstrap continues to own the interaction logic and
 listener registration order while reading and updating these same state fields.
 
+`pointer-interactions.js` owns the selection-box resize start and document
+pointer-move bindings for drag/resize. It is invoked at the former listener
+registration point; state and late editor operations are injected explicitly.
+
 `body-pointer-events.js` installs the existing body mousedown listener for
 editable-target selection, drag initialization, and snap-target collection.
 Late selection lifecycle bindings are lazy callbacks so registering this

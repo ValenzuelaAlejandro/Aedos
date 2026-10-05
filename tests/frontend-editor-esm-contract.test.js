@@ -15,8 +15,11 @@ test('iframe editor loads its native module and imports private feature helpers'
     assert.match(editor, /import \{ createEditorHistory \} from '\.\.\/features\/editor\/history\.js';/);
     assert.match(editor, /import \{ createEditorPointerState \} from '\.\.\/features\/editor\/pointer-state\.js';/);
     assert.match(editor, /import \{ bindEditorBodyPointerDown \} from '\.\.\/features\/editor\/body-pointer-events\.js';/);
-    assert.match(editor, /import \{ beginEditorResize \} from '\.\.\/features\/editor\/resize-start\.js';/);
-    assert.match(editor, /import \{ normalizePointerTarget \} from '\.\.\/features\/editor\/pointer-normalization\.js';/);
+    assert.match(editor, /import \{ bindEditorPointerInteractions \} from '\.\.\/features\/editor\/pointer-interactions\.js';/);
+    assert.match(editor, /bindEditorPointerInteractions\(\{/);
+    const pointerInteractions = read('src/frontend/features/editor/pointer-interactions.js');
+    assert.match(pointerInteractions, /import \{ beginEditorResize \} from '\.\/resize-start\.js';/);
+    assert.match(pointerInteractions, /import \{ normalizePointerTarget \} from '\.\/pointer-normalization\.js';/);
     assert.match(editor, /import \{ calculateEditorSelectionGeometry \} from '\.\.\/features\/editor\/selection-geometry\.js';/);
     assert.doesNotMatch(app, /<script src="\/features\/editor\/(?:semantics|history|selection-geometry)\.js/);
 });

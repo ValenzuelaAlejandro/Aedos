@@ -15,8 +15,6 @@ import { createEditorKeyboardHandler } from '../features/editor/keyboard.js';
 import { createEditorPasteHandler, createEditorTextEditingHandler, createEditorDirectTextEditingHandler } from '../features/editor/content-editing.js';
 import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
 import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
-import { applyEditorResize } from '../features/editor/resize-interaction.js';
-import { applyEditorDrag } from '../features/editor/drag-interaction.js';
 import { createEditorColorPicker } from '../features/editor/color-picker.js';
 import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
 import { bindEditorToolbarSizeEvents } from '../features/editor/toolbar-size-events.js';
@@ -31,8 +29,7 @@ import { installEditorSlideObservers } from '../features/editor/slide-observers.
 import { createEditorArrowMover } from '../features/editor/arrow-movement.js';
 import { createEditorPointerState } from '../features/editor/pointer-state.js';
 import { bindEditorBodyPointerDown } from '../features/editor/body-pointer-events.js';
-import { beginEditorResize } from '../features/editor/resize-start.js';
-import { normalizePointerTarget } from '../features/editor/pointer-normalization.js';
+import { bindEditorPointerInteractions } from '../features/editor/pointer-interactions.js';
 
 function initEditor() {
     if (window._editorInitialized) return;
@@ -267,80 +264,17 @@ function initEditor() {
         selectElement: element => selectElement(element),
     }));
 
-    selectionBox.addEventListener('mousedown', (e) => {
-        if (e.target.classList.contains('editor-resize-handle')) {
-            e.stopPropagation();
-            beginEditorResize(e, pointerState, document, () => saveState());
-        } else if (!e.target.classList.contains('editor-resize-handle')) {
-            // Drag via selection box proxy (anywhere that isn't a handle)
-            e.stopPropagation();
-            if (!pointerState.selectedElement) return;
-
-            saveState(); // Save state before drag
-
-            pointerState.isDragging = true;
-            pointerState.dragGroup = [];
-            pointerState.activeDragTarget = getStableDragTarget(pointerState.selectedElement);
-
-            const rect = pointerState.activeDragTarget.getBoundingClientRect();
-            const slide = pointerState.activeDragTarget.closest('.s') || pointerState.activeDragTarget.closest('section') || document.body;
-            const slideRect = slide.getBoundingClientRect();
-
-            pointerState.startX = e.clientX;
-            pointerState.startY = e.clientY;
-
-            pointerState.startLeft = rect.left - slideRect.left;
-            pointerState.startTop = rect.top - slideRect.top;
-
-            e.preventDefault();
-        }
-    });
-
-
-    document.addEventListener('mousemove', (e) => {
-        const currentElement = pointerState.activeDragTarget || pointerState.selectedElement;
-        if (!currentElement) return;
-
-        const slide = currentElement.closest('.s') || currentElement.closest('section') || document.body;
-
-        if (pointerState.isDragging || pointerState.isResizing) {
-            // NORMALIZATION ON DEMAND: Rip out of DOM when user actually starts transforming.
-            if (normalizePointerTarget(e, currentElement, slide, pointerState, normalizeElement, element => selectElement(element), () => updateSelectionBox())) return;
-        }
-
-        if (pointerState.isDragging) {
-            applyEditorDrag(e, {
-                currentElement,
-                selectedElement: pointerState.selectedElement,
-                slide,
-                startX: pointerState.startX,
-                startY: pointerState.startY,
-                startLeft: pointerState.startLeft,
-                startTop: pointerState.startTop,
-                snapLinesX: pointerState.snapLinesX,
-                snapLinesY: pointerState.snapLinesY,
-                guideH,
-                guideV,
-                updateSelectionBox,
-            });
-        } else if (pointerState.isResizing) {
-            applyEditorResize(e, {
-                selectedElement: pointerState.selectedElement,
-                slide,
-                startX: pointerState.startX,
-                startY: pointerState.startY,
-                startLeft: pointerState.startLeft,
-                startTop: pointerState.startTop,
-                startWidth: pointerState.startWidth,
-                startHeight: pointerState.startHeight,
-                currentHandle: pointerState.currentHandle,
-                snapLinesX: pointerState.snapLinesX,
-                snapLinesY: pointerState.snapLinesY,
-                guideH,
-                guideV,
-                updateSelectionBox,
-            });
-        }
+    bindEditorPointerInteractions({
+        document,
+        selectionBox,
+        pointerState,
+        saveState: () => saveState(),
+        getStableDragTarget,
+        normalizeElement,
+        selectElement: element => selectElement(element),
+        updateSelectionBox: () => updateSelectionBox(),
+        guideH,
+        guideV,
     });
 
     const updateSelectionBox = createEditorSelectionUi({
