@@ -230,6 +230,56 @@ test('skeleton error presenter keeps loading cleanup and error-modal payload', (
     assert.match(appSource, /handleSkeletonError\(error, controller\)/);
 });
 
+test('approved outline proceed shortcut aborts stale skeleton work before empty-outline guard', () => {
+    const modulePath = path.join(
+        __dirname,
+        '..',
+        'src',
+        'frontend',
+        'features',
+        'generation',
+        'approved-outline-proceed.js',
+    );
+    let abortCalls = 0;
+    let started = false;
+    const window = {
+        outlineEditorState: { skeleton: { slides: [] } },
+        startFinalGeneration() {
+            started = true;
+        },
+    };
+    const document = {};
+    const generationState = {
+        skeletonController: {
+            abort() {
+                abortCalls += 1;
+            },
+        },
+    };
+    vm.runInNewContext(fs.readFileSync(modulePath, 'utf8'), { window }, { filename: modulePath });
+    const proceed = window.AedosGeneration.createApprovedOutlineProceed({
+        window,
+        document,
+        generationState,
+        temaInput: null,
+        FormData,
+        setTimeout,
+        clearTimeout,
+        setInterval,
+        clearInterval,
+    });
+
+    proceed();
+
+    assert.equal(abortCalls, 1);
+    assert.equal(generationState.skeletonController, null);
+    assert.equal(started, false);
+    assert.match(
+        appSource,
+        /window\.proceedWithCurrentOutline = window\.AedosGeneration\.createApprovedOutlineProceed/,
+    );
+});
+
 test('iframe scale helper clears the same inline stage padding fields', () => {
     const scalePath = path.join(
         __dirname,
