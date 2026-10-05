@@ -13,6 +13,7 @@ const debugCanvasPath = path.join(root, 'src/frontend/features/preview/debug-can
 const resetControllerPath = path.join(root, 'src/frontend/features/app/reset-controller.js');
 const errorPresenterPath = path.join(root, 'src/frontend/features/generation/error-presenter.js');
 const imageSlotOverlaysPath = path.join(root, 'src/frontend/features/preview/image-slot-overlays.js');
+const appDropdownsPath = path.join(root, 'src/frontend/features/app/dropdowns.js');
 
 test('generation error presenter preserves message, cleanup, and modal callback', () => {
     const classes = [];
@@ -68,6 +69,28 @@ test('image-slot overlay system registers its classic API and preserves legacy d
     assert.match(source, /addEventListener\('dblclick'/);
     assert.match(source, /addEventListener\('trigger-image-picker'/);
     assert.match(source, /setTimeout\(positionOverlays, 100\)[\s\S]*setTimeout\(positionOverlays, 500\)[\s\S]*setTimeout\(positionOverlays, 1500\)/);
+});
+
+test('app dropdown factory keeps its legacy global and event registration order', () => {
+    const window = {};
+    vm.runInNewContext(fs.readFileSync(appDropdownsPath, 'utf8'), { window }, {
+        filename: appDropdownsPath,
+    });
+    assert.equal(typeof window.AedosAppDropdowns.createAppDropdowns, 'function');
+    const source = fs.readFileSync(appDropdownsPath, 'utf8');
+    const registrations = [
+        "modeBtn.addEventListener('click'",
+        "modeMenu.addEventListener('click'",
+        "langBtn.addEventListener('click'",
+        "langMenu.addEventListener('click'",
+        "exportMenuBtn.addEventListener('click'",
+        "exportMenu.addEventListener('click'",
+        "exportPptxBtn.addEventListener('click'",
+        "document.addEventListener('click'",
+    ].map(token => source.indexOf(token));
+    assert.ok(registrations.every(index => index >= 0));
+    assert.deepEqual(registrations, [...registrations].sort((a, b) => a - b));
+    assert.match(source, /window\._syncModeWithFiles\s*=/);
 });
 
 function loadRenderer() {

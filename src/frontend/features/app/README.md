@@ -15,3 +15,7 @@ factory receives the live generation state and registers at the former point.
 `reset-controller.js` owns the context-independent reset of chat/preview DOM,
 preview state, overlays, and progress display. Its factory receives the existing
 state object and clear/start callbacks; callers retain the `resetUI` function.
+
+`dropdowns.js` owns the mode, language, and export dropdown listeners in their
+original registration order, retaining `window._syncModeWithFiles` for the
+attachment controller.
