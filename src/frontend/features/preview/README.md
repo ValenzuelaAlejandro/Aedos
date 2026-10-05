@@ -71,6 +71,3 @@ selection API when the click is outside preview controls.
 
 `stream-status.js` owns the live generation status text and accessible label
 update. `app.js` retains the returned updater for the existing SSE event sites.
-
-`loading-html.js` returns the existing preview-loading font links, CSS, and
-iframe editor module tags without changing the markup payload.

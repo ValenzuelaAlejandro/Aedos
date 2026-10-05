@@ -280,27 +280,6 @@ test('approved outline proceed shortcut aborts stale skeleton work before empty-
     );
 });
 
-test('preview loading template retains font and iframe editor resources', () => {
-    const modulePath = path.join(
-        __dirname,
-        '..',
-        'src',
-        'frontend',
-        'features',
-        'preview',
-        'loading-html.js',
-    );
-    const window = {};
-    vm.runInNewContext(fs.readFileSync(modulePath, 'utf8'), { window }, { filename: modulePath });
-    const markup = window.AedosPreview.getPreviewLoadingHtml();
-
-    assert.match(markup, /fonts\.googleapis\.com/);
-    assert.match(markup, /class="skeleton-injector"/);
-    assert.match(markup, /\/editor\/editor\.css\?v=3/);
-    assert.match(markup, /type="module" src="\/editor\/editor\.js\?v=4"/);
-    assert.match(appSource, /const loadingHtml = window\.AedosPreview\.getPreviewLoadingHtml\(\)/);
-});
-
 test('iframe scale helper clears the same inline stage padding fields', () => {
     const scalePath = path.join(
         __dirname,
