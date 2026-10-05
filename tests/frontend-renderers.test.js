@@ -12,6 +12,7 @@ const contentUtilsPath = path.join(root, 'src/frontend/features/shared/content-u
 const debugCanvasPath = path.join(root, 'src/frontend/features/preview/debug-canvas.js');
 const resetControllerPath = path.join(root, 'src/frontend/features/app/reset-controller.js');
 const errorPresenterPath = path.join(root, 'src/frontend/features/generation/error-presenter.js');
+const imageSlotOverlaysPath = path.join(root, 'src/frontend/features/preview/image-slot-overlays.js');
 
 test('generation error presenter preserves message, cleanup, and modal callback', () => {
     const classes = [];
@@ -55,6 +56,18 @@ test('generation error presenter preserves message, cleanup, and modal callback'
     assert.equal(closed, true);
     assert.equal(classes.some(entry => entry[0] === 'chat' && entry[1] === 'hidden'), true);
     assert.equal(typeof modalCallback, 'function');
+});
+
+test('image-slot overlay system registers its classic API and preserves legacy delay schedule', () => {
+    const window = { AedosPreview: {} };
+    vm.runInNewContext(fs.readFileSync(imageSlotOverlaysPath, 'utf8'), { window }, {
+        filename: imageSlotOverlaysPath,
+    });
+    assert.equal(typeof window.AedosPreview.createImageSlotOverlaySystem, 'function');
+    const source = fs.readFileSync(imageSlotOverlaysPath, 'utf8');
+    assert.match(source, /addEventListener\('dblclick'/);
+    assert.match(source, /addEventListener\('trigger-image-picker'/);
+    assert.match(source, /setTimeout\(positionOverlays, 100\)[\s\S]*setTimeout\(positionOverlays, 500\)[\s\S]*setTimeout\(positionOverlays, 1500\)/);
 });
 
 function loadRenderer() {
