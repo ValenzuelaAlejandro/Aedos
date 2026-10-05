@@ -22,6 +22,3 @@ hero, and button animations for final-generation SSE events.
 
 `reasoning-progress.js` routes reasoning tokens to the latest chat thinking
 panel, retaining the existing stage label and panel-creation behavior.
-
-`skeleton-generation.js` owns the original skeleton request, SSE parsing,
-outline updates, cancellation, and error handling as one vertical flow.
