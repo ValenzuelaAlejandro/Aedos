@@ -36,6 +36,9 @@ the two fullscreen listener registrations at their original point.
 reset, and scale scheduling after preview assets settle. The app invokes it at
 the former layout block with its existing state and callbacks.
 
+`layout-settler.js` waits for iframe images and fonts before interaction setup,
+preserving the existing one-shot DOM flag and timeout fallbacks.
+
 `overlay-labels.js` creates the parent-side input and label for each image slot.
 The factory receives the live overlay map and replacement callbacks; the app
 invokes it at the former assignment point, so listener registration order stays

@@ -2655,41 +2655,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // event.  Initialize the carousel/editor only after the layout has had a
         // chance to settle; otherwise the first setup can measure zero-sized
         // slides and leave the editor apparently blank.
-        const settlePreviewLayout = () => {
-            const images = Array.from(iframeDoc.images || []);
-            const imageLoads = images.map((image) => {
-                if (image.complete) return Promise.resolve();
-                return new Promise(resolve => {
-                    const done = () => resolve();
-                    image.addEventListener('load', done, { once: true });
-                    image.addEventListener('error', done, { once: true });
-                    setTimeout(done, 2500);
-                });
-            });
-            const fontsReady = iframeDoc.fonts && iframeDoc.fonts.ready
-                ? Promise.race([iframeDoc.fonts.ready, new Promise(resolve => setTimeout(resolve, 2500))])
-                : Promise.resolve();
-            return Promise.all([Promise.all(imageLoads), fontsReady]);
-        };
-
-        // Do not block the rest of setup on a third-party asset forever.  The
-        // carousel is functional even when one image/CDN request fails.
-        if (!iframeDoc.documentElement.dataset.aedosLayoutSettled) {
-            iframeDoc.documentElement.dataset.aedosLayoutSettled = 'pending';
-            const finishPreviewLayout = () => {
-                iframeDoc.documentElement.dataset.aedosLayoutSettled = 'ready';
-                try {
-                    setupPreviewInteractions(targetIndex);
-                } catch (error) {
-                    console.error('[Aedos] Preview layout setup failed after assets settled.', error);
-                }
-            };
-            settlePreviewLayout().then(finishPreviewLayout, (error) => {
-                console.error('[Aedos] Preview asset settling failed; continuing with available layout.', error);
-                finishPreviewLayout();
-            });
-            return;
-        }
+        if (window.AedosPreview.deferUntilLayoutSettled({ iframeDoc, targetIndex, setupPreviewInteractions })) return;
 
         // ── INJECT GOOGLE FONTS INTO LIVE PREVIEW IFRAME ──
         // The AI-generated HTML only imports the theme fonts (e.g. Syne + DM Sans via @import).
