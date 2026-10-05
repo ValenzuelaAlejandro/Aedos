@@ -64,3 +64,7 @@ in the DOM-ready sequence.
 callbacks, and the original readiness polling schedule. Its factory is created
 at the former `initPreview` declaration point and reads later-initialized preview
 operations through getters when the mount runs.
+
+`outside-deselect.js` registers the existing parent-document click-outside
+listener at its original initialization point and calls the live iframe editor
+selection API when the click is outside preview controls.
