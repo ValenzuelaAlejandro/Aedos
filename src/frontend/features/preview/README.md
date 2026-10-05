@@ -80,3 +80,6 @@ font links, editor loader, and skeleton injector at the original SSE event.
 
 `final-reveal.js` repairs final stylesheet links, remounts the generated iframe,
 and reveals the settled editor chrome through the original timed sequence.
+
+`message-bridge.js` owns the existing iframe progress/title message listener.
+It reads later-initialized navigation dependencies only for slide updates.
