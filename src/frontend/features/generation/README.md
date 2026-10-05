@@ -16,3 +16,6 @@ failed skeleton requests, receiving the same generation state and UI callbacks.
 `approved-outline-proceed.js` owns the existing explicit outline-approval
 shortcut, pending request payload, and progress-message timer lifecycle while
 `app.js` keeps `window.proceedWithCurrentOutline` as its compatibility wrapper.
+
+`stage-progress.js` owns pipeline retry/stage text and the original status,
+hero, and button animations for final-generation SSE events.

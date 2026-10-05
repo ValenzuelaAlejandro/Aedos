@@ -574,6 +574,15 @@ document.addEventListener('DOMContentLoaded', () => {
         clearInterval,
     });
 
+    const showStageProgress = window.AedosGeneration.createStageProgress({
+        window,
+        previewContainer,
+        generateBtn,
+        pauseBtnMessages,
+        setPreviewStreamStatus,
+        animateHeroTitle,
+    });
+
     window.startFinalGeneration = async function (skeleton) {
         // Enter the live preview immediately. The server emits real SSE progress
         // before its first HTML chunk (especially in Pro mode), so waiting for
@@ -836,57 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // Pipeline stage progress events
                         if (parsed.pipeline) {
-                            pauseBtnMessages();
-                            let stageText;
-                            if (parsed.status === 'retrying') {
-                                // The AI returned bad JSON / missing fields and the
-                                // server is retrying the same stage. Show a clear
-                                // "retrying X/Y" message so the user understands the
-                                // longer wait is on purpose, not a hang.
-                                const tpl = window.__t
-                                    ? window.__t('stage_retry', 'The AI stumbled — retrying ({attempt}/{maxAttempts})...')
-                                    : 'The AI stumbled — retrying ({attempt}/{maxAttempts})...';
-                                const attempt = Number.isFinite(parsed.attempt) ? parsed.attempt : '?';
-                                const maxAttempts = Number.isFinite(parsed.maxAttempts) ? parsed.maxAttempts : '?';
-                                stageText = tpl.replace('{attempt}', String(attempt)).replace('{maxAttempts}', String(maxAttempts));
-                            } else {
-                                const stageI18nKeys = {
-                                    content: 'stage_content',
-                                    design: 'stage_design',
-                                    compositing: 'stage_compositing'
-                                };
-                                const stageFallbacks = {
-                                    content: 'Analyzing content...',
-                                    design: 'Resolving design...',
-                                    compositing: 'Composing slides...'
-                                };
-                            const i18nKey = stageI18nKeys[parsed.stage];
-                            stageText = i18nKey
-                                ? (window.__t ? window.__t(i18nKey, stageFallbacks[parsed.stage]) : stageFallbacks[parsed.stage])
-                                : parsed.stage;
-                            }
-                            if (previewContainer && previewContainer.classList.contains('is-generating')) {
-                                setPreviewStreamStatus(stageText);
-                            }
-                            // Update hero title animation
-                            if (typeof animateHeroTitle === 'function') animateHeroTitle(stageText);
-                            // Also update button label with premium GSAP fade-and-slide animation
-                            const label = generateBtn.querySelector('.btn-generate-label');
-                            if (label) {
-                                if (window.gsap) {
-                                    window.gsap.to(label, {
-                                        opacity: 0,
-                                        y: -5,
-                                        duration: 0.2,
-                                        onComplete: () => {
-                                            label.textContent = stageText;
-                                            window.gsap.fromTo(label, { opacity: 0, y: 5 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' });
-                                        }
-                                    });
-                                } else {
-                                    label.textContent = stageText;
-                                }
-                            }
+                            showStageProgress(parsed);
                             continue;
                         }
 
