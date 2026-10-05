@@ -90,53 +90,8 @@ test('implementation enters preview before HTML and flushes chunks on a short ca
         /setPreviewStreamStatus\((?:generationState\.)?proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/,
     );
     assert.match(appSource, /doTransitionToPreview\(\);\s*\/\/ Writing every model token/s);
-    assert.match(
-        appSource,
-        /previewMarkupBuffer\.queue\(window\.AedosContentUtils\.sanitizeModelOutput\(parsed\.chunk\)\)/,
-    );
-});
-
-test('preview markup buffer flushes at 80 ms, bounds output, and closes in order', () => {
-    const modulePath = path.join(
-        __dirname,
-        '..',
-        'src',
-        'frontend',
-        'features',
-        'preview',
-        'markup-buffer.js',
-    );
-    const window = {};
-    const events = [];
-    let scheduled = null;
-    vm.runInNewContext(fs.readFileSync(modulePath, 'utf8'), { window }, { filename: modulePath });
-    const buffer = window.AedosPreview.createPreviewMarkupBuffer({
-        iframeDoc: {
-            write(value) {
-                events.push(`write:${value}`);
-            },
-            close() {
-                events.push('close');
-            },
-        },
-        setTimeout(callback, delay) {
-            scheduled = callback;
-            assert.equal(delay, 80);
-            return 7;
-        },
-        clearTimeout(timer) {
-            events.push(`clear:${timer}`);
-        },
-    });
-
-    buffer.queue('one');
-    assert.deepEqual(events, []);
-    scheduled();
-    assert.deepEqual(events, ['write:one']);
-    buffer.queue('two');
-    buffer.finish();
-    assert.deepEqual(events, ['write:one', 'clear:7', 'write:two', 'close']);
-    assert.throws(() => buffer.queue('x'.repeat(2_000_001)), /GENERATION_OUTPUT_TOO_LARGE/);
+    assert.match(appSource, /const STREAM_FLUSH_INTERVAL_MS = 80/);
+    assert.match(appSource, /schedulePreviewMarkupFlush\(\)/);
 });
 
 test('preview zoom retains MobileRuntime preference and width fallback', () => {

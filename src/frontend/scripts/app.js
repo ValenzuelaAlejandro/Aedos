@@ -654,7 +654,37 @@ document.addEventListener('DOMContentLoaded', () => {
         // the tab unresponsive while Pro mode is composing Stage 3. Buffer the
         // stream and flush it at a short cadence instead of waiting for a large
         // byte threshold or for the final response.
-        const previewMarkupBuffer = window.AedosPreview.createPreviewMarkupBuffer({ iframeDoc, setTimeout, clearTimeout });
+        const MAX_STREAM_HTML_CHARS = 2_000_000;
+        const STREAM_FLUSH_INTERVAL_MS = 80;
+        let streamedHtmlChars = 0;
+        let pendingPreviewMarkup = '';
+        let previewFlushTimer = null;
+        let previewStreamClosed = false;
+        const flushPreviewMarkup = () => {
+            if (!pendingPreviewMarkup || previewStreamClosed) return;
+            iframeDoc.write(pendingPreviewMarkup);
+            pendingPreviewMarkup = '';
+        };
+        const schedulePreviewMarkupFlush = () => {
+            if (previewFlushTimer !== null || previewStreamClosed) return;
+            previewFlushTimer = setTimeout(() => {
+                previewFlushTimer = null;
+                flushPreviewMarkup();
+            }, STREAM_FLUSH_INTERVAL_MS);
+        };
+        const queuePreviewMarkup = (markup) => {
+            if (!markup) return;
+            streamedHtmlChars += markup.length;
+            if (streamedHtmlChars > MAX_STREAM_HTML_CHARS) {
+                throw new Error('GENERATION_OUTPUT_TOO_LARGE');
+            }
+            pendingPreviewMarkup += markup;
+            // Flush roughly every frame budget, while allowing a larger chunk
+            // to be written immediately. This keeps the first slide visible
+            // during a long generation without doing one layout pass per token.
+            if (pendingPreviewMarkup.length >= 24000) flushPreviewMarkup();
+            else schedulePreviewMarkupFlush();
+        };
         const G_FONTS = `
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -783,7 +813,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tail) {
                     try {
                         const parsed = JSON.parse(dataStr);
-                        if (parsed.chunk) previewMarkupBuffer.queue(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
+                        if (parsed.chunk) queuePreviewMarkup(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
                         if (parsed.done && parsed.html) previewState.generatedHtml = parsed.html;
                     } catch (e) { }
                     continue;
@@ -937,7 +967,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // Only AI chunks go through sanitizeModelOutput.
                                 iframeDoc.write(skelStyle);
                             }
-                                previewMarkupBuffer.queue(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
+                                queuePreviewMarkup(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
                         }
                         if (parsed.refused) {
                             _pendingTransitionFn = null;
@@ -996,7 +1026,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(window.__t ? window.__t('error_generation_failed', "Sorry, could not generate the presentation correctly.") : "Sorry, could not generate the presentation correctly.");
             }
 
-            previewMarkupBuffer.finish();
+            if (previewFlushTimer !== null) {
+                clearTimeout(previewFlushTimer);
+                previewFlushTimer = null;
+            }
+            flushPreviewMarkup();
+            iframeDoc.close();
+            previewStreamClosed = true;
 
             // Fix malformed <link href="url('...')"> that may have slipped through per-chunk
             // sanitization (the tag could be split across two chunks). Uses DOM manipulation
@@ -1130,8 +1166,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } catch (error) {
-            previewMarkupBuffer.clearTimer();
-            previewMarkupBuffer.markClosed();
+            if (previewFlushTimer !== null) {
+                clearTimeout(previewFlushTimer);
+                previewFlushTimer = null;
+            }
+            previewStreamClosed = true;
             if (generationState.activeGeneration === generation) {
                 generationState.activeGeneration = null;
                 _pendingTransitionFn = null;
