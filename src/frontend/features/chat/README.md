@@ -16,3 +16,7 @@ same behavior.
 `input-controller.js` owns chat composer input, Enter-key, warm-up, character
 count, and cursor bindings. Its factory is called where those listeners were
 previously registered, preserving their order and the existing DOM behavior.
+
+`loading-controller.js` owns the generate-button loading state, hero typewriter
+messages, and the existing control-disable behavior. The app creates it at the
+former initialization point and keeps the returned callbacks for generation.

@@ -361,157 +361,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    // ── Button cycling message state ──────────────────────────────────────
-    chatState.BTN_LOADING_KEYS_DESKTOP = [
-        'gen_loading_1', 'gen_loading_2', 'gen_loading_3', 'gen_loading_4',
-        'gen_loading_5', 'gen_loading_6', 'gen_loading_7', 'gen_loading_8',
-        'gen_loading_9', 'gen_loading_final'
-    ];
-    chatState.activeBtnLoadingKeys = chatState.BTN_LOADING_KEYS_DESKTOP;
-    chatState.btnMsgTimer = null;
-    chatState.btnMsgIndex = 0;
-
-    function _resolveBtnLoadingKeys() {
-        if (window.MobileRuntime && typeof window.MobileRuntime.resolveLoadingKeys === 'function') {
-            return window.MobileRuntime.resolveLoadingKeys(chatState.BTN_LOADING_KEYS_DESKTOP);
-        }
-        if (window.innerWidth <= 768) {
-            return chatState.BTN_LOADING_KEYS_DESKTOP.map(key => key + '_mobile');
-        }
-        return chatState.BTN_LOADING_KEYS_DESKTOP;
-    }
-
-    function _scheduleNextBtnMsg() {
-        if (chatState.btnMsgIndex >= chatState.activeBtnLoadingKeys.length - 1) return;
-        chatState.btnMsgTimer = setTimeout(() => {
-            chatState.btnMsgIndex++;
-            const key = chatState.activeBtnLoadingKeys[chatState.btnMsgIndex];
-            const fallbackKey = chatState.BTN_LOADING_KEYS_DESKTOP[chatState.btnMsgIndex] || 'gen_loading_final';
-            const newText = window.__t(key, window.__t(fallbackKey));
-            animateHeroTitle(newText);
-            _scheduleNextBtnMsg();
-        }, 3000); // Increased interval slightly to account for animations
-    }
-
-    function animateHeroTitle(newText) {
-        const heroTextSpan = document.querySelector('.hero-title-text');
-        const heroTitle = document.querySelector('.hero-title');
-        if (!heroTextSpan || !heroTitle) return;
-        const clean = newText.replace(/\.+$/, '').trimEnd();
-
-        if (window._heroTypewriterTimer) {
-            clearTimeout(window._heroTypewriterTimer);
-            window._heroTypewriterTimer = null;
-        }
-        if (window.gsap) window.gsap.killTweensOf(heroTitle);
-
-        // Fast fade out from right to left (moving left while fading)
-        gsap.to(heroTitle, {
-            x: -20,
-            opacity: 0,
-            duration: 0.45,
-            ease: "power2.in",
-            onComplete: () => {
-                heroTextSpan.textContent = '';
-                gsap.set(heroTitle, { x: 0, opacity: 1 });
-
-                // Manual typewriter effect
-                let i = 0;
-                function typeChar() {
-                    if (i < clean.length) {
-                        heroTextSpan.textContent += clean.charAt(i);
-                        i++;
-                        window._heroTypewriterTimer = setTimeout(typeChar, 28);
-                    }
-                }
-                typeChar();
-            }
-        });
-    }
-
-    chatState.heroResetTimer = null;
-    function startBtnMessages() {
-        if (chatState.heroResetTimer) { clearTimeout(chatState.heroResetTimer); chatState.heroResetTimer = null; }
-        chatState.activeBtnLoadingKeys = _resolveBtnLoadingKeys();
-        chatState.btnMsgIndex = 0;
-        chatState.btnMsgTimer = null;
-        const key = chatState.activeBtnLoadingKeys[0];
-        const newText = window.__t(key, window.__t(chatState.BTN_LOADING_KEYS_DESKTOP[0]));
-        animateHeroTitle(newText);
-        _scheduleNextBtnMsg();
-    }
-
-    function pauseBtnMessages() {
-        if (chatState.btnMsgTimer) { clearTimeout(chatState.btnMsgTimer); chatState.btnMsgTimer = null; }
-    }
-
-    function resumeBtnMessages() {
-        if (!chatState.btnMsgTimer) _scheduleNextBtnMsg();
-    }
-
-    function stopBtnMessages() {
-        pauseBtnMessages();
-        chatState.btnMsgIndex = 0;
-        if (chatState.heroResetTimer) clearTimeout(chatState.heroResetTimer);
-        chatState.heroResetTimer = setTimeout(() => {
-            animateHeroTitle(window.__t('hero_line_1', 'Got a spicy idea?'));
-            chatState.heroResetTimer = null;
-        }, 3000);
-    }
-    // ─────────────────────────────────────────────────────────────────────
-
-    function toggleGenerateLoading(isLoading) {
-        const editorControls = [
-            ...Array.from(document.querySelectorAll('.preview-unified-header button, .preview-unified-header select, .preview-unified-header input')),
-            ...Array.from(document.querySelectorAll('#editor-tools-panel button, #editor-tools-panel select, #editor-tools-panel input, #editor-minimap button'))
-        ];
-
-        if (isLoading) {
-            // Keep temaInput enabled so user can write while generating
-            if (temaInput) temaInput.disabled = false;
-
-            // Keep generateBtn enabled and flag it as active generation (so it acts as stop button)
-            if (generateBtn) {
-                generateBtn.classList.add('is-generating');
-                generateBtn.disabled = false;
-            }
-            if (typeof modeBtn !== 'undefined' && modeBtn) modeBtn.disabled = true;
-            if (typeof langBtn !== 'undefined' && langBtn) langBtn.disabled = true;
-            if (typeof btnAttachFile !== 'undefined' && btnAttachFile) btnAttachFile.disabled = true;
-
-            stopTypewriter();
-            startBtnMessages();
-
-            document.querySelectorAll('.suggestion-pill, .file-chip-remove').forEach(el => el.disabled = true);
-
-            // Disable editor buttons/controls during generation
-            editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = true; });
-        } else {
-            // Force hide all thinking loaders in the DOM when loading stops
-            document.querySelectorAll('.chat-thinking').forEach(el => el.classList.add('hidden'));
-
-            if (temaInput) temaInput.disabled = false;
-
-            if (generateBtn) {
-                generateBtn.classList.remove('is-generating');
-            }
-            if (typeof validateGenerateButton === 'function') validateGenerateButton();
-            if (typeof modeBtn !== 'undefined' && modeBtn) { if (!window._attachedFiles || window._attachedFiles.length === 0) modeBtn.disabled = false; }
-            if (typeof langBtn !== 'undefined' && langBtn) langBtn.disabled = false;
-            if (typeof btnAttachFile !== 'undefined' && btnAttachFile) btnAttachFile.disabled = false;
-
-            if (chatState.typewriterCursor) chatState.typewriterCursor.style.display = '';
-            stopBtnMessages();
-
-            document.querySelectorAll('.suggestion-pill, .file-chip-remove').forEach(el => el.disabled = false);
-
-            // Enable editor buttons/controls after generation (or error)
-            editorControls.forEach(ctrl => { if (ctrl) ctrl.disabled = false; });
-
-            // Native textarea placeholder handles empty state.
-            if (typeof updateZoomDisplay === 'function') updateZoomDisplay();
-        }
-    }
+    const {
+        animateHeroTitle,
+        pauseBtnMessages,
+        resumeBtnMessages,
+        stopBtnMessages,
+        toggleGenerateLoading,
+    } = window.AedosChatLoading.createChatLoadingController({
+        state: chatState,
+        document,
+        window,
+        temaInput,
+        generateBtn,
+        modeBtn,
+        langBtn,
+        btnAttachFile,
+        validateGenerateButton,
+        stopTypewriter,
+        getUpdateZoomDisplay: () => typeof updateZoomDisplay === 'function' ? updateZoomDisplay : null,
+    });
 
     function resetPreviewSurface() {
         window.removeEventListener('resize', scaleIframe);
