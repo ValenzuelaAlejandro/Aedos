@@ -1,5 +1,5 @@
 {
-  "totalWarnings": 83,
+  "totalWarnings": 82,
   "byRule": {
     "no-empty": 6,
     "complexity": 17,
@@ -8,7 +8,7 @@
     "no-unused-vars": 13,
     "no-shadow": 7,
     "eqeqeq": 1,
-    "prefer-const": 6,
+    "prefer-const": 5,
     "no-undef": 9
   },
   "byFile": {
@@ -29,13 +29,13 @@
     "src\\frontend\\features\\tools\\tools.js": 5,
     "src\\frontend\\mobile\\js\\app-mobile.js": 1,
     "src\\frontend\\mobile\\js\\bridge.js": 5,
-    "src\\frontend\\scripts\\app.js": 32,
+    "src\\frontend\\scripts\\app.js": 31,
     "tests\\pptx-export-advanced.test.js": 1
   },
   "topFiles": [
     [
       "src\\frontend\\scripts\\app.js",
-      32
+      31
     ],
     [
       "src\\backend\\utils\\pptx-export.js",
