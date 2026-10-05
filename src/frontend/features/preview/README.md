@@ -77,3 +77,6 @@ limit, 80 ms flush timer, and success/error cleanup through one API.
 
 `initial-stream-markup.js` writes the unchanged first-chunk iframe stylesheet,
 font links, editor loader, and skeleton injector at the original SSE event.
+
+`final-reveal.js` repairs final stylesheet links, remounts the generated iframe,
+and reveals the settled editor chrome through the original timed sequence.
