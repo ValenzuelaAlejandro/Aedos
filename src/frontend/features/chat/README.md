@@ -12,3 +12,7 @@ compatibility global for the current app and outline scripts.
 handlers. `app.js` calls its two factories at the original listener registration
 points so preview/editor drops and the legacy `_attachedFiles` bridge keep the
 same behavior.
+
+`input-controller.js` owns chat composer input, Enter-key, warm-up, character
+count, and cursor bindings. Its factory is called where those listeners were
+previously registered, preserving their order and the existing DOM behavior.
