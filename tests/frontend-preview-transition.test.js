@@ -181,6 +181,55 @@ test('outline proceed flow keeps backup fallback and hands it to final generatio
     assert.match(appSource, /handleProceedFlow\(finalSkeleton\)/);
 });
 
+test('skeleton error presenter keeps loading cleanup and error-modal payload', () => {
+    const modulePath = path.join(
+        __dirname,
+        '..',
+        'src',
+        'frontend',
+        'features',
+        'generation',
+        'skeleton-error-presenter.js',
+    );
+    let loadingValue = null;
+    let modalAction = null;
+    const generationState = { skeletonController: null };
+    const window = { outlineEditorState: { isLoading: true } };
+    const errorMessage = { textContent: '' };
+    const document = {
+        querySelectorAll() {
+            return [];
+        },
+        getElementById() {
+            return null;
+        },
+    };
+    vm.runInNewContext(fs.readFileSync(modulePath, 'utf8'), { window }, { filename: modulePath });
+    const handleError = window.AedosGeneration.createSkeletonErrorPresenter({
+        window,
+        document,
+        generationState,
+        toggleGenerateLoading(value) {
+            loadingValue = value;
+        },
+        errorMessage,
+        showErrorModal(action) {
+            modalAction = action;
+        },
+        escapeHtml: (value) => value,
+    });
+    const controller = {};
+    generationState.skeletonController = controller;
+
+    handleError(new Error('request failed'), controller);
+
+    assert.equal(loadingValue, false);
+    assert.equal(window.outlineEditorState.isLoading, false);
+    assert.equal(errorMessage.textContent, 'request failed');
+    assert.equal(typeof modalAction, 'function');
+    assert.match(appSource, /handleSkeletonError\(error, controller\)/);
+});
+
 test('iframe scale helper clears the same inline stage padding fields', () => {
     const scalePath = path.join(
         __dirname,

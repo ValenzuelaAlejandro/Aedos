@@ -9,3 +9,6 @@ the original animation classes, double-frame layout pass, and 380/300 ms timers.
 
 `proceed-flow.js` owns the outline-approved progress message, its 2.5-second
 interval, and the existing final-generation handoff using the live window state.
+
+`skeleton-error-presenter.js` owns cleanup and chat/error-modal presentation for
+failed skeleton requests, receiving the same generation state and UI callbacks.
