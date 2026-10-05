@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, '..');
 const rendererPath = path.join(root, 'src/frontend/features/chat/attachment-renderer.js');
 const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/attachment-chip-cases.json');
 const contentUtilsPath = path.join(root, 'src/frontend/features/shared/content-utils.js');
+const debugCanvasPath = path.join(root, 'src/frontend/features/preview/debug-canvas.js');
 
 function loadRenderer() {
     const window = {};
@@ -88,4 +89,52 @@ test('app tooltips preserve delegated listener order and viewport placement', ()
     assert.equal(classes.has('visible'), true);
     listeners[1][1]({ target: { closest: () => trigger } });
     assert.equal(classes.has('visible'), false);
+});
+
+test('debug canvas factory keeps localhost gating, endpoint order, and button behavior', async () => {
+    const buttonListeners = [];
+    const calls = [];
+    const button = {
+        addEventListener: (...args) => buttonListeners.push(args),
+    };
+    const attachButton = {
+        parentElement: { insertBefore: (...args) => calls.push(['insertBefore', ...args]) },
+    };
+    const window = { location: { hostname: 'localhost', search: '', hash: '#chat' } };
+    const document = {
+        body: { classList: { remove: (...args) => calls.push(['body.remove', ...args]) } },
+        createElement: () => button,
+        getElementById: id => id === 'btn-attach-file' ? attachButton : null,
+    };
+    const sandbox = { window, document };
+    vm.runInNewContext(fs.readFileSync(debugCanvasPath, 'utf8'), sandbox, { filename: debugCanvasPath });
+    const factory = sandbox.AedosPreview.createDebugCanvas({
+        window,
+        document,
+        fetch: async (...args) => {
+            calls.push(['fetch', ...args]);
+            return calls.filter(([kind]) => kind === 'fetch').length === 1
+                ? { ok: true }
+                : { ok: true, text: async () => '<title>Example</title>' };
+        },
+        previewContainer: null,
+        chatScreen: null,
+        errorContainer: null,
+        errorMessage: null,
+        showErrorModal: () => {},
+        resetUI: () => {},
+        extractTitle: () => 'Example',
+        openPreview: (...args) => calls.push(['openPreview', ...args]),
+    });
+
+    await factory.initialize();
+    const fetchCalls = () => calls.filter(([kind]) => kind === 'fetch');
+    assert.equal(fetchCalls()[0][2].method, 'HEAD');
+    assert.equal(fetchCalls()[0][2].cache, 'no-store');
+    assert.equal(button.id, 'btn-debug-last-generated');
+    assert.equal(buttonListeners[0][0], 'click');
+    await buttonListeners[0][1]();
+    assert.equal(fetchCalls()[1][2].method, undefined);
+    assert.equal(fetchCalls()[1][2].cache, 'no-store');
+    assert.deepEqual(calls.find(([kind]) => kind === 'openPreview'), ['openPreview', '<title>Example</title>', 'Example']);
 });

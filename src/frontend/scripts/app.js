@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const backBtn = document.getElementById('back-btn');
     const errorMessage = document.getElementById('error-message');
     const temaError = document.getElementById('tema-error');
-    let debugLastGeneratedBtn = null; // Created dynamically in dev only
 
     const showErrorModal = errorModal.show;
 
@@ -471,66 +470,6 @@ document.addEventListener('DOMContentLoaded', () => {
             previewContainer.classList.add('is-editor-ready');
             scaleIframe();
         });
-    }
-
-    async function openLastGeneratedDebugCanvas() {
-        if (debugLastGeneratedBtn) debugLastGeneratedBtn.disabled = true;
-
-        try {
-            const response = await fetch('/__dev__/last-generated', { cache: 'no-store' });
-            if (!response.ok) {
-                throw new Error('No debug HTML available in tmp/last_generated.html.');
-            }
-
-            const html = await response.text();
-            const title = extractPreviewTitleFromHtml(html, 'Debug Canvas');
-            openPreviewFromExistingHtml(html, title);
-        } catch (error) {
-            if (previewContainer) previewContainer.classList.add('hidden');
-            if (chatScreen) {
-                chatScreen.style.cssText = '';
-                chatScreen.classList.remove('hidden');
-            }
-            if (errorMessage) errorMessage.textContent = error.message;
-            if (errorContainer) showErrorModal(() => resetUI());
-            document.body.classList.remove('no-scroll');
-        } finally {
-            if (debugLastGeneratedBtn) debugLastGeneratedBtn.disabled = false;
-        }
-    }
-
-    async function setupDevelopmentDebugMode() {
-        // Only run on localhost — never inject anything in production
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (!isLocal) return;
-
-        try {
-            const response = await fetch('/__dev__/last-generated', { method: 'HEAD', cache: 'no-store' });
-            if (!response.ok) return;
-
-            // Create the button dynamically so it never ships in the production HTML
-            debugLastGeneratedBtn = document.createElement('button');
-            debugLastGeneratedBtn.type = 'button';
-            debugLastGeneratedBtn.id = 'btn-debug-last-generated';
-            debugLastGeneratedBtn.className = 'action-icon-btn';
-            debugLastGeneratedBtn.title = 'Load last generated HTML (Dev only)';
-            debugLastGeneratedBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg>`;
-
-            // Insert before the attach-file button
-            const btnAttachFileEl = document.getElementById('btn-attach-file');
-            if (btnAttachFileEl) {
-                btnAttachFileEl.parentElement.insertBefore(debugLastGeneratedBtn, btnAttachFileEl);
-            }
-
-            debugLastGeneratedBtn.addEventListener('click', () => openLastGeneratedDebugCanvas());
-
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('debug') === 'last') {
-                openLastGeneratedDebugCanvas();
-            }
-        } catch (error) {
-            // Endpoint unavailable — silently skip
-        }
     }
 
     async function handleGenerate() {
@@ -1928,7 +1867,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     generateBtn.addEventListener('click', () => handleGenerate());
-    setupDevelopmentDebugMode();
+    window.AedosPreview.createDebugCanvas({
+        window,
+        document,
+        fetch,
+        previewContainer,
+        chatScreen,
+        errorContainer,
+        errorMessage,
+        showErrorModal,
+        resetUI,
+        extractTitle: extractPreviewTitleFromHtml,
+        openPreview: openPreviewFromExistingHtml,
+    }).initialize();
 
 
 
