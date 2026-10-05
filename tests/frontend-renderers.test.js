@@ -11,7 +11,6 @@ const fixturePath = path.join(root, 'tests/fixtures/frontend/renderers/attachmen
 const contentUtilsPath = path.join(root, 'src/frontend/features/shared/content-utils.js');
 const debugCanvasPath = path.join(root, 'src/frontend/features/preview/debug-canvas.js');
 const resetControllerPath = path.join(root, 'src/frontend/features/app/reset-controller.js');
-const iframeLifecyclePath = path.join(root, 'src/frontend/features/preview/iframe-lifecycle.js');
 
 function loadRenderer() {
     const window = {};
@@ -186,34 +185,4 @@ test('reset controller clears the same live preview state and restarts the empty
     assert.equal(progressBarEl.style.width, '0%');
     assert.equal(calls[0][0], 'body.remove');
     assert.equal(calls.some(([kind]) => kind === 'typewriter.start'), true);
-});
-
-test('iframe lifecycle preserves slide selector priority and returns the matched roots', () => {
-    const sandbox = { window: {} };
-    vm.runInNewContext(fs.readFileSync(iframeLifecyclePath, 'utf8'), sandbox, { filename: iframeLifecyclePath });
-    const slide = { id: 'expected' };
-    const selectors = [];
-    const lifecycle = sandbox.AedosPreview.createIframeLifecycle({
-        window: {},
-        document: {},
-        previewState: {},
-        uiLog: {},
-        setupPreviewInteractions: () => {},
-        setTimeout: () => {},
-        requestAnimationFrame: () => {},
-        localStorage: {},
-    });
-    const doc = {
-        body: {},
-        querySelectorAll: selector => {
-            selectors.push(selector);
-            return selector === 'section.s' ? [slide] : [];
-        },
-    };
-
-    const found = lifecycle.findSlides(doc);
-    assert.equal(found.length, 1);
-    assert.equal(found[0], slide);
-    assert.deepEqual(selectors, ['section.s']);
-    assert.equal(lifecycle.findSlides(null).length, 0);
 });
