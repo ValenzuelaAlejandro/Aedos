@@ -8,6 +8,18 @@ const appSource = fs.readFileSync(
     path.join(__dirname, '..', 'src', 'frontend', 'scripts', 'app.js'),
     'utf8',
 );
+const skeletonSource = fs.readFileSync(
+    path.join(
+        __dirname,
+        '..',
+        'src',
+        'frontend',
+        'features',
+        'generation',
+        'skeleton-generation.js',
+    ),
+    'utf8',
+);
 
 function simulatePreviewState({ finalAt, slideAt = 0 }) {
     const classes = new Set(['hidden']);
@@ -185,7 +197,7 @@ test('outline proceed flow keeps backup fallback and hands it to final generatio
     assert.equal(removedClass, 'split-outline-active');
     assert.equal(generatedSkeleton, backupSkeleton);
     assert.equal(window.outlineEditorState.skeleton, backupSkeleton);
-    assert.match(appSource, /handleProceedFlow\(finalSkeleton\)/);
+    assert.match(skeletonSource, /handleProceedFlow\(finalSkeleton\)/);
 });
 
 test('skeleton error presenter keeps loading cleanup and error-modal payload', () => {
@@ -234,7 +246,8 @@ test('skeleton error presenter keeps loading cleanup and error-modal payload', (
     assert.equal(window.outlineEditorState.isLoading, false);
     assert.equal(errorMessage.textContent, 'request failed');
     assert.equal(typeof modalAction, 'function');
-    assert.match(appSource, /handleSkeletonError\(error, controller\)/);
+    assert.match(appSource, /createSkeletonGeneration\(/);
+    assert.match(skeletonSource, /handleSkeletonError\(error, controller\)/);
 });
 
 test('approved outline proceed shortcut aborts stale skeleton work before empty-outline guard', () => {
