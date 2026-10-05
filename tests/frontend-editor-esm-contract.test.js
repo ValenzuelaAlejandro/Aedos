@@ -19,8 +19,13 @@ test('iframe editor loads its native module and imports private feature helpers'
     assert.match(editor, /bindEditorPointerInteractions\(\{/);
     assert.match(editor, /import \{ bindEditorContentEvents \} from '\.\.\/features\/editor\/content-bindings\.js';/);
     assert.match(editor, /bindEditorContentEvents\(\{/);
-    assert.match(editor, /import \{ bindEditorToolbarEvents \} from '\.\.\/features\/editor\/toolbar-bindings\.js';/);
-    assert.match(editor, /bindEditorToolbarEvents\(\{/);
+    assert.match(editor, /import \{ createEditorSelectionToolbarRuntime \} from '\.\.\/features\/editor\/selection-toolbar-runtime\.js';/);
+    assert.match(editor, /createEditorSelectionToolbarRuntime\(\{/);
+    const toolbarRuntime = read('src/frontend/features/editor/selection-toolbar-runtime.js');
+    assert.match(toolbarRuntime, /import \{ bindEditorToolbarEvents \} from '\.\/toolbar-bindings\.js';/);
+    assert.match(toolbarRuntime, /bindEditorToolbarEvents\(\{/);
+    assert.match(editor, /import \{ installEditorRuntimeBindings \} from '\.\.\/features\/editor\/runtime-bindings\.js';/);
+    assert.match(editor, /installEditorRuntimeBindings\(\{/);
     assert.match(editor, /import \{ bindEditorLockLifecycle \} from '\.\.\/features\/editor\/lock-lifecycle\.js';/);
     assert.match(editor, /bindEditorLockLifecycle\(\{/);
     assert.match(read('src/frontend/features/editor/lock-lifecycle.js'), /window\.setLocked =/);

@@ -11,20 +11,13 @@ import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js'
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
 import { createEditorSlideFreeze, createEditorElementNormalizer, createEditorFreezeAllSlides } from '../features/editor/slide-freeze.js';
 import { createEditorSelectionLifecycle } from '../features/editor/selection-lifecycle.js';
-import { createEditorKeyboardHandler } from '../features/editor/keyboard.js';
 import { bindEditorContentEvents } from '../features/editor/content-bindings.js';
-import { installEditorCompatibilityFacade } from '../features/editor/compatibility-facade.js';
 import { createEditorSnapTargets } from '../features/editor/snap-targets.js';
-import { createEditorColorPicker } from '../features/editor/color-picker.js';
-import { renderEditorToolbarMarkup } from '../features/editor/toolbar-markup.js';
-import { bindEditorToolbarEvents } from '../features/editor/toolbar-bindings.js';
 import { registerEditorMouseupCleanup } from '../features/editor/mouseup-cleanup.js';
-import { createEditorFontSizeActions } from '../features/editor/font-size-actions.js';
 import { createEditorElementOperations } from '../features/editor/element-operations.js';
 import { createEditorGrouping } from '../features/editor/grouping.js';
-import { createEditorSelectionDom } from '../features/editor/selection-dom.js';
-import { installEditorSlideObservers } from '../features/editor/slide-observers.js';
-import { createEditorArrowMover } from '../features/editor/arrow-movement.js';
+import { createEditorSelectionToolbarRuntime } from '../features/editor/selection-toolbar-runtime.js';
+import { installEditorRuntimeBindings } from '../features/editor/runtime-bindings.js';
 import { createEditorPointerState } from '../features/editor/pointer-state.js';
 import { bindEditorBodyPointerDown } from '../features/editor/body-pointer-events.js';
 import { bindEditorPointerInteractions } from '../features/editor/pointer-interactions.js';
@@ -54,67 +47,35 @@ function initEditor() {
         return editorGrouping(target);
     }
 
-    const { selectionBox, handleEls, toolbar, guideH, guideV, ensureUI } = createEditorSelectionDom({ document });
-    ensureUI();
-
-    installEditorSlideObservers({
-        document,
-        window,
-        MutationObserver,
-        getSelectedElement: () => pointerState.selectedElement,
-        deselect: () => deselectGroup(),
-    });
-
-
-    // Toolbar content
-    function getToolbarHTML() {
-        return renderEditorToolbarMarkup({
-            window,
-            selectedElement: pointerState.selectedElement,
-            palette: getDynamicPalette(),
-            isImageSlotElement,
-            isTextEditableElement,
-        });
-    }
-
-    let activeColorAction = null; // 'text' or 'bg'
-    const { changeFontSize, updateSizeDisplay } = createEditorFontSizeActions({
-        document,
-        window,
-        getSelectedElement: () => pointerState.selectedElement,
-        saveState: () => saveState(),
-    });
-
     function deleteElement(el) {
         return elementOperations.deleteElement(el);
     }
 
-    function bindToolbarEvents() {
-        bindEditorToolbarEvents({
-            document,
-            window,
-            toolbar,
-            changeFontSize,
-            getSelectedElement: () => pointerState.selectedElement,
-            setActiveColorAction: action => { activeColorAction = action; },
-            showColorPicker: anchor => showColorPicker(anchor),
-            replaceImage: element => window.parent._triggerImagePicker(element),
-            deleteSelected: () => deleteElement(pointerState.selectedElement),
-            duplicateSelected: () => duplicateElement(pointerState.selectedElement),
-            saveState: () => saveState(),
-            isTextEditableElement: element => isTextEditableElement(element),
-            dispatchSelectionChanged: element => window.dispatchEvent(new CustomEvent('selection-changed', { detail: { element } })),
-        });
-    }
-
-    bindToolbarEvents();
-
-    const { getDynamicPalette, showColorPicker } = createEditorColorPicker({
+    const {
+        selectionBox,
+        handleEls,
+        toolbar,
+        guideH,
+        guideV,
+        ensureUI,
+        getToolbarHTML,
+        bindToolbarEvents,
+        getDynamicPalette,
+        showColorPicker,
+        updateSizeDisplay,
+    } = createEditorSelectionToolbarRuntime({
         document,
         window,
-        getSelectedElement: () => pointerState.selectedElement,
-        getActiveColorAction: () => activeColorAction,
+        MutationObserver,
+        pointerState,
         saveState: () => saveState(),
+        isImageSlotElement: element => isImageSlotElement(element),
+        isTextEditableElement: element => isTextEditableElement(element),
+        replaceImage: element => window.parent._triggerImagePicker(element),
+        deleteSelected: () => deleteElement(pointerState.selectedElement),
+        duplicateSelected: () => duplicateElement(pointerState.selectedElement),
+        deselectGroup: () => deselectGroup(),
+        CustomEvent,
     });
 
 
@@ -288,61 +249,33 @@ function initEditor() {
         selectElement,
     });
 
-    // Initial Save!
-    setTimeout(saveState, 500);
-
-
     function duplicateElement(el) {
         return elementOperations.duplicateElement(el);
     }
 
-    const moveSelectedElementByArrow = createEditorArrowMover({
-        getSelectedElement: () => pointerState.selectedElement,
-        document,
-        setTimeout,
-        saveState,
-        resolveDragCollision,
-        updateSelectionBox,
-    });
-
-    document.addEventListener('keydown', createEditorKeyboardHandler({
+    installEditorRuntimeBindings({
         document,
         window,
         CustomEvent,
         setTimeout,
+        saveState,
+        elementOperations,
         getSelectedElement: () => pointerState.selectedElement,
         getIsLocked: () => pointerState.isLocked,
+        getIsJustSelected: () => pointerState.justSelected,
+        getIsDragging: () => pointerState.isDragging,
+        getIsResizing: () => pointerState.isResizing,
         undo,
         redo,
-        saveState,
+        deselectGroup,
+        updateSelectionBox,
         collectGroup,
         getInheritedStyles,
         getStableDragTarget,
         normalizeElement,
         deleteElement,
         selectElement,
-        duplicateElement,
-        moveSelectedElementByArrow,
-    }));
-
-    // Save initial state
-    saveState();
-
-    installEditorCompatibilityFacade({
-        window,
-        getSelectedElement: () => pointerState.selectedElement,
-        getIsJustSelected: () => pointerState.justSelected,
-        getIsDragging: () => pointerState.isDragging,
-        getIsResizing: () => pointerState.isResizing,
-        undo,
-        redo,
-        saveState,
-        deselect: deselectGroup,
-        updateSelection: updateSelectionBox,
-        selectElement,
-        duplicate: duplicateElement,
-        deleteElement,
-        arrowMove: moveSelectedElementByArrow,
+        resolveDragCollision,
     });
 }
 
