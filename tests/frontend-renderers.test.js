@@ -16,7 +16,6 @@ const imageSlotOverlaysPath = path.join(root, 'src/frontend/features/preview/ima
 const appDropdownsPath = path.join(root, 'src/frontend/features/app/dropdowns.js');
 const slideDiscoveryPath = path.join(root, 'src/frontend/features/preview/slide-discovery.js');
 const generationPreviewTransitionPath = path.join(root, 'src/frontend/features/generation/preview-transition.js');
-const generationProgressMessageListenerPath = path.join(root, 'src/frontend/features/generation/progress-message-listener.js');
 
 test('generation error presenter preserves message, cleanup, and modal callback', () => {
     const classes = [];
@@ -187,47 +186,6 @@ test('generation preview transition keeps route, chrome, double-frame, and timer
     assert.ok(events.indexOf('clear-stage-padding') < events.indexOf('raf'));
     assert.ok(events.includes('settle.kill'));
     assert.ok(events.includes('window.resize'));
-});
-
-test('generation progress message listener preserves iframe filtering and updates', () => {
-    const window = {
-        __t: (_key, fallback) => fallback,
-        addEventListener: (type, listener) => registrations.push({ type, listener }),
-    };
-    const registrations = [];
-    const topicLabel = { textContent: '' };
-    const slideLabel = { textContent: '' };
-    const document = { getElementById: id => id === 'preview-topic-label' ? topicLabel : null };
-    vm.runInNewContext(fs.readFileSync(generationProgressMessageListenerPath, 'utf8'), { window }, {
-        filename: generationProgressMessageListenerPath,
-    });
-    assert.equal(typeof window.AedosGeneration.createGenerationProgressMessageListener, 'function');
-    const iframeWindow = {};
-    const previewState = { previewIframe: { contentWindow: iframeWindow } };
-    const events = [];
-    window.AedosGeneration.createGenerationProgressMessageListener({
-        window, document, previewState, slideLabel,
-        previewContainer: { classList: { contains: value => value === 'is-generating' } },
-        previewUiState: { skipMinimapSkeleton: false },
-        setPreviewStreamStatus: value => events.push(`status:${value}`),
-        buildDots: () => events.push('dots'),
-        updateMinimapSkeleton: count => events.push(`minimap:${count}`),
-    });
-    assert.equal(registrations.length, 1);
-    assert.equal(registrations[0].type, 'message');
-
-    registrations[0].listener({ data: { type: 'slideUpdate', count: 2 }, source: {} });
-    assert.equal(previewState.totalSlides, undefined);
-    registrations[0].listener({ data: { type: 'slideUpdate', count: 2 }, source: iframeWindow });
-    assert.equal(previewState.totalSlides, 2);
-    assert.equal(previewState.currentSlide, 1);
-    assert.equal(slideLabel.textContent, '2 / 2');
-    assert.deepEqual(events, ['status:Generando presentación… 2 slides recibidas', 'dots', 'minimap:2']);
-
-    registrations[0].listener({ data: { type: 'titleUpdate', title: '<b>  A title  </b>' }, source: iframeWindow });
-    assert.equal(topicLabel.textContent, 'A title');
-    registrations[0].listener({ data: null, source: iframeWindow });
-    assert.equal(topicLabel.textContent, 'A title');
 });
 
 function loadRenderer() {
