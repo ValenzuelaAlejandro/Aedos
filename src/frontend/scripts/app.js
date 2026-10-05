@@ -767,6 +767,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const _latestAi = _aiMessages[_aiMessages.length - 1];
                 return _latestAi && _latestAi.querySelector('.chat-ai-body');
             })();
+            const writeInitialStreamMarkup = window.AedosPreview.createInitialStreamMarkup({
+                window,
+                iframeDoc,
+                generationState,
+                setPreviewStreamStatus,
+                reasoningBody: _generateReasoningAiBody,
+                fontLinks: G_FONTS,
+                loadingHtml,
+            });
             // Safety timeout: if no SSE data arrives within a period, abort to prevent
             // an infinite hang when the server closes without sending {done:true}.
             // Pro mode (3-stage pipeline) can take longer, so use a longer timeout that also
@@ -836,50 +845,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (parsed.chunk) {
                                 if (firstWrite) {
                                     firstWrite = false;
-                                    setPreviewStreamStatus(generationState.proModeEnabled ? 'Componiendo slides…' : 'Recibiendo slides…');
-                                // Collapse the thinking panel into a "Thought
-                                // for Ns" pill now that the slides are about
-                                // to render. The user can still re-expand
-                                // the panel to read the model's reasoning.
-                                if (window.AedosThinking) {
-                                    window.AedosThinking.collapse(_generateReasoningAiBody);
+                                    writeInitialStreamMarkup();
                                 }
-                                iframeDoc.open();
-                                const skelStyle = `
-                                <style class="skeleton-injector">
-                                    html {
-                                        overflow: hidden !important;
-                                    }
-                                    html body {
-                                        display: flex !important;
-                                        flex-direction: row !important;
-                                        width: max-content !important;
-                                        height: 100% !important;
-                                        margin: 0 !important;
-                                        padding: 0 !important;
-                                        gap: 0 !important;
-                                        will-change: transform;
-                                    }
-                                    html section.s, html section[class*="slide"] {
-                                        flex: 0 0 100vw !important;
-                                        width: 100vw !important;
-                                        max-width: 100vw !important;
-                                        min-width: 100vw !important;
-                                        height: 100% !important;
-                                        overflow: hidden !important;
-                                        box-sizing: border-box !important;
-                                        margin: 0 !important;
-                                    }
-                                    html ::-webkit-scrollbar { display: none !important; }
-                                </style>
-                                ${G_FONTS}
-                                ${loadingHtml}
-                                <script src="/features/skeleton/skeleton-injector.js"></script>
-                                `;
-                                // Write our trusted skeleton markup directly (no sanitization needed).
-                                // Only AI chunks go through sanitizeModelOutput.
-                                iframeDoc.write(skelStyle);
-                            }
                                 previewMarkupBuffer.queue(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
                         }
                         if (parsed.refused) {

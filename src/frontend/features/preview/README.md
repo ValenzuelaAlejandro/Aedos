@@ -74,3 +74,6 @@ update. `app.js` retains the returned updater for the existing SSE event sites.
 
 `markup-buffer.js` owns the live iframe HTML queue, two-million-character
 limit, 80 ms flush timer, and success/error cleanup through one API.
+
+`initial-stream-markup.js` writes the unchanged first-chunk iframe stylesheet,
+font links, editor loader, and skeleton injector at the original SSE event.
