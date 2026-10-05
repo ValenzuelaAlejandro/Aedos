@@ -10,64 +10,6 @@
  */
 
 /**
- * Create the existing topic/file-driven generate-button validator.
- * @param {{btnGenerate: HTMLButtonElement|null, temaInput: HTMLTextAreaElement|null, generationState: Object, window: Window, getAnimateHeroTitle: Function}} deps
- * @returns {() => void}
- */
-function createGenerateButtonValidator(deps) {
-    const { btnGenerate, temaInput, generationState, window, getAnimateHeroTitle } = deps;
-    return function validateGenerateButton() {
-        if (btnGenerate && btnGenerate.classList.contains('is-generating')) {
-            return;
-        }
-
-        const val = temaInput ? temaInput.value.trim() : '';
-        const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
-        const isActive = val.length >= 4 || hasFiles;
-
-        if (btnGenerate) {
-            btnGenerate.disabled = !isActive;
-        }
-
-        // Animate hero title dynamically based on active state and language
-        if (isActive) {
-            if (!generationState.heroCustomTextActive) {
-                generationState.heroCustomTextActive = true;
-                getAnimateHeroTitle()(window.__t('hero_active'));
-            }
-        } else {
-            if (generationState.heroCustomTextActive) {
-                generationState.heroCustomTextActive = false;
-                getAnimateHeroTitle()(window.__t('hero_line_1'));
-            }
-        }
-    };
-}
-
-/** Register the public prompt-chip helper without changing its legacy semantics.
- * @param {{window: Window, document: Document, Event: Function}} deps
- */
-function registerFillInput(deps) {
-    const { window, document, Event } = deps;
-    window.fillInput = (keyOrText) => {
-        const input = document.getElementById('w-tema');
-        if (input) {
-            // Use translation if key exists, otherwise use as literal
-            const translated = (typeof window.__t === 'function')
-                ? window.__t(keyOrText)
-                : keyOrText;
-            // Prompts can come from i18n strings with HTML entities (&apos;, &amp;, etc.).
-            // Decode them before writing to textarea value.
-            const entityDecoder = document.createElement('textarea');
-            entityDecoder.innerHTML = translated;
-            input.value = entityDecoder.value;
-            input.focus();
-            input.dispatchEvent(new Event('input'));
-        }
-    };
-}
-
-/**
  * Bind chat composer input, keyboard and cursor behavior in registration order.
  * @param {ChatInputDependencies} deps
  */
@@ -150,4 +92,4 @@ function createChatInputController(deps) {
     }
 }
 
-window.AedosChatInput = Object.freeze({ createChatInputController, createGenerateButtonValidator, registerFillInput });
+window.AedosChatInput = Object.freeze({ createChatInputController });

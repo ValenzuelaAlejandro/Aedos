@@ -197,10 +197,32 @@ document.addEventListener('DOMContentLoaded', () => {
         validateGenerateButton
     });
 
-    const validateGenerateButton = window.AedosChatInput.createGenerateButtonValidator({
-        btnGenerate, temaInput, generationState, window,
-        getAnimateHeroTitle: () => animateHeroTitle,
-    });
+    function validateGenerateButton() {
+        if (btnGenerate && btnGenerate.classList.contains('is-generating')) {
+            return;
+        }
+
+        const val = temaInput ? temaInput.value.trim() : '';
+        const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
+        const isActive = val.length >= 4 || hasFiles;
+
+        if (btnGenerate) {
+            btnGenerate.disabled = !isActive;
+        }
+
+        // Animate hero title dynamically based on active state and language
+        if (isActive) {
+            if (!generationState.heroCustomTextActive) {
+                generationState.heroCustomTextActive = true;
+                animateHeroTitle(window.__t('hero_active'));
+            }
+        } else {
+            if (generationState.heroCustomTextActive) {
+                generationState.heroCustomTextActive = false;
+                animateHeroTitle(window.__t('hero_line_1'));
+            }
+        }
+    }
     window.validateGenerateButton = validateGenerateButton;
     // ─────────────────────────────────────────────────────────────────────
 
@@ -1665,7 +1687,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Global helper for chips
-    window.AedosChatInput.registerFillInput({ window, document, Event });
+    window.fillInput = (keyOrText) => {
+        const input = document.getElementById('w-tema');
+        if (input) {
+            // Use translation if key exists, otherwise use as literal
+            const translated = (typeof window.__t === 'function')
+                ? window.__t(keyOrText)
+                : keyOrText;
+            // Prompts can come from i18n strings with HTML entities (&apos;, &amp;, etc.).
+            // Decode them before writing to textarea value.
+            const entityDecoder = document.createElement('textarea');
+            entityDecoder.innerHTML = translated;
+            input.value = entityDecoder.value;
+            input.focus();
+            input.dispatchEvent(new Event('input'));
+        }
+    };
 
     // Scroll is now native; no custom scroll-loop system
 });
