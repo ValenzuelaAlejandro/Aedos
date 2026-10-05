@@ -2,67 +2,139 @@
 
 const specs = [
     {
-        name: 'outline-add', probe: 'add', file: '/features/outline/slide-commands.js',
-        edits: [["slides.push({ role: 'concept', title: '', subtitle: '', key_points: [] });", 'slides.pop();']],
+        name: 'outline-add',
+        probe: 'add',
+        file: '/features/outline/slide-commands.js',
+        edits: [
+            [
+                "slides.push({ role: 'concept', title: '', subtitle: '', key_points: [] });",
+                'slides.pop();',
+            ],
+        ],
         expected: { count: 4 },
     },
     {
-        name: 'outline-title', probe: 'title', file: '/features/outline/editor-bindings.js',
-        edits: [['if (slides[index] !== undefined) slides[index][property] = event.target.value;', 'if (slides[index] !== undefined) slides[index][property] = slides[index][property];']],
+        name: 'outline-title',
+        probe: 'title',
+        file: '/features/outline/editor-bindings.js',
+        edits: [
+            [
+                'if (slides[index] !== undefined) slides[index][property] = event.target.value;',
+                'if (slides[index] !== undefined) slides[index][property] = slides[index][property];',
+            ],
+        ],
         expected: { title: 'Mutation title sentinel' },
     },
     {
-        name: 'outline-point', probe: 'point', file: '/features/outline/editor-bindings.js',
-        edits: [['slides[slideIndex].key_points[pointIndex] = event.target.value;', 'slides[slideIndex].key_points[pointIndex] = slides[slideIndex].key_points[pointIndex];']],
+        name: 'outline-point',
+        probe: 'point',
+        file: '/features/outline/editor-bindings.js',
+        edits: [
+            [
+                'slides[slideIndex].key_points[pointIndex] = event.target.value;',
+                'slides[slideIndex].key_points[pointIndex] = slides[slideIndex].key_points[pointIndex];',
+            ],
+        ],
         expected: { point: 'Mutation point sentinel' },
     },
     {
-        name: 'outline-delete', probe: 'delete', file: '/features/outline/slide-commands.js',
-        edits: [['dependencies.getSlides().splice(index, 1);', 'dependencies.getSlides().splice(index + 1, 1);']],
+        name: 'outline-delete',
+        probe: 'delete',
+        file: '/features/outline/slide-commands.js',
+        edits: [
+            [
+                'dependencies.getSlides().splice(index, 1);',
+                'dependencies.getSlides().splice(index + 1, 1);',
+            ],
+        ],
         expected: { count: 2, first: 'De panel a red eléctrica' },
     },
     {
-        name: 'outline-move-up', probe: 'up', file: '/features/outline/slide-commands.js',
-        edits: [['slides[targetIndex] = slides[index];', 'slides[targetIndex] = slides[targetIndex];']],
-        expected: { titles: ['De panel a red eléctrica', 'La energía que llega del sol', 'Ciudades con energía limpia'] },
+        name: 'outline-move-up',
+        probe: 'up',
+        file: '/features/outline/slide-commands.js',
+        edits: [
+            ['slides[targetIndex] = slides[index];', 'slides[targetIndex] = slides[targetIndex];'],
+        ],
+        expected: {
+            titles: [
+                'De panel a red eléctrica',
+                'La energía que llega del sol',
+                'Ciudades con energía limpia',
+            ],
+        },
     },
     {
-        name: 'outline-move-down', probe: 'down', file: '/features/outline/slide-commands.js',
-        edits: [['slides[targetIndex] = slides[index];', 'slides[targetIndex] = slides[targetIndex];']],
-        expected: { titles: ['De panel a red eléctrica', 'La energía que llega del sol', 'Ciudades con energía limpia'] },
+        name: 'outline-move-down',
+        probe: 'down',
+        file: '/features/outline/slide-commands.js',
+        edits: [
+            ['slides[targetIndex] = slides[index];', 'slides[targetIndex] = slides[targetIndex];'],
+        ],
+        expected: {
+            titles: [
+                'De panel a red eléctrica',
+                'La energía que llega del sol',
+                'Ciudades con energía limpia',
+            ],
+        },
     },
     {
-        name: 'outline-finalize-sse', probe: 'finalize', file: '/scripts/app.js',
-        edits: [['window.finalizeStreamingOutline(finalSkeleton);', 'window.finalizeStreamingOutline({ slides: [] });']],
+        name: 'outline-finalize-sse',
+        probe: 'finalize',
+        file: '/features/generation/skeleton-generation.js',
+        edits: [
+            [
+                'window.finalizeStreamingOutline(finalSkeleton);',
+                'window.finalizeStreamingOutline({ slides: [] });',
+            ],
+        ],
         expected: { count: 3 },
     },
     {
-        name: 'app-empty-validation', probe: 'validation', file: '/scripts/app.js',
+        name: 'app-empty-validation',
+        probe: 'validation',
+        file: '/scripts/app.js',
         edits: [['const isActive = val.length >= 4 || hasFiles;', 'const isActive = true;']],
         expected: { disabled: true },
     },
     {
-        name: 'app-http-error-status', probe: 'error', file: '/scripts/app.js',
+        name: 'app-http-error-status',
+        probe: 'error',
+        file: '/features/generation/skeleton-generation.js',
         edits: [['if (!skeletonResponse.ok) {', 'if (false && !skeletonResponse.ok) {']],
         expected: { message: 'MOCK_HTTP_429', visible: true },
     },
     {
-        name: 'app-preview-render', probe: 'preview', file: '/features/preview/iframe-mount.js',
-        edits: [["doc.write('<!DOCTYPE html>' + html);", "doc.write('<!DOCTYPE html>' + html.replace(/<section/g, '<div').replace(/<\\/section>/g, '</div>'));" ]],
+        name: 'app-preview-render',
+        probe: 'preview',
+        file: '/features/preview/iframe-mount.js',
+        edits: [
+            [
+                "doc.write('<!DOCTYPE html>' + html);",
+                "doc.write('<!DOCTYPE html>' + html.replace(/<section/g, '<div').replace(/<\\/section>/g, '</div>'));",
+            ],
+        ],
         expected: { count: 2 },
     },
     {
-        name: 'editor-selection-bridge', probe: 'selection', file: '/features/editor/compatibility-facade.js',
+        name: 'editor-selection-bridge',
+        probe: 'selection',
+        file: '/features/editor/compatibility-facade.js',
         edits: [['window.editorSelect = selectElement;', 'window.editorSelect = () => {};']],
         expected: { selected: 'H1' },
     },
     {
-        name: 'editor-undo-bridge', probe: 'undo', file: '/features/editor/compatibility-facade.js',
+        name: 'editor-undo-bridge',
+        probe: 'undo',
+        file: '/features/editor/compatibility-facade.js',
         edits: [['window.editorUndo = undo;', 'window.editorUndo = () => {};']],
         expected: { restored: true },
     },
     {
-        name: 'tools-layer-up', probe: 'layer', file: '/features/tools/tools.js',
+        name: 'tools-layer-up',
+        probe: 'layer',
+        file: '/features/tools/tools.js',
         edits: [['iframeWin.toFront && iframeWin.toFront()', 'void 0']],
         expected: { raised: true },
     },
