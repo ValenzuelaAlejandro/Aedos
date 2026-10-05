@@ -418,60 +418,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return window.AedosPreview.extractDebugCanvasTitle(html, fallbackTitle);
     }
 
-    function openPreviewFromExistingHtml(html, title) {
-        if (!html || typeof html !== 'string') {
-            throw new Error('Debug HTML is empty or invalid.');
-        }
-
-        // Set the hash to #editor so back button and warnings work flawlessly in debug mode
-        if (window.location.hash !== '#editor') {
-            window.navigateToEditor();
-        }
-
-        previewState.generatedHtml = html;
-        previewState.currentSlide = 0;
-        previewState.totalSlides = 0;
-        window.currentSlide = 0;
-        previewState.currentTitle = title;
-        _pendingTransitionFn = null;
-        window._manualZoomScale = 1;
-        updateZoomDisplay();
-
-        if (resultContainer) resultContainer.classList.add('hidden');
-        if (errorContainer) errorContainer.classList.add('hidden');
-        if (refusedContainer) refusedContainer.classList.add('hidden');
-
-        previewContainer.classList.remove('hidden', 'is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools', 'reveal-chrome');
-        chatScreen.style.cssText = '';
-        chatScreen.classList.add('hidden');
-        document.body.classList.add('no-scroll');
-
-        resetPreviewSurface();
-        setPreviewTitle(title);
-
-        slideLabel.textContent = '1 / 1';
-        updateMinimapSkeleton(1);
-
-        previewHeader.classList.remove('slide-down');
-        initPreview(html, () => {
-            previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
-            previewHeader.classList.add('slide-down');
-            // Apply settled insets so the slide centers between panels in debug mode.
-            if (window.innerWidth > 768) {
-                previewState.editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
-                const dbgStage = document.getElementById('preview-stage');
-                if (dbgStage) {
-                    dbgStage.style.paddingLeft = '165px';
-                    dbgStage.style.paddingRight = '30px';
-                    dbgStage.style.paddingTop = '64px';
-                    dbgStage.style.paddingBottom = '64px';
-                }
-            }
-            previewContainer.classList.add('is-editor-ready');
-            scaleIframe();
-        });
-    }
-
     async function handleGenerate() {
         // If already generating, act as a CANCEL/STOP button!
         if (generateBtn && generateBtn.classList.contains('is-generating')) {
@@ -1867,6 +1813,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     generateBtn.addEventListener('click', () => handleGenerate());
+    const openPreviewFromExistingHtml = window.AedosPreview.createExistingHtmlPreview({
+        window,
+        document,
+        previewState,
+        chatScreen,
+        previewContainer,
+        resultContainer,
+        errorContainer,
+        refusedContainer,
+        previewHeader,
+        slideLabel,
+        resetPreviewSurface,
+        setPreviewTitle,
+        updateZoomDisplay: () => updateZoomDisplay(),
+        updateMinimapSkeleton,
+        initPreview,
+        getScaleIframe: () => scaleIframe,
+        clearPendingTransition: () => { _pendingTransitionFn = null; },
+    });
     window.AedosPreview.createDebugCanvas({
         window,
         document,

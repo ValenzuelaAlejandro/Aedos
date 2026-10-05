@@ -14,6 +14,18 @@
      * @property {Function} resetUI
      * @property {Function} extractTitle
      * @property {Function} openPreview
+     * @property {Object} previewState
+     * @property {HTMLElement|null} resultContainer
+     * @property {HTMLElement|null} refusedContainer
+     * @property {HTMLElement|null} previewHeader
+     * @property {HTMLElement|null} slideLabel
+     * @property {Function} resetPreviewSurface
+     * @property {Function} setPreviewTitle
+     * @property {Function} updateZoomDisplay
+     * @property {Function} updateMinimapSkeleton
+     * @property {Function} initPreview
+     * @property {Function} getScaleIframe
+     * @property {Function} clearPendingTransition
      */
 
     /**
@@ -87,6 +99,68 @@
         return { initialize };
     }
 
+    /**
+     * Creates the existing debug-mode preview flow using live application callbacks.
+     * @param {DebugCanvasDependencies} deps
+     * @returns {(html: string, title: string) => void}
+     */
+    function createExistingHtmlPreview(deps) {
+        return function openPreviewFromExistingHtml(html, title) {
+            if (!html || typeof html !== 'string') {
+                throw new Error('Debug HTML is empty or invalid.');
+            }
+
+            // Set the hash to #editor so back button and warnings work flawlessly in debug mode.
+            if (deps.window.location.hash !== '#editor') {
+                deps.window.navigateToEditor();
+            }
+
+            deps.previewState.generatedHtml = html;
+            deps.previewState.currentSlide = 0;
+            deps.previewState.totalSlides = 0;
+            deps.window.currentSlide = 0;
+            deps.previewState.currentTitle = title;
+            deps.clearPendingTransition();
+            deps.window._manualZoomScale = 1;
+            deps.updateZoomDisplay();
+
+            if (deps.resultContainer) deps.resultContainer.classList.add('hidden');
+            if (deps.errorContainer) deps.errorContainer.classList.add('hidden');
+            if (deps.refusedContainer) deps.refusedContainer.classList.add('hidden');
+
+            deps.previewContainer.classList.remove('hidden', 'is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools', 'reveal-chrome');
+            deps.chatScreen.style.cssText = '';
+            deps.chatScreen.classList.add('hidden');
+            deps.document.body.classList.add('no-scroll');
+
+            deps.resetPreviewSurface();
+            deps.setPreviewTitle(title);
+
+            deps.slideLabel.textContent = '1 / 1';
+            deps.updateMinimapSkeleton(1);
+
+            deps.previewHeader.classList.remove('slide-down');
+            deps.initPreview(html, () => {
+                deps.previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+                deps.previewHeader.classList.add('slide-down');
+                // Apply settled insets so the slide centers between panels in debug mode.
+                if (deps.window.innerWidth > 768) {
+                    deps.previewState.editorInsets = { left: 165, right: 30, top: 64, bottom: 64 };
+                    const dbgStage = deps.document.getElementById('preview-stage');
+                    if (dbgStage) {
+                        dbgStage.style.paddingLeft = '165px';
+                        dbgStage.style.paddingRight = '30px';
+                        dbgStage.style.paddingTop = '64px';
+                        dbgStage.style.paddingBottom = '64px';
+                    }
+                }
+                deps.previewContainer.classList.add('is-editor-ready');
+                deps.getScaleIframe()();
+            });
+        };
+    }
+
     global.AedosPreview = global.AedosPreview || {};
     global.AedosPreview.createDebugCanvas = createDebugCanvas;
+    global.AedosPreview.createExistingHtmlPreview = createExistingHtmlPreview;
 })(globalThis);

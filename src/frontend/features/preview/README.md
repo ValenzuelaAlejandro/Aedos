@@ -53,5 +53,6 @@ HTML. It registers its helper on the already-established `window.AedosPreview`
 namespace; `app.js` retains its hoisted wrapper and fallback behavior.
 
 `debug-canvas.js` owns the localhost-only debug button, endpoint checks, and
-fetch/error lifecycle. `app.js` injects the existing preview callbacks and
-initializes the factory at the original point in the DOM-ready sequence.
+fetch/error lifecycle, plus the existing-HTML preview sequence. `app.js` injects
+the live preview callbacks and initializes the factories at the original point
+in the DOM-ready sequence.
