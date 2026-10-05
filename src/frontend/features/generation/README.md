@@ -6,3 +6,6 @@ dependencies at the point the behavior runs to preserve initialization order.
 
 `preview-transition.js` owns the guarded chat-to-preview handoff, preserving
 the original animation classes, double-frame layout pass, and 380/300 ms timers.
+
+`proceed-flow.js` owns the outline-approved progress message, its 2.5-second
+interval, and the existing final-generation handoff using the live window state.
