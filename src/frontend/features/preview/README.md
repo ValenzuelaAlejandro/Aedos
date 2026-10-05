@@ -59,3 +59,8 @@ namespace; `app.js` retains its hoisted wrapper and fallback behavior.
 fetch/error lifecycle, plus the existing-HTML preview sequence. `app.js` injects
 the live preview callbacks and initializes the factories at the original point
 in the DOM-ready sequence.
+
+`iframe-mount.js` owns generated HTML repair, document writing, iframe load
+callbacks, and the original readiness polling schedule. Its factory is created
+at the former `initPreview` declaration point and reads later-initialized preview
+operations through getters when the mount runs.

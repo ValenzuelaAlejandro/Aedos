@@ -137,3 +137,49 @@ test('debug preview title extractor keeps its fallback and title parsing', () =>
     assert.equal(extractTitle('', 'Fallback'), 'Fallback');
     assert.equal(extractTitle('<!-- CONFIG {"topic":"From config"} -->'), 'From config');
 });
+
+test('iframe mount retains markup repairs, load wiring, and polling cadence', () => {
+    const mountPath = path.join(__dirname, '..', 'src', 'frontend', 'features', 'preview', 'iframe-mount.js');
+    const window = {};
+    const timers = [];
+    const writes = [];
+    const attributes = [];
+    const iframeDocument = {
+        body: {},
+        readyState: 'loading',
+        documentElement: {
+            getAttribute: () => 'light',
+            setAttribute: (...args) => attributes.push(args),
+        },
+        open() {},
+        write: (html) => writes.push(html),
+        close() {},
+    };
+    const iframe = {
+        contentDocument: iframeDocument,
+        contentWindow: { document: iframeDocument },
+        style: {},
+    };
+    const previewState = { previewIframe: iframe };
+    const sandbox = { window };
+    vm.runInNewContext(fs.readFileSync(mountPath, 'utf8'), sandbox, { filename: mountPath });
+    const mount = window.AedosPreview.createIframeMount({
+        previewState,
+        uiLog: { debug() {}, warn() {} },
+        document: { documentElement: { getAttribute: () => 'light' } },
+        getFindSlides: () => () => [],
+        getSetupPreviewInteractions: () => () => {},
+        requestAnimationFrame: (callback) => callback(),
+        setTimeout: (callback, delay) => timers.push({ callback, delay }),
+        getLocalStorage: () => ({ getItem: () => 'dark' }),
+    });
+
+    mount('<html><head><link href="https://fonts.googleapis.com/old"></head><body><section></body></html>');
+    assert.deepEqual(timers.map(({ delay }) => delay), [300]);
+    assert.equal(typeof iframe.onload, 'function');
+    assert.match(writes[0], /anti-flicker/);
+    assert.match(writes[0], /src="\/editor\/editor\.js\?v=4"/);
+    assert.doesNotMatch(writes[0], /fonts\.googleapis\.com\/old/);
+    assert.match(writes[0], /<\/body><\/html><\/section>$/);
+    assert.deepEqual(attributes, [['data-theme', 'light']]);
+});

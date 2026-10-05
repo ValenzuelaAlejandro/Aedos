@@ -47,7 +47,7 @@ const specs = [
         expected: { message: 'MOCK_HTTP_429', visible: true },
     },
     {
-        name: 'app-preview-render', probe: 'preview', file: '/scripts/app.js',
+        name: 'app-preview-render', probe: 'preview', file: '/features/preview/iframe-mount.js',
         edits: [["doc.write('<!DOCTYPE html>' + html);", "doc.write('<!DOCTYPE html>' + html.replace(/<section/g, '<div').replace(/<\\/section>/g, '</div>'));" ]],
         expected: { count: 2 },
     },
