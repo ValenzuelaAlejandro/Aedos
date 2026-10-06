@@ -287,3 +287,21 @@ disabled/enabled de controles. `bindEditorPointerInteractions`,
 wrapper de teclado omitió `document` al delegar al handler, causó errores de
 `activeElement` en navegador y se revirtió. Véase `docs/HANDOFF.md` para los
 gates y los límites pendientes.
+
+## Cierre local 10b (2026-10-05)
+
+El último commit de código/test verificado en `refactor/fase-10b-editor` es
+`ba52e3f`; este cierre documental puede avanzar la punta local.
+Esta continuación no cambia los contratos de servidor listados arriba: no se
+modificaron endpoints, payloads, MIME/SSE, eventos, errores HTTP, markup visible,
+estilos ni nombres legacy `window.*`. Las nuevas `createX(deps)` son wiring
+interno; `window.AedosChatValidation.createGenerateValidation(deps)` se carga
+antes de `app.js`, y `window.validateGenerateButton` continúa siendo el wrapper
+llamado por consumidores previos. También se preservan
+`window.startFinalGeneration` y las fachadas de preview/editor. No se eliminó
+ningún global legacy.
+
+El test browser de tema vacío conserva el estado de foco de `#w-tema` esperado
+por la baseline, y oculta solo `.hero-cursor` decorativo, como el capturador de
+baseline para landing. No cambia el contrato ni el comportamiento de la
+aplicación. No se regeneraron las baselines.

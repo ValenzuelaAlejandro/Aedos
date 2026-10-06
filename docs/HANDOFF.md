@@ -510,3 +510,62 @@ Comando de push solicitado (no ejecutado):
 ```powershell
 git branch --format="%(refname:short)" --list "refactor/*" | ForEach-Object { git push -u origin $_ }
 ```
+
+## Cierre 10b: extracciones verticales (2026-10-05)
+
+Este cierre supersede los estados parciales descritos arriba. Rama actual
+`refactor/fase-10b-editor`; último commit de código/test verificado
+`ba52e3f2e3144bd4100a0eaeccd636bb557fa09d`. El commit documental presente
+avanza la rama; resuelve el tip final con `git rev-parse refactor/fase-10b-editor`.
+La cadena local es `refactor/fase-10a-app-bloques`
+(`dfa026778b9614b77a9fc66657911a8af56aef9b`) →
+`refactor/fase-10b-editor` (`ba52e3f2e3144bd4100a0eaeccd636bb557fa09d`). No se
+hizo push ni se usó red.
+
+Tamaños tomados de blobs con `git show <ref>:<archivo> | wc -l`:
+`app.js` 4.492 (`05f4322`) → 400; `editor.js` 582 (`05f4322`) → 286. Ambos
+objetivos (≤400 y ≤300) se alcanzaron. Los ocho últimos cortes de app redujeron
+845 líneas desde 1.245 en `9c10f95`; el detalle y las líneas de todos los
+módulos nuevos están en `docs/FRONTEND-INVENTORY.md`. No se eliminó ningún
+`window.*`; se conservaron las fachadas, el orden de instanciación, listeners,
+timers y callbacks. Lint descendió 119 → 57 y typecheck se mantuvo en 16.
+
+La investigación del checkpoint de tema vacío encontró dos condiciones de
+captura: el baseline conserva el foco de `#w-tema` (`autofocus`) y oculta el
+cursor decorativo `.hero-cursor`. El test ahora afirma el foco esperado y oculta
+solo ese cursor, igual que el capturador de landing. Un desenfoque produjo un
+segundo diff con el cursor visible, por lo que no se adoptó. No se cambió código
+de producto, baseline, máscara ni tolerancia. La ejecución aislada y el gate
+completo dieron 0 píxeles distintos en ese checkpoint. Luego se ejecutó
+`npm run check:editor-safety` diez veces seguidas: 10/10 pasaron; cada corrida
+confirmó browser flow correcto y 13/13 sentinels detectados.
+
+Verificaciones completas confirmadas en commits aceptados de 10b: `a9056a7`,
+`149d3db`, `c4144ba`, `0878482`, `1d6d7d6`, `2ac0ef5`, `ad3ec05`, `9ba6590`,
+`a5121af`, `b5e1d06`, `b5bfe84`, `56b2fe1`, `3a6e0c8`, `1187dd7`, `de16bec`,
+`263d5df`, `1708d86`, `e80f126`, `9ad7a66`, `d3486df`, `ccbd86d`, `a0249fb`,
+`8ace056`, `cb4d3b8`, `9c10f95`, `aedac40`, `d151196`, `baa7642`, `47aa1c3`,
+`920b2c7`, `e80ea13`, `cd77b56`, `70baf76`, `3870658`, `ba52e3f`:
+`npm run verify:all` pasó después de cada commit aceptado. Gates finales:
+PPTX 14/14, PDF baseline idéntica, visual/editor safety aprobados, lint 57,
+tipos 16 y Prettier correcto. Ver render COM se omitió porque PowerPoint no
+está instalado. Proveedores mockeados; solicitudes externas abortadas.
+
+Intentos fallidos de cortes fueron revertidos y luego resueltos con pruebas
+adaptadas: `fb12543`/`858c199` y `f8443b9`/`b658194` (sentinels skeleton/SSE),
+`97840ee`/`41b1d96` (assertion de setup preview) y
+`34cce6c`/`0def295` (mutation probe de validación). Otros diagnósticos: falta de
+`G_FONTS` en preview-loading, límite `max-lines` del test de buffer, loader VM
+incompatible con `import` ESM en snap, y wrapper de teclado sin `document`
+(`activeElement` indefinido). Ninguno quedó en HEAD.
+
+Pendiente del usuario: publicar manualmente las ramas; comprobar CI de GitHub;
+smoke test con proveedor IA real; correr `npm audit` con red. No se leyeron
+`.env`/claves, no se llamó a proveedores reales, no se agregaron dependencias y
+no se ejecutó `npm audit fix`.
+
+Comando de push (solo referencia, no ejecutado):
+
+```powershell
+git branch --format="%(refname:short)" --list "refactor/*" | ForEach-Object { git push -u origin $_ }
+```

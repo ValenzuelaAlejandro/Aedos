@@ -477,3 +477,103 @@ extraer el wrapper de teclado se revirtió porque no inyectaba `document` y
 generaba `Cannot read properties of undefined (reading 'activeElement')`. No se
 eliminó ningún `window.*` legacy; `window.setLocked`, `editableSelectors`,
 `freezeAllSlides`, navegación, generación y overlays siguen disponibles.
+
+## Cierre de extracciones verticales 10b (2026-10-05)
+
+Esta sección supersede los tamaños y pendientes parciales de snapshots previos
+en este documento. Referencia local: rama `refactor/fase-10b-editor`, código
+`70baf76`, ratchet `3870658`, estabilización de test `ba52e3f` (último código/test
+verificado; este cierre documental avanza la punta local).
+Comprobación de tamaños: `git show <ref>:<archivo> | wc -l`.
+
+| Archivo | inicio `05f4322` | código/test `ba52e3f` | reducción |
+|---|---:|---:|---:|
+| `src/frontend/scripts/app.js` | 4.492 | 400 | 4.092 |
+| `src/frontend/editor/editor.js` | 582 | 286 | 296 |
+
+Los últimos ocho cortes de `app.js` completaron el objetivo de ≤400. Medidos
+desde el blob de `9c10f95` (1.245 líneas):
+
+| Corte | Módulo | neto app.js | commit | resultado |
+|---|---|---:|---|---|
+| Revealing final del preview | `preview/final-reveal.js` (130) | -123 | `aedac40` | extraído |
+| Skeleton: petición y SSE | `generation/skeleton-generation.js` (292) | -256 | `d151196` | extraído; sentinel trasladado al módulo |
+| Setup del preview final | `generation/final-setup.js` (154) | -111 | `baa7642` | extraído |
+| Lifecycle SSE final | `generation/final-generation.js` (288) | -246 | `47aa1c3` | extraído |
+| Bridge de mensajes iframe | `preview/message-bridge.js` (53) | -32 | `920b2c7` | extraído |
+| Acciones de salida preview | `preview/exit-actions.js` (53) | -38 | `e80ea13` | extraído |
+| Reset de superficie preview | `preview/surface-reset.js` (39) | -19 | `cd77b56` | extraído |
+| Validación de generación | `chat/generate-validation.js` (37) | -20 | `70baf76` | extraído |
+
+La suma de estos netos es 845; 1.245 → 400. Los cortes de Etapa 10a
+(adjuntos, overlays, zoom, navegación, exportación, inputs/slots, preview,
+router, chat) se detallan en la tabla histórica inmediatamente anterior.
+
+| Corte editor 10b | Módulo(s) | resultado |
+|---|---|---|
+| Estado compartido de puntero | `editor/pointer-state.js` (46) | extraído; store explícito |
+| Binding de eventos del puntero | `editor/body-pointer-events.js` (101), `pointer-interactions.js` (113) | extraído en el punto de registro original |
+| Inicio resize | `editor/resize-start.js` (23) | extraído |
+| Normalización | `editor/pointer-normalization.js` (46) | extraído |
+| Cálculo de snap guides | `editor/snap-guide-calculation.js` (26) | extraído tras adaptar los loaders VM |
+| Runtime/selección y toolbar | `editor/runtime-bindings.js` (111), `selection-toolbar-runtime.js` (116), `content-bindings.js` (66), `toolbar-bindings.js` (61) | extraído; orden legacy conservado |
+
+Módulos añadidos en esta cadena, tamaños de blob (cada uno ≤300 líneas):
+
+| Carpeta | Módulos `archivo (líneas)` |
+|---|---|
+| `features/app` | `dropdowns.js (141)`, `reset-controller.js (60)`, `router.js (252)` |
+| `features/chat` | `attachments.js (244)`, `generate-validation.js (37)`, `input-controller.js (137)`, `loading-controller.js (182)` |
+| `features/editor` | `body-pointer-events.js (101)`, `content-bindings.js (66)`, `lock-lifecycle.js (34)`, `pointer-interactions.js (113)`, `pointer-normalization.js (46)`, `pointer-state.js (46)`, `resize-start.js (23)`, `runtime-bindings.js (111)`, `selection-toolbar-runtime.js (116)`, `snap-guide-calculation.js (26)`, `toolbar-bindings.js (61)` |
+| `features/export` | `export-actions.js (83)` |
+| `features/generation` | `approved-outline-proceed.js (159)`, `error-presenter.js (174)`, `final-generation.js (288)`, `final-setup.js (154)`, `preview-transition.js (99)`, `proceed-flow.js (95)`, `reasoning-progress.js (36)`, `skeleton-error-presenter.js (81)`, `skeleton-generation.js (292)`, `stage-progress.js (67)` |
+| `features/preview` | `carousel-layout.js (111)`, `debug-canvas.js (173)`, `debug-title.js (35)`, `exit-actions.js (53)`, `final-reveal.js (130)`, `iframe-mount.js (196)`, `iframe-scale.js (175)`, `image-slot-overlays.js (276)`, `initial-stream-markup.js (60)`, `interactions.js (228)`, `layout-settler.js (50)`, `markup-buffer.js (59)`, `message-bridge.js (53)`, `outside-deselect.js (41)`, `overlay-labels.js (108)`, `overlay-positioning.js (76)`, `overlay-style.js (126)`, `slide-discovery.js (54)`, `slide-input.js (167)`, `slide-navigation.js (132)`, `slot-image-replacement.js (45)`, `state-restore.js (132)`, `stream-status.js (21)`, `surface-reset.js (39)`, `zoom-controls.js (92)` |
+
+Se mantuvieron factories/wrappers `window.*`; no se quitó ningún global.
+`window.AedosChatValidation.createGenerateValidation` es una dependencia
+interna nueva; `window.validateGenerateButton` y
+`window.startFinalGeneration` siguen siendo los puntos legacy. El SSE de
+skeleton/final ya no reside en `app.js`, y cada módulo carga desde el HTML en el
+orden necesario.
+
+Intentos fallidos que sí afectaron cortes verticales y fueron revertidos antes
+de aceptar el corte corregido:
+
+| intento | error observado | resolución |
+|---|---|---|
+| `fb12543` | `tests/frontend-preview-transition.test.js` esperaba el flujo skeleton inline | revertido `858c199`; luego se trasladó la aserción al módulo en `d151196` |
+| `f8443b9` | el sentinel de finalize-stream seguía anclado a `app.js` | revertido `b658194`; se relocó el sentinel en `d151196` |
+| `97840ee` | assertion de preview-transition no encontraba el setup movido | revertido `41b1d96`; contrato fuente ajustado en `baa7642` |
+| `34cce6c` | mutation probe `app-empty-validation` tenía ancla en `app.js` | revertido `0def295`; sonda actualizada y corte aprobado `70baf76` |
+
+El intento de render de preview-loading previo falló por `ReferenceError:
+G_FONTS is not defined` y fue revertido; el corte de buffer falló el límite
+`max-lines` del test y se reintentó como `a0249fb`. El binding de teclado de
+editor se revirtió al omitir `document` (`activeElement` indefinido). El intento
+de snap con loaders VM falló con `SyntaxError: Cannot use import statement
+outside a module`; el corte aprobado mantuvo compatibilidad del loader. Estos
+casos no alteraron el comportamiento final.
+
+### Estabilidad visual y compuertas finales
+
+La corrida de validación anterior a `ba52e3f` falló con 1.568 píxeles distintos
+(0,1210%), región `10,16`: únicamente el borde del compositor difería. En la
+captura, `#w-tema` tiene `autofocus`; el baseline mantiene ese foco. La sonda
+final afirma explícitamente ese foco y oculta `.hero-cursor`, igual que el
+capturador de landing. Al dejar el campo desenfocado el cursor decorativo
+reaparecía, produciendo 1.824 píxeles distintos en `32,9`; por tanto se
+descartó el blur y se alineó el estado observado con la baseline. No se tocó
+CSS de producto, baseline, máscara o tolerancia. Tras el cambio, el checkpoint
+marcó 0 píxeles en la corrida aislada, en `verify:all` y en diez corridas
+seriales consecutivas; las diez detectaron sentinels 13/13.
+
+Gates aceptados en la continuación 10b: `a9056a7`, `149d3db`, `c4144ba`,
+`0878482`, `1d6d7d6`, `2ac0ef5`, `ad3ec05`, `9ba6590`, `a5121af`, `b5e1d06`,
+`b5bfe84`, `56b2fe1`, `3a6e0c8`, `1187dd7`, `de16bec`, `263d5df`, `1708d86`,
+`e80f126`, `9ad7a66`, `d3486df`, `ccbd86d`, `a0249fb`, `8ace056`, `cb4d3b8`,
+`9c10f95`, `aedac40`, `d151196`, `baa7642`, `47aa1c3`, `920b2c7`, `e80ea13`,
+`cd77b56`, `70baf76`, `3870658` y `ba52e3f`: `npm run verify:all` pasó en
+cada commit aceptado. Intentos revertidos no se conservaron; se registran
+arriba. Gate final: lint 57 (desde 119), typecheck 16 (sin cambio), Prettier
+correcto, PPTX 14/14, PDF/visual/editor-safety aprobados. Pendientes externos:
+push manual, CI GitHub, smoke test con proveedor real y audit con red.

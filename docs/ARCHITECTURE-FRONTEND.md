@@ -184,3 +184,23 @@ contiene factories análogas para listeners de contenido, toolbar, puntero y
 lifecycle del iframe. Los grandes flujos SSE siguen dentro del coordinador:
 comparten cierres y orden asíncrono con preview y outline, por lo que requieren
 una API explícita antes de otra extracción.
+
+## Cierre de fábricas verticales (2026-10-05)
+
+El último commit de código/test verificado de `refactor/fase-10b-editor` es
+`ba52e3f`; este cierre documental se añade encima. Tamaños del
+blob, medidos con `git show <ref>:<archivo> | wc -l`: `scripts/app.js` quedó en
+400 líneas (desde 4.492 en `05f4322`) y `editor/editor.js` en 286 (desde 582).
+La app crea deps e instancia módulos en su orden previo; handlers, timers y
+estado movidos viven en factories con APIs explícitas. `features/generation/`
+contiene los flujos SSE skeleton/final en módulos de 292 y 288 líneas. Los
+bridges `window.*` se preservaron; `window.validateGenerateButton` sigue siendo
+wrapper, y `window.startFinalGeneration` sigue siendo la fachada histórica.
+
+Para el listado de módulos y tamaños, el detalle de cortes, los intentos
+revertidos y los gates verificados, consulta `docs/FRONTEND-INVENTORY.md` y
+`docs/HANDOFF.md`. `npm run verify:all` pasó en los commits aceptados y la
+estabilidad browser se verificó con diez ejecuciones seriales verdes, cada una
+con 13/13 sentinels. La estabilización visual fue solo en el test: preservar el
+foco de `#w-tema` del baseline y ocultar el cursor decorativo del hero; no se
+regeneraron baselines ni se alteró el producto.

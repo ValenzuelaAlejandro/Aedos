@@ -56,11 +56,13 @@ los commits finales; no se ha ejecutado push.
 | Orden | Rama | Hash de código verificado | Comando manual |
 |---:|---|---|---|
 | 33 | `refactor/fase-10a-app-bloques` | `dfa026778b9614b77a9fc66657911a8af56aef9b` | `git push -u origin refactor/fase-10a-app-bloques` |
-| 34 | `refactor/fase-10b-editor` | `ff46ad93e21bfd92535358a9fe2b271cd11ce9fb` (cierre documental posterior en la misma rama) | `git push -u origin refactor/fase-10b-editor` |
+| 34 | `refactor/fase-10b-editor` | `ba52e3f2e3144bd4100a0eaeccd636bb557fa09d` | `git push -u origin refactor/fase-10b-editor` |
 
 Las dos ramas son locales y continúan desde `c884fd8` por 10a→10b. Hashes de
 código: rama 10a primero y 10b después. El comando masivo listado arriba sigue
 siendo solo una receta; esta tarea no hizo push, no usó `--force` ni publicó
 tags. Antes de un push, resolver los tips documentales reales con
 `git rev-parse refactor/fase-10a-app-bloques` y
-`git rev-parse refactor/fase-10b-editor`.
+`git rev-parse refactor/fase-10b-editor`. La punta local actual de 10b incluye
+el cierre de extracciones y el ajuste del checkpoint test-only; no se hizo push,
+no se usó `--force` y no se publicaron tags.
