@@ -41,6 +41,10 @@ function normalizedXml(buffer) {
         .trim();
 }
 
+function escapeWorkflowCommand(value) {
+    return String(value).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+}
+
 try {
     run('verify-pptx-export.js', ['--skip-com', '--output-dir', inputDir]);
     run('create-export-baseline.js', [
@@ -111,6 +115,13 @@ try {
     if (JSON.stringify(actualManifest) !== JSON.stringify(expected))
         throw new Error('PPTX export manifest differs.');
     console.log(`PPTX baseline OK: ${expected.length} packages.`);
+} catch (error) {
+    if (process.env.GITHUB_ACTIONS === 'true') {
+        console.log(
+            `::error title=PPTX export baseline::${escapeWorkflowCommand(error.message || error)}`,
+        );
+    }
+    throw error;
 } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
 }
