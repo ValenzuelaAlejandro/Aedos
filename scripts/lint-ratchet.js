@@ -27,7 +27,7 @@ function summarize(report) {
     const byFile = {};
     for (const item of report) {
         const warnings = item.messages.filter((message) => message.severity === 1);
-        const file = path.relative(root, item.filePath);
+        const file = path.relative(root, item.filePath).split(path.sep).join('/');
         if (warnings.length) byFile[file] = warnings.length;
         for (const warning of warnings) {
             const rule = warning.ruleId || 'unclassified';
@@ -51,6 +51,9 @@ if (writeBaseline || !fs.existsSync(baselinePath)) {
 }
 
 const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+baseline.byFile = Object.fromEntries(
+    Object.entries(baseline.byFile).map(([file, count]) => [file.replace(/\\/g, '/'), count]),
+);
 const increasedRules = Object.keys({ ...baseline.byRule, ...summary.byRule })
     .filter((rule) => (summary.byRule[rule] || 0) > (baseline.byRule[rule] || 0));
 const increasedFiles = Object.keys({ ...baseline.byFile, ...summary.byFile })

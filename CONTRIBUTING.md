@@ -2,9 +2,10 @@
 
 ## Runtime
 
-Aedos requiere Node.js `>=22.8.0`: los scripts de prueba usan opciones del
-runner incorporadas a partir de esa versión. `.nvmrc` selecciona la línea 22;
-CI comprueba las líneas 22.x y 24.x.
+Aedos requiere Node.js `>=22.8.0`: las pruebas comparten estado entre archivos
+con `--experimental-test-isolation=none` (nombre usado por Node 22; Node 24 lo
+mantiene como alias). `.nvmrc` selecciona la línea 22; CI comprueba 22.x y 24.x
+y ejecuta una prueba de compatibilidad del flag antes de la suite.
 
 ## Verificaciones
 

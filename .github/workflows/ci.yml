@@ -24,6 +24,7 @@ jobs:
               run: |
                   node --version
                   node -e "const [major, minor] = process.versions.node.split('.').map(Number); if (major < 22 || (major === 22 && minor < 8)) throw new Error('Aedos requires Node.js >=22.8.0')"
+                  node --experimental-test-isolation=none --test --test-force-exit tests/contracts/stub-guard.test.js
             - uses: actions/cache@v4
               with:
                   path: puppeteer-cache
