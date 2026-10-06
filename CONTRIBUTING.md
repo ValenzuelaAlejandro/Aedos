@@ -1,5 +1,11 @@
 # Contribuir a Aedos
 
+## Runtime
+
+Aedos requiere Node.js `>=22.8.0`: los scripts de prueba usan opciones del
+runner incorporadas a partir de esa versión. `.nvmrc` selecciona la línea 22;
+CI comprueba las líneas 22.x y 24.x.
+
 ## Verificaciones
 
 - `npm run test:safe`: pruebas unitarias aisladas de Windows.

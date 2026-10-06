@@ -8,8 +8,9 @@ jobs:
     test:
         runs-on: ubuntu-latest
         strategy:
+            fail-fast: false
             matrix:
-                node: [20, 22]
+                node: ['22.x', '24.x']
         env:
             PUPPETEER_SKIP_DOWNLOAD: 'true'
             PUPPETEER_CACHE_DIR: ${{ github.workspace }}/puppeteer-cache
@@ -19,6 +20,10 @@ jobs:
               with:
                   node-version: ${{ matrix.node }}
                   cache: npm
+            - name: Verify Node.js runtime
+              run: |
+                  node --version
+                  node -e "const [major, minor] = process.versions.node.split('.').map(Number); if (major < 22 || (major === 22 && minor < 8)) throw new Error('Aedos requires Node.js >=22.8.0')"
             - uses: actions/cache@v4
               with:
                   path: puppeteer-cache

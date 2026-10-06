@@ -588,7 +588,7 @@ Al menos una de estas debe existir:
 
 ### Requisitos
 
-- Node.js `>= 20`
+- Node.js `>= 22.8.0`
 - Dependencias de `npm`
 - Una API key de Gemini o OpenRouter
 
