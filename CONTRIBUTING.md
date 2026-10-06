@@ -27,7 +27,8 @@ y ejecuta una prueba de compatibilidad del flag antes de la suite.
   este comando escribe `tests/baseline/exports/manifest.json`.
 - `npm run check:baseline:export`: genera los paquetes y el manifiesto en un
   directorio temporal y los compara con la baseline comprometida, sin escribir
-  en `tests/`.
+  en `tests/`. La comparación exacta de XML se ejecuta en Windows porque la
+  geometría medida por Chromium varía con las fuentes y la plataforma.
 
 Si un ratchet falla, revisa el reporte generado en `tmp/`, determina si el
 cambio es intencional y actualiza la baseline correspondiente sólo después de

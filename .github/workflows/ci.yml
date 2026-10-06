@@ -41,6 +41,25 @@ jobs:
                   NODE_ENV: test
                   GEMINI_API_KEY: ci-stub
                   AEDOS_TEST_STUB_PROVIDERS: '1'
-            - run: npm run check:baseline:export
             # Visual and PDF baselines are intentionally excluded: their fonts,
             # Chromium rendering, and generated output are Windows-specific here.
+
+    export-baseline:
+        runs-on: windows-latest
+        env:
+            PUPPETEER_SKIP_DOWNLOAD: 'true'
+            PUPPETEER_CACHE_DIR: ${{ github.workspace }}/puppeteer-cache
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '24.x'
+                  cache: npm
+            - uses: actions/cache@v4
+              with:
+                  path: puppeteer-cache
+                  key: ${{ runner.os }}-node-24.x-puppeteer-${{ hashFiles('package-lock.json') }}
+            - run: npm ci --ignore-scripts
+            # PPTX slide XML includes browser-measured geometry; compare against
+            # the committed baseline on Windows to keep fonts/layout consistent.
+            - run: npm run check:baseline:export
