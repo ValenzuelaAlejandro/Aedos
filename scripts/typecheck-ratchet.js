@@ -27,7 +27,7 @@ function summarize(diagnostics) {
     const byCode = {};
     for (const line of diagnostics) {
         const match = line.match(/^(.*)\(\d+,\d+\): error (TS\d+):/);
-        const file = match ? path.relative(root, match[1]) : 'unparsed';
+        const file = match ? path.relative(root, match[1]).split(path.sep).join('/') : 'unparsed';
         const code = match ? match[2] : 'unparsed';
         byFile[file] = (byFile[file] || 0) + 1;
         byCode[code] = (byCode[code] || 0) + 1;
@@ -44,6 +44,9 @@ if (writeBaseline || !fs.existsSync(baselinePath)) {
 }
 
 const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+baseline.byFile = Object.fromEntries(
+    Object.entries(baseline.byFile).map(([file, count]) => [file.replace(/\\/g, '/'), count]),
+);
 console.log(`Type-check errors: ${summary.totalErrors}`);
 console.log(`By category: ${JSON.stringify(summary.byCode)}`);
 const increasedFiles = Object.keys({ ...baseline.byFile, ...summary.byFile })
