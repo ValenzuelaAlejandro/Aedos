@@ -1,15 +1,15 @@
 {
-  "totalWarnings": 83,
+  "totalWarnings": 57,
   "byRule": {
-    "no-empty": 6,
-    "complexity": 17,
-    "max-lines-per-function": 17,
-    "max-lines": 7,
+    "no-empty": 2,
+    "complexity": 12,
+    "max-lines-per-function": 13,
+    "max-lines": 6,
     "no-unused-vars": 13,
-    "no-shadow": 7,
+    "no-shadow": 3,
     "eqeqeq": 1,
-    "prefer-const": 6,
-    "no-undef": 9
+    "prefer-const": 3,
+    "no-undef": 4
   },
   "byFile": {
     "scripts\\verify-pptx-export.js": 2,
@@ -29,17 +29,17 @@
     "src\\frontend\\features\\tools\\tools.js": 5,
     "src\\frontend\\mobile\\js\\app-mobile.js": 1,
     "src\\frontend\\mobile\\js\\bridge.js": 5,
-    "src\\frontend\\scripts\\app.js": 32,
+    "src\\frontend\\scripts\\app.js": 6,
     "tests\\pptx-export-advanced.test.js": 1
   },
   "topFiles": [
     [
-      "src\\frontend\\scripts\\app.js",
-      32
-    ],
-    [
       "src\\backend\\utils\\pptx-export.js",
       11
+    ],
+    [
+      "src\\frontend\\scripts\\app.js",
+      6
     ],
     [
       "src\\backend\\server.js",
