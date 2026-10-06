@@ -157,6 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileUploadInput = document.getElementById('file-upload-input');
     const attachmentPreviewContainer = document.getElementById('attachment-preview-container');
 
+    const runGenerateValidation = window.AedosChatValidation.createGenerateValidation({
+        window, generationState, btnGenerate, temaInput,
+        getAnimateHeroTitle: () => animateHeroTitle,
+    });
+
     window.AedosAttachments.createAttachments({
         btnAttachFile,
         fileUploadInput,
@@ -164,32 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         validateGenerateButton
     });
 
-    function validateGenerateButton() {
-        if (btnGenerate && btnGenerate.classList.contains('is-generating')) {
-            return;
-        }
-
-        const val = temaInput ? temaInput.value.trim() : '';
-        const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
-        const isActive = val.length >= 4 || hasFiles;
-
-        if (btnGenerate) {
-            btnGenerate.disabled = !isActive;
-        }
-
-        // Animate hero title dynamically based on active state and language
-        if (isActive) {
-            if (!generationState.heroCustomTextActive) {
-                generationState.heroCustomTextActive = true;
-                animateHeroTitle(window.__t('hero_active'));
-            }
-        } else {
-            if (generationState.heroCustomTextActive) {
-                generationState.heroCustomTextActive = false;
-                animateHeroTitle(window.__t('hero_line_1'));
-            }
-        }
-    }
+    function validateGenerateButton() { return runGenerateValidation(); }
     window.validateGenerateButton = validateGenerateButton;
     // ─────────────────────────────────────────────────────────────────────
 

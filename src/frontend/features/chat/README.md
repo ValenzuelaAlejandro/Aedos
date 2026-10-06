@@ -24,3 +24,6 @@ document-level point, outside the DOMContentLoaded callback.
 `loading-controller.js` owns the generate-button loading state, hero typewriter
 messages, and the existing control-disable behavior. The app creates it at the
 former initialization point and keeps the returned callbacks for generation.
+
+`generate-validation.js` owns send-button enablement and hero-title activation.
+`app.js` retains its hoisted `validateGenerateButton` compatibility wrapper.

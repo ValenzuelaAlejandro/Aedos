@@ -94,7 +94,7 @@ const specs = [
     {
         name: 'app-empty-validation',
         probe: 'validation',
-        file: '/scripts/app.js',
+        file: '/features/chat/generate-validation.js',
         edits: [['const isActive = val.length >= 4 || hasFiles;', 'const isActive = true;']],
         expected: { disabled: true },
     },
