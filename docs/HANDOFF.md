@@ -511,6 +511,25 @@ Comando de push solicitado (no ejecutado):
 git branch --format="%(refname:short)" --list "refactor/*" | ForEach-Object { git push -u origin $_ }
 ```
 
+## Integración local en main
+
+`main` avanzó en fast-forward desde `02cc2daba769b169afe417e87e6d2dbd8b224f20`
+hasta el último código/test verificado de 10b, sin merge commit. El primer
+`npm run verify:all` en esta plataforma detectó dos pins SHA-256 de sanitización
+que no describían sus snapshots existentes. Se comprobó que la salida del
+sanitizador era idéntica a cada `.output.html`; no era un cambio de sanitizer ni
+una diferencia de CRLF/LF. Se corrigieron solo los archivos `.sha256`:
+
+| Fixture | pin anterior incorrecto | SHA-256 de snapshot existente |
+|---|---|---|
+| `como-aprender-java-tu-guia-paso-a-paso` | `8182c8c4672c66f8ece9d765d038777b21fd7fd839a77cb328e14e68ebbe426c` | `a36fb94881569ce3b16fd3592e29cb4476dbda5fb4539fb64899e612a0c9f177` |
+| `como-emprender-un-negocio` | `afdd594129a4d8b36d22e88e0bd47eba06a948cea78bed025cf457fd82ef07d9` | `a413e792154724c1303ea5a647feb57a60bdb9f9bb1d1c5289d57d1b18c4b165` |
+
+La prueba aislada `npm run test:sanitization` pasó 16/16 después de corregir
+los pins. No se regeneró ningún HTML ni baseline visual, y no se cambió código
+de producto. El push sigue sin ejecutar: `main` local está adelantada respecto
+a `origin/main`; publicar requiere la decisión/acción del usuario.
+
 ## Cierre 10b: extracciones verticales (2026-10-05)
 
 Este cierre supersede los estados parciales descritos arriba. Rama actual
