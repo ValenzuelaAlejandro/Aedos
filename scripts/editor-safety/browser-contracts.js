@@ -69,9 +69,11 @@ async function runErrorScenario(runtime, name, status, withFile, checkpoint) {
 async function runValidation(runtime, checkpoint) {
     const page = await runtime.newPage();
     try {
+        await page.addStyleTag({ content: '.hero-cursor { visibility: hidden !important; }' });
         await checkpoint(page, 'flow-validation-empty-topic', async () => {
             assert.equal(await page.$eval('#btn-generate', (el) => el.disabled), true);
             assert.equal(await page.$eval('#w-tema', (el) => el.value), '');
+            assert.equal(await page.$eval('#w-tema', (el) => document.activeElement === el), true);
         });
     } finally {
         await page.close();
