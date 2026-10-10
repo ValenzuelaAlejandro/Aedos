@@ -386,7 +386,7 @@
     border: 1.5px solid rgba(255, 255, 255, 0.12);
     border-radius: 14px;
     color: #ffffff;
-    font-family: 'Space Grotesque', sans-serif;
+    font-family: var(--font-body);
     font-weight: 700;
     font-size: 0.88rem;
     cursor: pointer;

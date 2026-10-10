@@ -53,7 +53,61 @@
         });
     }
 
+    const noticeQueue = [];
+    let noticeOpen = false;
+    let noticeClosing = false;
+    let noticeBound = false;
+    let noticeReturnFocus = null;
+
+    function showNextNotice() {
+        if (noticeOpen || noticeClosing || noticeQueue.length === 0) return;
+        const container = document.getElementById('notice-modal');
+        if (!container) return;
+        const message = document.getElementById('notice-message');
+        if (!message) return;
+        noticeOpen = true;
+        if (!noticeReturnFocus) noticeReturnFocus = document.activeElement;
+        message.textContent = noticeQueue.shift();
+        container.classList.remove('hidden');
+        document.getElementById('notice-modal-ok')?.focus();
+    }
+
+    function dismissNotice() {
+        if (!noticeOpen) return;
+        noticeOpen = false;
+        noticeClosing = true;
+        const container = document.getElementById('notice-modal');
+        container?.classList.add('is-closing');
+        global.setTimeout(() => {
+            container?.classList.remove('is-closing');
+            container?.classList.add('hidden');
+            noticeClosing = false;
+            if (noticeQueue.length) showNextNotice();
+            else {
+                noticeReturnFocus?.focus?.();
+                noticeReturnFocus = null;
+            }
+        }, 190);
+    }
+
+    function showNotice(message) {
+        noticeQueue.push(String(message));
+        if (!noticeBound) {
+            const container = document.getElementById('notice-modal');
+            if (!container) return;
+            document.getElementById('notice-modal-close')?.addEventListener('click', dismissNotice);
+            document.getElementById('notice-modal-ok')?.addEventListener('click', dismissNotice);
+            container.querySelector('.app-modal-backdrop')?.addEventListener('click', dismissNotice);
+            container.addEventListener('keydown', event => {
+                if (event.key === 'Escape') dismissNotice();
+            });
+            noticeBound = true;
+        }
+        showNextNotice();
+    }
+
     global.AedosModals = global.AedosModals || {};
     global.AedosModals.createErrorModal = createErrorModal;
     global.AedosModals.createRefusedModalClose = createRefusedModalClose;
+    global.AedosModals.showNotice = showNotice;
 })(window);

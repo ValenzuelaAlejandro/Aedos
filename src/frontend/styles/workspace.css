@@ -325,6 +325,17 @@ html.theme-transitioning::view-transition-new(root) {
     gap: 10px;
     margin-top: 16px;
     justify-content: center;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 220ms ease, transform 220ms ease, visibility 0s linear;
+}
+
+.suggestion-pills-row.is-dismissed {
+    opacity: 0;
+    transform: translateY(-7px);
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 220ms ease, transform 220ms ease, visibility 0s linear 220ms;
 }
 
 .suggestion-pill {
@@ -409,7 +420,7 @@ html.theme-transitioning::view-transition-new(root) {
 }
 
 .drag-drop-text {
-    font-family: 'Plus Jakarta Sans', var(--font-body), sans-serif;
+    font-family: var(--font-display);
     font-size: 1.6rem;
     font-weight: 700;
     color: #ffffff;
@@ -440,6 +451,14 @@ html.theme-transitioning::view-transition-new(root) {
     filter: grayscale(100%);
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .suggestion-pills-row,
+    .suggestion-pills-row.is-dismissed {
+        transition: none;
+        transform: none;
+    }
+}
+
 #btn-attach-file:disabled {
     opacity: 0.3 !important;
     pointer-events: none !important;
@@ -460,13 +479,19 @@ html.theme-transitioning::view-transition-new(root) {
     align-items: flex-start !important;
     height: 100vh !important;
     max-height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
     overflow-y: auto !important;
+    scrollbar-gutter: stable both-edges;
     padding: 0 !important;
 }
 
 #chat-screen.chat-mode .chat-container {
     animation: none !important;
     transform: none !important;
+    /* Keep the fixed composer above the fade instead of trapping it in
+       the chat container's lower stacking context. */
+    z-index: auto !important;
     height: auto !important;
     min-height: auto !important;
     /* let content determine height, not the viewport */
@@ -476,9 +501,15 @@ html.theme-transitioning::view-transition-new(root) {
     margin: 0 auto !important;
     display: flex !important;
     flex-direction: column !important;
-    padding: 5.3rem 1rem 220px !important;
+    padding: 5.3rem 1rem calc(var(--chat-composer-clearance, 12rem) + 3rem) !important;
     gap: 1.5rem !important;
     box-sizing: border-box !important;
+}
+
+/* Give a fresh reply enough scroll room to appear below the top bar while
+   its thinking panel is active, even after a long previous outline. */
+#chat-screen.chat-mode .chat-container:has(.chat-thinking-panel.is-active) {
+    padding-bottom: max(12rem, calc(100dvh - 7rem)) !important;
 }
 
 #chat-screen.chat-mode #hero-zone {
@@ -499,7 +530,7 @@ html.theme-transitioning::view-transition-new(root) {
 /* Float a cozy, narrow, blurred bubble at the bottom center of the screen */
 #chat-screen.chat-mode .chat-input-wrapper {
     position: fixed !important;
-    bottom: 1.5rem !important;
+    bottom: calc(1.5rem + env(safe-area-inset-bottom)) !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: calc(100% - 2rem) !important;
@@ -548,6 +579,7 @@ html.theme-transitioning::view-transition-new(root) {
 /* ── Mobile: hide scrollbar (it clutters small screens) ── */
 @media (max-width: 850px) {
     #chat-screen.chat-mode {
+        scrollbar-gutter: auto;
         scrollbar-width: none !important;
         -ms-overflow-style: none !important;
     }
@@ -598,8 +630,8 @@ html.theme-transitioning::view-transition-new(root) {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 0.5rem !important;
-    padding: 0.75rem 0.25rem 1rem !important;
-    margin-bottom: 0.75rem !important;
+    padding: 0.75rem 0 0.35rem !important;
+    margin: 0 !important;
 }
 
 .suggested-chip {
@@ -661,15 +693,16 @@ html.theme-transitioning::view-transition-new(root) {
     color: #003e99 !important;
 }
 
-/* ── Bottom block: hides any text that scrolls below the floating input box ── */
+/* Fade chat content before it reaches the fixed composer, then fully cover
+   the area behind and below it. The clearance follows composer height. */
 #chat-screen.chat-mode::after {
     content: '' !important;
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    height: 1.5rem !important;
-    background: var(--bg) !important;
+    height: calc(var(--chat-composer-clearance, 12rem) + 2.5rem) !important;
+    background: linear-gradient(to bottom, transparent, var(--bg) 2.5rem, var(--bg)) !important;
     z-index: 999 !important;
     pointer-events: none !important;
 }

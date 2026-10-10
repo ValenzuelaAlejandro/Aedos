@@ -16,12 +16,21 @@
 function createChatInputController(deps) {
     const { temaInput, btnGenerate, temaError, document, window, validateGenerateButton, state } = deps;
     state.warmedUp = false;
+    const suggestionPills = document.getElementById('suggestion-pills-row');
+    const updateSuggestionPills = () => {
+        if (!suggestionPills) return;
+        const dismissed = temaInput.value.length > 0;
+        suggestionPills.classList.toggle('is-dismissed', dismissed);
+        suggestionPills.setAttribute('aria-hidden', String(dismissed));
+    };
+    updateSuggestionPills();
 
     temaInput.addEventListener('input', () => {
         const val = temaInput.value;
+        updateSuggestionPills();
 
         // Warm up the backend if not already done
-        if (!state.warmedUp && val.length > 0) {
+        if (!window.__AEDOS_CHAT_DESIGN_PREVIEW__ && !state.warmedUp && val.length > 0) {
             state.warmedUp = true;
             fetch('/health').catch(() => {
                 // Silently fail, allow retry on next input if it failed

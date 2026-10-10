@@ -32,7 +32,11 @@
             if (heroZone) heroZone.classList.remove('fade-out');
 
             const pills = document.getElementById('suggestion-pills-row');
-            if (pills) { pills.style.transition = ''; pills.style.opacity = '1'; pills.style.pointerEvents = 'auto'; }
+            if (pills) {
+                pills.style.transition = '';
+                pills.style.opacity = '';
+                pills.style.pointerEvents = '';
+            }
             const microcopy = document.querySelector('.app-microcopy');
             if (microcopy) { microcopy.style.transition = ''; microcopy.style.opacity = '1'; }
             const counter = document.querySelector('.chat-counter-row');
@@ -40,6 +44,9 @@
 
             const convZone = document.getElementById('conversation-zone');
             if (convZone) {
+                if (window.AedosThinking) {
+                    convZone.querySelectorAll('.chat-msg-ai .chat-ai-body').forEach(body => window.AedosThinking.hide(body));
+                }
                 convZone.classList.add('hidden');
                 convZone.classList.remove('visible');
 
@@ -76,7 +83,7 @@
                 const firstAiResponse = document.getElementById('chat-ai-response');
                 if (firstAiResponse) {
                     // Restore default classes
-                    firstAiResponse.className = 'chat-msg chat-msg-ai';
+                    firstAiResponse.className = 'chat-msg chat-msg-ai chat-outline-response';
 
                     // Clean up any proceed, cancelled or error elements
                     firstAiResponse.querySelectorAll('.chat-proceed-message, .chat-cancelled-message, .chat-error-message').forEach(el => el.remove());
@@ -126,7 +133,24 @@
             }
 
             const temaInput = document.getElementById('w-tema');
-            if (temaInput) temaInput.value = '';
+            if (temaInput) {
+                temaInput.value = '';
+                temaInput.style.height = '';
+                temaInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            const composerLabel = document.querySelector('label[for="w-tema"]');
+            if (temaInput) {
+                temaInput.setAttribute('data-i18n-placeholder', 'chat_placeholder');
+                temaInput.placeholder = global.__t ? global.__t('chat_placeholder', 'Describe your presentation…') : 'Describe your presentation…';
+            }
+            if (composerLabel) {
+                composerLabel.setAttribute('data-i18n', 'chat_placeholder');
+                composerLabel.textContent = temaInput?.placeholder || 'Describe your presentation…';
+            }
+            if (pills) {
+                pills.classList.remove('is-dismissed');
+                pills.setAttribute('aria-hidden', 'false');
+            }
 
             // Reset hero custom state and title text upon returning home
             generationState.heroCustomTextActive = false;

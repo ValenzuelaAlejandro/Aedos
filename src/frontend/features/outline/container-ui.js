@@ -147,19 +147,33 @@
         const container = dependencies.document.createElement('div');
         container.className = 'outline-container-local hidden';
         container.innerHTML = `
+        <div class="outline-review-heading">
+            <div class="outline-review-copy">
+                <h3 data-i18n="outline_review_title"></h3>
+                <p data-i18n="outline_review_hint"></p>
+            </div>
+        </div>
         <div class="seamless-outline-list" data-outline-slides></div>
         <div class="outline-suggested-chips" data-outline-chips></div>
         <div class="outline-bubble-footer">
             <button type="button" class="outline-btn-ghost" data-outline-add-slide>
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Add Section
+                <span data-i18n="add_slide"></span>
             </button>
             <button type="button" class="outline-generate-btn" data-outline-generate>
-                <span class="outline-generate-text" data-i18n="generate_outline_slides">Create Presentation</span>
+                <span class="outline-generate-text" data-i18n="generate_outline_slides"></span>
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
         </div>
     `;
+
+        const translate = dependencies.translate;
+        if (translate) {
+            container.querySelector('[data-i18n="outline_review_title"]').textContent = translate('outline_review_title', 'Review your outline');
+            container.querySelector('[data-i18n="outline_review_hint"]').textContent = translate('outline_review_hint', 'Edit titles and key points here, or ask for changes in the chat below.');
+            container.querySelector('[data-i18n="add_slide"]').textContent = translate('add_slide', 'Add slide');
+            container.querySelector('[data-i18n="generate_outline_slides"]').textContent = translate('generate_outline_slides', 'Generate presentation');
+        }
 
         bindOutlineBubbleActions(dependencies, container);
         return container;

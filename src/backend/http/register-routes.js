@@ -9,7 +9,7 @@ const { registerDownloadRoute } = require('./routes/download');
  * @returns {void}
  */
 function registerBackendRoutes(deps) {
-    registerEntryRoutes({ app: deps.app, tmpDir: deps.TMP_DIR });
+    registerEntryRoutes({ app: deps.app, tmpDir: deps.TMP_DIR, isDevelopment: deps.IS_DEVELOPMENT });
 
     registerGenerationRoutes({
         app: deps.app,

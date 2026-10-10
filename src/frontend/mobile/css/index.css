@@ -502,10 +502,6 @@
         overflow: visible !important;
     }
 
-    #btn-debug-last-generated {
-        display: none !important;
-    }
-
     .btn-mode-toggle {
         grid-column: 1 !important;
         position: relative !important;
@@ -518,7 +514,7 @@
     }
 
     .btn-mode-label {
-        font-family: 'Space Grotesque', sans-serif !important;
+        font-family: var(--font-body) !important;
         font-weight: 700 !important;
         font-size: 0.85rem !important;
         white-space: nowrap !important;

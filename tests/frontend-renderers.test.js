@@ -268,11 +268,12 @@ test('app tooltips preserve delegated listener order and viewport placement', ()
     assert.equal(classes.has('visible'), false);
 });
 
-test('debug canvas factory keeps localhost gating, endpoint order, and button behavior', async () => {
+test('debug canvas button is available on localhost before the first generation', async () => {
     const buttonListeners = [];
     const calls = [];
     const button = {
         addEventListener: (...args) => buttonListeners.push(args),
+        setAttribute: (...args) => calls.push(['setAttribute', ...args]),
     };
     const attachButton = {
         parentElement: { insertBefore: (...args) => calls.push(['insertBefore', ...args]) },
@@ -283,16 +284,15 @@ test('debug canvas factory keeps localhost gating, endpoint order, and button be
         createElement: () => button,
         getElementById: id => id === 'btn-attach-file' ? attachButton : null,
     };
-    const sandbox = { window, document };
+    const sandbox = { window, document, URLSearchParams };
     vm.runInNewContext(fs.readFileSync(debugCanvasPath, 'utf8'), sandbox, { filename: debugCanvasPath });
     const factory = sandbox.AedosPreview.createDebugCanvas({
         window,
         document,
-        fetch: async (...args) => {
+        fetch: async function (...args) {
+            assert.equal(this, window);
             calls.push(['fetch', ...args]);
-            return calls.filter(([kind]) => kind === 'fetch').length === 1
-                ? { ok: true }
-                : { ok: true, text: async () => '<title>Example</title>' };
+            return { ok: true, text: async () => '<title>Example</title>' };
         },
         previewContainer: null,
         chatScreen: null,
@@ -306,13 +306,12 @@ test('debug canvas factory keeps localhost gating, endpoint order, and button be
 
     await factory.initialize();
     const fetchCalls = () => calls.filter(([kind]) => kind === 'fetch');
-    assert.equal(fetchCalls()[0][2].method, 'HEAD');
-    assert.equal(fetchCalls()[0][2].cache, 'no-store');
+    assert.equal(fetchCalls().length, 0);
     assert.equal(button.id, 'btn-debug-last-generated');
     assert.equal(buttonListeners[0][0], 'click');
     await buttonListeners[0][1]();
-    assert.equal(fetchCalls()[1][2].method, undefined);
-    assert.equal(fetchCalls()[1][2].cache, 'no-store');
+    assert.equal(fetchCalls()[0][2].method, undefined);
+    assert.equal(fetchCalls()[0][2].cache, 'no-store');
     assert.deepEqual(calls.find(([kind]) => kind === 'openPreview'), ['openPreview', '<title>Example</title>', 'Example']);
 });
 

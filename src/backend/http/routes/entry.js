@@ -4,10 +4,10 @@ const path = require('path');
 /**
  * Register health, root and development inspection endpoints.
  *
- * @param {{app: any, tmpDir: string}} deps
+ * @param {{app: any, tmpDir: string, isDevelopment: boolean}} deps
  * @returns {void}
  */
-function registerEntryRoutes({ app, tmpDir }) {
+function registerEntryRoutes({ app, tmpDir, isDevelopment }) {
     app.get('/health', (req, res) => {
         res.status(200).send('OK');
     });
@@ -24,6 +24,13 @@ function registerEntryRoutes({ app, tmpDir }) {
         res.set('Surrogate-Control', 'no-store');
         res.sendFile(path.join(__dirname, '..', '..', '..', 'frontend', 'index.html'));
     });
+
+    if (isDevelopment) {
+        app.get('/__dev__/chat-design-preview', (req, res) => {
+            res.set('Cache-Control', 'no-store');
+            res.json({ enabled: true });
+        });
+    }
 
     if ((process.env.NODE_ENV || 'development') !== 'production') {
         app.get('/__dev__/last-generated', (req, res) => {

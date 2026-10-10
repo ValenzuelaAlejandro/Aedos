@@ -12,6 +12,19 @@
 
     /** Register the current PDF/PPTX flow and download listener in place. @param {ExportActionDependencies} deps */
     function createExportActions({ finalizeBtn, errorMessage, previewState, generationState, showErrorModal }) {
+        const progressModal = document.getElementById('export-progress-modal');
+        const progressText = document.getElementById('export-progress-format');
+        const donationModal = document.getElementById('donation-modal');
+        const closeDonationModal = () => {
+            donationModal?.classList.add('hidden');
+            document.getElementById('export-menu-trigger')?.focus();
+        };
+        document.getElementById('donation-modal-close')?.addEventListener('click', closeDonationModal);
+        document.getElementById('donation-dismiss')?.addEventListener('click', closeDonationModal);
+        donationModal?.querySelector('.app-modal-backdrop')?.addEventListener('click', closeDonationModal);
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !donationModal?.classList.contains('hidden')) closeDonationModal();
+        });
         // =========================================================
         // 9. FINALIZE — Download PDF or editable PowerPoint
         // =========================================================
@@ -21,15 +34,8 @@
             generationState.requestedExportFormat = 'pdf';
             finalizeBtn.disabled = true;
             finalizeBtn.classList.add('loading');
-    
-            const progressFill = finalizeBtn.querySelector('.btn-progress-fill');
-            if (progressFill) progressFill.style.width = '0%';
-    
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += (90 - progress) * 0.1;
-                if (progressFill) progressFill.style.width = `${progress}%`;
-            }, 300);
+            if (progressText) progressText.textContent = window.__t(exportFormat === 'pptx' ? 'export_pptx_progress' : 'export_pdf_progress');
+            progressModal?.classList.remove('hidden');
     
             try {
                 const finalHtml = window.AedosExportSnapshot.createHtml(previewState.previewIframe);
@@ -44,14 +50,15 @@
     
                 const downloadUrl = exportFormat === 'pptx' ? data.pptxUrl : data.pdfUrl;
                 if (response.ok && downloadUrl) {
-                    if (progressFill) progressFill.style.width = '100%';
-    
                     const link = document.createElement('a');
                     link.href = downloadUrl;
                     link.setAttribute('download', '');
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
+                    progressModal?.classList.add('hidden');
+                    donationModal?.classList.remove('hidden');
+                    document.getElementById('donation-dismiss')?.focus();
                 } else {
                     throw new Error(data.error || 'Error generating PDF');
                 }
@@ -68,12 +75,9 @@
                 // Dismiss just closes the modal — the user stays in the editor
                 showErrorModal(null);
             } finally {
-                clearInterval(progressInterval);
-                setTimeout(() => {
-                    finalizeBtn.disabled = false;
-                    finalizeBtn.classList.remove('loading');
-                    if (progressFill) progressFill.style.width = '0%';
-                }, 500);
+                progressModal?.classList.add('hidden');
+                finalizeBtn.disabled = false;
+                finalizeBtn.classList.remove('loading');
             }
         });
     }

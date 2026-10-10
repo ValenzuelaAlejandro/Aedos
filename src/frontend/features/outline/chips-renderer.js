@@ -2,26 +2,27 @@
     'use strict';
 
     /** @typedef {{ text: string, prompt?: string, primary?: boolean, action?: string }} SuggestedChip */
-    /** @typedef {{ translate: (key: string, fallback: string) => string }} ChipDependencies */
+    /** @typedef {{ translate: (key: string, fallback: string) => string, submitPrompt: (chip: SuggestedChip) => void, proceed: () => void }} ChipDependencies */
 
     /**
      * @param {{ slides?: unknown[], language?: string, suggested_chips?: string[] }} skeletonData
      * @param {ChipDependencies['translate']} translate
+     * @param {boolean} hasGenerateButton
      * @returns {SuggestedChip[]}
      */
-    function createSuggestedChips(skeletonData, translate) {
+    function createSuggestedChips(skeletonData, translate, hasGenerateButton) {
         const isEnglish = (skeletonData.language || 'es').toLowerCase().startsWith('en');
+        const generateChip = hasGenerateButton ? [] : [{
+            text: translate('chip_fallback_generate_text', isEnglish ? 'Looks good! Create presentation' : 'Todo listo! Crear presentación'),
+            primary: true,
+            action: 'generate',
+        }];
+
         if (Array.isArray(skeletonData.suggested_chips) && skeletonData.suggested_chips.length > 0) {
-            const chips = skeletonData.suggested_chips.slice(0, 2).map((chipText) => ({
+            return [...skeletonData.suggested_chips.slice(0, 2).map((chipText) => ({
                 text: chipText,
                 prompt: chipText,
-            }));
-            chips.push({
-                text: translate('chip_fallback_generate_text', isEnglish ? 'Looks good! Create presentation' : 'Todo listo! Crear presentación'),
-                primary: true,
-                action: 'generate',
-            });
-            return chips;
+            })), ...generateChip];
         }
 
         return [
@@ -33,11 +34,7 @@
                 text: translate('chip_fallback_explain_text', 'Explicar con más detalle'),
                 prompt: translate('chip_fallback_explain_prompt', 'Haz que los puntos clave de las diapositivas sean más detallados, informativos y descriptivos'),
             },
-            {
-                text: translate('chip_fallback_generate_text', 'Todo listo! Crear presentación'),
-                primary: true,
-                action: 'generate',
-            },
+            ...generateChip,
         ];
     }
 
@@ -71,7 +68,8 @@
 
         if (!skeletonData || !Array.isArray(skeletonData.slides) || skeletonData.slides.length === 0) return;
 
-        const suggestedChips = createSuggestedChips(skeletonData, dependencies.translate);
+        const hasGenerateButton = Boolean(chipsContainer.parentElement?.querySelector('.outline-generate-btn, [data-outline-generate]'));
+        const suggestedChips = createSuggestedChips(skeletonData, dependencies.translate, hasGenerateButton);
         const timeout = global.setTimeout(() => {
             if (!global.document.body.contains(chipsContainer)) return;
             chipsContainer.innerHTML = '';

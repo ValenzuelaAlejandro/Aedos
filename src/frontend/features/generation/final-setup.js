@@ -140,8 +140,8 @@
             if (_aiBody && window.AedosThinking) {
                 window.AedosThinking.show(_aiBody, {
                     label: generationState.proModeEnabled
-                        ? (window.__t ? window.__t('chat_proceeding_1', 'Analyzing request…') : 'Analyzing request…')
-                        : (window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…'),
+                        ? (window.__t ? window.__t('chat_stage_analyze', 'Analyzing your request…') : 'Analyzing your request…')
+                        : (window.__t ? window.__t('chat_stage_compose', 'Building your slides…') : 'Building your slides…'),
                     stage: generationState.proModeEnabled ? 'stage1' : 'flash'
                 });
             }

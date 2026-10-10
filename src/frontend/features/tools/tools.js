@@ -777,7 +777,7 @@ function initTools(iframe) {
         if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         const slide = getActiveSlide();
         const text = iframeDoc.createElement('h2');
-        text.textContent = 'Nuevo Texto';
+        text.textContent = window.__t ? window.__t('new_text_element', 'New Text') : 'New Text';
         text.style.position = 'absolute';
         text.style.left = '50%';
         text.style.top = '50%';

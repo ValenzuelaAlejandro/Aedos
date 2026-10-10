@@ -9,32 +9,34 @@
 
 .chat-thinking-panel {
     /* Theme-aware tokens (fall back to the page tokens / dark defaults) */
-    --tp-surface: #121212;
-    --tp-surface-2: #121212;
-    --tp-border: transparent;
-    --tp-border-soft: transparent;
+    --tp-surface: rgba(17, 17, 17, 0.68);
+    --tp-surface-2: rgba(8, 8, 8, 0.34);
+    --tp-border: color-mix(in srgb, var(--text, #ededed) 14%, transparent);
+    --tp-border-soft: color-mix(in srgb, var(--text, #ededed) 9%, transparent);
     --tp-text: var(--text, #ededed);
     --tp-muted: var(--muted, #9a9a9a);
     --tp-faint: rgba(255, 255, 255, 0.55);
-    --tp-accent: #e0e0e0;
+    --tp-accent: var(--accent, #e0e0e0);
     --tp-radius: 0;
     --tp-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Fira Code', Menlo, Consolas, monospace;
 
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: 600px;
+    max-width: 680px;
     margin: 0.5rem 0;
     padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--tp-radius);
+    border: 1px solid var(--tp-border);
+    border-radius: 15px;
     background: var(--tp-surface);
+    backdrop-filter: blur(24px) saturate(1.35);
+    -webkit-backdrop-filter: blur(24px) saturate(1.35);
     color: var(--tp-text);
-    font-family: var(--tp-mono);
+    font-family: var(--font-body, sans-serif);
     overflow: hidden;
     position: relative;
-    box-shadow: none;
-    animation: thinking-panel-rise 0.32s cubic-bezier(0.4, 0, 0.2, 1) both;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    animation: thinking-panel-rise 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
     /* Align panel to the left */
     align-self: flex-start;
 }
@@ -65,9 +67,9 @@
 .chat-thinking-header {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.7rem;
     width: 100%;
-    padding: 0.6rem 0.95rem;
+    padding: 0.78rem 1rem;
     background: transparent;
     border: none;
     color: var(--tp-text);
@@ -80,13 +82,13 @@
 }
 
 .chat-thinking-header:hover {
-    background: rgba(255, 255, 255, 0.025);
+    background: color-mix(in srgb, var(--tp-text) 5%, transparent);
 }
 
 .chat-thinking-header:focus-visible {
-    outline: 1.5px solid var(--tp-accent);
+    outline: 2px solid var(--tp-accent);
     outline-offset: -2px;
-    border-radius: var(--tp-radius);
+    border-radius: 12px;
 }
 
 /* "Live" affordance: a small dot + the status word. Replaces the generic
@@ -130,10 +132,10 @@
 }
 
 .chat-thinking-status-text {
-    font-family: var(--tp-mono);
-    font-size: 0.7rem;
+    font-family: var(--font-body, sans-serif);
+    font-size: 0.62rem;
     font-weight: 600;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--tp-muted);
     line-height: 1;
@@ -155,22 +157,22 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--tp-text);
-    font-size: 0.8rem;
-    font-weight: 400;
-    letter-spacing: -0.005em;
+    font-size: 0.9rem;
+    font-weight: 550;
+    letter-spacing: -0.01em;
 }
 
 .chat-thinking-panel.is-collapsed .chat-thinking-label {
     color: var(--tp-muted);
     font-weight: 400;
-    font-family: var(--tp-mono);
-    font-size: 0.8rem;
+    font-family: var(--font-body, sans-serif);
+    font-size: 0.82rem;
     letter-spacing: 0;
 }
 
 .chat-thinking-timer {
     font-variant-numeric: tabular-nums;
-    font-size: 0.72rem;
+    font-size: 0.76rem;
     color: var(--tp-muted);
     flex-shrink: 0;
     min-width: 30px;
@@ -204,8 +206,8 @@
 .chat-thinking-body {
     max-height: 320px;
     overflow-y: auto;
-    padding: 0.55rem 0.95rem 0.95rem;
-    border-top: none;
+    padding: 0.8rem 1rem 1rem;
+    border-top: 1px solid var(--tp-border-soft);
     background: var(--tp-surface-2);
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.10) transparent;
@@ -225,10 +227,10 @@
 }
 
 .chat-thinking-content {
-    color: rgba(255, 255, 255, 0.85);
-    font-family: var(--tp-mono);
-    font-size: 0.78rem;
-    line-height: 1.7;
+    color: var(--tp-text);
+    font-family: var(--font-body, sans-serif);
+    font-size: 0.84rem;
+    line-height: 1.65;
     white-space: pre-wrap;
     word-wrap: break-word;
     position: relative;
@@ -295,57 +297,28 @@
 }
 
 @media (max-width: 640px) {
-    .chat-thinking-panel {
-        --tp-radius: 12px;
-    }
-    .chat-thinking-body { max-height: 220px; }
-    .chat-thinking-header { padding: 0.55rem 0.8rem; }
-    .chat-thinking-body { padding: 0.5rem 0.8rem 0.8rem; }
-    .chat-thinking-status-text { font-size: 0.66rem; }
+    .chat-thinking-panel { border-radius: 13px; }
+    .chat-thinking-body { max-height: 220px; padding: 0.7rem 0.85rem 0.85rem; }
+    .chat-thinking-header { padding: 0.72rem 0.85rem; }
+    .chat-thinking-status-text { font-size: 0.6rem; }
 }
 
-/* -----------------------------------------------------------------------
-   Chat-mode alignment with the text input box
-   -----------------------------------------------------------------------
-   In chat mode, the text input is fixed at:
-     left: 50%; transform: translateX(-50%);
-     width: calc(100% - 2rem); max-width: 728px;
-   So its left edge sits at max(1rem, calc(50vw - 364px)).
-
-   The panel is a flex item inside .chat-ai-body, which lives inside
-   .chat-container (max-width: 800px, margin: 0 auto). So the body's
-   left edge sits at:
-     - For viewport >= 800px: (50vw - 400px) + 30px (avatar) + 12px (gap)
-                            = 50vw - 358px
-     - For viewport <  800px: 42px (container is full-width)
-
-   We shift the panel with a margin-left so its left edge matches the
-   text input's left edge at every viewport size. */
+/* Each panel lives inside its own message and shares its alignment. */
 #chat-screen.chat-mode .chat-thinking-panel {
-    /* Narrow viewports: container is full-width, so account for the
-       42px avatar offset. */
-    margin-left: max(calc(1rem - 42px), calc(50vw - 406px));
-}
-
-@media (min-width: 800px) {
-    /* Wide viewports: container is capped at 800px and centered, so
-       the panel just needs a small -6px nudge to line up with the
-       text input (which is centered on the viewport, not the container). */
-    #chat-screen.chat-mode .chat-thinking-panel {
-        margin-left: -6px;
-    }
+    margin-left: 0;
+    max-width: none;
 }
 
 :root[data-theme="light"] .chat-thinking-panel {
-    --tp-surface: #f5f5f5;
-    --tp-surface-2: #f5f5f5;
-    --tp-border: transparent;
-    --tp-border-soft: transparent;
+    --tp-surface: rgba(255, 255, 255, 0.72);
+    --tp-surface-2: rgba(255, 255, 255, 0.46);
+    --tp-border: rgba(17, 24, 39, 0.11);
+    --tp-border-soft: rgba(17, 24, 39, 0.08);
     --tp-text: #111827;
     --tp-muted: #6B7280;
     --tp-faint: rgba(17, 24, 39, 0.55);
-    --tp-accent: #333333;
-    box-shadow: none;
+    --tp-accent: #111827;
+    box-shadow: 0 14px 36px rgba(23, 31, 45, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 :root[data-theme="light"] .chat-thinking-content {
@@ -358,5 +331,5 @@
 }
 
 :root[data-theme="light"] .chat-thinking-header:hover {
-    background: rgba(15, 23, 42, 0.025);
+    background: rgba(15, 23, 42, 0.04);
 }

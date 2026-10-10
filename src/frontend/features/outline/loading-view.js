@@ -49,7 +49,11 @@
     function capturePromptAndFiles(window) {
         const inputEl = document.getElementById('w-tema');
         const promptText = inputEl?.value?.trim() || '';
-        if (inputEl) inputEl.value = '';
+        if (inputEl) {
+            inputEl.value = '';
+            inputEl.style.height = '';
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
 
         const capturedFiles = (window._attachedFiles && window._attachedFiles.length > 0)
             ? window._attachedFiles.slice()
@@ -65,7 +69,7 @@
         return { promptText, capturedFiles };
     }
 
-    function transitionHomeToChat() {
+    function transitionHomeToChat(window) {
         const chatScreen = document.getElementById('chat-screen');
         if (chatScreen) chatScreen.classList.add('chat-mode');
         const heroZone = document.getElementById('hero-zone');
@@ -77,6 +81,17 @@
         if (microcopy) { microcopy.style.transition = 'opacity 0.3s'; microcopy.style.opacity = '0'; }
         const counter = document.querySelector('.chat-counter-row');
         if (counter) { counter.style.transition = 'opacity 0.3s'; counter.style.opacity = '0'; }
+        const composer = document.getElementById('w-tema');
+        const composerLabel = document.querySelector('label[for="w-tema"]');
+        const placeholder = window.__t ? window.__t('outline_chat_placeholder', 'Ask for changes to this outline…') : 'Ask for changes to this outline…';
+        if (composer) {
+            composer.setAttribute('data-i18n-placeholder', 'outline_chat_placeholder');
+            composer.placeholder = placeholder;
+        }
+        if (composerLabel) {
+            composerLabel.setAttribute('data-i18n', 'outline_chat_placeholder');
+            composerLabel.textContent = placeholder;
+        }
     }
 
     function prepareLoadingState(dependencies, window) {
@@ -85,7 +100,7 @@
         if (!isFollowUp) clearFreshOutline(dependencies, window);
         setLoadingControls();
         const { promptText, capturedFiles } = capturePromptAndFiles(window);
-        transitionHomeToChat();
+        transitionHomeToChat(window);
         return { promptText, capturedFiles };
     }
 
@@ -115,7 +130,7 @@
 
                     // Append new AI message bubble with active loader
                     const aiBubble = document.createElement('div');
-                    aiBubble.className = 'chat-msg chat-msg-ai';
+                    aiBubble.className = 'chat-msg chat-msg-ai chat-outline-response';
                     aiBubble.innerHTML = `
                         <div class="chat-ai-avatar">
                             <svg viewBox="0 0 1254 1254" width="20" height="20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -138,15 +153,13 @@
                         window.gsap.fromTo(aiBubble, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', delay: 0.1 });
                     }
 
-                    // Attach the new Claude-style thinking panel right away so the
-                    // user sees the elapsed-time counter from the very first
-                    // millisecond. Reasoning tokens arriving later will auto-expand
-                    // it.
+                    // Attach the compact progress panel right away so the user
+                    // sees the current generation stage from the start.
                     if (window.AedosThinking) {
                         const aiBody = aiBubble.querySelector('.chat-ai-body');
                         if (aiBody) {
                             window.AedosThinking.show(aiBody, {
-                                label: window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…',
+                                label: window.__t ? window.__t('chat_stage_analyze', 'Analyzing your request…') : 'Analyzing your request…',
                                 stage: 'stage1'
                             });
                         }

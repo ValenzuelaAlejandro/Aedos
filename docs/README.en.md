@@ -144,6 +144,7 @@ Current routing works like this:
 
 - `Gemini` is the primary provider when `GEMINI_API_KEY` exists.
 - `OpenRouter` is an automatic fallback when Gemini fails or is unavailable.
+- The default OpenRouter fallback is `anthropic/claude-haiku-5.5` for Flash and all three Pro stages; direct Gemini keeps its configured models.
 - Flash, Stage 1, Stage 2, and Stage 3 may each use different model lists.
 - Some OpenRouter models can be marked as Stage-3-only through `OPENROUTER_MODELS_STAGE3_ONLY`.
 

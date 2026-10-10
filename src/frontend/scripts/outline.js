@@ -1,4 +1,6 @@
 // Outline Editor Logic
+// Manual additions stop at eight even when Flash generation allows a larger outline.
+const MAX_USER_ADDED_OUTLINE_SLIDES = 8;
 
 /**
  * Returns the innerHTML for a .chat-bubble-file-chip span.
@@ -13,7 +15,7 @@ const outlineContainerUi = window.AedosOutlineContainerUi.createOutlineContainer
     getState: () => window.outlineEditorState,
     addBlankSlide: () => addBlankSlide(),
     translate: (key, fallback) => window.__t ? window.__t(key, fallback) : fallback,
-    alert: message => window.alert(message),
+    alert: message => window.AedosModals.showNotice(message),
     startFinalGeneration: skeleton => {
         if (window.startFinalGeneration) window.startFinalGeneration(skeleton);
     }
@@ -129,6 +131,7 @@ function bindOutlineEvents() {
     window.AedosOutlineEditorBindings.bindOutlineEditorEvents({
         getSlides: () => window.outlineEditorState.skeleton.slides,
         renderSlides: renderOutlineSlides,
+        deleteSlide,
         updateSlideCount: updateOutlineSlideCount,
     });
 }
@@ -142,9 +145,11 @@ function updateOutlineSlideCount() {
 
     const addSlideBtn = getOutlineDom().addSlideButton;
     if (addSlideBtn) {
-        if (slides.length >= window.outlineEditorState.maxSlides) {
+        if (slides.length >= getOutlineAddSlideLimit()) {
             addSlideBtn.disabled = true;
-            addSlideBtn.title = `Maximum limit of ${window.outlineEditorState.maxSlides} slides reached.`;
+            addSlideBtn.title = window.__t
+                ? window.__t('outline_add_slide_limit_reached', 'Maximum of 8 slides reached.')
+                : 'Maximum of 8 slides reached.';
         } else {
             addSlideBtn.disabled = false;
             addSlideBtn.title = '';
@@ -152,10 +157,17 @@ function updateOutlineSlideCount() {
     }
 }
 
+function getOutlineAddSlideLimit() {
+    const generationLimit = window.outlineEditorState.maxSlides;
+    return Number.isFinite(generationLimit)
+        ? Math.min(generationLimit, MAX_USER_ADDED_OUTLINE_SLIDES)
+        : MAX_USER_ADDED_OUTLINE_SLIDES;
+}
+
 function getSlideCommandDependencies() {
     return {
         getSlides: () => window.outlineEditorState.skeleton.slides,
-        getMaxSlides: () => window.outlineEditorState.maxSlides,
+        getMaxSlides: getOutlineAddSlideLimit,
         renderSlides: renderOutlineSlides
     };
 }

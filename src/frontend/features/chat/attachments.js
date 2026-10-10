@@ -41,20 +41,20 @@ function createAttachments(deps) {
             const ext = f.name.includes('.') ? f.name.substring(f.name.lastIndexOf('.')).toLowerCase() : '';
             if (!allowedExtensions.includes(ext)) {
                 const msg = window.__t('invalid_file_format', 'Invalid file format. Only PDF, Office Word, and images are allowed.');
-                alert(msg);
+                window.AedosModals.showNotice(msg);
                 continue;
             }
 
             if (f.size > 10 * 1024 * 1024) {
                 const msg = window.__t('file_too_large', 'The file "{name}" is too large. Maximum size is 10MB.').replace('{name}', f.name);
-                alert(msg);
+                window.AedosModals.showNotice(msg);
                 continue;
             }
             validFiles.push(f);
         }
 
         if (window._attachedFiles.length + validFiles.length > 3) {
-            alert(window.__t('max_files_reached', 'You can upload a maximum of 3 files per presentation.'));
+            window.AedosModals.showNotice(window.__t('max_files_reached', 'You can upload a maximum of 3 files per presentation.'));
             validFiles.splice(3 - window._attachedFiles.length);
         }
 

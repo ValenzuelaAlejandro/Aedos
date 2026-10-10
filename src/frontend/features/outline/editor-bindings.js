@@ -146,6 +146,16 @@
         });
     }
 
+    function bindSlideDeleteButtons(dependencies) {
+        global.document.querySelectorAll('.seamless-slide-delete').forEach((button) => {
+            button.addEventListener('click', () => {
+                const index = global.parseInt(button.dataset.index, 10);
+                if (dependencies.getSlides().length <= 1) return;
+                dependencies.deleteSlide(index);
+            });
+        });
+    }
+
     function bindSlideColorPickers(dependencies) {
         global.document.querySelectorAll('.outline-slide-color-picker').forEach((picker) => {
             picker.addEventListener('input', (event) => {
@@ -167,6 +177,7 @@
         bindSlideTypeDropdowns();
         bindPointFields(dependencies);
         bindPointDeleteButtons(dependencies);
+        bindSlideDeleteButtons(dependencies);
         bindSlideColorPickers(dependencies);
         dependencies.updateSlideCount();
     }

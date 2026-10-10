@@ -43,9 +43,9 @@
 .app-modal-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    background: rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     animation: modalBackdropIn 0.22s ease forwards;
 }
 
@@ -62,13 +62,20 @@
 .app-modal-card {
     position: relative;
     z-index: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 2.5rem 2.5rem 2rem;
-    max-width: 460px;
+    background:
+        linear-gradient(145deg, color-mix(in srgb, var(--text) 7%, transparent), transparent 48%),
+        color-mix(in srgb, var(--surface) 78%, transparent);
+    backdrop-filter: blur(30px) saturate(1.45);
+    -webkit-backdrop-filter: blur(30px) saturate(1.45);
+    border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+    border-radius: 18px;
+    padding: 2rem;
+    max-width: 440px;
     width: 100%;
-    text-align: center;
+    max-height: calc(100dvh - 3rem);
+    overflow-y: auto;
+    text-align: left;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.12);
     animation: modalCardIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
@@ -118,11 +125,11 @@
     position: absolute;
     top: 1rem;
     right: 1rem;
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: transparent;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+    background: color-mix(in srgb, var(--surface2) 45%, transparent);
     color: var(--muted);
     cursor: pointer;
     display: flex;
@@ -141,10 +148,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    margin: 0 auto 1.5rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    margin: 0 0 1.35rem;
 }
 
 .app-modal-icon--error {
@@ -159,19 +166,25 @@
     color: #fbbf24;
 }
 
+.app-modal-icon--notice {
+    background: color-mix(in srgb, var(--text) 7%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text) 15%, transparent);
+    color: var(--text);
+}
+
 .app-modal-card h2 {
     font-family: var(--font-display);
-    font-size: 1.4rem;
+    font-size: 1.55rem;
     font-weight: 700;
     color: var(--text);
     margin: 0 0 0.55rem;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.035em;
     line-height: 1.2;
 }
 
 .app-modal-subtitle {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     line-height: 1.6;
     margin: 0 0 1.4rem;
 }
@@ -216,8 +229,8 @@
 }
 
 #error-message {
-    background: rgba(0, 0, 0, 0.22);
-    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 42%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text) 11%, transparent);
     border-radius: 8px;
     padding: 0.75rem;
     color: var(--muted);
@@ -232,8 +245,8 @@
 }
 
 .app-modal-refused-body {
-    background: rgba(0, 0, 0, 0.18);
-    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 42%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text) 11%, transparent);
     border-radius: 10px;
     padding: 0.9rem 1rem;
     margin-bottom: 1.4rem;
@@ -253,11 +266,12 @@
 
 .app-modal-action-btn {
     width: 100%;
+    min-height: 44px;
     padding: 0.75rem 1.5rem;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text);
+    background: var(--text);
+    color: var(--bg);
     font-family: var(--font-body);
     font-size: 0.9rem;
     font-weight: 600;
@@ -266,18 +280,125 @@
 }
 
 .app-modal-action-btn:hover {
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.2);
+    background: var(--accent);
+    border-color: var(--accent);
     transform: translateY(-1px);
+}
+
+.app-modal-action-btn:focus-visible,
+.app-modal-close:focus-visible,
+.app-modal-details summary:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 3px;
 }
 
 .app-modal-action-btn:active {
     transform: translateY(0);
 }
 
+/* Export and support dialogs share the same glass surface as other notices. */
+.export-progress-card,
+.donation-card {
+    max-width: 440px;
+}
+
+.export-progress-mark,
+.donation-card .donation-modal-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin: 0 0 1.35rem;
+    border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface2) 62%, transparent);
+    color: var(--text);
+}
+
+.export-progress-mark svg { width: 23px; height: 23px; }
+.donation-card .donation-modal-icon .kofi-cup-icon { width: 27px; height: 27px; }
+
+.export-progress-card h2,
+.donation-card h2 { font-size: 1.55rem; letter-spacing: -0.035em; }
+
+.export-progress-card .app-modal-subtitle,
+.donation-card .app-modal-subtitle { max-width: 34ch; margin-bottom: 1.7rem; }
+
+.export-progress-track {
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--surface2);
+}
+
+.export-progress-bar {
+    width: 38%;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--text);
+    animation: export-activity 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes export-activity {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(265%); }
+}
+
+.donation-card .app-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.65rem;
+    align-items: center;
+}
+
+.donation-card .app-modal-action-btn { min-height: 44px; padding: 0.65rem 1rem; }
+
+.donation-card .donation-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    color: var(--bg);
+    background: var(--text);
+    border-color: var(--text);
+    text-decoration: none;
+}
+
+.donation-card .donation-cta:hover { background: var(--accent); color: var(--bg); }
+
+.donation-card .donation-dismiss {
+    width: auto;
+    color: var(--muted);
+    background: transparent;
+}
+
+.donation-card .donation-dismiss:hover {
+    color: var(--text);
+    background: color-mix(in srgb, var(--text) 7%, transparent);
+    border-color: color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+@media (max-width: 480px) {
+    .app-modal-card { padding: 1.5rem; }
+    .donation-card .app-modal-actions { grid-template-columns: 1fr; }
+    .donation-card .donation-dismiss { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .export-progress-bar { animation-duration: 4s; }
+}
+
 /* Light-mode overrides */
 :root[data-theme="light"] .app-modal-backdrop {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(17, 24, 39, 0.28);
+}
+
+:root[data-theme="light"] .app-modal-card {
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.48), transparent 48%),
+        color-mix(in srgb, var(--surface) 78%, transparent);
+    box-shadow: 0 28px 80px rgba(23, 31, 45, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 :root[data-theme="light"] .app-modal-close:hover {
@@ -294,16 +415,21 @@
 }
 
 :root[data-theme="light"] #error-message {
-    background: var(--bg);
+    background: color-mix(in srgb, var(--bg) 42%, transparent);
 }
 
 :root[data-theme="light"] .app-modal-refused-body {
-    background: var(--bg);
+    background: color-mix(in srgb, var(--bg) 42%, transparent);
 }
 
 :root[data-theme="light"] .app-modal-action-btn:hover {
-    background: rgba(0, 0, 0, 0.04);
-    border-color: var(--border);
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+:root[data-theme="light"] .donation-card .donation-dismiss:hover {
+    background: color-mix(in srgb, var(--text) 7%, transparent);
+    border-color: color-mix(in srgb, var(--text) 20%, transparent);
 }
 
 @keyframes sectionFadeIn {
@@ -555,4 +681,3 @@ section.s.active>* {
     opacity: 1;
     transform: translateY(0);
 }
-

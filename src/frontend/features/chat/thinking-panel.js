@@ -19,12 +19,12 @@
  *
  * Public API (attached to window.AedosThinking):
  *   - show(aiBody, { label, stage })
- *       Inserts (or reuses) the panel inside the given `.chat-ai-body`.
+ *       Keeps the panel at the top of the given `.chat-ai-body` throughout
+ *       generation and after completion.
  *       Starts the timer immediately. Returns the panel root element.
  *   - appendReasoning(aiBody, text)
- *       Appends a chunk of reasoning text to the panel body. Auto-expands
- *       the panel the first time reasoning arrives, then leaves the user in
- *       control.
+ *       Appends a chunk of reasoning text to the optional, user-expandable
+ *       panel body. It stays compact by default while generation runs.
  *   - collapse(aiBody)
  *       Hides the body and switches the header label to "Thought for Ns".
  *       Use this right before content starts streaming so the user keeps
@@ -45,18 +45,20 @@
 (function () {
     'use strict';
 
+    const translate = (key, fallback) => window.__t ? window.__t(key, fallback) : fallback;
     const STRINGS = {
         // The first word in the status text. Kept short and uppercase.
-        thinking:  'Thinking',
-        drafting:  'Drafting',
-        designing: 'Designing',
-        analyzing: 'Analyzing',
-        composing: 'Composing',
-        thoughtFor: (s) => `Thought for ${s}s`,
+        get thinking() { return translate('thinking_status', 'Thinking'); },
+        get drafting() { return translate('thinking_drafting', 'Drafting'); },
+        get designing() { return translate('thinking_designing', 'Designing'); },
+        get analyzing() { return translate('thinking_analyzing', 'Analyzing'); },
+        get composing() { return translate('thinking_composing', 'Composing'); },
+        thoughtFor: (s) => translate('thinking_for_seconds', 'Thought for {sec}s').replace('{sec}', s),
+        stepCompleted: (s) => translate('thinking_step_completed', 'Step completed in {sec}s').replace('{sec}', s),
         // Shown when the body is expanded but the model hasn't emitted any
         // reasoning tokens. Tells the user the model may not support it
         // without making the panel feel broken.
-        noReasoningHint: 'The model is not sharing its reasoning for this step.',
+        get noReasoningHint() { return translate('thinking_no_reasoning', 'The model is not sharing its reasoning for this step.'); },
     };
 
     function formatSeconds(seconds) {
@@ -160,6 +162,19 @@
         return aiBody && aiBody.__aedosThinkingState ? aiBody.__aedosThinkingState : null;
     }
 
+    function revealNewMessage(aiBody) {
+        const chatScreen = document.getElementById('chat-screen');
+        const message = aiBody.closest('.chat-msg-ai');
+        if (!chatScreen || !message) return;
+        requestAnimationFrame(() => {
+            if (!message.isConnected) return;
+            const top = message.getBoundingClientRect().top
+                - chatScreen.getBoundingClientRect().top
+                + chatScreen.scrollTop - 90;
+            chatScreen.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+        });
+    }
+
     function stopTimer(localState) {
         if (localState && localState.intervalId) {
             clearInterval(localState.intervalId);
@@ -182,12 +197,6 @@
         hint.textContent = STRINGS.noReasoningHint;
         refs.contentEl.appendChild(hint);
         refs.root.classList.add('has-content');
-        // Make sure the body is visible so the user actually sees the hint.
-        if (!refs.root.classList.contains('is-expanded') && !refs.root.dataset.userToggled) {
-            refs.body.removeAttribute('hidden');
-            refs.headerBtn.setAttribute('aria-expanded', 'true');
-            refs.root.classList.add('is-expanded');
-        }
     }
 
     /**
@@ -212,7 +221,8 @@
         // We store the refs on the body itself to support multiple panels.
         let refs = aiBody.__aedosThinkingRefs || null;
 
-        if (!refs) {
+        const isNewPanel = !refs;
+        if (isNewPanel) {
             refs = buildPanel();
             aiBody.__aedosThinkingRefs = refs;
 
@@ -231,7 +241,7 @@
             refs.root.removeAttribute('hidden');
         }
 
-        const fullLabel = options.label || 'Thinking…';
+        const fullLabel = options.label || `${STRINGS.thinking}…`;
         refs.labelEl.textContent = fullLabel;
         refs.statusTextEl.textContent = statusWordFor(options.stage, fullLabel);
         refs.timerEl.textContent = '0s';
@@ -241,6 +251,8 @@
         refs.root.classList.remove('is-expanded', 'is-collapsed', 'has-content');
         refs.root.classList.add('is-active');
         delete refs.root.dataset.userToggled;
+        aiBody.insertBefore(refs.root, aiBody.firstChild);
+        if (isNewPanel) revealNewMessage(aiBody);
 
         if (options.stage) refs.root.dataset.stage = options.stage;
         else delete refs.root.dataset.stage;
@@ -279,7 +291,7 @@
     function appendReasoning(aiBody, text) {
         const localState = getState(aiBody);
         if (!localState || !text) return;
-        const { refs, startTime } = localState;
+        const { refs } = localState;
 
         // The first real token cancels the "no reasoning" hint timer and
         // clears any hint placeholder that may have been rendered.
@@ -311,24 +323,32 @@
         // We use innerHTML for markdown support, but formatMarkdown escapes HTML first.
         refs.contentEl.innerHTML = formatMarkdown(localState.fullReasoning);
 
-        // Auto-expand the panel the first time reasoning arrives, unless the
-        // user has already interacted with it.
-        if (!refs.root.classList.contains('is-expanded') && !refs.root.dataset.userToggled) {
-            refs.body.removeAttribute('hidden');
-            refs.headerBtn.setAttribute('aria-expanded', 'true');
-            refs.root.classList.add('is-expanded', 'has-content');
-        }
-
         // Keep the content scrolled to the bottom so the user sees new tokens.
         refs.body.scrollTop = refs.body.scrollHeight;
 
-        // Update the label so the user sees the total thinking time as it
-        // accumulates (e.g. "Thinking for 7s" instead of "Thinking…").
-        const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
-        refs.labelEl.textContent = `${STRINGS.thinking} for ${elapsed}s`;
     }
 
-    function collapse(aiBody) {
+    function updateStatus(aiBody, label, stage) {
+        const localState = getState(aiBody);
+        if (!localState) return;
+        const { refs } = localState;
+        if (label) refs.labelEl.textContent = label;
+        if (stage) {
+            refs.root.dataset.stage = stage;
+            refs.statusTextEl.textContent = statusWordFor(stage, label);
+        }
+    }
+
+    function collapseDetails(aiBody) {
+        const localState = getState(aiBody);
+        if (!localState) return;
+        const { refs } = localState;
+        refs.body.setAttribute('hidden', '');
+        refs.headerBtn.setAttribute('aria-expanded', 'false');
+        refs.root.classList.remove('is-expanded');
+    }
+
+    function collapse(aiBody, completedLabel) {
         const localState = getState(aiBody);
         if (!localState) return;
         const { refs, startTime, receivedReasoning } = localState;
@@ -340,16 +360,19 @@
         const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
         // When reasoning was actually received, use "Thought for Ns". When
         // it wasn't, use a more neutral "Step completed" so we don't lie.
-        if (receivedReasoning) {
+        if (completedLabel) {
+            refs.labelEl.textContent = completedLabel;
+        } else if (receivedReasoning) {
             refs.labelEl.textContent = STRINGS.thoughtFor(elapsed);
         } else {
-            refs.labelEl.textContent = `Step completed in ${elapsed}s`;
+            refs.labelEl.textContent = STRINGS.stepCompleted(elapsed);
         }
         refs.timerEl.textContent = '';
         refs.root.classList.add('is-collapsed');
         refs.root.classList.remove('is-active', 'is-expanded');
         refs.headerBtn.setAttribute('aria-expanded', 'false');
         refs.body.setAttribute('hidden', '');
+        if (aiBody.isConnected) aiBody.insertBefore(refs.root, aiBody.firstChild);
     }
 
     function hide(aiBody) {
@@ -388,6 +411,8 @@
     window.AedosThinking = {
         show,
         appendReasoning,
+        updateStatus,
+        collapseDetails,
         collapse,
         hide,
         hasReasoning,

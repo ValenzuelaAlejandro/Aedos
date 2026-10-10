@@ -13,18 +13,24 @@
             const allAiBodies = document.querySelectorAll('.chat-msg-ai .chat-ai-body');
             const aiBody = allAiBodies[allAiBodies.length - 1];
             if (aiBody && window.AedosThinking) {
+                const stageKeys = {
+                    stage1: 'chat_stage_analyze',
+                    stage2: 'chat_stage_design',
+                    stage3: 'chat_stage_compose',
+                    flash: 'chat_stage_draft'
+                };
+                const stageKey = stageKeys[parsed.stage] || 'chat_stage_compose';
+                const fallbackLabel = parsed.stage === 'stage1' ? 'Analyzing your request…'
+                    : parsed.stage === 'stage2' ? 'Designing the visual direction…'
+                        : parsed.stage === 'flash' ? 'Drafting your slides…' : 'Building your slides…';
+                const label = window.__t ? window.__t(stageKey, fallbackLabel) : fallbackLabel;
                 if (!window.AedosThinking.getPanel(aiBody)) {
-                    const stageMap = {
-                        stage1: 'Analyzing request…',
-                        stage2: 'Designing visuals…',
-                        stage3: 'Composing slides…',
-                        flash: 'Drafting slides…'
-                    };
-                    const fallbackLabel = stageMap[parsed.stage] || 'Thinking…';
                     window.AedosThinking.show(aiBody, {
-                        label: window.__t ? window.__t('chat_thinking', fallbackLabel) : fallbackLabel,
+                        label,
                         stage: parsed.stage || 'flash'
                     });
+                } else {
+                    window.AedosThinking.updateStatus(aiBody, label, parsed.stage || 'flash');
                 }
                 window.AedosThinking.appendReasoning(aiBody, parsed.reasoning);
             }

@@ -122,7 +122,7 @@
                     const _initialAiBody = document.querySelector('#chat-ai-response .chat-ai-body');
                     if (_initialAiBody && window.AedosThinking) {
                         window.AedosThinking.show(_initialAiBody, {
-                            label: window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…',
+                            label: window.__t ? window.__t('chat_stage_analyze', 'Analyzing your request…') : 'Analyzing your request…',
                             stage: 'stage1'
                         });
                     }
@@ -173,7 +173,7 @@
                                 // legacy code path forgot to call show().
                                 if (!window.AedosThinking.getPanel(_aiBody)) {
                                     window.AedosThinking.show(_aiBody, {
-                                        label: window.__t ? window.__t('chat_thinking', 'Thinking…') : 'Thinking…',
+                                        label: window.__t ? window.__t('chat_stage_analyze', 'Analyzing your request…') : 'Analyzing your request…',
                                         stage: data.stage || 'stage1'
                                     });
                                 }
@@ -192,14 +192,12 @@
                                 window.renderStreamingOutline(partialSkeleton);
                             }
     
-                            // Collapse the thinking panel (instead of
-                            // hiding it) once the first slide starts
-                            // streaming. The pill stays visible so the
-                            // user can re-expand it to see what the
-                            // model was thinking about.
+                            // Keep a compact live status while the outline itself streams.
                             if (partialSkeleton && partialSkeleton.slides && partialSkeleton.slides.length > 0) {
                                 if (window.AedosThinking) {
-                                    window.AedosThinking.collapse(_skeletonReasoningAiBody);
+                                    window.AedosThinking.collapseDetails(_skeletonReasoningAiBody);
+                                    const outlineLabel = window.__t ? window.__t('chat_stage_outline', 'Building your outline…') : 'Building your outline…';
+                                    window.AedosThinking.updateStatus(_skeletonReasoningAiBody, outlineLabel, 'outline');
                                 }
                                 // Legacy fall-back: also hide the old
                                 // dot loader if it's still around.
@@ -268,6 +266,9 @@
                         // Proceed flow: collapse (not hide) the panel and let
                         // the "Drafting slides…" message take over visually.
                         window.AedosThinking.collapse(_skeletonReasoningAiBody);
+                    } else {
+                        const readyLabel = window.__t ? window.__t('outline_ready', 'Outline ready') : 'Outline ready';
+                        window.AedosThinking.collapse(_skeletonReasoningAiBody, readyLabel);
                     }
                 }
     

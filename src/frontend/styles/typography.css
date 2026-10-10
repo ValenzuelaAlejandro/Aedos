@@ -1,0 +1,21 @@
+/* Aedos type hierarchy: Geologica for display, Onest for reading and controls. */
+button,
+input,
+textarea,
+select {
+    font-family: var(--font-body);
+}
+
+.hero-title {
+    letter-spacing: -0.04em;
+}
+
+.app-modal-subtitle,
+.success-subtitle,
+.hero-subtitle,
+.dropdown-item-desc,
+.outline-empty-subtitle {
+    font-family: var(--font-body);
+    font-weight: 500;
+    line-height: 1.5;
+}

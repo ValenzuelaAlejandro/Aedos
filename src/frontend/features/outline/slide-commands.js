@@ -85,8 +85,13 @@
 
     /** Deletes a slide after the existing confirmation prompt. @param {number} index @param {OutlineSlideCommandDependencies} dependencies */
     function deleteSlide(index, dependencies) {
-        if (global.confirm('Are you sure you want to delete this slide?')) {
-            dependencies.getSlides().splice(index, 1);
+        const slides = dependencies.getSlides();
+        if (!Number.isInteger(index) || index < 0 || index >= slides.length || slides.length <= 1) return;
+        const prompt = global.__t
+            ? global.__t('outline_confirm_delete_slide', 'Delete this slide?')
+            : 'Delete this slide?';
+        if (global.confirm(prompt)) {
+            slides.splice(index, 1);
             dependencies.renderSlides();
         }
     }

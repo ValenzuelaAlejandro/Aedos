@@ -1,0 +1,25 @@
+.chat-design-preview-complete {
+    max-width: 36rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+}
+
+.chat-design-preview-complete strong {
+    display: block;
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: 1rem;
+}
+
+.chat-design-preview-complete p {
+    margin: 0.5rem 0;
+    color: var(--muted);
+    line-height: 1.55;
+}
+
+.chat-design-preview-complete span {
+    color: var(--muted);
+    font-size: 0.72rem;
+}

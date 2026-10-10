@@ -580,7 +580,7 @@
     background: transparent;
     border: none;
     color: white;
-    font-family: 'DM Sans', monospace;
+    font-family: var(--font-body);
     font-size: 1.05rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -609,7 +609,7 @@
     padding: 0.4rem 0;
     text-align: center;
     border-radius: 6px;
-    font-family: 'DM Sans', monospace;
+    font-family: var(--font-body);
     font-size: 0.95rem;
     transition: border-color 0.2s;
     outline: none;
@@ -634,4 +634,3 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
-

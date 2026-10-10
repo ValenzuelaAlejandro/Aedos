@@ -106,6 +106,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentLangLabel = document.getElementById('current-lang-label');
     const chatInputWrapper = document.querySelector('.chat-input-wrapper');
 
+    // Keep the outline actions and scroll end above the floating composer,
+    // including when its textarea or attachment preview changes height.
+    if (chatScreen && chatInputWrapper) {
+        const updateComposerClearance = () => {
+            const composerTop = chatInputWrapper.getBoundingClientRect().top;
+            const viewportBottom = chatScreen.getBoundingClientRect().bottom;
+            const clearance = Math.max(0, viewportBottom - composerTop + 16);
+            chatScreen.style.setProperty('--chat-composer-clearance', `${clearance}px`);
+        };
+        if (window.ResizeObserver) {
+            new ResizeObserver(updateComposerClearance).observe(chatInputWrapper);
+        }
+        new MutationObserver(updateComposerClearance).observe(chatScreen, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+        window.addEventListener('resize', updateComposerClearance);
+        window.visualViewport?.addEventListener('resize', updateComposerClearance);
+        updateComposerClearance();
+    }
+
     window.AedosAppDropdowns.createAppDropdowns({
         document,
         window,

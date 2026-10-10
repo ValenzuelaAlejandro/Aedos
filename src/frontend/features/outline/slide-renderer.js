@@ -10,6 +10,10 @@
     /** Renders slide editor fields using the legacy markup and escaping. */
     function renderSlides(container, slides) {
         container.innerHTML = '';
+        const deleteLabel = global.__t ? global.__t('delete_slide', 'Delete slide') : 'Delete slide';
+        const safeDeleteLabel = global.escapeHtml(deleteLabel);
+        const removeLabel = global.__t ? global.__t('outline_remove_slide', 'Remove') : 'Remove';
+        const safeRemoveLabel = global.escapeHtml(removeLabel);
 
         slides.forEach((slide, index) => {
             const item = document.createElement('div');
@@ -19,6 +23,10 @@
             item.innerHTML = `
             <div class="seamless-slide-number">${index + 1}.</div>
             <textarea id="outline-slide-title-${index}" name="outline-slide-title-${index}" class="seamless-title-input outline-slide-title" placeholder="Slide Title" data-index="${index}" rows="1" aria-label="Slide Title">${global.escapeHtml(slide.title || '')}</textarea>
+            <button type="button" class="seamless-slide-delete" data-index="${index}" aria-label="${safeDeleteLabel} ${index + 1}" title="${safeDeleteLabel}" ${slides.length <= 1 ? 'disabled' : ''}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+                <span>${safeRemoveLabel}</span>
+            </button>
             
             <div class="seamless-points-list" id="outline-points-${index}">
                 ${(slide.key_points || []).map((point, pIndex) => `

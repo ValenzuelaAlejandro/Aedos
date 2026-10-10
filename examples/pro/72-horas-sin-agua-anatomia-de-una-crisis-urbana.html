@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:#F4EEDF; --surface:#F4EEDF; --surface2:#ebe4d0;
+    --accent:#E8640C; --accent-dim:rgba(232,100,12,.12); --accent-light:rgba(232,100,12,.25);
+    --accent-2:#2B2B2B; --accent-2-dim:rgba(43,43,43,.15); --accent-2-light:rgba(43,43,43,.25);
+    --text:#2B2B2B; --text-dim:#5C5850; --border:rgba(43,43,43,.15);
+    --warm:#8A8478;
+  }
+  html { font-size:10px; }
+  body { margin:0; font-family:'IBM Plex Sans',sans-serif; color:var(--text); background:var(--bg); }
+  section.s { width:1122px; height:631px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); page-break-after:always; padding:4rem 5rem; box-sizing:border-box; position:relative; }
+  @media print { body{margin:0} @page{size:1122px 631px;margin:0} *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} }
+  * { box-sizing:border-box; }
+  h1,h2,h3,h4 { font-family:'IBM Plex Serif',serif; margin:0; line-height:1.15; color:var(--text); flex-shrink:0; text-wrap:balance; }
+  h1 { font-size:5.6rem; font-weight:700; letter-spacing:-.03em; }
+  h2 { font-size:5rem; font-weight:700; letter-spacing:-.02em; }
+  h3 { font-size:1.6rem; font-weight:600; flex-shrink:0; font-family:'IBM Plex Sans',sans-serif; }
+  p { font-size:1.4rem; line-height:1.5; margin:0; color:var(--text-dim); flex-shrink:0; text-wrap:pretty; }
+  .tag { font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.15em; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem; flex-shrink:0; }
+  .tag::before { content:''; width:2rem; height:2px; background:var(--accent); }
+  .mono { font-family:'JetBrains Mono',monospace; }
+  .counter { position:absolute; bottom:2.4rem; right:5rem; font-family:'JetBrains Mono',monospace; font-size:.9rem; color:var(--warm); z-index:2; margin:0; }
+
+/* aedos-layout-safety-net */
+section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(3)) {
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    align-content:start !important;
+}
+section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(5)) {
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+}
+section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(3)) > .card {
+    min-width:0 !important;
+}
+
+</style>
+<script src="https://unpkg.com/lucide@0.577.0/dist/umd/lucide.min.js" integrity="sha384-orgVf2eX2+m1zKAOIi09hD0W6GtVhoOUmqDK+sysYB2JTZ4vS86j4jm+X7a4Nnei" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- SLIDE 1 — COVER -->
+<section class="s" style="padding:0;flex-direction:row;">
+  <div style="position:absolute;left:0;top:0;width:12px;height:100%;background:var(--accent);z-index:0;"></div>
+  <div style="flex:1;min-width:0;min-height:0;padding:4rem 5rem 4rem 6.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+    <div style="align-self:flex-start;border:1px solid var(--text);padding:.6rem 1rem;font-family:'JetBrains Mono',monospace;font-size:1rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text);">Expediente 72-H · Caso hipotético</div>
+    <div style="display:flex;flex-direction:column;justify-content:center;min-height:0;">
+      <h1 style="line-height:1.02;">72 horas sin agua:<br><span style="color:var(--accent);">anatomía de una crisis urbana</span></h1>
+      <p style="font-size:1.4rem;color:var(--text);opacity:.75;margin-top:2rem;max-width:55rem;">Caso hipotético de una ciudad de 100 000 habitantes</p>
+    </div>
+    <p class="mono" style="font-size:.9rem;color:var(--warm);">01 / 08</p>
+  </div>
+  <div class="img-slot" data-image-slot="1" data-image-keyword="water pumping station infrastructure" style="flex:0 0 300px;border-radius:0;overflow:hidden;min-height:auto;border-left:1px solid var(--text);">
+    <div class="img-bg1" style="position:absolute;inset:0;z-index:0;background:linear-gradient(135deg,var(--accent-dim),var(--bg),var(--accent-2-dim));pointer-events:none;"></div>
+    <div class="img-bg2" style="position:absolute;inset:0;z-index:2;background:linear-gradient(to right,rgba(0,0,0,.25),transparent);pointer-events:none;"></div>
+  </div>
+</section>
+
+<!-- SLIDE 2 — PROBLEM -->
+<section class="s" style="padding:4rem 5rem 4rem 6rem;">
+  <div style="position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 50%,transparent);z-index:0;"></div>
+  <div class="tag">Causa · 01</div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:35% 1fr;gap:4rem;">
+    <div style="display:flex;flex-direction:column;gap:2rem;min-height:0;">
+      <div class="mono" style="align-self:flex-start;border:1px solid var(--text);padding:.7rem 1rem;font-size:.9rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text);">Supuesto de trabajo</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1.8rem;min-height:0;">
+      <h2 style="font-size:4.4rem;letter-spacing:-.02em;">Una falla en un único punto<br><span style="color:var(--accent);">de la red</span></h2>
+      <div style="display:flex;flex-direction:column;gap:.9rem;min-height:0;">
+        <div style="display:flex;align-items:baseline;gap:1rem;border-left:2px solid var(--text);padding-left:1.5rem;">
+          <span class="mono" style="font-size:.9rem;color:var(--accent);flex-shrink:0;">S</span>
+          <p style="font-size:1.3rem;color:var(--text);">La estación de bombeo principal sufre una avería eléctrica</p>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:1rem;border-left:2px solid var(--text);padding-left:1.5rem;">
+          <span class="mono" style="font-size:.9rem;color:var(--accent);flex-shrink:0;">S</span>
+          <p style="font-size:1.3rem;color:var(--text);">No existe interconexión funcional con un segundo acueducto</p>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:1rem;border-left:2px solid var(--text);padding-left:1.5rem;">
+          <span class="mono" style="font-size:.9rem;color:var(--text);flex-shrink:0;">H</span>
+          <p style="font-size:1.3rem;color:var(--text);">La mayoría de los sistemas de agua dependen de energía eléctrica para bombear</p>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:1rem;border-left:2px solid var(--text);padding-left:1.5rem;">
+          <span class="mono" style="font-size:.9rem;color:var(--text);flex-shrink:0;">E</span>
+          <p style="font-size:1.3rem;color:var(--text);">La presión de la red cae y el suministro se detiene por zonas</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:1.2rem;margin-top:.4rem;">
+        <div style="width:4rem;height:2px;background:var(--accent);flex-shrink:0;"></div>
+        <p style="font-size:1.6rem;font-weight:500;color:var(--text);">Una sola falla local puede dejar sin agua a toda la ciudad</p>
+      </div>
+    </div>
+  </div>
+  <p class="counter">02 / 08</p>
+</section>
+
+<!-- SLIDE 3 — CASCADE CARDS -->
+<section class="s">
+  <div class="tag">Cascada · 02</div>
+  <h2 style="font-size:5rem;">La cascada <span style="color:var(--accent);">de efectos</span></h2>
+  <p style="font-size:1.2rem;color:var(--warm);margin-top:.8rem;">Del corte de agua a los problemas sociales y sanitarios</p>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;gap:1.4rem;margin-top:2rem;">
+    <div style="background:rgba(43,43,43,.04);border:1px solid rgba(43,43,43,.15);padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:.6rem;min-height:0;overflow:hidden;">
+      <i data-lucide="stethoscope" style="width:20px;height:20px;stroke:var(--text);fill:none;display:block;"></i>
+      <h3>Hospitales</h3>
+      <p style="font-size:1.05rem;line-height:1.4;color:var(--text);">Se suspenden cirugías y se prioriza la diálisis y la esterilización</p>
+    </div>
+    <div style="background:rgba(43,43,43,.04);border:1px solid rgba(43,43,43,.15);padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:.6rem;min-height:0;overflow:hidden;">
+      <i data-lucide="home" style="width:20px;height:20px;stroke:var(--text);fill:none;display:block;"></i>
+      <h3>Hogares</h3>
+      <p style="font-size:1.05rem;line-height:1.4;color:var(--text);">Se agotan los almacenamientos domésticos en pocas horas</p>
+    </div>
+    <div style="background:rgba(43,43,43,.04);border:1px solid rgba(43,43,43,.15);padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:.6rem;min-height:0;overflow:hidden;">
+      <i data-lucide="droplet" style="width:20px;height:20px;stroke:var(--text);fill:none;display:block;"></i>
+      <h3>Saneamiento</h3>
+      <p style="font-size:1.05rem;line-height:1.4;color:var(--text);">Los sanitarios dejan de funcionar y aumenta el riesgo de contaminación</p>
+    </div>
+    <div style="background:rgba(43,43,43,.04);border:1px solid rgba(43,43,43,.15);padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:.6rem;min-height:0;overflow:hidden;">
+      <i data-lucide="building" style="width:20px;height:20px;stroke:var(--text);fill:none;display:block;"></i>
+      <h3>Comercio y escuelas</h3>
+      <p style="font-size:1.05rem;line-height:1.4;color:var(--text);">Cierran por falta de agua para higiene y preparación de alimentos</p>
+    </div>
+    <div style="background:rgba(43,43,43,.04);border:1px solid rgba(43,43,43,.15);border-top:4px solid var(--accent);padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:.6rem;min-height:0;overflow:hidden;">
+      <i data-lucide="users" style="width:20px;height:20px;stroke:var(--text);fill:none;display:block;"></i>
+      <h3>Población vulnerable</h3>
+      <p style="font-size:1.05rem;line-height:1.4;color:var(--text);">Adultos mayores, niños y personas enfermas son los más afectados</p>
+    </div>
+    <div style="border-top:2px solid var(--accent);padding:1.4rem 0 0 0;display:flex;flex-direction:column;justify-content:center;min-height:0;">
+      <p style="font-size:1.4rem;font-weight:500;color:var(--text);">El corte técnico se convierte en crisis sanitaria por el efecto dominó</p>
+    </div>
+  </div>
+  <p class="counter">03 / 08</p>
+</section>
+
+<!-- SLIDE 4 — TIMELINE -->
+<section class="s">
+  <div style="position:absolute;top:40px;left:48px;width:32px;height:32px;border-top:1px solid var(--accent);border-left:1px solid var(--accent);opacity:.3;z-index:0;"></div>
+  <div style="position:absolute;bottom:40px;right:48px;width:32px;height:32px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);opacity:.3;z-index:0;"></div>
+  <div class="tag">Cronología · 03</div>
+  <h2 style="font-size:5.5rem;">De 0 a <span style="color:var(--accent);">72</span> horas</h2>
+  <p style="font-size:1.2rem;color:var(--warm);margin-top:.8rem;">Tiempos aproximados supuestos para el caso</p>
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;">
+    <div style="display:flex;width:100%;">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+        <div style="font-family:'IBM Plex Serif',serif;font-size:3rem;font-weight:600;line-height:1;color:var(--accent);margin-bottom:1.2rem;">0 h</div>
+        <div style="display:flex;align-items:center;height:14px;">
+          <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--text);background:var(--accent);flex-shrink:0;box-sizing:border-box;"></div>
+          <div style="flex:1;height:2px;background:var(--text);"></div>
+        </div>
+        <p style="font-size:1.1rem;line-height:1.45;color:var(--text);margin-top:1.2rem;padding-right:1.6rem;">Se detecta la falla y se activa el protocolo de emergencia</p>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+        <div style="font-family:'IBM Plex Serif',serif;font-size:3rem;font-weight:600;line-height:1;color:var(--accent);margin-bottom:1.2rem;">6 h</div>
+        <div style="display:flex;align-items:center;height:14px;">
+          <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--text);background:var(--accent);flex-shrink:0;box-sizing:border-box;"></div>
+          <div style="flex:1;height:2px;background:var(--text);"></div>
+        </div>
+        <p style="font-size:1.1rem;line-height:1.45;color:var(--text);margin-top:1.2rem;padding-right:1.6rem;">Se agotan los tanques domésticos y aumentan las filas en puntos de reparto</p>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+        <div style="font-family:'IBM Plex Serif',serif;font-size:3rem;font-weight:600;line-height:1;color:var(--text);margin-bottom:1.2rem;">24 h</div>
+        <div style="display:flex;align-items:center;height:14px;">
+          <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--text);background:var(--bg);flex-shrink:0;box-sizing:border-box;"></div>
+          <div style="flex:1;height:2px;background:var(--text);"></div>
+        </div>
+        <p style="font-size:1.1rem;line-height:1.45;color:var(--text);margin-top:1.2rem;padding-right:1.6rem;">Hospitales operan con reservas y se suspenden servicios no urgentes</p>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+        <div style="font-family:'IBM Plex Serif',serif;font-size:3rem;font-weight:600;line-height:1;color:var(--text);margin-bottom:1.2rem;">48 h</div>
+        <div style="display:flex;align-items:center;height:14px;">
+          <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--text);background:var(--bg);flex-shrink:0;box-sizing:border-box;"></div>
+          <div style="flex:1;height:2px;background:var(--text);"></div>
+        </div>
+        <p style="font-size:1.1rem;line-height:1.45;color:var(--text);margin-top:1.2rem;padding-right:1.6rem;">Crecen los riesgos sanitarios por saneamiento deficiente</p>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+        <div style="font-family:'IBM Plex Serif',serif;font-size:3rem;font-weight:600;line-height:1;color:var(--text);margin-bottom:1.2rem;">72 h</div>
+        <div style="display:flex;align-items:center;height:14px;">
+          <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--text);background:var(--bg);flex-shrink:0;box-sizing:border-box;"></div>
+        </div>
+        <p style="font-size:1.1rem;line-height:1.45;color:var(--text);margin-top:1.2rem;padding-right:1.6rem;">Se requiere distribución masiva de agua potable por camiones cisterna</p>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:1.4rem;font-weight:500;color:var(--text);">Las primeras 6 horas definen la capacidad de contener la crisis</p>
+  <p class="counter">04 / 08</p>
+</section>
+
+<!-- SLIDE 5 — STATS -->
+<section class="s">
+  <div style="position:absolute;top:0;left:0;right:0;height:5px;background:var(--accent);z-index:0;"></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:var(--accent);z-index:0;"></div>
+  <div class="tag">Demanda · 04</div>
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;">
+    <div style="display:flex;align-items:flex-end;gap:3rem;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:7rem;font-weight:700;letter-spacing:-.03em;line-height:.9;color:var(--accent);white-space:nowrap;">1 500 m³/día</div>
+        <p style="font-size:1.2rem;color:var(--text);margin-top:1rem;">Demanda mínima calculada para 100 000 habitantes</p>
+      </div>
+      <div style="flex:0 0 1px;align-self:stretch;background:var(--warm);"></div>
+      <div style="flex:0 0 240px;">
+        <div style="font-size:6rem;font-weight:700;letter-spacing:-.03em;line-height:.9;color:var(--text);">15 L</div>
+        <p style="font-size:1.2rem;color:var(--text);margin-top:1rem;">por persona y día (referencia Sphere)</p>
+      </div>
+    </div>
+    <div class="mono" style="font-size:1.1rem;color:var(--text);margin-top:2.6rem;border-top:1px solid var(--warm);padding-top:1.2rem;">100 000 hab × 15 L = 1 500 000 L = 1 500 m³</div>
+    <p class="mono" style="font-size:.9rem;color:var(--warm);margin-top:1rem;">Fuente: Estándar Sphere (Carta Humanitaria y Normas Mínimas, 2018); cálculo propio</p>
+    <p style="font-size:1rem;color:var(--text);margin-top:.6rem;">No incluye industria ni riego</p>
+  </div>
+  <p class="counter">05 / 08</p>
+</section>
+
+<!-- SLIDE 6 — COMPARISON -->
+<section class="s" style="padding:0;">
+  <div style="padding:3.5rem 5rem 2rem;flex-shrink:0;">
+    <div class="tag">Decisiones · 05</div>
+    <h2 style="font-size:4rem;">Ninguna opción protege a <span style="color:var(--accent);">todos</span></h2>
+  </div>
+  <div style="flex:1;min-height:0;display:flex;flex-direction:row;">
+    <div style="flex:1;min-width:0;padding:2.6rem 4rem;background:var(--bg);display:flex;flex-direction:column;gap:1.4rem;min-height:0;">
+      <p class="mono" style="font-size:.95rem;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;">Opción A</p>
+      <h3 style="font-size:2.4rem;font-family:'IBM Plex Serif',serif;">Priorizar hospitales y escuelas</h3>
+      <div style="display:flex;flex-direction:column;gap:.9rem;">
+        <p style="font-size:1.2rem;color:var(--text);border-left:2px solid var(--text);padding-left:1.4rem;">Beneficio alto en salud</p>
+        <p style="font-size:1.2rem;color:var(--text);border-left:2px solid var(--text);padding-left:1.4rem;">Costo logístico alto</p>
+        <p style="font-size:1.2rem;color:var(--text);border-left:2px solid var(--text);padding-left:1.4rem;">Protege a los más vulnerables de primera hora</p>
+      </div>
+    </div>
+    <div style="flex:0 0 1px;background:var(--warm);"></div>
+    <div style="flex:1;min-width:0;padding:2.6rem 4rem;background:var(--text);display:flex;flex-direction:column;gap:1.4rem;min-height:0;">
+      <p class="mono" style="font-size:.95rem;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;">Opción B</p>
+      <h3 style="font-size:2.4rem;font-family:'IBM Plex Serif',serif;color:var(--bg);">Distribuir por colonias</h3>
+      <div style="display:flex;flex-direction:column;gap:.9rem;">
+        <p style="font-size:1.2rem;color:var(--bg);border-left:2px solid var(--accent);padding-left:1.4rem;">Cobertura amplia</p>
+        <p style="font-size:1.2rem;color:var(--bg);border-left:2px solid var(--accent);padding-left:1.4rem;">Tiempos de espera largos</p>
+        <p style="font-size:1.2rem;color:var(--bg);border-left:2px solid var(--accent);padding-left:1.4rem;">Más vehículos y combustible</p>
+      </div>
+    </div>
+  </div>
+  <div style="flex-shrink:0;padding:1.4rem 5rem;border-top:1px solid var(--warm);">
+    <p style="font-size:1.2rem;color:var(--text);">Opción C · racionar por zonas: reduce presión, genera desigualdad percibida</p>
+  </div>
+  <p class="mono" style="position:absolute;top:3.5rem;right:5rem;font-size:.9rem;color:var(--warm);z-index:2;margin:0;">06 / 08</p>
+</section>
+
+<!-- SLIDE 7 — PROCESS -->
+<section class="s" style="padding:4rem 5rem 4rem 6rem;">
+  <div style="position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--accent),var(--accent-2) 50%,transparent);z-index:0;"></div>
+  <div class="tag">Plan · 06</div>
+  <h2 style="font-size:5rem;">Respuesta <span style="color:var(--accent);">por etapas</span></h2>
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;margin-top:1.6rem;">
+    <div style="display:flex;align-items:flex-start;gap:2rem;padding:.9rem 0;border-top:1px solid var(--warm);">
+      <div style="flex:0 0 6rem;font-family:'IBM Plex Serif',serif;font-size:3rem;font-weight:700;line-height:1;color:var(--accent);">1</div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:.4rem;">
+        <h3>Primeras 6 h</h3>
+        <p style="font-size:1.2rem;color:var(--text);">Activar alerta, abrir puntos de agua y comunicar a la población</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:2rem;padding:.9rem 0;border-top:1px solid var(--warm);">
+      <div style="flex:0 0 6rem;font-family:'IBM Plex Serif',serif;font-size:3rem;font-weight:700;line-height:1;color:var(--text);">2</div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:.4rem;">
+        <h3>6 a 24 h</h3>
+        <p style="font-size:1.2rem;color:var(--text);">Distribuir agua a hospitales, escuelas y hogares vulnerables</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:2rem;padding:.9rem 0;border-top:1px solid var(--warm);">
+      <div style="flex:0 0 6rem;font-family:'IBM Plex Serif',serif;font-size:3rem;font-weight:700;line-height:1;color:var(--text);">3</div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:.4rem;">
+        <h3>24 a 72 h</h3>
+        <p style="font-size:1.2rem;color:var(--text);">Instalar cisternas, vigilar saneamiento y reparar la estación de bombeo</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:2rem;padding:.9rem 0;border-top:1px solid var(--warm);border-bottom:1px solid var(--warm);">
+      <div style="flex:0 0 6rem;font-family:'IBM Plex Serif',serif;font-size:3rem;font-weight:700;line-height:1;color:var(--text);">4</div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:.4rem;">
+        <h3>Permanente</h3>
+        <p style="font-size:1.2rem;color:var(--text);">Informar cada cuatro horas con datos verificados</p>
+      </div>
+    </div>
+  </div>
+  <div style="border-top:2px solid var(--accent);padding-top:1rem;margin-top:1.4rem;flex-shrink:0;">
+    <p style="font-size:1.3rem;font-weight:500;color:var(--text);">Comunicar con datos verificados evita pánico y acaparamiento</p>
+  </div>
+  <p class="counter">07 / 08</p>
+</section>
+
+<!-- SLIDE 8 — CONCLUSION -->
+<section class="s">
+  <div style="position:absolute;top:40px;left:48px;width:32px;height:32px;border-top:1px solid var(--accent);border-left:1px solid var(--accent);opacity:.3;z-index:0;"></div>
+  <div style="position:absolute;bottom:40px;right:48px;width:32px;height:32px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);opacity:.3;z-index:0;"></div>
+  <div style="position:absolute;top:3.5rem;right:5rem;border:2px solid var(--accent);padding:.6rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.9rem;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);z-index:2;">Acción requerida</div>
+  <div class="tag">Conclusión · 07</div>
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:2.4rem;">
+    <h2 style="font-size:6rem;letter-spacing:-.03em;line-height:1.05;">La crisis empieza<br><span style="color:var(--accent);">antes del corte</span></h2>
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+      <div style="display:flex;align-items:center;gap:1.6rem;">
+        <div style="flex:0 0 28px;width:28px;height:28px;border:2px solid var(--text);box-sizing:border-box;"></div>
+        <p style="font-size:1.5rem;font-weight:500;color:var(--text);">Mapear hospitales y hogares vulnerables</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:1.6rem;">
+        <div style="flex:0 0 28px;width:28px;height:28px;border:2px solid var(--text);box-sizing:border-box;"></div>
+        <p style="font-size:1.5rem;font-weight:500;color:var(--text);">Contar con segunda fuente de bombeo o interconexión</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:1.6rem;">
+        <div style="flex:0 0 28px;width:28px;height:28px;border:2px solid var(--text);box-sizing:border-box;"></div>
+        <p style="font-size:1.5rem;font-weight:500;color:var(--text);">Definir y comunicar criterios de priorización</p>
+      </div>
+    </div>
+    <p style="font-size:1.1rem;color:var(--warm);">Umbral de 15 L por persona al día guía la planeación</p>
+  </div>
+  <p class="counter">08 / 08</p>
+</section>
+
+<script src="/features/shared/lucide-init.js"></script>
+</body>
+</html>
