@@ -123,9 +123,46 @@
         if (!input) return;
         const limit = maxSlides();
         const normalized = Math.min(limit, Math.max(1, Math.floor(Number(count) || 1)));
+        input.max = String(limit);
         input.value = String(normalized);
-        Array.from(input.options).forEach(option => { option.disabled = Number(option.value) > limit; });
+        const triggerValue = global.document.getElementById('slide-count-value');
+        const panelValue = global.document.getElementById('slide-count-panel-value');
+        const maxLabel = global.document.getElementById('slide-count-max');
+        if (triggerValue) triggerValue.textContent = String(normalized);
+        if (panelValue) panelValue.textContent = String(normalized);
+        if (maxLabel) maxLabel.textContent = String(limit);
+        input.closest('.slide-count-control')?.style.setProperty('--slide-progress', `${((normalized - 1) / (limit - 1)) * 100}%`);
+        input.setAttribute('aria-valuetext', `${normalized} ${global.__t('credits.slides')}`);
+        global.document.getElementById('slide-count-trigger')?.setAttribute('aria-label', `${global.__t('credits.slides')}: ${normalized}`);
         updateCostPreview();
+    }
+
+    function initSlideControl() {
+        const input = global.document.getElementById('slide-count-select');
+        const trigger = global.document.getElementById('slide-count-trigger');
+        const panel = global.document.getElementById('slide-count-panel');
+        if (!input || !trigger || !panel) return;
+        const close = () => { panel.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
+        const position = () => {
+            if (panel.hidden) return;
+            const rect = trigger.getBoundingClientRect();
+            const width = panel.getBoundingClientRect().width;
+            const left = Math.max(8, Math.min(rect.right - width, global.innerWidth - width - 8));
+            panel.style.left = `${left - rect.left}px`;
+        };
+        trigger.addEventListener('click', event => {
+            event.stopPropagation();
+            panel.hidden = !panel.hidden;
+            trigger.setAttribute('aria-expanded', String(!panel.hidden));
+            if (!panel.hidden) { input.focus({ preventScroll: true }); position(); }
+        });
+        panel.addEventListener('click', event => event.stopPropagation());
+        global.document.addEventListener('click', close);
+        global.document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
+        global.addEventListener('resize', position);
+        global.addEventListener('scroll', close, true);
+        input.addEventListener('input', () => setSlideCount(input.value));
+        setSlideCount(input.value);
     }
 
     function canSpend(amount) {
@@ -174,13 +211,13 @@
 
     function init() {
         initPopover();
-        const countInput = global.document.getElementById('slide-count-select');
-        countInput?.addEventListener('change', () => setSlideCount(countInput.value));
+        initSlideControl();
         global.document.getElementById('w-tema')?.addEventListener('input', updateCostPreview);
         global.document.getElementById('btn-generate')?.addEventListener('click', () => updateCostPreview());
         global.addEventListener('aedos:language-changed', () => {
             if (lastCredits) renderBalance(lastCredits);
             else updateCostPreview();
+            setSlideCount(getSlideCount());
         });
         refresh();
         global.setInterval(() => refresh(), 60000);

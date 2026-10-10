@@ -30,14 +30,14 @@
     <link rel="stylesheet" href="features/tools/tools.css?v=3">
     <link rel="stylesheet" href="features/chat/thinking-panel.css?v=9">
     <link rel="stylesheet" href="styles/foundation.css?v=4">
-    <link rel="stylesheet" href="styles/chat.css?v=8">
+    <link rel="stylesheet" href="styles/chat.css?v=9">
     <link rel="stylesheet" href="styles/settings.css?v=2">
     <link rel="stylesheet" href="styles/dialogs.css?v=3">
     <link rel="stylesheet" href="styles/preview.css?v=12">
     <link rel="stylesheet" href="styles/workspace.css?v=8">
     <link rel="stylesheet" href="styles/outline.css?v=39">
     <link rel="stylesheet" href="mobile/css/style-mobile-overrides.css?v=1">
-    <link rel="stylesheet" href="mobile/css/index.css?v=5">
+    <link rel="stylesheet" href="mobile/css/index.css?v=6">
     <link rel="stylesheet" href="styles/typography.css?v=1">
     <!-- Parser-blocking loader keeps third-party globals in their original load order. -->
     <script src="features/shared/vendor-assets.js?v=1"></script>
@@ -50,7 +50,7 @@
     <script src="features/shared/preview-editor-store.js?v=1"></script>
     <script src="config/model-catalog.js?v=3"></script>
     <script src="features/credits/credits-service.js?v=1"></script>
-    <script src="features/credits/credits-ui.js?v=4"></script>
+    <script src="features/credits/credits-ui.js?v=5"></script>
     <script src="features/shared/theme-controller.js?v=1"></script>
     <script src="features/minimap/minimap-view.js?v=1"></script>
     <script src="features/minimap/minimap.js?v=3"></script>
@@ -225,14 +225,21 @@
                         </div>
                     </div>
                     <div class="chat-actions-right">
-                        <label class="slide-count-control" for="slide-count-select">
-                            <span data-i18n="credits.slides"></span>
-                            <select id="slide-count-select" data-i18n-aria-label="credits.slides">
-                                <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-                                <option value="6">6</option><option value="7">7</option><option value="8" selected>8</option><option value="9">9</option><option value="10">10</option>
-                                <option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
-                            </select>
-                        </label>
+                        <div class="slide-count-control">
+                            <button type="button" id="slide-count-trigger" class="slide-count-trigger" aria-expanded="false" aria-controls="slide-count-panel">
+                                <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/><circle cx="8" cy="5" r="2" fill="var(--surface2)"/><circle cx="13" cy="10" r="2" fill="var(--surface2)"/><circle cx="6" cy="15" r="2" fill="var(--surface2)"/></svg>
+                                <span class="slide-count-trigger-label" data-i18n="credits.slides"></span>
+                                <strong id="slide-count-value">8</strong>
+                            </button>
+                            <div id="slide-count-panel" class="slide-count-panel" hidden>
+                                <div class="slide-count-panel-head"><label for="slide-count-select" data-i18n="credits.slides"></label><strong id="slide-count-panel-value">8</strong></div>
+                                <div class="slide-count-range-track">
+                                    <span class="slide-count-range-fill"></span>
+                                    <input type="range" id="slide-count-select" min="1" max="15" step="1" value="8" data-i18n-aria-label="credits.slides">
+                                </div>
+                                <div class="slide-count-range-ends"><span>1</span><span id="slide-count-max">15</span></div>
+                            </div>
+                        </div>
                         <span id="credits-cost-preview" class="credits-cost-chip" aria-live="polite"></span>
                         <button class="btn-generate-submit" id="btn-generate" disabled data-i18n-aria-label="credits.generate">
                             <svg class="send-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
