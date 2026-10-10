@@ -38,7 +38,7 @@ test('outline stream lifecycle preserves preparation, finalization, and stop cal
     lifecycle.prepareOutlineStreaming('pro');
     assert.equal(state.isLoading, true);
     assert.equal(state.skeleton, null);
-    assert.equal(state.maxSlides, 8);
+    assert.equal(state.maxSlides, 15);
     assert.equal(slideContainer.innerHTML, '');
     assert.equal(chipsContainer.innerHTML, '');
     assert.equal(elements['btn-lang-dropdown'].disabled, true);

@@ -31,9 +31,15 @@ function createAttachments(deps) {
 
     // Store files locally for submission
     window._attachedFiles = [];
+    if (btnAttachFile) btnAttachFile.hidden = true;
+    if (fileUploadInput) fileUploadInput.disabled = true;
+    if (attachmentPreviewContainer) attachmentPreviewContainer.hidden = true;
 
     function handleFilesAdded(files) {
         if (files.length === 0) return;
+        window.AedosModals.showNotice('Document attachments are not available yet.');
+        window._attachedFiles = [];
+        return;
 
         const allowedExtensions = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp'];
         const validFiles = [];

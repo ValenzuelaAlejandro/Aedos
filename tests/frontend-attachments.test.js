@@ -28,7 +28,7 @@ function element() {
     };
 }
 
-test('attachment factory preserves listener order, validation, chips and legacy file state', () => {
+test('attachment factory disables document input and rejects dropped or selected documents', () => {
     const events = [];
     const alerts = [];
     const preview = element();
@@ -51,7 +51,8 @@ test('attachment factory preserves listener order, validation, chips and legacy 
     const window = {
         addEventListener: (name, callback) => events.push([name, callback]),
         __t: (_key, fallback) => fallback,
-        _syncModeWithFiles: () => { }
+        _syncModeWithFiles: () => { },
+        AedosModals: { showNotice: message => alerts.push(message) },
     };
     const context = { window, document, alert: (message) => alerts.push(message), URL, setTimeout };
     vm.runInNewContext(source, context);
@@ -65,24 +66,19 @@ test('attachment factory preserves listener order, validation, chips and legacy 
         validateGenerateButton: () => { validations++; }
     });
 
+    assert.equal(button.hidden, true);
+    assert.equal(input.disabled, true);
+    assert.equal(window._attachedFiles.length, 0);
+
     assert.deepEqual(events.map(([name]) => name), ['dragover', 'drop', 'dragenter', 'dragover', 'dragleave', 'drop']);
     const pdf = (name, size = 1) => ({ name, size, type: 'application/pdf' });
     input.dispatch('change', { target: { files: [pdf('one.pdf'), pdf('two.pdf')] } });
-    assert.equal(window._attachedFiles.length, 2);
-    assert.equal(chips.children.length, 2);
-    assert.equal(validations, 1);
+    assert.equal(window._attachedFiles.length, 0);
+    assert.equal(chips.children.length, 0);
+    assert.equal(validations, 0);
     assert.equal(input.value, '');
-
-    input.dispatch('change', { target: { files: [pdf('bad.exe'), pdf('huge.pdf', 10 * 1024 * 1024 + 1)] } });
-    assert.equal(window._attachedFiles.length, 2);
-    assert.equal(alerts.length, 2);
-
-    input.dispatch('change', { target: { files: [pdf('three.pdf'), pdf('four.pdf')] } });
-    assert.equal(window._attachedFiles.length, 3);
-    assert.equal(chips.children.length, 3);
-    assert.equal(alerts.length, 3);
-    chips.children[0].children[1].dispatch('click');
-    assert.equal(window._attachedFiles.length, 2);
-    assert.equal(chips.children.length, 2);
-    assert.equal(validations, 3);
+    assert.equal(alerts.length, 1);
+    const dropHandler = events.find(([name]) => name === 'drop')[1];
+    dropHandler({ preventDefault() {}, dataTransfer: { files: [pdf('drop.pdf')] } });
+    assert.equal(window._attachedFiles.length, 0);
 });

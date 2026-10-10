@@ -1,6 +1,6 @@
 // Outline Editor Logic
 // Manual additions stop at eight even when Flash generation allows a larger outline.
-const MAX_USER_ADDED_OUTLINE_SLIDES = 8;
+const MAX_USER_ADDED_OUTLINE_SLIDES = 15;
 
 /**
  * Returns the innerHTML for a .chat-bubble-file-chip span.
@@ -124,6 +124,7 @@ function renderOutlineSlides() {
     if (!container) return;
     const slides = window.outlineEditorState.skeleton.slides || [];
     window.AedosOutlineRenderer.renderSlides(container, slides);
+    window.AedosCreditsUI?.setSlideCount(slides.length);
     bindOutlineEvents();
 }
 
@@ -148,8 +149,8 @@ function updateOutlineSlideCount() {
         if (slides.length >= getOutlineAddSlideLimit()) {
             addSlideBtn.disabled = true;
             addSlideBtn.title = window.__t
-                ? window.__t('outline_add_slide_limit_reached', 'Maximum of 8 slides reached.')
-                : 'Maximum of 8 slides reached.';
+                ? window.__t('outline_add_slide_limit_reached', 'Maximum of 15 slides reached.')
+                : 'Maximum of 15 slides reached.';
         } else {
             addSlideBtn.disabled = false;
             addSlideBtn.title = '';

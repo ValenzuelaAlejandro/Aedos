@@ -47,7 +47,19 @@ const retryAfterMatch = rawMsg.match(/\|RETRY_AFTER=(\d+)/);
 const retryAfterSec = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) : null;
 const msg = rawMsg.replace(/\|RETRY_AFTER=\d+/, '');
 
-if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCEEDED_PRO') || msg.includes('DAILY_LIMIT_EXCEEDED_CHAT')) {
+if (msg.includes('PAYMENTS_PAUSED')) {
+    if (errTitle) errTitle.textContent = 'Paid models are paused';
+    if (errSubtitle) errSubtitle.textContent = 'Choose a free model to keep generating.';
+    window.AedosCreditsUI?.updateStatus('Paid models are paused. Free models remain available.', 'paused');
+    document.querySelectorAll('.model-dropdown-item').forEach(item => {
+        const model = (window.MODEL_CATALOG || []).find(entry => entry.id === item.dataset.modelId);
+        if (model?.tier !== 'free') item.remove();
+    });
+} else if (msg.includes('CREDITS_EXHAUSTED') || msg.includes('INSUFFICIENT_CREDITS')) {
+    if (errTitle) errTitle.textContent = msg.includes('CREDITS_EXHAUSTED') ? "You've used today's credits" : 'Not enough credits';
+    if (errSubtitle) errSubtitle.textContent = 'Choose fewer slides or a lower-cost model, then try again.';
+    window.AedosCreditsUI?.updateStatus('Not enough credits for this action.', 'insufficient');
+} else if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCEEDED_PRO') || msg.includes('DAILY_LIMIT_EXCEEDED_CHAT')) {
     if (errTitle) errTitle.textContent = window.__t ? window.__t('daily_limit_title', "You've reached today's limit") : "You've reached today's limit";
     if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('daily_limit_msg', "Free generations reset every 24 hours. Come back tomorrow or try again later.") : "Free generations reset every 24 hours. Come back tomorrow or try again later.";
 } else if (msg.includes('COOLDOWN_ACTIVE')) {

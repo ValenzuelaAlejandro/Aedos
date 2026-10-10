@@ -522,7 +522,6 @@ html.theme-transitioning::view-transition-new(root) {
     display: none !important;
 }
 
-#chat-screen.chat-mode #btn-mode-dropdown,
 #chat-screen.chat-mode #btn-attach-file {
     display: none !important;
 }
