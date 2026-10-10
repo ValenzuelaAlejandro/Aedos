@@ -57,6 +57,23 @@
         return { models: global.MODEL_CATALOG || [], paymentsPaused: false, source: 'mock' };
     }
 
+    function quote(model, slides) {
+        const count = Math.max(1, Math.floor(Number(slides) || 1));
+        if (model?.billing === 'perPresentation') {
+            const rate = Number(model.creditsPerPresentation);
+            if (!Number.isSafeInteger(rate) || rate <= 0) throw new Error('INVALID_MODEL_BILLING');
+            return { billing: 'perPresentation', slides: count, rate, total: rate };
+        }
+        if (model?.billing === 'perSlide') {
+            const rate = Number(model.creditsPerSlide);
+            if (!Number.isSafeInteger(rate) || rate <= 0) throw new Error('INVALID_MODEL_BILLING');
+            return { billing: 'perSlide', slides: count, rate, total: count * rate };
+        }
+        throw new Error('INVALID_MODEL_BILLING');
+    }
+
+    // The server must calculate the authoritative cost, charge only after successful generation,
+    // and refund any charge if generation fails. This local mock is not a billing authority.
     function spend(amount, reason = 'generation') {
         const cost = Math.max(0, Math.floor(Number(amount) || 0));
         const state = readMockState();
@@ -82,6 +99,7 @@
         DAILY_LIMIT,
         getCredits,
         getModels,
+        quote,
         spend,
         refund,
         setApiMode,
