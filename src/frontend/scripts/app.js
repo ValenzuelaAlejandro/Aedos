@@ -95,14 +95,15 @@ document.addEventListener('DOMContentLoaded', () => {
             ? window.MobileConfig.breakpoint
             : 850;
 
-    const modeBtn = document.getElementById('btn-mode-dropdown');
-    const modeMenu = document.getElementById('mode-dropdown-menu');
+    const modelBtn = document.getElementById('btn-model-dropdown');
+    const modelMenu = document.getElementById('model-dropdown-menu');
     const langBtn = document.getElementById('btn-lang-dropdown');
     const langMenu = document.getElementById('lang-dropdown-menu');
     const exportMenuBtn = document.getElementById('export-menu-trigger');
     const exportMenu = document.getElementById('export-dropdown-menu');
     const exportPptxBtn = document.getElementById('export-pptx-btn');
-    const currentModeLabel = document.getElementById('current-mode-label');
+    const currentModelLabel = document.getElementById('current-model-label');
+    const currentModelIcon = document.getElementById('current-model-icon');
     const currentLangLabel = document.getElementById('current-lang-label');
     const chatInputWrapper = document.querySelector('.chat-input-wrapper');
 
@@ -133,10 +134,14 @@ document.addEventListener('DOMContentLoaded', () => {
         generationState,
         finalizeBtn,
         elements: {
-            modeBtn, modeMenu, langBtn, langMenu, exportMenuBtn, exportMenu,
-            exportPptxBtn, currentModeLabel, currentLangLabel, chatInputWrapper,
+            modelBtn, modelMenu,
+            modelOptions: document.getElementById('model-dropdown-options'),
+            modeButtons: Array.from(document.querySelectorAll('[data-generation-mode]')),
+            langBtn, langMenu, exportMenuBtn, exportMenu,
+            exportPptxBtn, currentModelLabel, currentModelIcon, currentLangLabel, chatInputWrapper,
         },
     });
+    window.AedosCreditsUI?.init();
 
     window.AedosPreview.createPreviewMessageBridge({
         window, document, previewState, previewContainer, slideLabel,
@@ -224,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window,
         temaInput,
         generateBtn,
-        modeBtn,
+        modeBtn: modelBtn,
         langBtn,
         btnAttachFile,
         validateGenerateButton,
