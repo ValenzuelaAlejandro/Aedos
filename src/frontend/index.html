@@ -29,28 +29,28 @@
     <link rel="stylesheet" href="features/minimap/minimap.css?v=3">
     <link rel="stylesheet" href="features/tools/tools.css?v=3">
     <link rel="stylesheet" href="features/chat/thinking-panel.css?v=9">
-    <link rel="stylesheet" href="styles/foundation.css?v=3">
-    <link rel="stylesheet" href="styles/chat.css?v=7">
+    <link rel="stylesheet" href="styles/foundation.css?v=4">
+    <link rel="stylesheet" href="styles/chat.css?v=8">
     <link rel="stylesheet" href="styles/settings.css?v=2">
     <link rel="stylesheet" href="styles/dialogs.css?v=3">
     <link rel="stylesheet" href="styles/preview.css?v=12">
     <link rel="stylesheet" href="styles/workspace.css?v=8">
     <link rel="stylesheet" href="styles/outline.css?v=39">
     <link rel="stylesheet" href="mobile/css/style-mobile-overrides.css?v=1">
-    <link rel="stylesheet" href="mobile/css/index.css?v=4">
+    <link rel="stylesheet" href="mobile/css/index.css?v=5">
     <link rel="stylesheet" href="styles/typography.css?v=1">
     <!-- Parser-blocking loader keeps third-party globals in their original load order. -->
     <script src="features/shared/vendor-assets.js?v=1"></script>
     <!-- i18n Translation System -->
-    <script src="features/shared/i18n.js?v=11"></script>
+    <script src="features/shared/i18n.js?v=12"></script>
     <script src="features/shared/logger.js?v=1"></script>
     <script type="module" src="features/shared/http-sse.js?v=1"></script>
     <script src="features/shared/outline-store.js?v=1"></script>
     <script src="features/shared/generation-store.js?v=2"></script>
     <script src="features/shared/preview-editor-store.js?v=1"></script>
-    <script src="config/model-catalog.js?v=1"></script>
+    <script src="config/model-catalog.js?v=2"></script>
     <script src="features/credits/credits-service.js?v=1"></script>
-    <script src="features/credits/credits-ui.js?v=2"></script>
+    <script src="features/credits/credits-ui.js?v=3"></script>
     <script src="features/shared/theme-controller.js?v=1"></script>
     <script src="features/minimap/minimap-view.js?v=1"></script>
     <script src="features/minimap/minimap.js?v=3"></script>
@@ -58,11 +58,11 @@
       <script src="features/chat/orb-avatar.js?v=12"></script>
       <script src="features/chat/thinking-panel.js?v=14"></script>
       <script src="features/chat/attachment-renderer.js?v=1"></script>
-      <script src="features/chat/attachments.js?v=3"></script>
+      <script src="features/chat/attachments.js?v=4"></script>
       <script src="features/chat/input-controller.js?v=2"></script>
       <script src="features/chat/loading-controller.js?v=1"></script>
       <script src="features/chat/generate-validation.js?v=1"></script>
-    <script src="features/app/dropdowns.js?v=2"></script>
+    <script src="features/app/dropdowns.js?v=3"></script>
     <script src="features/modals/error-modal.js?v=2"></script>
     <script src="features/generation/preview-transition.js?v=2"></script>
     <script src="features/generation/proceed-flow.js?v=3"></script>
@@ -70,9 +70,9 @@
     <script src="features/generation/approved-outline-proceed.js?v=3"></script>
     <script src="features/generation/stage-progress.js?v=2"></script>
     <script src="features/generation/reasoning-progress.js?v=3"></script>
-    <script src="features/generation/skeleton-generation.js?v=3"></script>
+    <script src="features/generation/skeleton-generation.js?v=4"></script>
     <script src="features/generation/final-setup.js?v=3"></script>
-    <script src="features/generation/final-generation.js?v=3"></script>
+    <script src="features/generation/final-generation.js?v=4"></script>
     <script src="features/preview/overlay-style.js?v=1"></script>
     <script src="features/preview/overlay-labels.js?v=1"></script>
     <script src="features/preview/zoom-controls.js?v=1"></script>
@@ -131,6 +131,18 @@
                         <img class="kofi-cup-icon" src="assets/images/kofi-official-icon.avif" alt="" aria-hidden="true">
                         <span data-i18n="support">Support</span>
                     </a>
+                    <div class="credits-header-control">
+                        <button type="button" id="credits-balance-trigger" class="credits-balance-chip" aria-expanded="false" aria-controls="credits-popover" data-i18n-aria-label="credits.balanceTitle">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 10h7M8.5 14h7"></path></svg>
+                            <span id="credits-balance"></span>
+                        </button>
+                        <div id="credits-popover" class="credits-popover" role="dialog" data-i18n-aria-label="credits.balanceTitle" hidden>
+                            <div class="credits-popover-head"><strong data-i18n="credits.balanceTitle"></strong><span id="credits-popover-balance"></span></div>
+                            <div class="credits-progress" role="meter" data-i18n-aria-label="credits.progressAria" aria-valuemin="0" aria-valuemax="50" aria-valuenow="50"><span id="credits-progress-fill"></span></div>
+                            <p id="credits-reset-time" class="credits-reset-label"></p>
+                            <p class="credits-rates" data-i18n="credits.rates"></p>
+                        </div>
+                    </div>
                     <a href="https://discord.gg/63tgKMUUmw" target="_blank" rel="noopener noreferrer" class="theme-toggle-btn" aria-label="Join Discord" data-i18n-title="discord" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true">
                             <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
@@ -170,27 +182,29 @@
                 </div>
                 <div class="chat-actions">
                     <div class="chat-actions-left">
-                        <button type="button" id="btn-attach-file" hidden disabled aria-hidden="true" tabindex="-1">Attach document</button>
+                        <button type="button" id="btn-attach-file" hidden disabled aria-hidden="true" tabindex="-1"></button>
                         <!-- Model selector -->
                         <div class="dropdown-container">
-                            <button type="button" id="btn-model-dropdown" class="action-pill-btn btn-model-toggle" aria-expanded="false" aria-haspopup="true">
-                                <span id="current-model-icon" aria-hidden="true">✨</span>
+                            <button type="button" id="btn-model-dropdown" class="action-pill-btn btn-model-toggle" aria-expanded="false" aria-haspopup="true" data-i18n-aria-label="credits.selectModel">
+                                <span id="current-model-icon" class="model-brand-icon model-brand-icon--gemini" aria-hidden="true"></span>
                                 <span class="btn-mode-label" id="current-model-label">Gemini 3 Flash</span>
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </button>
                             <div class="dropdown-menu model-dropdown-menu hidden" id="model-dropdown-menu" role="menu">
-                                <div id="model-payment-paused-message" class="model-paused-message hidden" role="status">Paid models are paused. Free models remain available.</div>
+                                <div id="model-payment-paused-message" class="model-paused-message hidden" role="status" data-i18n="credits.paidPaused"></div>
                                 <div id="model-dropdown-options"></div>
                             </div>
                         </div>
-                        <div class="generation-mode-switch" role="group" aria-label="Generation mode">
-                            <button type="button" class="generation-mode-option active" data-generation-mode="flash" aria-pressed="true">Flash</button>
-                            <button type="button" class="generation-mode-option" data-generation-mode="pro" aria-pressed="false">Pro</button>
+                        <div class="generation-mode-control">
+                            <span class="generation-mode-label" data-i18n="credits.mode"></span>
+                            <div class="generation-mode-switch" role="group" data-i18n-aria-label="credits.mode">
+                                <button type="button" class="generation-mode-option active" data-generation-mode="flash" aria-pressed="true" data-i18n="mode.flash"></button>
+                                <button type="button" class="generation-mode-option" data-generation-mode="pro" aria-pressed="false" data-i18n="mode.pro"></button>
+                            </div>
                         </div>
 
                         <!-- Language Selector Dropdown -->
                         <div class="dropdown-container">
-                            <button type="button" id="btn-lang-dropdown" class="action-pill-btn" aria-expanded="false" data-i18n-title="output_language">
+                            <button type="button" id="btn-lang-dropdown" class="action-pill-btn" aria-expanded="false" data-i18n-title="output_language" data-i18n-aria-label="output_language">
                                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                                 <span id="current-lang-label">Auto</span>
                                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -212,32 +226,22 @@
                     </div>
                     <div class="chat-actions-right">
                         <label class="slide-count-control" for="slide-count-select">
-                            <span>Slides</span>
-                            <select id="slide-count-select" aria-label="Number of slides">
+                            <span data-i18n="credits.slides"></span>
+                            <select id="slide-count-select" data-i18n-aria-label="credits.slides">
                                 <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                                 <option value="6">6</option><option value="7">7</option><option value="8" selected>8</option><option value="9">9</option><option value="10">10</option>
                                 <option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
                             </select>
                         </label>
-                        <button class="btn-generate-submit" id="btn-generate" disabled aria-label="Generate presentation">
+                        <span id="credits-cost-preview" class="credits-cost-chip" aria-live="polite"></span>
+                        <button class="btn-generate-submit" id="btn-generate" disabled data-i18n-aria-label="credits.generate">
                             <svg class="send-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                             <svg class="stop-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><circle class="stop-circle" cx="12" cy="12" r="10"></circle><rect x="9.5" y="9.5" width="5" height="5" fill="currentColor"></rect></svg>
                         </button>
                     </div>
                 </div>
-                <div class="credits-footer" aria-live="polite">
-                    <div class="credits-balance-row">
-                        <span id="credits-balance">50 / 50 credits</span>
-                        <div class="credits-progress" role="meter" aria-label="Daily credits remaining"><span id="credits-progress-fill"></span></div>
-                        <span class="credits-reset-label">Resets <strong id="credits-reset-time">--:--</strong></span>
-                    </div>
-                    <div class="credits-cost-row">
-                        <span id="credits-cost-preview">8 slides × 3 = 24 credits</span>
-                        <span>Chat and add element: 1 credit · Outline: free</span>
-                    </div>
-                    <div id="credits-status" class="credits-status hidden" role="status" aria-live="polite"></div>
-                </div>
             </div>
+            <div id="credits-status" class="credits-status hidden" role="status" aria-live="polite"></div>
 
             <div class="suggestion-pills-row" id="suggestion-pills-row">
                 <button type="button" class="suggestion-pill" data-topic-key="pill_topic_technology">
@@ -840,7 +844,7 @@
     <script src="features/app/tooltips.js?v=1"></script>
     <script src="features/app/router.js?v=7"></script>
     <script src="features/app/reset-controller.js?v=1"></script>
-    <script src="features/generation/error-presenter.js?v=3"></script>
+    <script src="features/generation/error-presenter.js?v=4"></script>
     <script src="features/tools/shape-inserter.js?v=1"></script>
     <script src="features/tools/tools.js?v=5"></script>
     <script src="editor/editor-ui.js?v=3"></script>

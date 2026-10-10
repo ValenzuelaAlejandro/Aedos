@@ -240,6 +240,49 @@
     gap: 0.6rem;
 }
 
+.credits-header-control { position: relative; }
+.credits-balance-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 36px;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface2);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 650;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.credits-balance-chip:hover,
+.credits-balance-chip[aria-expanded="true"] { background: var(--surface-hover); }
+.credits-balance-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.credits-popover {
+    position: absolute;
+    top: calc(100% + 0.55rem);
+    right: 0;
+    z-index: 120;
+    width: min(295px, calc(100vw - 2rem));
+    padding: 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+    color: var(--text);
+    font-size: 0.78rem;
+}
+.credits-popover[hidden] { display: none; }
+.credits-popover-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.7rem; }
+.credits-popover-head strong { font-size: 0.83rem; }
+.credits-popover-head span { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.credits-progress { height: 3px; overflow: hidden; border-radius: 999px; background: var(--border); }
+.credits-progress span { display: block; height: 100%; width: 100%; border-radius: inherit; background: var(--text-secondary); opacity: 0.55; transition: width 0.2s ease; }
+.credits-reset-label { margin: 0.7rem 0 0; color: var(--text-secondary); }
+.credits-rates { margin: 0.55rem 0 0; padding-top: 0.55rem; border-top: 1px solid var(--border); color: var(--text-secondary); line-height: 1.45; }
+
 .home-donation-link {
     display: inline-flex;
     align-items: center;
