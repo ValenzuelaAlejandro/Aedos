@@ -14,9 +14,8 @@
             const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
             const isActive = val.length >= 4 || hasFiles;
     
-            if (btnGenerate) {
-                btnGenerate.disabled = !isActive;
-            }
+            const affordability = window.AedosCreditsUI?.updateCostPreview();
+            if (btnGenerate) btnGenerate.disabled = !isActive || affordability?.affordable === false;
     
             // Animate hero title dynamically based on active state and language
             if (isActive) {

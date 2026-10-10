@@ -69,10 +69,26 @@
             const requestData = {
                 tema: finalTema,
                 mode: 'chat', // skeleton always draws from the chat rate-limit bucket
+                modelId: generationState.selectedModelId || 'google/gemini-3-flash-preview',
+                slides: window.AedosCreditsUI?.getSlideCount() || 8,
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
     
             const isFollowUpRequest = window.outlineEditorState && window.outlineEditorState.skeleton !== null;
+
+            // Follow-up chat edits cost one simulated credit; initial outline/schema generation is free.
+            if (isFollowUpRequest && !window.AedosCreditsUI?.canSpend(1)) {
+                toggleGenerateLoading(false);
+                return;
+            }
+            if (isFollowUpRequest) {
+                const charge = window.AedosCredits.spend(1, 'chat');
+                if (!charge.ok) {
+                    window.AedosCreditsUI?.updateStatus('Not enough credits for chat.', 'insufficient');
+                    toggleGenerateLoading(false);
+                    return;
+                }
+            }
     
             if (isFollowUpRequest) {
                 requestData.currentSkeleton = JSON.stringify(window.outlineEditorState.skeleton);
@@ -283,6 +299,10 @@
                     throw new Error("Outline editor not initialized");
                 }
             } catch (error) {
+                if (isFollowUpRequest) {
+                    window.AedosCredits.refund(1, 'failed-chat');
+                    window.AedosCreditsUI?.refresh();
+                }
                 handleSkeletonError(error, controller);
             }
         };

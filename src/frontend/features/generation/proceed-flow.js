@@ -27,6 +27,7 @@
                     if (window.outlineEditorState) window.outlineEditorState.skeleton = window._backupSkeleton;
                     finalSkeletonObj = window._backupSkeleton;
                 }
+                if (Array.isArray(finalSkeletonObj?.slides)) window.AedosCreditsUI?.setSlideCount(Math.min(15, finalSkeletonObj.slides.length));
                 window.startFinalGeneration(finalSkeletonObj);
             }
         };

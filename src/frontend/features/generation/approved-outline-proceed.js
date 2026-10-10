@@ -42,8 +42,12 @@
             const requestData = {
                 tema,
                 mode: 'chat',
+                modelId: generationState.selectedModelId || 'google/gemini-3-flash-preview',
+                slides: Math.min(15, skeleton.slides.length),
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
+            if (skeleton.slides.length > 15) skeleton.slides = skeleton.slides.slice(0, 15);
+            window.AedosCreditsUI?.setSlideCount(skeleton.slides.length);
             requestData.currentSkeleton = JSON.stringify(skeleton);
 
             let bodyData;

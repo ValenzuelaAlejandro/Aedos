@@ -48,6 +48,16 @@ function initTools(iframe) {
         clone.addEventListener(event, cb);
     }
 
+    function chargeAddedElement() {
+        const credits = window.AedosCredits;
+        const ui = window.AedosCreditsUI;
+        if (!credits || !ui?.canSpend(1)) return false;
+        const result = credits.spend(1, 'add-element');
+        if (!result.ok) return false;
+        ui.refresh();
+        return true;
+    }
+
     function getActiveSlide() {
         const slides = Array.from(iframeDoc.querySelectorAll('section[class*="s"]'));
         return slides.find(s => s.classList.contains('active')) || slides[0] || iframeDoc.body;
@@ -207,6 +217,7 @@ function initTools(iframe) {
 
             dynamicContainer.querySelectorAll('.lib-item').forEach(item => {
                 item.addEventListener('click', () => {
+                    if (!chargeAddedElement()) return;
                     const type = item.dataset.type;
                     if (type === 'icon') {
                         insertIcon(item.dataset.val);
@@ -769,6 +780,7 @@ function initTools(iframe) {
             if (iframeWin.editorDeselect) iframeWin.editorDeselect();
             return;
         }
+        if (!chargeAddedElement()) return;
         // Mark that the upcoming selection-changed was triggered by this btn
         _settingPanelOwner = true;
         panelOwner = btnId;
@@ -809,6 +821,7 @@ function initTools(iframe) {
             if (iframeWin.editorDeselect) iframeWin.editorDeselect();
             return;
         }
+        if (!chargeAddedElement()) return;
         // Mark that the upcoming selection-changed was triggered by this btn
         _settingPanelOwner = true;
         panelOwner = btnId;
@@ -906,6 +919,7 @@ function initTools(iframe) {
     const addImageAtHandler = (e) => {
         const { file, x, y } = e.detail;
         if (!file) return;
+        if (!chargeAddedElement()) return;
         fixToolsPanel();
         if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         const slide = getActiveSlide();
