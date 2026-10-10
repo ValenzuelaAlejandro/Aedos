@@ -91,6 +91,9 @@
             ]);
             modelList = modelsResult.models || [];
             renderBalance(credits);
+            global.dispatchEvent?.(new global.CustomEvent('aedos:models-updated', {
+                detail: { models: modelList, paymentsPaused: modelsResult.paymentsPaused },
+            }));
             return { credits, models: modelList, paymentsPaused: modelsResult.paymentsPaused };
         } catch (_) {
             updateStatus('Credits are temporarily unavailable. Try again shortly.', 'error');

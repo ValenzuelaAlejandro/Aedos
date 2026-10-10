@@ -106,6 +106,10 @@
         if (creditsUI) creditsUI.refresh().then(result => {
             if (result) renderModels(result.models, result.paymentsPaused);
         });
+        window.addEventListener('aedos:models-updated', event => {
+            const detail = event.detail || {};
+            renderModels(detail.models || [], Boolean(detail.paymentsPaused));
+        });
 
         if (langBtn && langMenu) {
             langBtn.addEventListener('click', (e) => {
