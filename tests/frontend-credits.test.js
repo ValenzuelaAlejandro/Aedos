@@ -18,7 +18,7 @@ function loadCredits() {
         },
         fetch: async url => ({ ok: true, json: async () => url === '/api/credits'
             ? { balance: 17, dailyLimit: 50 }
-            : { models: [{ id: 'api/model', tier: 'free', creditsPerSlide: 3 }], paymentsPaused: true } }),
+            : { models: [{ id: 'api/model', tier: 'free', billing: 'perSlide', creditsPerSlide: 1 }], paymentsPaused: true } }),
     };
     vm.runInNewContext(catalogSource, { window });
     vm.runInNewContext(serviceSource, { window });
@@ -49,17 +49,31 @@ test('API adapter can replace simulated credits and model catalog without changi
     assert.equal(models.paymentsPaused, true);
 });
 
-test('one quote applies the mode surcharge and the existing slide caps', () => {
+test('catalog uses explicit billing types and excludes Dots', () => {
+    const { window } = loadCredits();
+    assert.equal(window.MODEL_CATALOG.length, 5);
+    assert.equal(window.MODEL_CATALOG.some(model => model.id.startsWith('dots-studio/')), false);
+    assert.deepEqual(JSON.parse(JSON.stringify(window.MODEL_CATALOG.map(model => [model.billing, model.creditsPerPresentation || model.creditsPerSlide]))), [
+        ['perPresentation', 10], ['perSlide', 1], ['perSlide', 2], ['perSlide', 3], ['perSlide', 3],
+    ]);
+    assert.equal(window.MODE_SURCHARGE, undefined);
+});
+
+test('service quotes presentation and slide billing without a mode surcharge', () => {
     const { window } = loadCredits();
     window.AedosStores = { generation: { state: { proModeEnabled: false, selectedModelId: window.MODEL_CATALOG[0].id } } };
     vm.runInNewContext(uiSource, { window });
-    const free = window.MODEL_CATALOG[0];
+    const gemini = window.MODEL_CATALOG[0];
+    const apodex = window.MODEL_CATALOG[1];
     const standard = window.MODEL_CATALOG.find(model => model.tier === 'standard');
 
-    assert.equal(window.AedosCreditsUI.getQuote(15, free).total, 45);
-    assert.equal(window.AedosCreditsUI.getQuote(8, standard).rate, 6);
+    assert.equal(window.AedosCreditsUI.getQuote(15, gemini).total, 10);
+    assert.equal(window.AedosCreditsUI.getQuote(8, apodex).total, 8);
+    assert.equal(window.AedosCreditsUI.getQuote(8, standard).total, 24);
     window.AedosStores.generation.state.proModeEnabled = true;
-    assert.equal(window.AedosCreditsUI.getQuote(8, free).total, 32);
-    assert.equal(window.AedosCreditsUI.getQuote(15, standard).total, 56);
+    assert.equal(window.AedosCreditsUI.getQuote(8, gemini).total, 10);
+    assert.equal(window.AedosCreditsUI.getQuote(8, apodex).total, 8);
+    assert.equal(window.AedosCreditsUI.getQuote(8, standard).total, 24);
+    assert.equal(window.AedosCreditsUI.getQuote(15, standard).total, 24);
     assert.equal(window.AedosCreditsUI.getQuote(15, standard).slides, 8);
 });

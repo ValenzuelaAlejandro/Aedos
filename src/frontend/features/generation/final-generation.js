@@ -39,11 +39,14 @@
                 generationState.activeController = controller;
 
                 const requestedSlides = Math.min(window.AedosCreditsUI.getSlideCount(), Math.max(1, Array.isArray(skeleton?.slides) ? skeleton.slides.length : 8));
-                const requestedCreditCost = window.AedosCreditsUI.getQuote(requestedSlides).total;
+                const creditQuote = window.AedosCreditsUI.getQuote(requestedSlides);
+                const requestedCreditCost = creditQuote.total;
                 if (!window.AedosCreditsUI?.canSpend(requestedCreditCost)) return;
                 const creditCharge = window.AedosCredits.spend(requestedCreditCost, 'presentation');
                 if (!creditCharge.ok) {
-                    window.AedosCreditsUI?.updateStatus('credits.insufficient', 'insufficient', { cost: requestedCreditCost, left: creditCharge.balance });
+                    const canReduce = creditQuote.billing === 'perSlide' && creditCharge.balance >= creditQuote.rate;
+                    window.AedosCreditsUI?.updateStatus(canReduce ? 'credits.insufficientSlides' : 'credits.insufficientModel',
+                        'insufficient', { cost: requestedCreditCost, left: creditCharge.balance });
                     chargedCredits = 0;
                     return;
                 }
@@ -269,7 +272,6 @@
             } catch (error) {
                 if (chargedCredits > 0 && !generationCompleted) {
                     window.AedosCredits.refund(chargedCredits, error.name === 'AbortError' ? 'cancelled-presentation' : 'failed-presentation');
-                    chargedCredits = 0;
                     window.AedosCreditsUI?.refresh();
                 }
                 previewMarkupBuffer.clearTimer();

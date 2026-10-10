@@ -5,8 +5,6 @@
     let balance = 50;
     let dailyLimit = 50;
     let lastCredits = null;
-    let statusKey = '';
-    let statusParams = {};
 
     function format(key, params = {}) {
         return global.__t(key).replace(/\{([a-z]+)\}/g, (match, name) =>
@@ -38,11 +36,10 @@
         return global.MODE_SLIDE_LIMIT[activeMode()];
     }
 
-    // One quote is used by preview, model rows, affordability and the simulated charge.
+    // The service owns the billing formula; this layer only enforces the current mode's slide cap.
     function getQuote(slides = getSlideCount(), model = selectedModel()) {
         const count = Math.min(maxSlides(), Math.max(1, Math.floor(Number(slides) || 1)));
-        const rate = (model?.creditsPerSlide || 3) + global.MODE_SURCHARGE[activeMode()];
-        return { slides: count, rate, total: count * rate };
+        return global.AedosCredits.quote(model, count);
     }
 
     function getSlideCount() {
@@ -52,8 +49,6 @@
     }
 
     function updateStatus(key = '', state = '', params = {}) {
-        statusKey = key;
-        statusParams = params;
         const status = global.document?.getElementById('credits-status');
         if (!status) return;
         status.textContent = key ? format(key, params) : '';
@@ -83,11 +78,26 @@
         }
         if (resetNode) resetNode.textContent = format('credits.resetsAt', { time: resetTime() });
         updateCostPreview();
-        if (statusKey) updateStatus(statusKey, global.document.getElementById('credits-status')?.dataset.state || '', statusParams);
+    }
+
+    function showInsufficientStatus({ slides, billing, rate, total }) {
+        const affordableSlides = billing === 'perSlide' ? Math.floor(balance / rate) : 0;
+        const canReduce = affordableSlides >= 1 && affordableSlides < slides;
+        updateStatus(balance <= 0 ? 'credits.exhausted'
+            : (canReduce ? 'credits.insufficientSlides' : 'credits.insufficientModel'),
+        balance <= 0 ? 'empty' : 'insufficient',
+        { time: resetTime(), cost: total, left: balance });
+        if (!canReduce) return;
+        const action = global.document.createElement('button');
+        action.type = 'button';
+        action.className = 'credits-adjust-slides';
+        action.textContent = format('credits.useSlides', { n: affordableSlides });
+        action.addEventListener('click', () => setSlideCount(affordableSlides));
+        global.document.getElementById('credits-status')?.append(' ', action);
     }
 
     function updateCostPreview() {
-        const { slides, rate, total } = getQuote();
+        const { slides, billing, rate, total } = getQuote();
         const preview = global.document.getElementById('credits-cost-preview');
         const generateButton = global.document.getElementById('btn-generate');
         if (preview) {
@@ -96,13 +106,8 @@
         }
         const insufficient = total > balance;
         preview?.classList.toggle('is-insufficient', insufficient);
-        if (insufficient) {
-            updateStatus(balance <= 0
-                ? 'credits.exhausted'
-                : 'credits.insufficient',
-            balance <= 0 ? 'empty' : 'insufficient',
-            { time: resetTime(), cost: total, left: balance });
-        } else if (global.document.getElementById('credits-status')?.dataset.state !== 'paused') {
+        if (insufficient) showInsufficientStatus({ slides, billing, rate, total });
+        else if (global.document.getElementById('credits-status')?.dataset.state !== 'paused') {
             updateStatus('');
         }
         if (generateButton && !generateButton.classList.contains('is-generating')) {
@@ -115,7 +120,7 @@
             generateButton.setAttribute('aria-label', label);
             generateButton.setAttribute('data-tooltip', label);
         }
-        return { slides, rate, total, affordable: !insufficient };
+        return { slides, billing, rate, total, affordable: !insufficient };
     }
 
     function setSlideCount(count) {

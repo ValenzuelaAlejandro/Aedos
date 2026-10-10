@@ -570,4 +570,6 @@
 .credits-status { align-self: stretch; margin: -.9rem .85rem 0; color: var(--danger, #df5959); font-size: .78rem; line-height: 1.35; }
 .credits-status[data-state="paused"] { color: var(--muted); }
 .credits-status[hidden] { display: none; }
+.credits-adjust-slides { margin-left: .45rem; padding: .15rem .4rem; border: 1px solid currentColor; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.credits-adjust-slides:hover { background: var(--surface-hover); }
 @media (max-width: 640px) { .dropdown-menu.model-dropdown-menu { min-width: min(300px, calc(100vw - 2rem)); } }

@@ -91,7 +91,11 @@
                     }
                     const icon = document.createElement('span'); renderBrandIcon(icon, model); icon.setAttribute('aria-hidden', 'true');
                     const name = document.createElement('span'); name.className = 'model-option-name'; name.textContent = model.name;
-                    const cost = document.createElement('span'); cost.className = 'model-option-cost'; cost.textContent = window.__t('credits.perSlide').replace('{n}', creditsUI.getQuote(1, model).rate);
+                    const quote = creditsUI.getQuote(1, model);
+                    const costKey = quote.billing === 'perPresentation'
+                        ? (quote.rate === 1 ? 'credits.perPresentationOne' : 'credits.perPresentationMany')
+                        : (quote.rate === 1 ? 'credits.perSlideOne' : 'credits.perSlideMany');
+                    const cost = document.createElement('span'); cost.className = 'model-option-cost'; cost.textContent = window.__t(costKey).replace('{n}', quote.rate);
                     option.append(icon, name, cost);
                     if (model.id === generationState.selectedModelId) option.classList.add('active');
                     modelOptions.appendChild(option);

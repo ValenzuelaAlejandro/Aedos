@@ -61,7 +61,11 @@ if (msg.includes('PAYMENTS_PAUSED')) {
     });
 } else if (msg.includes('CREDITS_EXHAUSTED') || msg.includes('INSUFFICIENT_CREDITS')) {
     if (errTitle) errTitle.textContent = window.__t(msg.includes('CREDITS_EXHAUSTED') ? 'credits.errorExhaustedTitle' : 'credits.errorInsufficientTitle');
-    if (errSubtitle) errSubtitle.textContent = window.__t('credits.errorInsufficientSubtitle');
+    const quote = window.AedosCreditsUI?.getQuote?.();
+    const canReduce = !msg.includes('CREDITS_EXHAUSTED') && quote?.billing === 'perSlide'
+        && window.AedosCreditsUI?.getBalance?.() >= quote.rate;
+    if (errSubtitle) errSubtitle.textContent = window.__t(canReduce
+        ? 'credits.errorInsufficientSubtitleSlides' : 'credits.errorInsufficientSubtitleModel');
     window.AedosCreditsUI?.updateStatus(msg.includes('CREDITS_EXHAUSTED') ? 'credits.exhausted' : 'credits.missingOne',
         msg.includes('CREDITS_EXHAUSTED') ? 'empty' : 'insufficient',
         { time: window.AedosCreditsUI?.getResetTime?.() || '', n: 1 });
