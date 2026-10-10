@@ -45,7 +45,7 @@
                 if (!window.AedosCreditsUI?.canSpend(requestedCreditCost)) return;
                 const creditCharge = window.AedosCredits.spend(requestedCreditCost, 'presentation');
                 if (!creditCharge.ok) {
-                    window.AedosCreditsUI?.updateStatus('Not enough credits for this presentation.', 'insufficient');
+                    window.AedosCreditsUI?.updateStatus('credits.insufficient', 'insufficient', { cost: requestedCreditCost, left: creditCharge.balance });
                     chargedCredits = 0;
                     return;
                 }

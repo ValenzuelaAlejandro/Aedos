@@ -37,7 +37,7 @@ function createAttachments(deps) {
 
     function handleFilesAdded(files) {
         if (files.length === 0) return;
-        window.AedosModals.showNotice('Document attachments are not available yet.');
+        window.AedosModals.showNotice(window.__t('credits.attachmentsUnavailable'));
         window._attachedFiles = [];
         return;
 

@@ -84,7 +84,7 @@
             if (isFollowUpRequest) {
                 const charge = window.AedosCredits.spend(1, 'chat');
                 if (!charge.ok) {
-                    window.AedosCreditsUI?.updateStatus('Not enough credits for chat.', 'insufficient');
+                    window.AedosCreditsUI?.updateStatus('credits.missingOne', 'insufficient', { n: 1 });
                     toggleGenerateLoading(false);
                     return;
                 }

@@ -39,6 +39,38 @@ const translations = {
         "export_powerpoint_desc": "Editable text and image elements",
         "support": "Support",
         "support_on_kofi": "Support Aedos on Ko-fi",
+        "credits.chip": "{remaining} / {total}",
+        "credits.balanceTitle": "Daily credits",
+        "credits.balanceAria": "{remaining} of {total} daily credits remaining",
+        "credits.progressAria": "Daily credits remaining",
+        "credits.cost": "{n} credits",
+        "credits.costOne": "{n} credit",
+        "credits.costAria": "Presentation cost: {n} credits",
+        "credits.resetsAt": "Resets at {time}",
+        "credits.rates": "Chat and add element: 1 credit · Outline: free",
+        "credits.missing": "You need {n} more credits",
+        "credits.missingOne": "You need {n} more credit",
+        "credits.exhausted": "You've used all your credits today. They reset at {time}.",
+        "credits.paidPaused": "Paid models are temporarily paused due to the daily limit. You can continue with a free model.",
+        "credits.insufficient": "This presentation costs {cost} credits and you have {left} left. Reduce the slides or choose a free model.",
+        "credits.unavailable": "Credits are temporarily unavailable. Try again shortly.",
+        "credits.modelUnavailable": "Paid model temporarily unavailable",
+        "credits.selectModel": "Choose model: {model}",
+        "credits.generate": "Generate presentation",
+        "credits.mode": "Mode",
+        "mode.flash": "Flash",
+        "mode.pro": "Pro",
+        "credits.slides": "Slides",
+        "credits.perSlide": "{n} cr/slide",
+        "credits.errorPaidTitle": "Paid models are paused",
+        "credits.errorPaidSubtitle": "Choose a free model to keep generating.",
+        "credits.errorInsufficientTitle": "Not enough credits",
+        "credits.errorExhaustedTitle": "You've used today's credits",
+        "credits.errorInsufficientSubtitle": "Choose fewer slides or a lower-cost model, then try again.",
+        "credits.attachmentsUnavailable": "Document attachments are not available yet.",
+        "tier.free": "Free",
+        "tier.light": "Light",
+        "tier.standard": "Standard",
         "export_in_progress": "Preparing your download…",
         "export_pdf_progress": "Creating your PDF. This may take a moment.",
         "export_pptx_progress": "Creating your PowerPoint. This may take a moment.",
@@ -279,6 +311,38 @@ const translations = {
         "export_powerpoint_desc": "Elementos de texto e imágenes editables",
         "support": "Apoyar",
         "support_on_kofi": "Apoya Aedos en Ko-fi",
+        "credits.chip": "{remaining} / {total}",
+        "credits.balanceTitle": "Créditos diarios",
+        "credits.balanceAria": "Quedan {remaining} de {total} créditos diarios",
+        "credits.progressAria": "Créditos diarios disponibles",
+        "credits.cost": "{n} créditos",
+        "credits.costOne": "{n} crédito",
+        "credits.costAria": "Costo de la presentación: {n} créditos",
+        "credits.resetsAt": "Se reinicia a las {time}",
+        "credits.rates": "Chat y agregar elemento: 1 crédito · Esquema: gratis",
+        "credits.missing": "Te faltan {n} créditos",
+        "credits.missingOne": "Te falta {n} crédito",
+        "credits.exhausted": "Agotaste tus créditos de hoy. Se reinician a las {time}.",
+        "credits.paidPaused": "Los modelos de pago están temporalmente pausados por el límite diario. Puedes continuar con un modelo gratis.",
+        "credits.insufficient": "Esta presentación cuesta {cost} créditos y te quedan {left}. Reduce las diapositivas o elige un modelo gratis.",
+        "credits.unavailable": "Los créditos no están disponibles por ahora. Inténtalo de nuevo en un momento.",
+        "credits.modelUnavailable": "Modelo de pago temporalmente no disponible",
+        "credits.selectModel": "Elegir modelo: {model}",
+        "credits.generate": "Generar presentación",
+        "credits.mode": "Modo",
+        "mode.flash": "Flash",
+        "mode.pro": "Pro",
+        "credits.slides": "Diap.",
+        "credits.perSlide": "{n} cr/slide",
+        "credits.errorPaidTitle": "Los modelos de pago están pausados",
+        "credits.errorPaidSubtitle": "Elige un modelo gratis para continuar.",
+        "credits.errorInsufficientTitle": "No tienes suficientes créditos",
+        "credits.errorExhaustedTitle": "Agotaste tus créditos de hoy",
+        "credits.errorInsufficientSubtitle": "Elige menos diapositivas o un modelo de menor costo y vuelve a intentarlo.",
+        "credits.attachmentsUnavailable": "Los documentos adjuntos todavía no están disponibles.",
+        "tier.free": "Gratis",
+        "tier.light": "Ligero",
+        "tier.standard": "Estándar",
         "export_in_progress": "Preparando tu descarga…",
         "export_pdf_progress": "Creando tu PDF. Esto puede tardar un momento.",
         "export_pptx_progress": "Creando tu PowerPoint. Esto puede tardar un momento.",
@@ -515,11 +579,22 @@ function applyI18nToDom() {
         const key = el.getAttribute('data-i18n-val');
         el.value = window.__t(key);
     });
+    document.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+        el.setAttribute('aria-label', window.__t(el.getAttribute('data-i18n-aria-label')));
+    });
 }
 
 
 
 window.__applyTranslations = applyI18nToDom;
+window.__setUiLanguage = function (language) {
+    if (!translations[language]) return;
+    currentLang = language;
+    window.currentLang = language;
+    document.documentElement.lang = language;
+    applyI18nToDom();
+    window.dispatchEvent(new CustomEvent('aedos:language-changed', { detail: { language } }));
+};
 
 // Initialize DOM elements with translations
 document.addEventListener('DOMContentLoaded', () => {
