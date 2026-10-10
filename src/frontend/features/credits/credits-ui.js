@@ -1,7 +1,6 @@
 (function registerCreditsUi(global) {
     'use strict';
 
-    const MAX_SLIDES = 15;
     let modelList = [];
     let balance = 50;
     let dailyLimit = 50;
@@ -31,10 +30,25 @@
             || null;
     }
 
+    function activeMode() {
+        return global.AedosStores?.generation?.state?.proModeEnabled ? 'pro' : 'flash';
+    }
+
+    function maxSlides() {
+        return global.MODE_SLIDE_LIMIT[activeMode()];
+    }
+
+    // One quote is used by preview, model rows, affordability and the simulated charge.
+    function getQuote(slides = getSlideCount(), model = selectedModel()) {
+        const count = Math.min(maxSlides(), Math.max(1, Math.floor(Number(slides) || 1)));
+        const rate = (model?.creditsPerSlide || 3) + global.MODE_SURCHARGE[activeMode()];
+        return { slides: count, rate, total: count * rate };
+    }
+
     function getSlideCount() {
         const input = global.document?.getElementById('slide-count-select');
         const value = Number(input?.value || 8);
-        return Math.min(MAX_SLIDES, Math.max(1, Number.isFinite(value) ? value : 8));
+        return Math.min(maxSlides(), Math.max(1, Number.isFinite(value) ? value : 8));
     }
 
     function updateStatus(key = '', state = '', params = {}) {
@@ -73,10 +87,7 @@
     }
 
     function updateCostPreview() {
-        const model = selectedModel();
-        const slides = getSlideCount();
-        const rate = model?.creditsPerSlide || 3;
-        const total = slides * rate;
+        const { slides, rate, total } = getQuote();
         const preview = global.document.getElementById('credits-cost-preview');
         const generateButton = global.document.getElementById('btn-generate');
         if (preview) {
@@ -110,8 +121,10 @@
     function setSlideCount(count) {
         const input = global.document.getElementById('slide-count-select');
         if (!input) return;
-        const normalized = Math.min(MAX_SLIDES, Math.max(1, Math.floor(Number(count) || 1)));
+        const limit = maxSlides();
+        const normalized = Math.min(limit, Math.max(1, Math.floor(Number(count) || 1)));
         input.value = String(normalized);
+        Array.from(input.options).forEach(option => { option.disabled = Number(option.value) > limit; });
         updateCostPreview();
     }
 
@@ -180,6 +193,7 @@
         updateCostPreview,
         setSlideCount,
         getSlideCount,
+        getQuote,
         canSpend,
         getBalance: () => balance,
         getResetTime: resetTime,

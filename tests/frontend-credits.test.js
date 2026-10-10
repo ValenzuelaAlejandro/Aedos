@@ -7,6 +7,7 @@ const test = require('node:test');
 const root = path.resolve(__dirname, '..');
 const catalogSource = fs.readFileSync(path.join(root, 'src/frontend/config/model-catalog.js'), 'utf8');
 const serviceSource = fs.readFileSync(path.join(root, 'src/frontend/features/credits/credits-service.js'), 'utf8');
+const uiSource = fs.readFileSync(path.join(root, 'src/frontend/features/credits/credits-ui.js'), 'utf8');
 
 function loadCredits() {
     const values = new Map();
@@ -46,4 +47,19 @@ test('API adapter can replace simulated credits and model catalog without changi
     const models = await window.AedosCredits.getModels();
     assert.equal(models.models[0].id, 'api/model');
     assert.equal(models.paymentsPaused, true);
+});
+
+test('one quote applies the mode surcharge and the existing slide caps', () => {
+    const { window } = loadCredits();
+    window.AedosStores = { generation: { state: { proModeEnabled: false, selectedModelId: window.MODEL_CATALOG[0].id } } };
+    vm.runInNewContext(uiSource, { window });
+    const free = window.MODEL_CATALOG[0];
+    const standard = window.MODEL_CATALOG.find(model => model.tier === 'standard');
+
+    assert.equal(window.AedosCreditsUI.getQuote(15, free).total, 45);
+    assert.equal(window.AedosCreditsUI.getQuote(8, standard).rate, 6);
+    window.AedosStores.generation.state.proModeEnabled = true;
+    assert.equal(window.AedosCreditsUI.getQuote(8, free).total, 32);
+    assert.equal(window.AedosCreditsUI.getQuote(15, standard).total, 56);
+    assert.equal(window.AedosCreditsUI.getQuote(15, standard).slides, 8);
 });

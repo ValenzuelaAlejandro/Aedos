@@ -20,7 +20,7 @@ test('outline stream lifecycle preserves preparation, finalization, and stop cal
         querySelector: selector => selector === '.app-microcopy' || selector === '.chat-counter-row' ? element() : null,
     };
     const state = { isLoading: false, skeleton: { slides: [] }, mode: 'flash', maxSlides: 15 };
-    const global = { clearTimeout: timeout => calls.push(`clear:${timeout}`), AedosOutlineStreamRenderer: { renderPartialOutline: (...args) => calls.push(['partial', ...args]) } };
+    const global = { MODE_SLIDE_LIMIT: { flash: 15, pro: 8 }, clearTimeout: timeout => calls.push(`clear:${timeout}`), AedosOutlineStreamRenderer: { renderPartialOutline: (...args) => calls.push(['partial', ...args]) } };
     vm.runInNewContext(fs.readFileSync(modulePath, 'utf8'), { window: global }, { filename: modulePath });
     const lifecycle = global.AedosOutlineStreaming.createOutlineStreaming({
         document,
@@ -38,7 +38,7 @@ test('outline stream lifecycle preserves preparation, finalization, and stop cal
     lifecycle.prepareOutlineStreaming('pro');
     assert.equal(state.isLoading, true);
     assert.equal(state.skeleton, null);
-    assert.equal(state.maxSlides, 15);
+    assert.equal(state.maxSlides, 8);
     assert.equal(slideContainer.innerHTML, '');
     assert.equal(chipsContainer.innerHTML, '');
     assert.equal(elements['btn-lang-dropdown'].disabled, true);

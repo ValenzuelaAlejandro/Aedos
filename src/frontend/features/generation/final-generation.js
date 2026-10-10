@@ -38,10 +38,8 @@
                 const controller = new AbortController();
                 generationState.activeController = controller;
 
-                const requestedSlides = Math.min(15, Math.max(1, Array.isArray(skeleton?.slides) ? skeleton.slides.length : 8));
-                const selectedModel = window.AedosCreditsUI?.getSelectedModel();
-                const creditsPerSlide = selectedModel?.creditsPerSlide || 3;
-                const requestedCreditCost = requestedSlides * creditsPerSlide;
+                const requestedSlides = Math.min(window.AedosCreditsUI.getSlideCount(), Math.max(1, Array.isArray(skeleton?.slides) ? skeleton.slides.length : 8));
+                const requestedCreditCost = window.AedosCreditsUI.getQuote(requestedSlides).total;
                 if (!window.AedosCreditsUI?.canSpend(requestedCreditCost)) return;
                 const creditCharge = window.AedosCredits.spend(requestedCreditCost, 'presentation');
                 if (!creditCharge.ok) {

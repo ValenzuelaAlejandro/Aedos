@@ -91,7 +91,7 @@
                     }
                     const icon = document.createElement('span'); renderBrandIcon(icon, model); icon.setAttribute('aria-hidden', 'true');
                     const name = document.createElement('span'); name.className = 'model-option-name'; name.textContent = model.name;
-                    const cost = document.createElement('span'); cost.className = 'model-option-cost'; cost.textContent = window.__t('credits.perSlide').replace('{n}', model.creditsPerSlide);
+                    const cost = document.createElement('span'); cost.className = 'model-option-cost'; cost.textContent = window.__t('credits.perSlide').replace('{n}', creditsUI.getQuote(1, model).rate);
                     option.append(icon, name, cost);
                     if (model.id === generationState.selectedModelId) option.classList.add('active');
                     modelOptions.appendChild(option);
@@ -135,6 +135,8 @@
             generationState.proModeEnabled = button.dataset.generationMode === 'pro';
             modeButtons.forEach(el => { const active = el === button; el.classList.toggle('active', active); el.setAttribute('aria-pressed', String(active)); });
             chatInputWrapper?.classList.toggle('is-pro', generationState.proModeEnabled);
+            creditsUI?.setSlideCount(creditsUI.getSlideCount());
+            renderModels(creditsUI?.getModels() || window.MODEL_CATALOG || [], paymentsPaused);
         }));
         if (creditsUI) creditsUI.refresh().then(result => {
             if (result) renderModels(result.models, result.paymentsPaused);

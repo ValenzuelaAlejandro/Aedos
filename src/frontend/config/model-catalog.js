@@ -65,5 +65,7 @@
         },
     ];
 
+    global.MODE_SURCHARGE = Object.freeze({ flash: 0, pro: 1 });
+    global.MODE_SLIDE_LIMIT = Object.freeze({ flash: 15, pro: 8 });
     global.MODEL_CATALOG = Object.freeze(catalog.map(model => Object.freeze(model)));
 })(typeof window !== 'undefined' ? window : globalThis);
