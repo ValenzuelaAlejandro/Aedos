@@ -110,8 +110,8 @@
                                 generationId: generation.id,
                                 transitionStarted: generation.transitionStarted
                             });
-                            previewContainer.classList.remove('is-generating');
                         }
+                        previewContainer.classList.remove('is-generating', 'is-awaiting-first-slide');
                         previewContainer.classList.remove('is-settling');
                         previewContainer.classList.add('is-editor-ready');
                         const minimap = document.getElementById('editor-minimap');

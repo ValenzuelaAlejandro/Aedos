@@ -3,7 +3,7 @@
  *
  * Replaces the legacy 3-dot "chat-thinking" loader with a panel that:
  *   - shows elapsed time updating every second (label: "Thinking for 12s…")
- *   - shows a pulsing live-dot anchored to a gradient accent bar on the left
+ *   - animates the Aedos chat avatar with thinking-orbs while work is active
  *   - can be expanded to reveal the model's internal reasoning in real time
  *   - collapses to a compact "Thought for 4s" pill once the response begins
  *     streaming, mirroring Claude.ai's behaviour
@@ -108,6 +108,13 @@
         return STRINGS.thinking;
     }
 
+    function orbStateFor(stage) {
+        if (stage === 'stage1') return 'solving';
+        if (stage === 'stage2') return 'weaving';
+        if (stage === 'stage3' || stage === 'compositing' || stage === 'flash') return 'composing';
+        return 'working';
+    }
+
     function buildPanel() {
         const root = document.createElement('div');
         root.className = 'chat-thinking-panel is-active';
@@ -118,7 +125,6 @@
         root.innerHTML = `
             <button type="button" class="chat-thinking-header" aria-expanded="false">
                 <span class="chat-thinking-status" aria-hidden="true">
-                    <span class="chat-thinking-status-mark"></span>
                     <span class="chat-thinking-status-text">${STRINGS.thinking}</span>
                 </span>
                 <span class="chat-thinking-label"></span>
@@ -199,6 +205,23 @@
         refs.root.classList.add('has-content');
     }
 
+    function retirePreviousOrbAvatars(aiBody) {
+        const currentMessage = aiBody.closest('.chat-msg-ai');
+        const conversation = currentMessage?.parentElement;
+        if (!currentMessage || !conversation) return;
+
+        for (const previousMessage of conversation.querySelectorAll('.chat-msg-ai')) {
+            if (previousMessage === currentMessage) break;
+            if (!previousMessage.querySelector('.chat-thinking-panel.is-collapsed')) continue;
+
+            const previousAvatar = previousMessage.querySelector(':scope > .chat-ai-avatar');
+            if (!previousAvatar) continue;
+            previousAvatar.__aedosOrb?.destroy();
+            previousAvatar.remove();
+            previousMessage.classList.add('has-orb-history');
+        }
+    }
+
     /**
      * Insert (or replace) the thinking panel inside the given AI message body.
      * Each AI message body gets its own panel instance and its own local
@@ -207,6 +230,10 @@
      */
     function show(aiBody, options = {}) {
         if (!aiBody) return null;
+
+        // Keep one moving orb for the conversation. Completed messages retain
+        // their thinking summary, but their orb yields to the new response.
+        retirePreviousOrbAvatars(aiBody);
 
         // Reset any previous local timers for this specific AI bubble before
         // reusing its panel.
@@ -242,6 +269,16 @@
         }
 
         const fullLabel = options.label || `${STRINGS.thinking}…`;
+        const avatar = aiBody.closest('.chat-msg-ai')?.querySelector('.chat-ai-avatar');
+        const orb = window.AedosOrbs?.mount(avatar, {
+            state: orbStateFor(options.stage), size: 64, displaySize: 40
+        });
+        if (avatar) {
+            avatar.classList.add('is-orb-avatar');
+            avatar.style.setProperty('display', 'flex', 'important');
+            avatar.style.setProperty('opacity', '1', 'important');
+            avatar.style.setProperty('visibility', 'visible', 'important');
+        }
         refs.labelEl.textContent = fullLabel;
         refs.statusTextEl.textContent = statusWordFor(options.stage, fullLabel);
         refs.timerEl.textContent = '0s';
@@ -261,6 +298,8 @@
         const localState = {
             parent: aiBody,
             refs,
+            avatar,
+            orb,
             startTime,
             fullReasoning: '',
             receivedReasoning: false,
@@ -336,6 +375,8 @@
         if (stage) {
             refs.root.dataset.stage = stage;
             refs.statusTextEl.textContent = statusWordFor(stage, label);
+            localState.orb?.setState(orbStateFor(stage));
+            localState.orb?.setSize(64, stage === 'stage3' ? 64 : 40);
         }
     }
 
@@ -351,8 +392,14 @@
     function collapse(aiBody, completedLabel) {
         const localState = getState(aiBody);
         if (!localState) return;
-        const { refs, startTime, receivedReasoning } = localState;
+        const { refs, startTime, receivedReasoning, avatar } = localState;
         stopTimer(localState);
+        localState.orb?.setState('working');
+        localState.orb?.setSize(64, 40);
+        localState.orb?.setPaused(false);
+        avatar?.style.setProperty('display', 'flex', 'important');
+        avatar?.style.setProperty('opacity', '1', 'important');
+        avatar?.style.setProperty('visibility', 'visible', 'important');
         if (localState.noReasoningTimer) {
             clearTimeout(localState.noReasoningTimer);
             localState.noReasoningTimer = null;
@@ -379,6 +426,10 @@
         const localState = getState(aiBody);
         if (!localState) return;
         stopTimer(localState);
+        localState.orb?.destroy();
+        localState.avatar?.style.removeProperty('display');
+        localState.avatar?.style.removeProperty('opacity');
+        localState.avatar?.style.removeProperty('visibility');
         if (localState.noReasoningTimer) {
             clearTimeout(localState.noReasoningTimer);
             localState.noReasoningTimer = null;

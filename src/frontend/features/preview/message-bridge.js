@@ -14,6 +14,7 @@
             if (e.source && previewState.previewIframe && previewState.previewIframe.contentWindow && e.source !== previewState.previewIframe.contentWindow) return;
             if (e.data.type === 'slideUpdate') {
                 const count = e.data.count;
+                if (count > 0) previewContainer?.classList.remove('is-awaiting-first-slide');
                 previewState.totalSlides = count;
                 if (slideLabel) {
                     const tpl = window.__t("slide_label_tpl", "{current} / {total}");

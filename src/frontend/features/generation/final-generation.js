@@ -179,6 +179,7 @@
                                 chatScreen.classList.remove('hidden');
                                 refusedMessage.textContent = parsed.message || (window.__t ? window.__t('refused_msg', "This topic cannot be generated.") : "This topic cannot be generated.");
                                 refusedContainer.classList.remove('hidden');
+                                previewContainer.classList.remove('is-generating', 'is-awaiting-first-slide');
                                 previewContainer.classList.add('hidden');
                                 iframeDoc.close();
                                 toggleGenerateLoading(false);

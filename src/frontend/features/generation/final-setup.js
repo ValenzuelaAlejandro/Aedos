@@ -99,6 +99,7 @@
 
         const iframeDoc = previewState.previewIframe.contentDocument || previewState.previewIframe.contentWindow.document;
         setPreviewStreamStatus(generationState.proModeEnabled ? 'Analizando contenido…' : 'Generando presentación…');
+        window.AedosOrbs?.setPreviewState(generationState.proModeEnabled ? 'stage1' : 'flash');
         doTransitionToPreview();
         // Writing every model token directly into a live iframe forces a full
         // document/layout pass for each chunk. On slower machines that can make

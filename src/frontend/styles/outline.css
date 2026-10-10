@@ -323,9 +323,129 @@
 .outline-bubble-footer .outline-generate-btn { flex: 1 1 auto; justify-content: center; }
 .outline-generate-btn:disabled { opacity: 0.55; cursor: wait; transform: none; }
 
-/* Reserve the outline response's final width from the first loading frame. */
-#chat-screen.chat-mode .chat-outline-response .chat-ai-avatar {
-    display: none !important;
+/* Keep the orb avatar visible while thinking and after the panel collapses. */
+#chat-screen.chat-mode .chat-msg-ai:has(canvas.aedos-thinking-orb) .chat-ai-avatar {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* The card follows the outline and composer edges; the separate orb avatar
+   sits beside its header with only enough offset to clear the border. */
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel) {
+    position: relative;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel) .chat-ai-avatar {
+    position: absolute;
+    z-index: 2;
+    left: 0;
+    top: 17px;
+    width: 40px !important;
+    height: 40px !important;
+    margin: 0 !important;
+    transition: top 420ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+/* Reserve room below the finished outline, then settle the orb beneath all of
+   the response content instead of leaving it beside the thinking row. */
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel.is-collapsed) .chat-ai-body {
+    box-sizing: border-box;
+    padding-bottom: 52px;
+}
+
+#chat-screen.chat-mode .chat-msg-ai.has-orb-history:has(.chat-thinking-panel.is-collapsed) .chat-ai-body {
+    padding-bottom: 0;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel.is-collapsed) .chat-ai-avatar {
+    top: calc(100% - 40px);
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel) .chat-ai-avatar .aedos-thinking-orb {
+    width: 40px !important;
+    height: 40px !important;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel:not(.is-hidden)) .chat-ai-avatar {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel) .chat-ai-body {
+    width: 100%;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel) .chat-thinking-panel {
+    width: 100%;
+    box-sizing: border-box;
+    margin-left: 0;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel) .chat-thinking-header {
+    padding-left: 44px;
+}
+
+/* Once the orb has moved under the response, align the completed label with
+   the outline content instead of reserving the avatar's old offset. */
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel.is-collapsed) .chat-thinking-header {
+    justify-content: flex-start;
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+    position: relative;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel.is-collapsed) .chat-thinking-label {
+    flex: 1 1 auto;
+    max-width: none;
+    text-align: left;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel.is-collapsed) .chat-thinking-chevron {
+    position: absolute;
+    right: 0.9rem;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel[data-stage="stage3"]:not(.is-collapsed)) .chat-ai-avatar {
+    top: 5px;
+    width: 64px !important;
+    height: 64px !important;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel[data-stage="stage3"]:not(.is-collapsed)) .chat-ai-avatar .aedos-thinking-orb {
+    width: 64px !important;
+    height: 64px !important;
+}
+
+#chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel[data-stage="stage3"]:not(.is-collapsed)) .chat-thinking-header {
+    padding-left: 68px;
+}
+
+@media (max-width: 600px) {
+    /* Keep the separate avatar above the full-width card on narrow screens. */
+    #chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel) .chat-ai-avatar {
+        left: 0;
+        top: 0;
+    }
+
+    #chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel) .chat-thinking-panel {
+        margin-top: 50px;
+    }
+
+    #chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel[data-stage="stage3"]:not(.is-collapsed)) .chat-ai-avatar {
+        top: 0;
+    }
+
+    #chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel[data-stage="stage3"]:not(.is-collapsed)) .chat-thinking-panel {
+        margin-top: 74px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #chat-screen.chat-mode .chat-msg-ai:has(.chat-thinking-panel) .chat-ai-avatar {
+        transition-duration: 0.01ms;
+    }
 }
 
 :root[data-theme="light"] .outline-bubble-footer {
@@ -484,22 +604,8 @@
     margin-top: 2px !important;
 }
 
-/* Guarantee 100% pixel-perfect vertical centering of the thinking dots with the 30px high avatar */
-.chat-thinking {
-    height: 30px !important;
-    padding: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    margin-top: 2px !important;
-}
-
-.chat-thinking.hidden {
-    display: none !important;
-}
-
 /* Make the circular AI avatar invisible (but keep its width/space to prevent layout shifts/jumps) */
-.chat-msg-ai:has(.chat-thinking.hidden) .chat-ai-avatar,
-.chat-msg-ai:not(:has(.chat-thinking)):not(:has(.chat-thinking-panel)) .chat-ai-avatar,
+.chat-msg-ai:not(:has(.chat-thinking-panel)) .chat-ai-avatar,
 .chat-msg-ai:has(.chat-cancelled-message) .chat-ai-avatar,
 .chat-msg-ai:has(.chat-cancellation-message) .chat-ai-avatar {
     opacity: 0 !important;

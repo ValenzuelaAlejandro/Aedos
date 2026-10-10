@@ -10,6 +10,7 @@
     /** Create the existing SSE reasoning-token presenter. @param {ReasoningProgressDependencies} deps */
     function createReasoningProgress({ window, document }) {
         return function appendReasoningProgress(parsed) {
+            window.AedosOrbs?.setPreviewState(parsed.stage);
             const allAiBodies = document.querySelectorAll('.chat-msg-ai .chat-ai-body');
             const aiBody = allAiBodies[allAiBodies.length - 1];
             if (aiBody && window.AedosThinking) {

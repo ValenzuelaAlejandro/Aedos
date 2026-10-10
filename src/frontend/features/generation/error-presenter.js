@@ -123,7 +123,7 @@ if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCE
 
 
 errorMessage.textContent = msg;
-previewContainer.classList.remove('is-generating', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
+previewContainer.classList.remove('is-generating', 'is-awaiting-first-slide', 'is-settling', 'is-editor-ready', 'reveal-sequence', 'reveal-minimap', 'reveal-tools');
 
 // Clean up split outline layout and reset hero
 document.body.classList.remove('split-outline-active');

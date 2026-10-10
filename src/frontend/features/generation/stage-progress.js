@@ -42,6 +42,11 @@
                     : parsed.stage;
             }
             if (previewContainer && previewContainer.classList.contains('is-generating')) setPreviewStreamStatus(stageText);
+            window.AedosOrbs?.setPreviewState(parsed.stage);
+            const aiBodies = window.document.querySelectorAll('.chat-msg-ai .chat-ai-body');
+            const aiBody = aiBodies[aiBodies.length - 1];
+            const thinkingStage = { content: 'stage1', design: 'stage2', compositing: 'stage3' }[parsed.stage];
+            if (aiBody && thinkingStage) window.AedosThinking?.updateStatus(aiBody, stageText, thinkingStage);
             if (typeof animateHeroTitle === 'function') animateHeroTitle(stageText);
             const label = generateBtn.querySelector('.btn-generate-label');
             if (label) {

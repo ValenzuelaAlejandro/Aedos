@@ -65,7 +65,7 @@
             // Reveal preview (sectionFadeIn animation kicks in automatically)
             previewHeader.classList.remove('slide-down');
             previewContainer.classList.remove('hidden', 'reveal-chrome', 'reveal-sequence', 'reveal-minimap', 'reveal-tools', 'is-editor-ready');
-            previewContainer.classList.add('is-generating');
+            previewContainer.classList.add('is-generating', 'is-awaiting-first-slide');
             document.body.classList.add('no-scroll');
 
             // Kill any in-progress settling tween from a previous generation so its
