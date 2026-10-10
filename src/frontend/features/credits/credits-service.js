@@ -23,7 +23,10 @@
             saved = JSON.parse(global.localStorage?.getItem(STORAGE_KEY) || 'null');
         } catch (_) { /* Use today's mock allowance when storage is unavailable. */ }
         if (!saved || saved.day !== localDayKey() || !Number.isFinite(saved.balance)) {
-            saved = { day: localDayKey(), balance: DAILY_LIMIT };
+            saved = { day: localDayKey(), balance: DAILY_LIMIT, geminiAvailable: true };
+            writeMockState(saved);
+        } else if (typeof saved.geminiAvailable !== 'boolean') {
+            saved.geminiAvailable = true;
             writeMockState(saved);
         }
         return saved;
@@ -40,8 +43,8 @@
             if (!response.ok) throw new Error('CREDITS_UNAVAILABLE');
             return response.json();
         }
-        const { balance } = readMockState();
-        return { balance, dailyLimit: DAILY_LIMIT, resetsAt: nextLocalReset().toISOString(), source: 'mock' };
+        const { balance, geminiAvailable } = readMockState();
+        return { balance, geminiAvailable, dailyLimit: DAILY_LIMIT, resetsAt: nextLocalReset().toISOString(), source: 'mock' };
     }
 
     async function getModels() {

@@ -17,7 +17,7 @@ function loadCredits() {
             setItem: (key, value) => values.set(key, value),
         },
         fetch: async url => ({ ok: true, json: async () => url === '/api/credits'
-            ? { balance: 17, dailyLimit: 50 }
+            ? { balance: 17, dailyLimit: 50, geminiAvailable: false }
             : { models: [{ id: 'api/model', tier: 'free', billing: 'perSlide', creditsPerSlide: 1 }], paymentsPaused: true } }),
     };
     vm.runInNewContext(catalogSource, { window });
@@ -29,6 +29,7 @@ test('mock credits are daily, spend atomically within one tab store, and refund 
     const { window, values } = loadCredits();
     const service = window.AedosCredits;
     assert.equal((await service.getCredits()).balance, 50);
+    assert.equal((await service.getCredits()).geminiAvailable, true);
     assert.equal(service.spend(49).ok, true);
     assert.equal(service.spend(2).ok, false);
     assert.equal((await service.getCredits()).balance, 1);
@@ -44,6 +45,7 @@ test('API adapter can replace simulated credits and model catalog without changi
     const { window } = loadCredits();
     window.AedosCredits.setApiMode(true);
     assert.equal((await window.AedosCredits.getCredits()).balance, 17);
+    assert.equal((await window.AedosCredits.getCredits()).geminiAvailable, false);
     const models = await window.AedosCredits.getModels();
     assert.equal(models.models[0].id, 'api/model');
     assert.equal(models.paymentsPaused, true);
