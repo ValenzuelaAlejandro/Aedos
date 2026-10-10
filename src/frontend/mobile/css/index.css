@@ -702,3 +702,29 @@
         display: none !important;
     }
 }
+
+@media (max-width: 430px) {
+    .credits-popover { position: fixed; top: 51px; left: 12px; right: 12px; width: auto; max-width: none; }
+    .top-controls { gap: .25rem !important; }
+    .home-donation-link { min-height: 32px; padding: .34rem .45rem; font-size: .68rem; }
+    .home-donation-link .kofi-cup-icon { width: 15px; height: 15px; }
+    .credits-balance-chip { min-height: 32px; padding: .3rem .42rem; font-size: .68rem; }
+    .credits-balance-chip svg { width: 13px; height: 13px; }
+    .chat-input-wrapper.synapse-style { width: calc(100% + 36px) !important; margin-left: -18px; padding: .75rem .6rem .5rem !important; }
+    #btn-debug-last-generated { display: none; }
+    .chat-actions { display: flex !important; align-items: center !important; gap: .2rem !important; }
+    .chat-actions-left { min-width: 0; flex: 1 1 auto; gap: .2rem; overflow: visible; }
+    .chat-actions-right { flex: 0 0 auto; gap: .2rem; }
+    .generation-mode-label { display: none; }
+    .generation-mode-switch { padding: 2px; }
+    .generation-mode-option { padding: .28rem .3rem; font-size: .68rem; }
+    .btn-model-toggle { max-width: 76px; padding: 5px 4px; font-size: .68rem; }
+    #current-model-label { max-width: 49px; }
+    #btn-lang-dropdown { min-width: 28px; padding: 5px 4px; }
+    #btn-lang-dropdown svg:last-child { display: none; }
+    #current-lang-label { display: none; }
+    .slide-count-control > span { display: none; }
+    .slide-count-control select { width: 38px; min-width: 38px; padding: .32rem .1rem; font-size: .68rem; }
+    .credits-cost-chip { padding: .34rem .35rem; font-size: .67rem; }
+    .btn-generate-submit { width: 30px; height: 30px; }
+}
