@@ -7,6 +7,7 @@
     let lastCredits = null;
     let clampNoticeCount = null;
     let clampNoticeTimer = null;
+    let slideLimitAttempted = false;
 
     function format(key, params = {}) {
         return global.__t(key).replace(/\{([a-z]+)\}/g, (match, name) =>
@@ -203,6 +204,11 @@
     function setSlideCount(count) {
         const input = global.document.getElementById('slide-count-select');
         if (!input) return;
+        if (activeMode() !== 'pro') {
+            const hint = global.document.getElementById('slide-count-limit-hint');
+            if (hint) hint.hidden = true;
+            slideLimitAttempted = false;
+        }
         const limit = maxSlides();
         const affordable = affordableMaxSlides();
         const effective = Math.max(1, affordable);
@@ -213,12 +219,15 @@
         input.value = String(normalized);
         const wrapper = input.closest('.slide-count-control');
         wrapper?.style.setProperty('--tick-count', String(absolute));
-        wrapper?.style.setProperty('--slide-progress', `${((normalized - 1) / Math.max(1, absolute - 1)) * 100}%`);
         wrapper?.style.setProperty('--n-size', `${32 + 24 * ((normalized - 1) / Math.max(1, absolute - 1))}px`);
         const trackWidth = input.parentElement?.clientWidth || 0;
         if (trackWidth > 0) {
+            const tickWidth = trackWidth / absolute;
+            wrapper?.style.setProperty('--rail-start', `${tickWidth / 2}px`);
+            wrapper?.style.setProperty('--rail-length', `${(absolute - 1) * tickWidth}px`);
+            wrapper?.style.setProperty('--rail-fill', `${(normalized - 1) * tickWidth}px`);
             input.style.left = `${trackWidth / (absolute * 2) - 12}px`;
-            input.style.width = `${24 + (effective - 1) * trackWidth / absolute}px`;
+            input.style.width = `${24 + (effective - 1) * tickWidth}px`;
         }
         renderSlideValue(input, normalized, limit);
         renderSlideTicks(limit, affordable, normalized, absolute);
@@ -240,7 +249,19 @@
         const trigger = global.document.getElementById('slide-count-trigger');
         const panel = global.document.getElementById('slide-count-panel');
         if (!input || !trigger || !panel) return;
-        const close = () => { panel.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
+        const limitHint = global.document.getElementById('slide-count-limit-hint');
+        const showLimitHint = () => {
+            if (activeMode() !== 'pro' || !limitHint) return;
+            slideLimitAttempted = true;
+            limitHint.textContent = format('slides.proLimitHint', { n: maxSlides() });
+            limitHint.hidden = false;
+        };
+        const close = () => {
+            panel.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            if (limitHint) limitHint.hidden = true;
+            slideLimitAttempted = false;
+        };
         const position = () => {
             if (panel.hidden) return;
             const rect = trigger.getBoundingClientRect();
@@ -260,6 +281,22 @@
             if (!panel.hidden) { setSlideCount(input.value); input.focus({ preventScroll: true }); position(); }
         });
         panel.addEventListener('click', event => event.stopPropagation());
+        const track = input.parentElement;
+        const beyondProLimit = event => {
+            if (activeMode() !== 'pro' || !track) return false;
+            const rect = track.getBoundingClientRect();
+            return event.clientX > rect.left + (maxSlides() - .5) * rect.width / absoluteMaxSlides();
+        };
+        let dragging = false;
+        track?.addEventListener('pointerdown', event => {
+            dragging = true;
+            if (beyondProLimit(event)) showLimitHint();
+        });
+        global.document.addEventListener('pointermove', event => {
+            if (dragging && beyondProLimit(event)) showLimitHint();
+        });
+        global.document.addEventListener('pointerup', () => { dragging = false; });
+        global.document.addEventListener('pointercancel', () => { dragging = false; });
         global.document.addEventListener('click', close);
         global.document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
         global.addEventListener('resize', () => { setSlideCount(input.value); position(); });
@@ -275,6 +312,8 @@
             global.document.getElementById('slide-count-announce').textContent = input.getAttribute('aria-valuetext');
         });
         input.addEventListener('keydown', event => {
+            if (activeMode() === 'pro' && Number(input.value) >= maxSlides()
+                && ['ArrowRight', 'ArrowUp', 'PageUp', 'End'].includes(event.key)) showLimitHint();
             if (event.key !== 'PageUp' && event.key !== 'PageDown') return;
             event.preventDefault();
             setSlideCount(Number(input.value) + (event.key === 'PageUp' ? 5 : -5));
@@ -344,6 +383,10 @@
             else updateCostPreview();
             setSlideCount(getSlideCount());
             if (clampNoticeCount !== null) showModeClampNotice(clampNoticeCount);
+            if (slideLimitAttempted) {
+                const hint = global.document.getElementById('slide-count-limit-hint');
+                if (hint) hint.textContent = format('slides.proLimitHint', { n: maxSlides() });
+            }
         });
         refresh();
         global.setInterval(() => refresh(), 60000);
