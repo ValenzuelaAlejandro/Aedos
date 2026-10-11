@@ -75,8 +75,8 @@
         throw new Error('INVALID_MODEL_BILLING');
     }
 
-    // The server must calculate the authoritative cost, charge only after successful generation,
-    // and refund any charge if generation fails. This local mock is not a billing authority.
+    // The server must validate the selected model and attachments, calculate the authoritative
+    // cost, charge only after successful generation, and refund failed work. The client is untrusted.
     function spend(amount, reason = 'generation') {
         const cost = Math.max(0, Math.floor(Number(amount) || 0));
         const state = readMockState();
