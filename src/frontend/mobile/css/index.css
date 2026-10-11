@@ -717,7 +717,7 @@
     .chat-actions-right { flex: 0 0 auto; gap: .2rem; }
     .attach-button-wrap .action-icon-btn { width: 27px; height: 30px; }
     .generation-mode-toggle { padding: .2rem .1rem; gap: .16rem; font-size: .68rem; }
-    .generation-mode-track { width: 27px; }
+    .generation-mode-track { width: 29px; }
     .generation-mode-toggle[aria-checked="true"] .generation-mode-thumb { transform: translateX(9px); }
     .btn-model-toggle { max-width: 76px; padding: 5px 4px; font-size: .68rem; }
     #current-model-label { max-width: 49px; }
