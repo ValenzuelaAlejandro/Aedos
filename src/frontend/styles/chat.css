@@ -303,6 +303,11 @@
         padding-bottom 0.28s ease,
         margin-bottom 0.28s ease;
 }
+.attach-button-wrap { display: inline-flex; flex: 0 0 auto; }
+.attachment-model-warning { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem .6rem; margin: .3rem .1rem .1rem; padding: .45rem .55rem; border: 1px solid var(--danger, #df5959); border-radius: 9px; color: var(--danger, #df5959); font-size: .76rem; line-height: 1.35; }
+.attachment-model-warning[hidden] { display: none; }
+.attachment-model-warning button { border: 1px solid currentColor; border-radius: 6px; padding: .15rem .4rem; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.attachment-model-warning button:hover { background: var(--surface-hover); }
 
 .attachment-preview-container.hidden {
     display: flex !important;

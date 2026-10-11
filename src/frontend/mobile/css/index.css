@@ -715,6 +715,7 @@
     .chat-actions { display: flex !important; align-items: center !important; gap: .2rem !important; }
     .chat-actions-left { min-width: 0; flex: 1 1 auto; gap: .2rem; overflow: visible; }
     .chat-actions-right { flex: 0 0 auto; gap: .2rem; }
+    .attach-button-wrap .action-icon-btn { width: 27px; height: 30px; }
     .generation-mode-label { display: none; }
     .generation-mode-switch { padding: 2px; }
     .generation-mode-option { padding: .28rem .3rem; font-size: .68rem; }
@@ -727,4 +728,12 @@
     .slide-count-trigger-label { display: none; }
     .credits-cost-chip { padding: .34rem .35rem; font-size: .67rem; }
     .btn-generate-submit { width: 30px; height: 30px; }
+}
+@media (max-width: 380px) {
+    .btn-model-toggle { max-width: 62px; padding: 5px 3px; }
+    #current-model-label { max-width: 35px; }
+    .generation-mode-option { padding: .27rem .2rem; font-size: .62rem; }
+    #btn-lang-dropdown { min-width: 24px; padding: 5px 2px; }
+    .slide-count-trigger { padding: .28rem .25rem; gap: .1rem; font-size: .65rem; }
+    .credits-cost-chip { padding: .34rem .24rem; font-size: .61rem; }
 }

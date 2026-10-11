@@ -92,7 +92,7 @@ test('app dropdown factory keeps model, mode, language, and export registration 
     ].map(token => source.indexOf(token));
     assert.ok(registrations.every(index => index >= 0));
     assert.deepEqual(registrations, [...registrations].sort((a, b) => a - b));
-    assert.match(source, /window\._syncModeWithFiles\s*=/);
+    assert.match(source, /window\.AedosAttachments\?\.refreshAvailability\?\.\(\)/);
     assert.match(source, /modeButtons\?\.forEach/);
 });
 

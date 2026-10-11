@@ -22,13 +22,14 @@ function element() {
         dispatch: (name, event) => listeners.get(name)(event),
         querySelectorAll: () => [],
         appendChild(child) { this.children.push(child); },
-        setAttribute() { },
+        setAttribute(name, value) { this[name] = value; },
+        removeAttribute(name) { delete this[name]; },
         set innerHTML(value) { this.children = []; this.html = value; },
         get innerHTML() { return this.html || ''; }
     };
 }
 
-test('attachment factory disables document input and rejects dropped or selected documents', () => {
+test('attachments follow Gemini quota, preserve incompatible files, and offer removal', () => {
     const events = [];
     const alerts = [];
     const preview = element();
@@ -39,19 +40,34 @@ test('attachment factory disables document input and rejects dropped or selected
     const chips = element();
     const button = element();
     const input = element();
+    const warning = element();
+    const warningText = element();
+    const removeAll = element();
+    const buttonWrap = element();
+    const generate = element();
+    warning.hidden = true;
     const nodes = {
         'preview-container': preview,
         'chat-screen': chat,
-        'drag-drop-overlay': overlay
+        'drag-drop-overlay': overlay,
+        'attachment-model-warning': warning,
+        'attachment-model-warning-text': warningText,
+        'remove-incompatible-files': removeAll,
+        'attach-button-wrap': buttonWrap,
+        'btn-generate': generate,
     };
     const document = {
         getElementById: (id) => nodes[id],
         createElement: () => element()
     };
+    let geminiAvailable = true;
     const window = {
         addEventListener: (name, callback) => events.push([name, callback]),
-        __t: (_key, fallback) => fallback,
-        _syncModeWithFiles: () => { },
+        __t: (key, fallback) => ({
+            'credits.attachmentsGeminiOnly': 'Gemini only while quota remains',
+            'credits.removeAttachments': 'Remove files',
+        })[key] || fallback,
+        AedosCreditsUI: { canAttachDocuments: () => geminiAvailable },
         AedosModals: { showNotice: message => alerts.push(message) },
     };
     const context = { window, document, alert: (message) => alerts.push(message), URL, setTimeout };
@@ -66,19 +82,31 @@ test('attachment factory disables document input and rejects dropped or selected
         validateGenerateButton: () => { validations++; }
     });
 
-    assert.equal(button.hidden, true);
-    assert.equal(input.disabled, true);
+    assert.equal(button.disabled, false);
+    assert.equal(input.disabled, false);
     assert.equal(window._attachedFiles.length, 0);
 
-    assert.deepEqual(events.map(([name]) => name), ['dragover', 'drop', 'dragenter', 'dragover', 'dragleave', 'drop']);
+    assert.deepEqual(events.map(([name]) => name), ['dragover', 'drop', 'aedos:language-changed', 'dragenter', 'dragover', 'dragleave', 'drop']);
     const pdf = (name, size = 1) => ({ name, size, type: 'application/pdf' });
     input.dispatch('change', { target: { files: [pdf('one.pdf'), pdf('two.pdf')] } });
-    assert.equal(window._attachedFiles.length, 0);
-    assert.equal(chips.children.length, 0);
-    assert.equal(validations, 0);
+    assert.equal(window._attachedFiles.length, 2);
+    assert.equal(chips.children.length, 2);
+    assert.equal(warning.hidden, true);
+    assert(validations > 0);
     assert.equal(input.value, '');
-    assert.equal(alerts.length, 1);
-    const dropHandler = events.find(([name]) => name === 'drop')[1];
+    geminiAvailable = false;
+    window.AedosAttachments.refreshAvailability();
+    assert.equal(button.disabled, true);
+    assert.equal(input.disabled, true);
+    assert.equal(warning.hidden, false);
+    assert.equal(window.AedosAttachments.hasBlockingAttachments(), true);
+    assert.equal(window._attachedFiles.length, 2);
+    const dropHandler = events.filter(([name]) => name === 'drop').at(-1)[1];
     dropHandler({ preventDefault() {}, dataTransfer: { files: [pdf('drop.pdf')] } });
+    assert.equal(window._attachedFiles.length, 2);
+    removeAll.dispatch('click');
     assert.equal(window._attachedFiles.length, 0);
+    assert.equal(warning.hidden, true);
+    assert.equal(window.AedosAttachments.hasBlockingAttachments(), false);
+    assert.equal(alerts.length, 0);
 });

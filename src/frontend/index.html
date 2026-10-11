@@ -30,27 +30,27 @@
     <link rel="stylesheet" href="features/tools/tools.css?v=3">
     <link rel="stylesheet" href="features/chat/thinking-panel.css?v=9">
     <link rel="stylesheet" href="styles/foundation.css?v=4">
-    <link rel="stylesheet" href="styles/chat.css?v=10">
+    <link rel="stylesheet" href="styles/chat.css?v=11">
     <link rel="stylesheet" href="styles/settings.css?v=2">
     <link rel="stylesheet" href="styles/dialogs.css?v=3">
     <link rel="stylesheet" href="styles/preview.css?v=12">
-    <link rel="stylesheet" href="styles/workspace.css?v=8">
+    <link rel="stylesheet" href="styles/workspace.css?v=9">
     <link rel="stylesheet" href="styles/outline.css?v=39">
     <link rel="stylesheet" href="mobile/css/style-mobile-overrides.css?v=1">
-    <link rel="stylesheet" href="mobile/css/index.css?v=6">
+    <link rel="stylesheet" href="mobile/css/index.css?v=7">
     <link rel="stylesheet" href="styles/typography.css?v=1">
     <!-- Parser-blocking loader keeps third-party globals in their original load order. -->
     <script src="features/shared/vendor-assets.js?v=1"></script>
     <!-- i18n Translation System -->
-    <script src="features/shared/i18n.js?v=13"></script>
+    <script src="features/shared/i18n.js?v=14"></script>
     <script src="features/shared/logger.js?v=1"></script>
     <script type="module" src="features/shared/http-sse.js?v=1"></script>
     <script src="features/shared/outline-store.js?v=1"></script>
     <script src="features/shared/generation-store.js?v=2"></script>
     <script src="features/shared/preview-editor-store.js?v=1"></script>
     <script src="config/model-catalog.js?v=4"></script>
-    <script src="features/credits/credits-service.js?v=2"></script>
-    <script src="features/credits/credits-ui.js?v=6"></script>
+    <script src="features/credits/credits-service.js?v=3"></script>
+    <script src="features/credits/credits-ui.js?v=7"></script>
     <script src="features/shared/theme-controller.js?v=1"></script>
     <script src="features/minimap/minimap-view.js?v=1"></script>
     <script src="features/minimap/minimap.js?v=3"></script>
@@ -58,19 +58,19 @@
       <script src="features/chat/orb-avatar.js?v=12"></script>
       <script src="features/chat/thinking-panel.js?v=14"></script>
       <script src="features/chat/attachment-renderer.js?v=1"></script>
-      <script src="features/chat/attachments.js?v=4"></script>
+      <script src="features/chat/attachments.js?v=5"></script>
       <script src="features/chat/input-controller.js?v=2"></script>
-      <script src="features/chat/loading-controller.js?v=1"></script>
-      <script src="features/chat/generate-validation.js?v=1"></script>
-    <script src="features/app/dropdowns.js?v=5"></script>
+      <script src="features/chat/loading-controller.js?v=2"></script>
+      <script src="features/chat/generate-validation.js?v=2"></script>
+    <script src="features/app/dropdowns.js?v=6"></script>
     <script src="features/modals/error-modal.js?v=2"></script>
     <script src="features/generation/preview-transition.js?v=2"></script>
     <script src="features/generation/proceed-flow.js?v=3"></script>
     <script src="features/generation/skeleton-error-presenter.js?v=1"></script>
-    <script src="features/generation/approved-outline-proceed.js?v=3"></script>
+    <script src="features/generation/approved-outline-proceed.js?v=4"></script>
     <script src="features/generation/stage-progress.js?v=2"></script>
     <script src="features/generation/reasoning-progress.js?v=3"></script>
-    <script src="features/generation/skeleton-generation.js?v=4"></script>
+    <script src="features/generation/skeleton-generation.js?v=5"></script>
     <script src="features/generation/final-setup.js?v=3"></script>
     <script src="features/generation/final-generation.js?v=6"></script>
     <script src="features/preview/overlay-style.js?v=1"></script>
@@ -174,8 +174,12 @@
 
             <!-- Chat Input Area -->
             <div class="chat-input-wrapper synapse-style">
-                <input id="file-upload-input" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp" hidden disabled>
+                <input id="file-upload-input" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp" multiple hidden disabled>
                 <div id="attachment-preview-container" class="attachment-preview-container hidden"></div>
+                <div id="attachment-model-warning" class="attachment-model-warning" role="alert" hidden>
+                    <span id="attachment-model-warning-text"></span>
+                    <button type="button" id="remove-incompatible-files" data-i18n="credits.removeAttachments"></button>
+                </div>
                 <div class="chat-input-container">
                     <label for="w-tema" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;" data-i18n="chat_placeholder">Describe tu presentación soñada...</label>
                     <textarea id="w-tema" name="w-tema" class="chat-input" autocomplete="off" autofocus rows="1" maxlength="600"
@@ -183,7 +187,11 @@
                 </div>
                 <div class="chat-actions">
                     <div class="chat-actions-left">
-                        <button type="button" id="btn-attach-file" hidden disabled aria-hidden="true" tabindex="-1"></button>
+                        <span class="attach-button-wrap" id="attach-button-wrap">
+                            <button type="button" id="btn-attach-file" class="action-icon-btn" disabled data-i18n-aria-label="attach_files">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                            </button>
+                        </span>
                         <!-- Model selector -->
                         <div class="dropdown-container">
                             <button type="button" id="btn-model-dropdown" class="action-pill-btn btn-model-toggle" aria-expanded="false" aria-haspopup="true" data-i18n-aria-label="credits.selectModel">

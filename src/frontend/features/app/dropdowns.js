@@ -61,6 +61,7 @@
             if (currentModelIcon) renderBrandIcon(currentModelIcon, model);
             if (modelBtn) modelBtn.setAttribute('aria-label', window.__t('credits.selectModel').replace('{model}', model.name));
             creditsUI?.updateCostPreview();
+            window.AedosAttachments?.refreshAvailability?.();
         }
         function renderModels(models, paused) {
             if (!modelOptions) return;
@@ -202,10 +203,6 @@
         document.addEventListener('click', closeAllDropdowns);
 
         renderModels(window.MODEL_CATALOG || [], false);
-        // Document attachments are disabled in this frontend.
-        window._syncModeWithFiles = function () {
-            window._attachedFiles = [];
-        };
     }
 
     api.createAppDropdowns = createAppDropdowns;

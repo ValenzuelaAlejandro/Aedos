@@ -522,10 +522,6 @@ html.theme-transitioning::view-transition-new(root) {
     display: none !important;
 }
 
-#chat-screen.chat-mode #btn-attach-file {
-    display: none !important;
-}
-
 /* Float a cozy, narrow, blurred bubble at the bottom center of the screen */
 #chat-screen.chat-mode .chat-input-wrapper {
     position: fixed !important;

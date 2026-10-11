@@ -28,6 +28,14 @@
             || null;
     }
 
+    function canAttachDocuments() {
+        const chosenId = global.AedosStores?.generation?.state?.selectedModelId;
+        const model = modelList.find(entry => entry.id === chosenId)
+            || global.MODEL_CATALOG?.find(entry => entry.id === chosenId);
+        return lastCredits?.geminiAvailable === true && model?.brand === 'gemini'
+            && model.tier === 'free' && model.paid !== true;
+    }
+
     function activeMode() {
         return global.AedosStores?.generation?.state?.proModeEnabled ? 'pro' : 'flash';
     }
@@ -78,6 +86,7 @@
         }
         if (resetNode) resetNode.textContent = format('credits.resetsAt', { time: resetTime() });
         updateCostPreview();
+        global.AedosAttachments?.refreshAvailability?.();
     }
 
     function showInsufficientStatus({ slides, billing, rate, total }) {
@@ -96,6 +105,7 @@
         global.document.getElementById('credits-status')?.append(' ', action);
     }
 
+    // eslint-disable-next-line complexity -- Credit preview also guards incompatible attached documents.
     function updateCostPreview() {
         const { slides, billing, rate, total } = getQuote();
         const preview = global.document.getElementById('credits-cost-preview');
@@ -105,6 +115,7 @@
             preview.setAttribute('aria-label', format('credits.costAria', { n: total }));
         }
         const insufficient = total > balance;
+        const blockedAttachments = global.AedosAttachments?.hasBlockingAttachments?.() === true;
         preview?.classList.toggle('is-insufficient', insufficient);
         if (insufficient) showInsufficientStatus({ slides, billing, rate, total });
         else if (global.document.getElementById('credits-status')?.dataset.state !== 'paused') {
@@ -112,15 +123,16 @@
         }
         if (generateButton && !generateButton.classList.contains('is-generating')) {
             const hasPrompt = (global.document.getElementById('w-tema')?.value || '').trim().length >= 4;
-            generateButton.disabled = !hasPrompt || insufficient;
+            const hasFiles = (global._attachedFiles?.length || 0) > 0;
+            generateButton.disabled = (!hasPrompt && !hasFiles) || insufficient || blockedAttachments;
             const missing = total - balance;
-            const label = insufficient
+            const label = blockedAttachments ? global.__t('credits.attachmentsGeminiOnly') : insufficient
                 ? format(missing === 1 ? 'credits.missingOne' : 'credits.missing', { n: missing })
                 : global.__t('credits.generate');
             generateButton.setAttribute('aria-label', label);
             generateButton.setAttribute('data-tooltip', label);
         }
-        return { slides, billing, rate, total, affordable: !insufficient };
+        return { slides, billing, rate, total, affordable: !insufficient && !blockedAttachments };
     }
 
     function setSlideCount(count) {
@@ -194,6 +206,8 @@
             }));
             return { credits, models: modelList, paymentsPaused: modelsResult.paymentsPaused };
         } catch (_) {
+            lastCredits = null;
+            global.AedosAttachments?.refreshAvailability?.();
             updateStatus('credits.unavailable', 'error');
             return null;
         }
@@ -240,7 +254,8 @@
         getBalance: () => balance,
         getResetTime: resetTime,
         getSelectedModel: selectedModel,
+        canAttachDocuments,
         getModels: () => modelList,
-        setModels(models) { modelList = models || []; updateCostPreview(); },
+        setModels(models) { modelList = models || []; updateCostPreview(); global.AedosAttachments?.refreshAvailability?.(); },
     });
 })(window);

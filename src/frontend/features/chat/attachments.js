@@ -31,15 +31,51 @@ function createAttachments(deps) {
 
     // Store files locally for submission
     window._attachedFiles = [];
-    if (btnAttachFile) btnAttachFile.hidden = true;
-    if (fileUploadInput) fileUploadInput.disabled = true;
-    if (attachmentPreviewContainer) attachmentPreviewContainer.hidden = true;
+    const warning = document.getElementById('attachment-model-warning');
+    const warningText = document.getElementById('attachment-model-warning-text');
+    const removeAll = document.getElementById('remove-incompatible-files');
+    const buttonWrap = document.getElementById('attach-button-wrap');
+
+    function canUseAttachments() {
+        return window.AedosCreditsUI?.canAttachDocuments?.() === true;
+    }
+
+    function hasBlockingAttachments() {
+        return window._attachedFiles.length > 0 && !canUseAttachments();
+    }
+
+    function refreshAvailability() {
+        const allowed = canUseAttachments();
+        const generating = document.getElementById('btn-generate')?.classList.contains('is-generating') === true;
+        const reason = window.__t('credits.attachmentsGeminiOnly');
+        if (btnAttachFile) {
+            btnAttachFile.disabled = !allowed || generating;
+            if (allowed) btnAttachFile.removeAttribute('aria-description');
+            else btnAttachFile.setAttribute('aria-description', reason);
+        }
+        if (fileUploadInput) fileUploadInput.disabled = !allowed || generating;
+        if (buttonWrap) buttonWrap.dataset.tooltip = allowed ? '' : reason;
+        if (warning) warning.hidden = !hasBlockingAttachments();
+        if (warningText) warningText.textContent = reason;
+        if (removeAll) removeAll.textContent = window.__t('credits.removeAttachments');
+        validateGenerateButton();
+    }
+
+    removeAll?.addEventListener('click', () => {
+        window._attachedFiles = [];
+        renderAttachmentChips();
+    });
+    window.AedosAttachments.refreshAvailability = refreshAvailability;
+    window.AedosAttachments.hasBlockingAttachments = hasBlockingAttachments;
+    window.addEventListener('aedos:language-changed', refreshAvailability);
 
     function handleFilesAdded(files) {
         if (files.length === 0) return;
-        window.AedosModals.showNotice(window.__t('credits.attachmentsUnavailable'));
-        window._attachedFiles = [];
-        return;
+        if (!canUseAttachments()) {
+            window.AedosModals.showNotice(window.__t('credits.attachmentsGeminiOnly'));
+            refreshAvailability();
+            return;
+        }
 
         const allowedExtensions = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.webp'];
         const validFiles = [];
@@ -169,10 +205,6 @@ function createAttachments(deps) {
     function renderAttachmentChips() {
         if (!attachmentPreviewContainer) return;
 
-        if (typeof window._syncModeWithFiles === 'function') {
-            window._syncModeWithFiles();
-        }
-
         // Revoke any existing object URLs to prevent memory leaks
         const existingChips = attachmentPreviewContainer.querySelectorAll('.file-chip');
         existingChips.forEach(c => {
@@ -182,6 +214,7 @@ function createAttachments(deps) {
         attachmentPreviewContainer.innerHTML = '';
         if (window._attachedFiles.length === 0) {
             attachmentPreviewContainer.classList.add('hidden');
+            refreshAvailability();
             return;
         }
 
@@ -191,7 +224,7 @@ function createAttachments(deps) {
             const chip = document.createElement('div');
             chip.className = 'file-chip';
 
-            let iconMarkup = '';
+            let iconMarkup;
             let isLucide = false;
 
             if (file.type.startsWith('image/')) {
@@ -218,7 +251,10 @@ function createAttachments(deps) {
             const nameSpan = document.createElement('span');
             nameSpan.style.display = 'flex';
             nameSpan.style.alignItems = 'center';
-            nameSpan.innerHTML = `${iconMarkup} <span>${displayName}</span>`;
+            nameSpan.innerHTML = iconMarkup;
+            const safeName = document.createElement('span');
+            safeName.textContent = displayName;
+            nameSpan.appendChild(safeName);
 
             if (isLucide) {
                 setTimeout(() => {
@@ -244,7 +280,9 @@ function createAttachments(deps) {
             chip.appendChild(removeBtn);
             attachmentPreviewContainer.appendChild(chip);
         });
+        refreshAvailability();
     }
+    refreshAvailability();
 }
 
 window.AedosAttachments = { createPageDropGuard, createAttachments };
