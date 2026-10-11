@@ -48,7 +48,7 @@
                 tema,
                 mode: 'chat',
                 modelId: generationState.selectedModelId || 'google/gemini-3-flash-preview',
-                slides: Math.min(15, skeleton.slides.length),
+                slides: Math.min(window.MAX_SLIDES_BY_MODE[generationState.proModeEnabled ? 'pro' : 'flash'], skeleton.slides.length),
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
             if (skeleton.slides.length > 15) skeleton.slides = skeleton.slides.slice(0, 15);
