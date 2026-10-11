@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements: {
             modelBtn, modelMenu,
             modelOptions: document.getElementById('model-dropdown-options'),
-            modeButtons: Array.from(document.querySelectorAll('[data-generation-mode]')),
+            modeToggle: document.getElementById('generation-mode-toggle'),
             langBtn, langMenu, exportMenuBtn, exportMenu,
             exportPptxBtn, currentModelLabel, currentModelIcon, currentLangLabel, chatInputWrapper,
         },

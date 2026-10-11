@@ -67,7 +67,7 @@
                         }
                     }
                     // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
-                    if (generationState.proModeEnabled) cloned.append('mode', 'pro');
+                    cloned.append('mode', generationState.proModeEnabled ? 'pro' : 'flash');
                     // The server must validate modelId and compute the authoritative cost; client fields are untrusted.
                     cloned.append('modelId', generationState.selectedModelId || 'google/gemini-3-flash-preview');
                     cloned.append('slides', String(requestedSlides));
@@ -80,11 +80,7 @@
                     parsed.modelId = generationState.selectedModelId || parsed.modelId || 'google/gemini-3-flash-preview';
                     parsed.slides = requestedSlides;
                     // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
-                    if (generationState.proModeEnabled) {
-                        parsed.mode = 'pro';
-                    } else {
-                        delete parsed.mode;
-                    }
+                    parsed.mode = generationState.proModeEnabled ? 'pro' : 'flash';
                     bodyData = JSON.stringify(parsed);
                 }
     

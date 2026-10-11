@@ -24,7 +24,7 @@
     // eslint-disable-next-line max-lines-per-function -- Keep this vertical controller in legacy registration order.
     function createAppDropdowns({ document, window, generationState, elements, finalizeBtn }) {
         const {
-            modelBtn, modelMenu, modelOptions, modeButtons, langBtn, langMenu, exportMenuBtn, exportMenu,
+            modelBtn, modelMenu, modelOptions, modeToggle, langBtn, langMenu, exportMenuBtn, exportMenu,
             exportPptxBtn, currentModelLabel, currentModelIcon, currentLangLabel, chatInputWrapper,
         } = elements;
 
@@ -35,10 +35,16 @@
             if (modelBtn) modelBtn.setAttribute('aria-expanded', 'false');
             if (langBtn) langBtn.setAttribute('aria-expanded', 'false');
             if (exportMenuBtn) exportMenuBtn.setAttribute('aria-expanded', 'false');
+            const slidePanel = document.getElementById('slide-count-panel');
+            if (slidePanel) slidePanel.hidden = true;
+            document.getElementById('slide-count-trigger')?.setAttribute('aria-expanded', 'false');
+            const balancePopover = document.getElementById('credits-popover');
+            if (balancePopover) balancePopover.hidden = true;
+            document.getElementById('credits-balance-trigger')?.setAttribute('aria-expanded', 'false');
         }
 
         const creditsUI = window.AedosCreditsUI;
-        const brands = new Set(['gemini', 'openai', 'anthropic', 'nvidia', 'dotsstudio']);
+        const brands = new Set(['gemini', 'openai', 'anthropic', 'nvidia']);
         let paymentsPaused = false;
         function brandFor(model) {
             if (brands.has(model.brand)) return model.brand;
@@ -47,7 +53,6 @@
             if (id.startsWith('openai/')) return 'openai';
             if (id.startsWith('anthropic/')) return 'anthropic';
             if (id.startsWith('nvidia/')) return 'nvidia';
-            if (id.startsWith('dots-studio/')) return 'dotsstudio';
             return 'avatar';
         }
         function renderBrandIcon(element, model) {
@@ -60,7 +65,7 @@
             if (currentModelLabel) currentModelLabel.textContent = model.name;
             if (currentModelIcon) renderBrandIcon(currentModelIcon, model);
             if (modelBtn) modelBtn.setAttribute('aria-label', window.__t('credits.selectModel').replace('{model}', model.name));
-            creditsUI?.updateCostPreview();
+            creditsUI?.setSlideCount(creditsUI.getSlideCount());
             window.AedosAttachments?.refreshAvailability?.();
         }
         function renderModels(models, paused) {
@@ -70,7 +75,7 @@
             if (creditsUI) creditsUI.setModels(models);
             const visibleModels = models.filter(model => !paused || model.tier === 'free');
             ['free', 'light', 'standard'].forEach(tier => {
-                const tierModels = models.filter(model => model.tier === tier);
+                const tierModels = visibleModels.filter(model => model.tier === tier);
                 if (!tierModels.length) return;
                 const heading = document.createElement('div');
                 heading.className = 'model-tier-heading';
@@ -83,13 +88,6 @@
                     option.dataset.modelId = model.id;
                     option.setAttribute('role', 'menuitemradio');
                     option.setAttribute('aria-checked', String(model.id === generationState.selectedModelId));
-                    const unavailable = paused && model.tier !== 'free';
-                    if (unavailable) {
-                        option.dataset.paused = 'true';
-                        option.setAttribute('aria-disabled', 'true');
-                        option.setAttribute('data-tooltip', window.__t('credits.modelUnavailable'));
-                        option.tabIndex = -1;
-                    }
                     const icon = document.createElement('span'); renderBrandIcon(icon, model); icon.setAttribute('aria-hidden', 'true');
                     const name = document.createElement('span'); name.className = 'model-option-name'; name.textContent = model.name;
                     const quote = creditsUI.getQuote(1, model);
@@ -126,7 +124,6 @@
             modelMenu.addEventListener('click', (e) => {
                 const item = e.target.closest('.model-dropdown-item[data-model-id]');
                 if (!item) return;
-                if (item.dataset.paused === 'true') return;
                 const model = (creditsUI?.getModels() || window.MODEL_CATALOG || []).find(entry => entry.id === item.dataset.modelId);
                 if (!model) return;
                 selectModel(model);
@@ -136,13 +133,25 @@
                 closeAllDropdowns();
             });
         }
-        modeButtons?.forEach(button => button.addEventListener('click', () => {
-            generationState.proModeEnabled = button.dataset.generationMode === 'pro';
-            modeButtons.forEach(el => { const active = el === button; el.classList.toggle('active', active); el.setAttribute('aria-pressed', String(active)); });
+        function renderModeToggle() {
+            if (!modeToggle) return;
+            modeToggle.setAttribute('aria-checked', String(generationState.proModeEnabled));
+            const tip = window.__t(generationState.proModeEnabled ? 'mode.tooltipPro' : 'mode.tooltipFlash');
+            modeToggle.setAttribute('data-tooltip', tip);
+            modeToggle.title = tip;
+        }
+        modeToggle?.addEventListener('click', () => {
+            const oldCount = creditsUI?.getSlideCount() || 1;
+            generationState.proModeEnabled = !generationState.proModeEnabled;
+            renderModeToggle();
             chatInputWrapper?.classList.toggle('is-pro', generationState.proModeEnabled);
-            creditsUI?.setSlideCount(creditsUI.getSlideCount());
+            creditsUI?.setSlideCount(oldCount);
+            if (generationState.proModeEnabled && oldCount > window.MAX_SLIDES_BY_MODE.pro) {
+                creditsUI?.showModeClampNotice(window.MAX_SLIDES_BY_MODE.pro);
+            }
             renderModels(creditsUI?.getModels() || window.MODEL_CATALOG || [], paymentsPaused);
-        }));
+        });
+        renderModeToggle();
         if (creditsUI) creditsUI.refresh().then(result => {
             if (result) renderModels(result.models, result.paymentsPaused);
         });
@@ -152,6 +161,7 @@
         });
         window.addEventListener('aedos:language-changed', () => {
             renderModels(creditsUI?.getModels() || window.MODEL_CATALOG || [], paymentsPaused);
+            renderModeToggle();
         });
 
         if (langBtn && langMenu) {

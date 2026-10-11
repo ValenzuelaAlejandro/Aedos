@@ -51,7 +51,7 @@
                 slides: Math.min(window.MAX_SLIDES_BY_MODE[generationState.proModeEnabled ? 'pro' : 'flash'], skeleton.slides.length),
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
-            if (skeleton.slides.length > 15) skeleton.slides = skeleton.slides.slice(0, 15);
+            if (skeleton.slides.length > requestData.slides) skeleton.slides = skeleton.slides.slice(0, requestData.slides);
             window.AedosCreditsUI?.setSlideCount(skeleton.slides.length);
             requestData.currentSkeleton = JSON.stringify(skeleton);
 

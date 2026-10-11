@@ -260,6 +260,15 @@
 .credits-balance-chip:hover,
 .credits-balance-chip[aria-expanded="true"] { background: var(--surface-hover); }
 .credits-balance-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.credits-ring { flex: 0 0 auto; fill: none; stroke-width: 2; }
+.credits-ring-track { stroke: currentColor; opacity: .22; }
+.credits-ring-arc { stroke: currentColor; stroke-linecap: round; stroke-dasharray: 50.265; stroke-dashoffset: var(--ring-offset, 0); transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset .2s ease; }
+.credits-ring[data-state="low"] { color: #ffbd58; }
+.credits-ring[data-state="empty"] { color: #ff6b75; }
+.credits-popover-head strong { display: inline-flex; align-items: center; gap: .4rem; }
+:root[data-theme="light"] .credits-ring[data-state="low"] { color: #a96700; }
+:root[data-theme="light"] .credits-ring[data-state="empty"] { color: #c72f3b; }
+@media (prefers-reduced-motion: reduce) { .credits-ring-arc { transition: none; } }
 .credits-popover {
     position: absolute;
     top: calc(100% + 0.55rem);

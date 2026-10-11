@@ -5,6 +5,8 @@
     let balance = 50;
     let dailyLimit = 50;
     let lastCredits = null;
+    let clampNoticeCount = null;
+    let clampNoticeTimer = null;
 
     function format(key, params = {}) {
         return global.__t(key).replace(/\{([a-z]+)\}/g, (match, name) =>
@@ -41,7 +43,16 @@
     }
 
     function maxSlides() {
-        return global.MODE_SLIDE_LIMIT[activeMode()];
+        return global.MAX_SLIDES_BY_MODE[activeMode()];
+    }
+
+    function absoluteMaxSlides() {
+        return Math.max(...Object.values(global.MAX_SLIDES_BY_MODE));
+    }
+
+    function affordableMaxSlides() {
+        const quote = global.AedosCredits.quote(selectedModel(), 1);
+        return quote.billing === 'perSlide' ? Math.min(maxSlides(), Math.floor(balance / quote.rate)) : maxSlides();
     }
 
     // The service owns the billing formula; this layer only enforces the current mode's slide cap.
@@ -79,13 +90,18 @@
         if (balanceNode) balanceNode.textContent = count;
         if (popoverBalance) popoverBalance.textContent = count;
         if (trigger) trigger.setAttribute('aria-label', format('credits.balanceAria', { remaining: balance, total: dailyLimit }));
+        const ratio = dailyLimit > 0 ? Math.max(0, Math.min(1, balance / dailyLimit)) : 0;
+        global.document.querySelectorAll('.credits-ring').forEach(ring => {
+            ring.style.setProperty('--ring-offset', String(2 * Math.PI * 8 * (1 - ratio)));
+            ring.dataset.state = ratio === 0 ? 'empty' : ratio < 0.2 ? 'low' : 'normal';
+        });
         if (fill) fill.style.width = `${dailyLimit > 0 ? Math.max(0, Math.min(100, (balance / dailyLimit) * 100)) : 0}%`;
         if (progress) {
             progress.setAttribute('aria-valuemax', String(dailyLimit));
             progress.setAttribute('aria-valuenow', String(balance));
         }
         if (resetNode) resetNode.textContent = format('credits.resetsAt', { time: resetTime() });
-        updateCostPreview();
+        setSlideCount(getSlideCount());
         global.AedosAttachments?.refreshAvailability?.();
     }
 
@@ -114,6 +130,11 @@
             preview.textContent = format(total === 1 ? 'credits.costOne' : 'credits.cost', { n: total });
             preview.setAttribute('aria-label', format('credits.costAria', { n: total }));
         }
+        const liveCost = global.document.getElementById('slide-count-live-cost');
+        if (liveCost) {
+            liveCost.textContent = format(total === 1 ? 'credits.costOne' : 'credits.cost', { n: total });
+            liveCost.classList.toggle('is-insufficient', total > balance);
+        }
         const insufficient = total > balance;
         const blockedAttachments = global.AedosAttachments?.hasBlockingAttachments?.() === true;
         preview?.classList.toggle('is-insufficient', insufficient);
@@ -135,23 +156,83 @@
         return { slides, billing, rate, total, affordable: !insufficient && !blockedAttachments };
     }
 
+    function renderSlideTicks(limit, affordable, normalized, absolute) {
+        const ticks = global.document.getElementById('slide-count-ticks');
+        if (!ticks) return;
+        const cuts = new Set(global.getSlideZones(limit).slice(0, -1).map(entry => entry.end));
+        const marks = [];
+        for (let n = 1; n <= absolute; n++) {
+            const tick = global.document.createElement('span');
+            tick.className = 'slide-count-tick';
+            tick.style.setProperty('--tick-height', `${6 + 12 * ((n - 1) / Math.max(1, absolute - 1)) + (n % 5 === 0 ? 3 : 0)}px`);
+            if (n <= normalized) tick.classList.add('is-active');
+            if (n > limit || n > affordable) tick.classList.add('is-disabled');
+            if (cuts.has(n)) tick.classList.add('is-zone-end');
+            if (n === 1 || n % 5 === 0) {
+                const label = global.document.createElement('small');
+                label.textContent = String(n);
+                tick.append(label);
+            }
+            marks.push(tick);
+        }
+        ticks.replaceChildren(...marks);
+    }
+
+    function renderSlideValue(input, normalized, limit) {
+        const unit = format(normalized === 1 ? 'slides.unitOne' : 'slides.unitMany', { n: normalized });
+        const zone = global.getSlideZones(limit).find(entry => normalized >= entry.start && normalized <= entry.end);
+        const zoneLabel = zone ? global.__t(`slides.zone.${zone.key}`) : '';
+        const panelValue = global.document.getElementById('slide-count-panel-value');
+        const unitNode = global.document.getElementById('slide-count-unit');
+        const zoneNode = global.document.getElementById('slide-count-zone');
+        const triggerValue = global.document.getElementById('slide-count-value');
+        if (triggerValue) triggerValue.textContent = String(normalized);
+        if (panelValue) panelValue.textContent = String(normalized);
+        if (unitNode) unitNode.textContent = unit.replace(String(normalized), '').trim();
+        if (zoneNode) { zoneNode.textContent = zoneLabel; zoneNode.dataset.zone = zone?.key || ''; }
+        if (panelValue && !global.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            panelValue.classList.remove('slide-count-pop');
+            void panelValue.offsetWidth;
+            panelValue.classList.add('slide-count-pop');
+        }
+        const spokenZone = zoneLabel.toLocaleLowerCase(global.currentLang === 'es' ? 'es' : 'en');
+        input.setAttribute('aria-valuetext', zone ? format('slides.valueText', { slides: unit, zone: spokenZone }) : unit);
+        global.document.getElementById('slide-count-trigger')?.setAttribute('aria-label', `${global.__t('slides.ariaLabel')}: ${unit}`);
+    }
+
     function setSlideCount(count) {
         const input = global.document.getElementById('slide-count-select');
         if (!input) return;
         const limit = maxSlides();
-        const normalized = Math.min(limit, Math.max(1, Math.floor(Number(count) || 1)));
-        input.max = String(limit);
+        const affordable = affordableMaxSlides();
+        const effective = Math.max(1, affordable);
+        const normalized = Math.min(effective, Math.max(1, Math.floor(Number(count) || 1)));
+        const absolute = absoluteMaxSlides();
+        input.max = String(effective);
+        input.disabled = affordable < 1;
         input.value = String(normalized);
-        const triggerValue = global.document.getElementById('slide-count-value');
-        const panelValue = global.document.getElementById('slide-count-panel-value');
-        const maxLabel = global.document.getElementById('slide-count-max');
-        if (triggerValue) triggerValue.textContent = String(normalized);
-        if (panelValue) panelValue.textContent = String(normalized);
-        if (maxLabel) maxLabel.textContent = String(limit);
-        input.closest('.slide-count-control')?.style.setProperty('--slide-progress', `${((normalized - 1) / (limit - 1)) * 100}%`);
-        input.setAttribute('aria-valuetext', `${normalized} ${global.__t('credits.slides')}`);
-        global.document.getElementById('slide-count-trigger')?.setAttribute('aria-label', `${global.__t('credits.slides')}: ${normalized}`);
+        const wrapper = input.closest('.slide-count-control');
+        wrapper?.style.setProperty('--tick-count', String(absolute));
+        wrapper?.style.setProperty('--slide-progress', `${((normalized - 1) / Math.max(1, absolute - 1)) * 100}%`);
+        wrapper?.style.setProperty('--n-size', `${32 + 24 * ((normalized - 1) / Math.max(1, absolute - 1))}px`);
+        const trackWidth = input.parentElement?.clientWidth || 0;
+        if (trackWidth > 0) {
+            input.style.left = `${trackWidth / (absolute * 2) - 12}px`;
+            input.style.width = `${24 + (effective - 1) * trackWidth / absolute}px`;
+        }
+        renderSlideValue(input, normalized, limit);
+        renderSlideTicks(limit, affordable, normalized, absolute);
         updateCostPreview();
+    }
+
+    function showModeClampNotice(count) {
+        const notice = global.document.getElementById('slide-count-mode-notice');
+        if (!notice) return;
+        clampNoticeCount = count;
+        notice.textContent = format('slides.proClamped', { n: count });
+        notice.hidden = false;
+        global.clearTimeout(clampNoticeTimer);
+        clampNoticeTimer = global.setTimeout(() => { notice.hidden = true; clampNoticeCount = null; }, 4500);
     }
 
     function initSlideControl() {
@@ -169,16 +250,36 @@
         };
         trigger.addEventListener('click', event => {
             event.stopPropagation();
+            global.document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+            global.document.querySelectorAll('.dropdown-container > button[aria-expanded]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+            const balancePopover = global.document.getElementById('credits-popover');
+            if (balancePopover) balancePopover.hidden = true;
+            global.document.getElementById('credits-balance-trigger')?.setAttribute('aria-expanded', 'false');
             panel.hidden = !panel.hidden;
             trigger.setAttribute('aria-expanded', String(!panel.hidden));
-            if (!panel.hidden) { input.focus({ preventScroll: true }); position(); }
+            if (!panel.hidden) { setSlideCount(input.value); input.focus({ preventScroll: true }); position(); }
         });
         panel.addEventListener('click', event => event.stopPropagation());
         global.document.addEventListener('click', close);
         global.document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
-        global.addEventListener('resize', position);
+        global.addEventListener('resize', () => { setSlideCount(input.value); position(); });
         global.addEventListener('scroll', close, true);
-        input.addEventListener('input', () => setSlideCount(input.value));
+        let previousStep = Number(input.value);
+        input.addEventListener('input', () => {
+            const step = Number(input.value);
+            if (step !== previousStep && !global.matchMedia?.('(prefers-reduced-motion: reduce)').matches) global.navigator?.vibrate?.(5);
+            previousStep = step;
+            setSlideCount(step);
+        });
+        input.addEventListener('change', () => {
+            global.document.getElementById('slide-count-announce').textContent = input.getAttribute('aria-valuetext');
+        });
+        input.addEventListener('keydown', event => {
+            if (event.key !== 'PageUp' && event.key !== 'PageDown') return;
+            event.preventDefault();
+            setSlideCount(Number(input.value) + (event.key === 'PageUp' ? 5 : -5));
+            global.document.getElementById('slide-count-announce').textContent = input.getAttribute('aria-valuetext');
+        });
         setSlideCount(input.value);
     }
 
@@ -220,6 +321,11 @@
         const close = () => { popover.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
         trigger.addEventListener('click', event => {
             event.stopPropagation();
+            const slidePanel = global.document.getElementById('slide-count-panel');
+            if (slidePanel) slidePanel.hidden = true;
+            global.document.getElementById('slide-count-trigger')?.setAttribute('aria-expanded', 'false');
+            global.document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+            global.document.querySelectorAll('.dropdown-container > button[aria-expanded]').forEach(button => button.setAttribute('aria-expanded', 'false'));
             popover.hidden = !popover.hidden;
             trigger.setAttribute('aria-expanded', String(!popover.hidden));
         });
@@ -237,6 +343,7 @@
             if (lastCredits) renderBalance(lastCredits);
             else updateCostPreview();
             setSlideCount(getSlideCount());
+            if (clampNoticeCount !== null) showModeClampNotice(clampNoticeCount);
         });
         refresh();
         global.setInterval(() => refresh(), 60000);
@@ -248,6 +355,7 @@
         updateStatus,
         updateCostPreview,
         setSlideCount,
+        showModeClampNotice,
         getSlideCount,
         getQuote,
         canSpend,
