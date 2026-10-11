@@ -93,7 +93,7 @@ test('app dropdown factory keeps model, mode, language, and export registration 
     assert.ok(registrations.every(index => index >= 0));
     assert.deepEqual(registrations, [...registrations].sort((a, b) => a - b));
     assert.match(source, /window\.AedosAttachments\?\.refreshAvailability\?\.\(\)/);
-    assert.match(source, /modeButtons\?\.forEach/);
+    assert.match(source, /modeToggle\?\.addEventListener\('click'/);
 });
 
 test('slide discovery preserves selector precedence and editor-chrome exclusions', () => {

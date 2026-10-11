@@ -59,6 +59,23 @@ test('catalog uses explicit billing types and excludes Dots', () => {
         ['perPresentation', 10], ['perSlide', 1], ['perSlide', 2], ['perSlide', 3], ['perSlide', 3],
     ]);
     assert.equal(window.MODE_SURCHARGE, undefined);
+    assert.deepEqual(JSON.parse(JSON.stringify(window.MAX_SLIDES_BY_MODE)), { flash: 15, pro: 8 });
+});
+
+test('slide zones cover each mode maximum without gaps or overlap', () => {
+    const { window } = loadCredits();
+    const expected = {
+        1: [],
+        2: [['short', 1, 1], ['full', 2, 2]],
+        3: [['short', 1, 1], ['balanced', 2, 2], ['full', 3, 3]],
+        8: [['short', 1, 3], ['balanced', 4, 6], ['full', 7, 8]],
+        15: [['short', 1, 5], ['balanced', 6, 10], ['full', 11, 15]],
+    };
+    for (const [max, ranges] of Object.entries(expected)) {
+        const zones = window.getSlideZones(Number(max));
+        assert.deepEqual(JSON.parse(JSON.stringify(zones.map(({ key, start, end }) => [key, start, end]))), ranges);
+        if (zones.length) assert.deepEqual(JSON.parse(JSON.stringify(zones.flatMap(zone => Array.from({ length: zone.end - zone.start + 1 }, (_, i) => zone.start + i)))), Array.from({ length: Number(max) }, (_, i) => i + 1));
+    }
 });
 
 test('service quotes presentation and slide billing without a mode surcharge', () => {
