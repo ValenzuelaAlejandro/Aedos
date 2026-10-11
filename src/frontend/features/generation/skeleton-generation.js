@@ -49,6 +49,15 @@
                 generationState.skeletonController.abort();
                 generationState.skeletonController = null;
             }
+
+            const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
+            if (hasFiles && !window.AedosCreditsUI?.canAttachDocuments?.()) {
+                window.AedosModals.showNotice(window.__t('credits.attachmentsGeminiOnly'));
+                window.AedosAttachments?.refreshAvailability?.();
+                return;
+            }
+            // The server must reject attachments without Gemini quota or on a paid model;
+            // client-side checks and model IDs are not trustworthy.
     
             // Push state immediately so the native back button works during the loading phase
             if (window.location.hash !== '#chat') {
@@ -56,7 +65,6 @@
             }
     
             const tema = temaInput.value.trim();
-            const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
             if (!tema && !hasFiles) {
                 temaError.classList.add('visible');
                 temaInput.focus();
@@ -106,6 +114,7 @@
             if (window._attachedFiles && window._attachedFiles.length > 0) {
                 const formData = new FormData();
                 formData.append('tema', requestData.tema);
+                formData.append('modelId', requestData.modelId);
                 if (requestData.mode) formData.append('mode', requestData.mode);
                 if (requestData.language) formData.append('language', requestData.language);
                 if (requestData.slides !== undefined) formData.append('slides', requestData.slides);

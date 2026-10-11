@@ -5,6 +5,7 @@
     /** Create the existing send-button and hero-title validation. @param {GenerateValidationDependencies} deps */
     function createGenerateValidation(deps) {
         const { window, generationState, btnGenerate, temaInput, getAnimateHeroTitle } = deps;
+        // eslint-disable-next-line complexity -- The send button combines prompt, files, loading and credit states.
         return function validateGenerateButton() {
             if (btnGenerate && btnGenerate.classList.contains('is-generating')) {
                 return;
@@ -12,10 +13,11 @@
     
             const val = temaInput ? temaInput.value.trim() : '';
             const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
+            const blockedAttachments = window.AedosAttachments?.hasBlockingAttachments?.() === true;
             const isActive = val.length >= 4 || hasFiles;
     
             const affordability = window.AedosCreditsUI?.updateCostPreview();
-            if (btnGenerate) btnGenerate.disabled = !isActive || affordability?.affordable === false;
+            if (btnGenerate) btnGenerate.disabled = !isActive || blockedAttachments || affordability?.affordable === false;
     
             // Animate hero title dynamically based on active state and language
             if (isActive) {
