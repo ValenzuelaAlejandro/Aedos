@@ -57,6 +57,19 @@ async function* openRouterSSEToChunks(response, onMetadata = () => {}) {
     }
 }
 
+function isCreditLimitError(status, responseBody) {
+    if (status === 402) return true;
+    if (typeof responseBody !== 'string' || responseBody.length === 0) return false;
+    let errorText = responseBody;
+    try {
+        const parsed = JSON.parse(responseBody);
+        const error = parsed?.error;
+        errorText = [parsed?.code, parsed?.message, typeof error === 'string' ? error : null,
+            error?.code, error?.message].filter(value => typeof value === 'string').join(' ');
+    } catch (_) { /* Only inspect structured error messages; never log the body. */ }
+    return /payment required|(?:insufficient|not enough|out of)[\s_-]*(?:credits?|balance)|(?:credits?|balance|billing|spend)[\s_-]*(?:limit|exhaust(?:ed|ion)|deplet(?:ed|ion)|reached|too low)|no credits/i.test(errorText);
+}
+
 /**
  * Create the unchanged sequential OpenRouter fallback provider.
  * @param {{fetchWithAcceptTimeout: Function, providerLog: ProviderLogger, classifyError: Function, ErrorCategory: ErrorCategories, providerAcceptTimeoutMs: number, modelList: string[], stage3Only: string[], reasoningForStage: Function, guard?: any}} deps provider dependencies
@@ -78,19 +91,22 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
             providerLog.warn(ErrorCategory.CONFIG, 'No OpenRouter models available for stage after policy filtering', { stage: stageName, requestedModels });
             throw new Error('PROVIDER_UNAVAILABLE');
         }
-        const reasoningConfig = options && options.reasoning === null ? null : options && options.reasoning && typeof options.reasoning === 'object' ? options.reasoning : reasoningForStage(stageName);
         const includeReasoning = options && options.includeReasoning === true;
         let paidPaused = false;
         for (const [index, model] of modelsToTry.entries()) {
             const normalizedModel = model.toLowerCase();
             const route = FREE_MODELS.includes(normalizedModel) ? 'free' : PAID_MODELS[normalizedModel] ? 'paid' : null;
             if (!route) continue; // Unknown model prices or free status cannot be trusted.
+            const reasoningConfig = options && options.reasoning === null ? null
+                : options && options.reasoning && typeof options.reasoning === 'object'
+                    ? options.reasoning : reasoningForStage(stageName, normalizedModel);
             const maxTokens = OUTPUT_TOKENS[stageName];
             const estimatedUsd = route === 'paid' ? estimatePaidUsd(normalizedModel, prompt, fileContext, maxTokens) : 0;
             const reservation = route === 'paid' ? await guard.reserve(estimatedUsd) : null;
             if (route === 'paid' && !reservation?.allowed) { paidPaused = true; continue; }
             const providerOrder = normalizedModel.includes('deepseek') ? ['SiliconFlow'] : stageName === 'Flash' && normalizedModel.includes('mimo') ? ['Xiaomi', 'Parasail'] : null;
-            providerLog.info(ErrorCategory.PROVIDER, 'Trying OpenRouter model', { stage: stageName, model, reasoning: reasoningConfig || 'disabled', providerOrder: providerOrder || 'default' });
+            const reasoningLabel = reasoningConfig || (options?.reasoning === null ? 'disabled' : 'provider default (effort not published)');
+            providerLog.info(ErrorCategory.PROVIDER, 'Trying OpenRouter model', { stage: stageName, model, reasoning: reasoningLabel, providerOrder: providerOrder || 'default' });
             const started = Date.now();
             try {
                 const body = { model, messages: [{ role: 'user', content: messagesContent }], stream: true,
@@ -101,15 +117,22 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
                     method: 'POST', headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'HTTP-Referer': process.env.APP_URL || 'https://aedos.app', 'X-Title': 'Aedos' }, body: JSON.stringify(body)
                 }, providerAcceptTimeoutMs, 'OPENROUTER_ACCEPT_TIMEOUT');
                 if (!response.ok) {
-                    await response.text();
-                    providerLog.warn(ErrorCategory.PROVIDER, 'OpenRouter model request failed', { stage: stageName, model, status: response.status });
+                    const responseBody = await response.text();
+                    const creditLimit = isCreditLimitError(response.status, responseBody);
+                    providerLog.warn(ErrorCategory.PROVIDER, creditLimit ? 'OpenRouter credit limit reached' : 'OpenRouter model request failed',
+                        { stage: stageName, model, status: response.status });
                     if (reservation) await guard.release(reservation);
                     recordProviderCall({ stage: stageName, provider: 'openrouter', model, prompt_tokens: null,
-                        completion_tokens: null, reasoning_tokens: null, cost_usd: 0, finish_reason: `HTTP_${response.status}`,
+                        completion_tokens: null, reasoning_tokens: null, cost_usd: 0,
+                        finish_reason: creditLimit ? 'PAID_PAUSED' : `HTTP_${response.status}`,
                         duration_ms: Date.now() - started, retry: index, route });
+                    if (creditLimit) {
+                        await guard.pausePaid?.();
+                        throw new Error('PAID_PAUSED');
+                    }
                     continue;
                 }
-                providerLog.success(ErrorCategory.PROVIDER, 'OpenRouter model accepted request', { stage: stageName, model, reasoning: reasoningConfig || 'disabled' });
+                providerLog.success(ErrorCategory.PROVIDER, 'OpenRouter model accepted request', { stage: stageName, model, reasoning: reasoningLabel });
                 let usage = null; let finishReason = null;
                 const onMetadata = frame => {
                     if (frame.usage) usage = frame.usage;
@@ -126,16 +149,24 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
                                 ? route === 'free' ? 0 : usage.prompt_tokens * (long ? price.longInput : price.input)
                                     + usage.completion_tokens * (long ? price.longOutput : price.output)
                                 : estimatedUsd;
-                        if (reservation) await guard.settle(reservation, Number.isFinite(cost) ? cost : estimatedUsd);
+                        const settledCost = Number.isFinite(cost) ? cost : estimatedUsd;
+                        if (reservation && settledCost > estimatedUsd) {
+                            providerLog.warn(ErrorCategory.PROVIDER, 'OpenRouter actual cost exceeded reservation', {
+                                stage: stageName, model, reservedUsd: estimatedUsd, actualUsd: settledCost,
+                                overageUsd: settledCost - estimatedUsd
+                            });
+                        }
+                        if (reservation) await guard.settle(reservation, settledCost);
                         recordProviderCall({ stage: stageName, provider: 'openrouter', model,
                             prompt_tokens: usage?.prompt_tokens ?? null, completion_tokens: usage?.completion_tokens ?? null,
-                            reasoning_tokens: usage?.completion_tokens_details?.reasoning_tokens ?? null,
+                            reasoning_tokens: usage?.completion_tokens_details?.reasoning_tokens ?? usage?.reasoning_tokens ?? null,
                             cost_usd: route === 'free' ? 0 : cost, finish_reason: finishReason,
                             duration_ms: Date.now() - started, retry: index, route });
                     }
                 }
                 return { stream: measuredStream(), provider: 'openrouter', model };
             } catch (err) {
+                if (err?.message === 'PAID_PAUSED') throw err;
                 // Acceptance timeouts can have charged upstream; retain the reserve.
                 recordProviderCall({ stage: stageName, provider: 'openrouter', model, prompt_tokens: null,
                     completion_tokens: null, reasoning_tokens: null, cost_usd: reservation ? estimatedUsd : 0,

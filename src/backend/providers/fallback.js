@@ -23,6 +23,7 @@ function createProviderFallback({ gemini, openrouter, getOverride, createStub, p
         }
         try { return await openrouter(prompt, stageName, FREE_MODELS, fileContext, options); }
         catch (err) {
+            if (err?.message === 'PAID_PAUSED') throw err;
             providerLog.warn(ErrorCategory.PROVIDER, 'Approved OpenRouter free route unavailable', { stage: stageName, error: err.message });
         }
         const paidModels = (openrouterModels || []).filter(model => PAID_MODELS[String(model).toLowerCase()]);

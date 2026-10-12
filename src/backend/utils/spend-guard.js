@@ -1,7 +1,11 @@
 const { getRedis } = require('./rate-limiter');
 const { spendConfig, estimatePaidUsd, OUTPUT_TOKENS } = require('../config/provider-spend');
 
+const PAID_PAUSE_KEY = '{aedos-spend}:paid-paused';
+const PAID_PAUSE_SECONDS = 10 * 60;
+
 const RESERVE_SCRIPT = `
+if redis.call('EXISTS', KEYS[3]) == 1 then return 0 end
 local day = tonumber(redis.call('GET', KEYS[1]) or '0')
 local month = tonumber(redis.call('GET', KEYS[2]) or '0')
 local amount = tonumber(ARGV[1])
@@ -10,6 +14,9 @@ redis.call('INCRBY', KEYS[1], amount)
 redis.call('INCRBY', KEYS[2], amount)
 redis.call('EXPIRE', KEYS[1], 172800)
 redis.call('EXPIRE', KEYS[2], 3024000)
+return 1`;
+const PAUSE_PAID_SCRIPT = `
+redis.call('SET', KEYS[1], '1', 'EX', ARGV[1])
 return 1`;
 const SETTLE_SCRIPT = `
 local delta = tonumber(ARGV[1]) - tonumber(ARGV[2])
@@ -58,7 +65,7 @@ function createSpendGuard({ redis = getRedis, env = process.env, now = () => new
         try {
             const client = redis();
             if (!client || !(await balanceAllowed())) return { allowed: false };
-            const keys = utcKeys(now());
+            const keys = [...utcKeys(now()), PAID_PAUSE_KEY];
             const amount = microUsd(estimatedUsd);
             const allowed = await client.eval(RESERVE_SCRIPT, keys,
                 [String(amount), String(microUsd(cfg.dailyUsd)), String(microUsd(cfg.monthlyUsd))]);
@@ -78,6 +85,14 @@ function createSpendGuard({ redis = getRedis, env = process.env, now = () => new
     }
     async function release(reservation) { return settle(reservation, 0); }
 
+    async function pausePaid() {
+        try {
+            const client = redis();
+            if (!client) return false;
+            return Number(await client.eval(PAUSE_PAID_SCRIPT, [PAID_PAUSE_KEY], [String(PAID_PAUSE_SECONDS)])) === 1;
+        } catch (_) { return false; }
+    }
+
     async function reserveGeminiRequest() {
         try {
             const client = redis();
@@ -93,14 +108,16 @@ function createSpendGuard({ redis = getRedis, env = process.env, now = () => new
             if (!env.OPENROUTER_API_KEY) return { paidPaused: true };
             const client = redis();
             if (!client || !(await balanceAllowed())) return { paidPaused: true };
-            const [day, month] = await Promise.all(utcKeys(now()).map(key => client.get(key)));
+            const [day, month, paused] = await Promise.all([...utcKeys(now()), PAID_PAUSE_KEY].map(key => client.get(key)));
+            if (paused) return { paidPaused: true };
             const worstStageReserve = microUsd(estimatePaidUsd('anthropic/claude-haiku-5.5', '', null, OUTPUT_TOKENS.Stage3));
             return { paidPaused: Number(day || 0) + worstStageReserve > microUsd(cfg.dailyUsd)
                 || Number(month || 0) + worstStageReserve > microUsd(cfg.monthlyUsd) };
         } catch (_) { return { paidPaused: true }; }
     }
-    return { reserve, settle, release, reserveGeminiRequest, getSpendStatus };
+    return { reserve, settle, release, pausePaid, reserveGeminiRequest, getSpendStatus };
 }
 
 const guard = createSpendGuard();
-module.exports = { createSpendGuard, utcKeys, pacificDay, getSpendStatus: guard.getSpendStatus, spendGuard: guard };
+module.exports = { createSpendGuard, utcKeys, pacificDay, PAID_PAUSE_SECONDS,
+    getSpendStatus: guard.getSpendStatus, spendGuard: guard };
