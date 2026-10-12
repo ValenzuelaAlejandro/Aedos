@@ -31,6 +31,7 @@ function toGeminiParts(promptText, fileContext, providerLog, ErrorCategory) {
     return parts;
 }
 
+/** @param {any} response @param {(frame: any) => void} [onMetadata] */
 async function* geminiSSEToChunks(response, onMetadata = () => {}) {
     const decoder = new TextDecoder();
     let buffer = '';
@@ -53,6 +54,7 @@ async function* geminiSSEToChunks(response, onMetadata = () => {}) {
     }
 }
 
+/** @param {any} response @param {(frame: any) => void} [onMetadata] */
 async function* geminiSSEToStructuredChunks(response, onMetadata = () => {}) {
     const decoder = new TextDecoder();
     let buffer = '';
@@ -84,7 +86,7 @@ async function* geminiSSEToStructuredChunks(response, onMetadata = () => {}) {
 
 /**
  * Create the unchanged Gemini direct provider and its 503 retry wrapper.
- * @param {{fetchWithAcceptTimeout: Function, providerLog: ProviderLogger, ErrorCategory: ErrorCategories, providerAcceptTimeoutMs: number}} deps provider dependencies
+ * @param {{fetchWithAcceptTimeout: Function, providerLog: ProviderLogger, ErrorCategory: ErrorCategories, providerAcceptTimeoutMs: number, guard?: any}} deps provider dependencies
  * @returns {{call: Function}}
  */
 function createGeminiProvider({ fetchWithAcceptTimeout, providerLog, ErrorCategory, providerAcceptTimeoutMs, guard = spendGuard }) {

@@ -1,5 +1,5 @@
 const { getRedis } = require('./rate-limiter');
-const { spendConfig } = require('../config/provider-spend');
+const { spendConfig, estimatePaidUsd, OUTPUT_TOKENS } = require('../config/provider-spend');
 
 const RESERVE_SCRIPT = `
 local day = tonumber(redis.call('GET', KEYS[1]) or '0')
@@ -90,11 +90,13 @@ function createSpendGuard({ redis = getRedis, env = process.env, now = () => new
 
     async function getSpendStatus() {
         try {
+            if (!env.OPENROUTER_API_KEY) return { paidPaused: true };
             const client = redis();
             if (!client || !(await balanceAllowed())) return { paidPaused: true };
             const [day, month] = await Promise.all(utcKeys(now()).map(key => client.get(key)));
-            return { paidPaused: Number(day || 0) >= microUsd(cfg.dailyUsd)
-                || Number(month || 0) >= microUsd(cfg.monthlyUsd) };
+            const worstStageReserve = microUsd(estimatePaidUsd('anthropic/claude-haiku-5.5', '', null, OUTPUT_TOKENS.Stage3));
+            return { paidPaused: Number(day || 0) + worstStageReserve > microUsd(cfg.dailyUsd)
+                || Number(month || 0) + worstStageReserve > microUsd(cfg.monthlyUsd) };
         } catch (_) { return { paidPaused: true }; }
     }
     return { reserve, settle, release, reserveGeminiRequest, getSpendStatus };

@@ -5,6 +5,7 @@ const { recordProviderCall } = require('./telemetry');
 /** @typedef {{info: Function, warn: Function, success: Function}} ProviderLogger */
 /** @typedef {Record<string, string>} ErrorCategories */
 
+/** @param {any} response @param {(frame: any) => void} [onMetadata] */
 async function* openRouterStructuredSSE(response, onMetadata = () => {}) {
     const decoder = new TextDecoder(); let buffer = '';
     for await (const bytes of response.body) {
@@ -38,6 +39,7 @@ async function* openRouterStructuredSSE(response, onMetadata = () => {}) {
     }
 }
 
+/** @param {any} response @param {(frame: any) => void} [onMetadata] */
 async function* openRouterSSEToChunks(response, onMetadata = () => {}) {
     const decoder = new TextDecoder(); let buffer = '';
     for await (const bytes of response.body) {
@@ -57,7 +59,7 @@ async function* openRouterSSEToChunks(response, onMetadata = () => {}) {
 
 /**
  * Create the unchanged sequential OpenRouter fallback provider.
- * @param {{fetchWithAcceptTimeout: Function, providerLog: ProviderLogger, classifyError: Function, ErrorCategory: ErrorCategories, providerAcceptTimeoutMs: number, modelList: string[], stage3Only: string[], reasoningForStage: Function}} deps provider dependencies
+ * @param {{fetchWithAcceptTimeout: Function, providerLog: ProviderLogger, classifyError: Function, ErrorCategory: ErrorCategories, providerAcceptTimeoutMs: number, modelList: string[], stage3Only: string[], reasoningForStage: Function, guard?: any}} deps provider dependencies
  * @returns {{call: Function}}
  */
 function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classifyError, ErrorCategory, providerAcceptTimeoutMs, modelList, stage3Only, reasoningForStage, guard = spendGuard }) {

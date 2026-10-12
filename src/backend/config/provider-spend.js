@@ -5,19 +5,23 @@ const PAID_MODELS = Object.freeze({
         longPromptThreshold: 100000, longInput: 0.0000005, longOutput: 0.0000025 }),
 });
 const FREE_MODELS = Object.freeze(['apodex/apodex-1.1-mini:free']);
+// Typical 8-slide Pro HTML fixtures in examples/pro are 18-25k characters;
+// these ceilings leave several times that output budget, including reasoning.
+// The 1.2 MB Java fixture is an exceptional embedded-asset outlier.
 const OUTPUT_TOKENS = Object.freeze({ Flash: 32768, Stage1: 8192, Stage2: 16384, Stage3: 65536 });
 
-function positiveNumber(value, fallback) {
+function nonNegativeNumber(value, fallback) {
+    if (value === undefined || value === '') return fallback;
     const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function spendConfig(env = process.env) {
     return {
-        dailyUsd: positiveNumber(env.PAID_SPEND_DAILY_USD, 0.05),
-        monthlyUsd: positiveNumber(env.PAID_SPEND_MONTHLY_USD, 1),
-        balanceFloorUsd: positiveNumber(env.PAID_BALANCE_FLOOR_USD, 1),
-        geminiDailyCap: Math.max(1, Math.floor(positiveNumber(env.GEMINI_DAILY_APP_CAP, 16))),
+        dailyUsd: nonNegativeNumber(env.PAID_SPEND_DAILY_USD, 0.05),
+        monthlyUsd: nonNegativeNumber(env.PAID_SPEND_MONTHLY_USD, 1),
+        balanceFloorUsd: nonNegativeNumber(env.PAID_BALANCE_FLOOR_USD, 1),
+        geminiDailyCap: Math.floor(nonNegativeNumber(env.GEMINI_DAILY_APP_CAP, 16)),
     };
 }
 
