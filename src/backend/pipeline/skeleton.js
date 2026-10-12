@@ -1,4 +1,6 @@
 /* eslint-disable max-lines-per-function, complexity */
+const { resolveModelId, validateAttachments } = require('../config/model-catalog');
+
 /**
  * Build the skeleton-generation route handler without owning HTTP registration.
  * @param {{[key: string]: any}} deps pipeline dependencies and contract constants
@@ -40,8 +42,22 @@ function createSkeletonHandler(deps) {
         });
 
         try {
-            const opciones = req.body;
-            const requestedLanguage = req.body.language || req.body.idioma || 'auto';
+            const opciones = req.body || {};
+            const modelSelection = resolveModelId(opciones.modelId);
+            if (!modelSelection.valid) {
+                await deps.discardUploadedFiles?.(req.files);
+                return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });
+            }
+            const hasAttachments = Array.isArray(req.files) && req.files.length > 0;
+            if (hasAttachments) {
+                const geminiAvailable = await deps.hasGeminiRequestAvailable?.() === true;
+                const attachmentValidation = validateAttachments(modelSelection.model, true, geminiAvailable);
+                if (!attachmentValidation.valid) {
+                    await deps.discardUploadedFiles?.(req.files);
+                    return res.status(422).json({ error: attachmentValidation.message, code: attachmentValidation.code });
+                }
+            }
+            const requestedLanguage = opciones.language || opciones.idioma || 'auto';
             const rawTema = opciones.tema || '';
             const sanitizeResult = sanitizeTema(String(rawTema));
             if (!sanitizeResult.valid) {
@@ -62,7 +78,9 @@ function createSkeletonHandler(deps) {
             const stage1Prompt = currentSkeleton && typeof currentSkeleton === 'object'
                 ? buildStage1RevisionPrompt(sanitizeResult.tema, currentSkeleton, targetLang)
                 : buildStage1Prompt(sanitizeResult.tema, targetLang);
-            const stage1Response = await tryModelsStage1Thinking(stage1Prompt, fileContext);
+            const stage1Response = await tryModelsStage1Thinking(stage1Prompt, fileContext,
+                { attachmentsRequireGemini: hasAttachments,
+                    modelRoute: { requestedModelId: modelSelection.requestedModelId, effectiveModelId: null, fallbackReason: null } });
 
             setSseHeaders(res);
             if (stage1Response && stage1Response.provider && stage1Response.model) {
@@ -117,7 +135,7 @@ function createSkeletonHandler(deps) {
                 return;
             }
 
-            const maxSlides = req.body.mode === 'pro' ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES;
+            const maxSlides = opciones.mode === 'pro' ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES;
             if (contentJson.slides.length > maxSlides) {
                 contentJson.slides = contentJson.slides.slice(0, maxSlides);
                 contentJson.slide_count = maxSlides;
@@ -127,6 +145,16 @@ function createSkeletonHandler(deps) {
             res.end();
         } catch (err) {
             log.error(ErrorCategory.PIPELINE, 'Failed to generate skeleton', { requestId, error: err.message });
+            if (err.message === 'ATTACHMENTS_NOT_ALLOWED' || err.message === 'GEMINI_APP_CAP_REACHED') {
+                await deps.discardUploadedFiles?.(req.files);
+                const message = 'Attachments require Gemini and an available Gemini request today.';
+                if (!res.headersSent) res.status(422).json({ error: message, code: 'ATTACHMENTS_NOT_ALLOWED' });
+                else {
+                    try { writeSse(res, { error: message, code: 'ATTACHMENTS_NOT_ALLOWED' }); res.end(); }
+                    catch (e) { /* preserve the existing SSE error fallback */ }
+                }
+                return;
+            }
             const providerError = err.message === 'PAID_PAUSED' || err.message === 'PROVIDER_UNAVAILABLE';
             const message = providerError ? 'The AI providers are temporarily unavailable. Please try again later.' : ERROR_TEXT.OUTLINE_FAILED;
             if (!res.headersSent) {
