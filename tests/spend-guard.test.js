@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const { createSpendGuard, utcKeys, pacificDay } = require('../src/backend/utils/spend-guard');
 const { createProviderFallback } = require('../src/backend/providers/fallback');
 const { createOpenRouterProvider } = require('../src/backend/providers/openrouter');
+const { createGeminiProvider } = require('../src/backend/providers/gemini');
+const { OUTPUT_TOKENS, estimatePaidUsd } = require('../src/backend/config/provider-spend');
 process.env.GEMINI_API_KEY = 'mock-only';
 process.env.OPENROUTER_API_KEY = 'mock-only';
 
@@ -54,6 +56,15 @@ test('Redis unavailable fails closed for payment and Gemini without memory fallb
     }
 });
 
+test('zero configured cap is an explicit kill switch', async () => {
+    const redis = fakeRedis();
+    const guard = createSpendGuard({ redis: () => redis,
+        env: { PAID_SPEND_DAILY_USD: '0', GEMINI_DAILY_APP_CAP: '0' } });
+    assert.equal((await guard.reserve(0.0001)).allowed, false);
+    assert.equal(await guard.reserveGeminiRequest(), false);
+    assert.deepEqual(await guard.getSpendStatus(), { paidPaused: true });
+});
+
 test('daily/monthly UTC buckets, settle and release preserve actual spend', async () => {
     const redis = fakeRedis();
     let time = new Date('2026-10-31T23:59:00Z');
@@ -83,6 +94,26 @@ test('Gemini cap counts each attempt and switches date at Pacific midnight', asy
     time = new Date('2026-10-11T07:01:00Z');
     assert.notEqual(pacificDay(new Date('2026-10-11T06:59:00Z')), pacificDay(time));
     assert.equal(await guard.reserveGeminiRequest(), true);
+});
+
+test('optional management-key balance floor is cached and fails closed', async () => {
+    const redis = fakeRedis();
+    let fetches = 0;
+    const guard = createSpendGuard({ redis: () => redis,
+        env: { OPENROUTER_MANAGEMENT_KEY: 'mock-management-key', PAID_BALANCE_FLOOR_USD: '1' },
+        fetchBalance: async () => {
+            fetches++;
+            return { ok: true, json: async () => ({ data: { total_credits: 2, total_usage: 0.9 } }) };
+        },
+    });
+    assert.equal((await guard.reserve(0.001)).allowed, true);
+    assert.equal((await guard.reserve(0.001)).allowed, true);
+    assert.equal(fetches, 1);
+    const lowBalance = createSpendGuard({ redis: () => redis,
+        env: { OPENROUTER_MANAGEMENT_KEY: 'mock-management-key', PAID_BALANCE_FLOOR_USD: '1' },
+        fetchBalance: async () => ({ ok: true, json: async () => ({ data: { total_credits: 2, total_usage: 0.97 } }) }),
+    });
+    assert.equal((await lowBalance.reserve(0.001)).allowed, false);
 });
 
 test('fallback tries approved free model before paid and reports paused when denied', async () => {
@@ -135,4 +166,53 @@ test('stream usage settles actual cost and telemetry excludes prompt text', asyn
     assert.equal(settled, 0.0000022);
     assert.equal(logs.some(line => line.includes('private prompt words')), false);
     assert.equal(JSON.parse(logs[0]).reasoning_tokens, 1);
+});
+
+test('both providers send a stage-specific output cap', async () => {
+    const bodies = [];
+    const logger = { info() {}, warn() {}, success() {} };
+    const gemini = createGeminiProvider({
+        fetchWithAcceptTimeout: async (_url, options) => {
+            bodies.push(JSON.parse(options.body));
+            return new Response('data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}\n\n');
+        }, providerLog: logger, ErrorCategory: { PROVIDER: 'PROVIDER' }, providerAcceptTimeoutMs: 1000,
+        guard: { reserveGeminiRequest: async () => true },
+    });
+    for (const stage of Object.keys(OUTPUT_TOKENS)) {
+        const result = await gemini.call('prompt', stage, 'mock-gemini');
+        for await (const chunk of result.stream) assert.equal(chunk, 'ok');
+        assert.equal(bodies.at(-1).generationConfig.maxOutputTokens, OUTPUT_TOKENS[stage]);
+    }
+    const router = createOpenRouterProvider({
+        fetchWithAcceptTimeout: async (_url, options) => {
+            bodies.push(JSON.parse(options.body));
+            return new Response('data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n');
+        }, providerLog: logger, classifyError: () => 'NETWORK',
+        ErrorCategory: { CONFIG: 'CONFIG', PROVIDER: 'PROVIDER', NETWORK: 'NETWORK' },
+        providerAcceptTimeoutMs: 1000, modelList: [], stage3Only: [], reasoningForStage: () => null,
+    });
+    const result = await router.call('prompt', 'Stage3', ['apodex/apodex-1.1-mini:free']);
+    for await (const chunk of result.stream) assert.equal(chunk, 'ok');
+    assert.equal(bodies.at(-1).max_tokens, OUTPUT_TOKENS.Stage3);
+    assert.deepEqual(bodies.at(-1).stream_options, { include_usage: true });
+    assert.ok(estimatePaidUsd('anthropic/claude-haiku-5.5', 'x'.repeat(100001), null, 100)
+        > estimatePaidUsd('anthropic/claude-haiku-5.5', 'x'.repeat(99000), null, 100));
+});
+
+test('Gemini 503 retry consumes a separate quota slot for each HTTP attempt', async () => {
+    let slots = 0;
+    let requests = 0;
+    const provider = createGeminiProvider({
+        fetchWithAcceptTimeout: async () => {
+            requests++;
+            return requests === 1 ? new Response('busy', { status: 503 })
+                : new Response('data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}\n\n');
+        }, providerLog: { info() {}, warn() {}, success() {} },
+        ErrorCategory: { PROVIDER: 'PROVIDER', NETWORK: 'NETWORK' }, providerAcceptTimeoutMs: 1000,
+        guard: { reserveGeminiRequest: async () => { slots++; return true; } },
+    });
+    const result = await provider.call('prompt', 'Stage1', 'mock-gemini');
+    for await (const chunk of result.stream) assert.equal(chunk, 'ok');
+    assert.equal(slots, 2);
+    assert.equal(requests, 2);
 });
