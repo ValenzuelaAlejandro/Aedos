@@ -52,7 +52,10 @@ function createOutlineItemHandler(deps) {
             res.json({ item: itemJson });
         } catch (err) {
             log.error(ErrorCategory.PIPELINE, 'Failed to generate outline item', { requestId, error: err.message });
-            res.status(500).json({ error: ERROR_TEXT.ITEM_FAILED });
+            const providerError = err.message === 'PAID_PAUSED' || err.message === 'PROVIDER_UNAVAILABLE';
+            res.status(providerError ? 503 : 500).json(providerError
+                ? { error: 'The AI providers are temporarily unavailable. Please try again later.', code: err.message }
+                : { error: ERROR_TEXT.ITEM_FAILED });
         }
     };
 }

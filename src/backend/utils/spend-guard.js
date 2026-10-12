@@ -49,7 +49,8 @@ function createSpendGuard({ redis = getRedis, env = process.env, now = () => new
             if (!Number.isFinite(data?.total_credits) || !Number.isFinite(data?.total_usage)) throw new Error('BALANCE_UNAVAILABLE');
             balanceCache = { amount: data.total_credits - data.total_usage, expires: Date.now() + 60000 };
         }
-        return balanceCache.amount > cfg.balanceFloorUsd;
+        // Hold one entire daily allowance as a buffer because this value is cached for 60s.
+        return balanceCache.amount - cfg.dailyUsd >= cfg.balanceFloorUsd;
     }
 
     async function reserve(estimatedUsd) {

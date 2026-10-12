@@ -3,6 +3,7 @@
  * @param {{gemini: Function, openrouter: Function, getOverride: Function, createStub: Function, providerLog: {warn: Function}, ErrorCategory: Record<string, string>}} deps provider implementations and seam
  * @returns {{makeCaller: Function}}
  */
+const { FREE_MODELS, PAID_MODELS } = require('../config/provider-spend');
 function createProviderFallback({ gemini, openrouter, getOverride, createStub, providerLog, ErrorCategory }) {
     async function callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext = null, options = null) {
         const testOverride = getOverride();
@@ -20,7 +21,13 @@ function createProviderFallback({ gemini, openrouter, getOverride, createStub, p
                 });
             }
         }
-        return openrouter(prompt, stageName, openrouterModels, fileContext, options);
+        try { return await openrouter(prompt, stageName, FREE_MODELS, fileContext, options); }
+        catch (err) {
+            providerLog.warn(ErrorCategory.PROVIDER, 'Approved OpenRouter free route unavailable', { stage: stageName, error: err.message });
+        }
+        const paidModels = (openrouterModels || []).filter(model => PAID_MODELS[String(model).toLowerCase()]);
+        if (!paidModels.length) throw new Error('PROVIDER_UNAVAILABLE');
+        return openrouter(prompt, stageName, paidModels, fileContext, options);
     }
     function makeCaller(stageName, geminiModel, openrouterModels) {
         return async (prompt, fileContext = null, options = null) => callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext, options);

@@ -1,6 +1,9 @@
-/* eslint-disable complexity, eqeqeq, no-empty */
+/* eslint-disable complexity, eqeqeq */
 const GEMINI_503_MAX_RETRIES = 2;
 const GEMINI_503_RETRY_BASE_DELAY_MS = 500;
+const { OUTPUT_TOKENS } = require('../config/provider-spend');
+const { spendGuard } = require('../utils/spend-guard');
+const { recordProviderCall } = require('./telemetry');
 
 /** @typedef {{info: Function, warn: Function, success: Function}} ProviderLogger */
 /** @typedef {Record<string, string>} ErrorCategories */
@@ -28,7 +31,7 @@ function toGeminiParts(promptText, fileContext, providerLog, ErrorCategory) {
     return parts;
 }
 
-async function* geminiSSEToChunks(response) {
+async function* geminiSSEToChunks(response, onMetadata = () => {}) {
     const decoder = new TextDecoder();
     let buffer = '';
     for await (const bytes of response.body) {
@@ -41,14 +44,16 @@ async function* geminiSSEToChunks(response) {
             const data = trimmed.slice(6);
             if (data === '[DONE]') return;
             try {
-                const text = JSON.parse(data).candidates?.[0]?.content?.parts?.[0]?.text;
+                const parsed = JSON.parse(data);
+                onMetadata(parsed);
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (text) yield text;
             } catch (_) { /* skip malformed SSE frames */ }
         }
     }
 }
 
-async function* geminiSSEToStructuredChunks(response) {
+async function* geminiSSEToStructuredChunks(response, onMetadata = () => {}) {
     const decoder = new TextDecoder();
     let buffer = '';
     for await (const bytes of response.body) {
@@ -61,7 +66,9 @@ async function* geminiSSEToStructuredChunks(response) {
             const data = trimmed.slice(6);
             if (data === '[DONE]') return;
             try {
-                const parts = JSON.parse(data).candidates?.[0]?.content?.parts;
+                const parsed = JSON.parse(data);
+                onMetadata(parsed);
+                const parts = parsed.candidates?.[0]?.content?.parts;
                 if (!Array.isArray(parts)) continue;
                 for (const part of parts) {
                     if (!part || typeof part.text !== 'string' || part.text.length === 0) continue;
@@ -80,7 +87,7 @@ async function* geminiSSEToStructuredChunks(response) {
  * @param {{fetchWithAcceptTimeout: Function, providerLog: ProviderLogger, ErrorCategory: ErrorCategories, providerAcceptTimeoutMs: number}} deps provider dependencies
  * @returns {{call: Function}}
  */
-function createGeminiProvider({ fetchWithAcceptTimeout, providerLog, ErrorCategory, providerAcceptTimeoutMs }) {
+function createGeminiProvider({ fetchWithAcceptTimeout, providerLog, ErrorCategory, providerAcceptTimeoutMs, guard = spendGuard }) {
     async function call(prompt, stageName, geminiModel, fileContext = null, options = {}) {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) throw new Error('GEMINI_KEY_MISSING');
@@ -92,36 +99,57 @@ function createGeminiProvider({ fetchWithAcceptTimeout, providerLog, ErrorCatego
             parts: { text: parts.filter(p => p.text).length, inlineData: parts.filter(p => p.inlineData).length }
         });
         const includeReasoning = options && options.includeReasoning === true;
-        const requestBody = { contents: [{ role: 'user', parts }] };
-        if (includeReasoning) requestBody.generationConfig = { thinkingConfig: { thinkingBudget: 4096 } };
+        const requestBody = { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: OUTPUT_TOKENS[stageName] } };
+        if (includeReasoning) requestBody.generationConfig.thinkingConfig = { thinkingBudget: 4096 };
+        if (!(await guard.reserveGeminiRequest())) throw new Error('GEMINI_APP_CAP_REACHED');
+        const started = Date.now();
         let response;
         try {
             response = await fetchWithAcceptTimeout(url, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody)
             }, providerAcceptTimeoutMs, 'GEMINI_ACCEPT_TIMEOUT');
         } catch (err) {
+            recordProviderCall({ stage: stageName, provider: 'gemini', model: geminiModel,
+                prompt_tokens: null, completion_tokens: null, reasoning_tokens: null, cost_usd: null,
+                finish_reason: 'request_error', duration_ms: Date.now() - started, retry: options?.retry || 0, route: 'free' });
             if (err?.message === 'GEMINI_ACCEPT_TIMEOUT') providerLog.warn(ErrorCategory.NETWORK, 'Gemini direct accept timeout', {
                 stage: stageName, model: geminiModel, timeoutMs: providerAcceptTimeoutMs
             });
             throw err;
         }
         if (!response.ok) {
-            const errText = await response.text();
-            let errReason = errText;
-            try { errReason = JSON.parse(errText)?.error?.message || errText; } catch (_) {}
+            await response.text();
             providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct request failed — will fall back to OpenRouter', {
-                stage: stageName, model: geminiModel, status: response.status, reason: errReason.substring(0, 300)
+                stage: stageName, model: geminiModel, status: response.status
             });
+            recordProviderCall({ stage: stageName, provider: 'gemini', model: geminiModel,
+                prompt_tokens: null, completion_tokens: null, reasoning_tokens: null, cost_usd: null,
+                finish_reason: `HTTP_${response.status}`, duration_ms: Date.now() - started, retry: options?.retry || 0, route: 'free' });
             throw new Error(`GEMINI_HTTP_${response.status}`);
         }
         providerLog.success(ErrorCategory.PROVIDER, 'Gemini direct accepted request', { stage: stageName, model: geminiModel });
-        return { stream: includeReasoning ? geminiSSEToStructuredChunks(response) : geminiSSEToChunks(response), provider: 'gemini', model: geminiModel };
+        let usage = null; let finishReason = null;
+        const onMetadata = frame => {
+            if (frame.usageMetadata) usage = frame.usageMetadata;
+            if (frame.candidates?.[0]?.finishReason) finishReason = frame.candidates[0].finishReason;
+        };
+        const source = includeReasoning ? geminiSSEToStructuredChunks(response, onMetadata) : geminiSSEToChunks(response, onMetadata);
+        async function* measuredStream() {
+            try { yield* source; }
+            finally {
+                recordProviderCall({ stage: stageName, provider: 'gemini', model: geminiModel,
+                    prompt_tokens: usage?.promptTokenCount ?? null, completion_tokens: usage?.candidatesTokenCount ?? null,
+                    reasoning_tokens: usage?.thoughtsTokenCount ?? null, cost_usd: null, finish_reason: finishReason,
+                    duration_ms: Date.now() - started, retry: options?.retry || 0, route: 'free' });
+            }
+        }
+        return { stream: measuredStream(), provider: 'gemini', model: geminiModel };
     }
 
     async function callWithRetry(prompt, stageName, geminiModel, fileContext = null, options = null) {
         let lastErr;
         for (let attempt = 1; attempt <= GEMINI_503_MAX_RETRIES; attempt++) {
-            try { return await call(prompt, stageName, geminiModel, fileContext, options); }
+            try { return await call(prompt, stageName, geminiModel, fileContext, { ...options, retry: attempt - 1 }); }
             catch (err) {
                 lastErr = err;
                 const retryable = err?.message === 'GEMINI_ACCEPT_TIMEOUT' || err?.message === 'GEMINI_HTTP_503';
