@@ -65,7 +65,7 @@ async function* openRouterSSEToChunks(response, onMetadata = () => {}) {
 function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classifyError, ErrorCategory, providerAcceptTimeoutMs, modelList, stage3Only, reasoningForStage, guard = spendGuard }) {
     async function call(prompt, stageName, openrouterModels, fileContext = null, options = {}) {
         const apiKey = process.env.OPENROUTER_API_KEY;
-        if (!apiKey) throw new Error('QUOTA_EXHAUSTED');
+        if (!apiKey) throw new Error('PROVIDER_UNAVAILABLE');
         const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
         const messagesContent = fileContext && Array.isArray(fileContext) ? [...fileContext, { type: 'text', text: promptText }] : promptText;
         const requestedModels = Array.isArray(openrouterModels) && openrouterModels.length > 0 ? openrouterModels : modelList;
@@ -76,7 +76,7 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
         }
         if (!modelsToTry.length) {
             providerLog.warn(ErrorCategory.CONFIG, 'No OpenRouter models available for stage after policy filtering', { stage: stageName, requestedModels });
-            throw new Error('OPENROUTER_MODELS_UNAVAILABLE');
+            throw new Error('PROVIDER_UNAVAILABLE');
         }
         const reasoningConfig = options && options.reasoning === null ? null : options && options.reasoning && typeof options.reasoning === 'object' ? options.reasoning : reasoningForStage(stageName);
         const includeReasoning = options && options.includeReasoning === true;

@@ -168,6 +168,20 @@ test('stream usage settles actual cost and telemetry excludes prompt text', asyn
     assert.equal(JSON.parse(logs[0]).reasoning_tokens, 1);
 });
 
+test('paid stream without usage.cost settles from reported tokens and price table', async () => {
+    let settled;
+    const provider = createOpenRouterProvider({
+        fetchWithAcceptTimeout: async () => new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: {"choices":[],"usage":{"prompt_tokens":1000,"completion_tokens":100}}\n\ndata: [DONE]\n\n'),
+        providerLog: { info() {}, warn() {}, success() {} }, classifyError: () => 'NETWORK',
+        ErrorCategory: { CONFIG: 'CONFIG', PROVIDER: 'PROVIDER', NETWORK: 'NETWORK' },
+        providerAcceptTimeoutMs: 1000, modelList: [], stage3Only: [], reasoningForStage: () => null,
+        guard: { reserve: async () => ({ allowed: true }), settle: async (_r, cost) => { settled = cost; } },
+    });
+    const result = await provider.call('prompt', 'Stage1', ['anthropic/claude-haiku-5.5']);
+    for await (const chunk of result.stream) assert.equal(chunk, 'ok');
+    assert.ok(Math.abs(settled - 0.00015) < 1e-12);
+});
+
 test('both providers send a stage-specific output cap', async () => {
     const bodies = [];
     const logger = { info() {}, warn() {}, success() {} };
