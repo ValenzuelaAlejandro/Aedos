@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { MODEL_CATALOG, isNvidiaTrialEnabled } = require('../../config/model-catalog');
+const { MODEL_CATALOG, isLocalNvidiaTrialRequest } = require('../../config/model-catalog');
 const { getSpendStatus } = require('../../utils/spend-guard');
 
 /**
@@ -11,12 +11,16 @@ const { getSpendStatus } = require('../../utils/spend-guard');
  */
 function registerEntryRoutes({ app, tmpDir, isDevelopment }) {
     app.get('/api/models', async (req, res) => {
-        const modelIds = Object.values(MODEL_CATALOG)
-            .filter(model => model.provider !== 'nvidia' || isNvidiaTrialEnabled())
-            .map(model => model.id);
+        const models = Object.values(MODEL_CATALOG)
+            .filter(model => model.provider !== 'nvidia' || isLocalNvidiaTrialRequest(req))
+            .map(({ id, name, provider, brand, tier, paid, billing, creditsPerSlide,
+                creditsPerPresentation, attachments, modes, maxSlides }) => ({
+                id, name, provider, brand, tier, paid, billing, creditsPerSlide,
+                creditsPerPresentation, attachments, modes, maxSlides,
+            }));
         const spendStatus = await getSpendStatus();
         res.set('Cache-Control', 'no-store');
-        res.json({ modelIds, paymentsPaused: Boolean(spendStatus.paidPaused) });
+        res.json({ models, paymentsPaused: Boolean(spendStatus.paidPaused) });
     });
 
     app.get('/health', (req, res) => {
