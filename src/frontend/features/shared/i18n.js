@@ -53,6 +53,7 @@ const translations = {
         "credits.missingOne": "You need {n} more credit",
         "credits.exhausted": "You've used all your credits today. They reset at {time}.",
         "credits.paidPaused": "Paid models are temporarily paused due to the daily limit. You can continue with a free model.",
+        "credits.nvidiaTrial": "NVIDIA trial",
         "credits.insufficientSlides": "This presentation costs {cost} credits and you have {left} left. Reduce the slides or choose another model.",
         "credits.insufficientModel": "This presentation costs {cost} credits and you have {left} left. Choose a lower-cost model or wait for the daily reset.",
         "credits.useSlides": "Use {n} slides",
@@ -344,6 +345,7 @@ const translations = {
         "credits.missingOne": "Te falta {n} crédito",
         "credits.exhausted": "Agotaste tus créditos de hoy. Se reinician a las {time}.",
         "credits.paidPaused": "Los modelos de pago están temporalmente pausados por el límite diario. Puedes continuar con un modelo gratis.",
+        "credits.nvidiaTrial": "prueba NVIDIA",
         "credits.insufficientSlides": "Esta presentación cuesta {cost} créditos y te quedan {left}. Reduce las diapositivas o elige otro modelo.",
         "credits.insufficientModel": "Esta presentación cuesta {cost} créditos y te quedan {left}. Elige un modelo de menor costo o espera al reinicio diario.",
         "credits.useSlides": "Usar {n} diapositivas",
@@ -583,13 +585,12 @@ const translations = {
     }
 };
 
-let currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
-window.currentLang = currentLang;
+window.currentLang = navigator.language.startsWith('es') ? 'es' : 'en';
 
 window.__t = function (key, defaultText = null) {
     let result = key;
-    if (translations[currentLang] && translations[currentLang][key]) {
-        result = translations[currentLang][key];
+    if (translations[window.currentLang] && translations[window.currentLang][key]) {
+        result = translations[window.currentLang][key];
     } else if (translations['en'][key]) {
         result = translations['en'][key];
     } else if (defaultText !== null) {
@@ -627,7 +628,6 @@ function applyI18nToDom() {
 window.__applyTranslations = applyI18nToDom;
 window.__setUiLanguage = function (language) {
     if (!translations[language]) return;
-    currentLang = language;
     window.currentLang = language;
     document.documentElement.lang = language;
     applyI18nToDom();

@@ -92,7 +92,8 @@
                     option.setAttribute('role', 'menuitemradio');
                     option.setAttribute('aria-checked', String(model.id === generationState.selectedModelId));
                     const icon = document.createElement('span'); renderBrandIcon(icon, model); icon.setAttribute('aria-hidden', 'true');
-                    const name = document.createElement('span'); name.className = 'model-option-name'; name.textContent = model.name;
+                    const name = document.createElement('span'); name.className = 'model-option-name';
+                    name.textContent = model.nvidiaTrial ? `${model.name} · ${window.__t('credits.nvidiaTrial')}` : model.name;
                     const quote = creditsUI.getQuote(1, model);
                     const costKey = quote.billing === 'perPresentation'
                         ? (quote.rate === 1 ? 'credits.perPresentationOne' : 'credits.perPresentationMany')
@@ -215,7 +216,7 @@
 
         document.addEventListener('click', closeAllDropdowns);
 
-        renderModels(window.MODEL_CATALOG || [], false);
+        renderModels((window.MODEL_CATALOG || []).filter(model => !model.nvidiaTrial), false);
     }
 
     api.createAppDropdowns = createAppDropdowns;

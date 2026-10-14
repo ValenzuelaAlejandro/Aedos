@@ -48,16 +48,18 @@
     }
 
     async function getModels() {
-        if (isApiEnabled()) {
+        if (isApiEnabled() || Boolean(global.location?.hostname)) {
             const response = await global.fetch('/api/models', { credentials: 'same-origin' });
             if (!response.ok) throw new Error('MODELS_UNAVAILABLE');
             const data = await response.json();
+            const models = Array.isArray(data) ? data : (data.models || (Array.isArray(data.modelIds)
+                ? (global.MODEL_CATALOG || []).filter(model => data.modelIds.includes(model.id)) : []));
             return {
-                models: Array.isArray(data) ? data : (data.models || []),
+                models,
                 paymentsPaused: Boolean(data.paymentsPaused),
             };
         }
-        return { models: global.MODEL_CATALOG || [], paymentsPaused: false, source: 'mock' };
+        return { models: (global.MODEL_CATALOG || []).filter(model => !model.nvidiaTrial), paymentsPaused: false, source: 'mock' };
     }
 
     function quote(model, slides) {

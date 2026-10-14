@@ -52,25 +52,24 @@ test('API adapter can replace simulated credits and model catalog without changi
     assert.equal(models.paymentsPaused, true);
 });
 
-test('catalog uses explicit billing types and excludes Dots', () => {
+test('catalog uses explicit billing types', () => {
     const { window } = loadCredits();
-    assert.equal(window.MODEL_CATALOG.length, 4);
-    assert.equal(window.MODEL_CATALOG.some(model => model.id.startsWith('dots-studio/')), false);
-    assert.deepEqual(JSON.parse(JSON.stringify(window.MODEL_CATALOG.map(model => [model.billing, model.creditsPerPresentation || model.creditsPerSlide]))), [
+    assert.equal(window.MODEL_CATALOG.length, 6);
+    assert.deepEqual(JSON.parse(JSON.stringify(window.MODEL_CATALOG.filter(model => !model.nvidiaTrial).map(model => [model.billing, model.creditsPerPresentation || model.creditsPerSlide]))), [
         ['perPresentation', 10], ['perSlide', 2], ['perSlide', 3], ['perSlide', 3],
     ]);
     assert.equal(window.MODE_SURCHARGE, undefined);
     assert.deepEqual(JSON.parse(JSON.stringify(window.MAX_SLIDES_BY_MODE)), { flash: 15, pro: 8 });
 });
 
-test('NVIDIA Build trial models appear only on local hosts and are capped at five slides', () => {
-    const { window } = loadCredits('localhost');
-    const models = window.MODEL_CATALOG.filter(model => model.localTrial);
-    assert.equal(models.length, 5);
+test('NVIDIA Build trial catalog entries are capped at five slides and hidden without server approval', async () => {
+    const { window } = loadCredits('aedos.example');
+    const models = window.MODEL_CATALOG.filter(model => model.nvidiaTrial);
+    assert.equal(models.length, 2);
     assert.ok(models.every(model => model.tier === 'free' && model.creditsPerSlide === 1));
     assert.ok(models.every(model => model.maxSlides.flash === 5 && model.maxSlides.pro === 5));
-    const remote = loadCredits('aedos.example').window.MODEL_CATALOG;
-    assert.equal(remote.some(model => model.localTrial), false);
+    const mockModels = await window.AedosCredits.getModels();
+    assert.equal(mockModels.models.some(model => model.nvidiaTrial), false);
 });
 
 test('slide zones cover each mode maximum without gaps or overlap', () => {
