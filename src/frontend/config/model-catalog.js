@@ -15,17 +15,6 @@
             modes: ['flash', 'pro'],
         },
         {
-            id: 'apodex/apodex-1.1-mini:free',
-            name: 'Apodex 1.1 Mini',
-            provider: 'Apodex',
-            brand: 'apodex',
-            tier: 'free',
-            billing: 'perSlide',
-            creditsPerSlide: 1,
-            paid: false,
-            modes: ['flash', 'pro'],
-        },
-        {
             id: 'nvidia/nemotron-3.5-lightning',
             name: 'Nemotron 3.5 Lightning',
             provider: 'NVIDIA',

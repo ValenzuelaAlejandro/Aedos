@@ -149,7 +149,7 @@ test('optional management-key balance floor is cached and fails closed', async (
     assert.equal((await lowBalance.reserve(0.001)).allowed, false);
 });
 
-test('fallback tries approved free model before paid and reports paused when denied', async () => {
+test('configured paid fallback is used only when there is no model selection', async () => {
     const calls = [];
     const fallback = createProviderFallback({
         gemini: async () => { calls.push('gemini'); throw new Error('GEMINI_APP_CAP_REACHED'); },
@@ -162,10 +162,10 @@ test('fallback tries approved free model before paid and reports paused when den
         providerLog: { warn() {} }, ErrorCategory: { PROVIDER: 'PROVIDER' },
     });
     await assert.rejects(fallback.makeCaller('Stage1', 'gemini-model', ['anthropic/claude-haiku-5.5'])('safe prompt'), /PAID_PAUSED/);
-    assert.deepEqual(calls, ['gemini', 'apodex/apodex-1.1-mini:free', 'anthropic/claude-haiku-5.5']);
+    assert.deepEqual(calls, ['gemini', 'anthropic/claude-haiku-5.5']);
 });
 
-test('PAID_PAUSED from the free route does not fall through to a paid model', async () => {
+test('a Gemini selection never reaches a paid fallback in a Pro stage', async () => {
     const calls = [];
     const fallback = createProviderFallback({
         gemini: async () => { throw new Error('GEMINI_APP_CAP_REACHED'); },
@@ -176,8 +176,10 @@ test('PAID_PAUSED from the free route does not fall through to a paid model', as
         getOverride: () => null, createStub: () => null,
         providerLog: { warn() {} }, ErrorCategory: { PROVIDER: 'PROVIDER' },
     });
-    await assert.rejects(fallback.makeCaller('Stage1', 'gemini-model', ['anthropic/claude-haiku-5.5'])('safe prompt'), /PAID_PAUSED/);
-    assert.deepEqual(calls, ['apodex/apodex-1.1-mini:free']);
+    await assert.rejects(fallback.makeCaller('Stage1', 'gemini-model', ['anthropic/claude-haiku-5.5'])(
+        'safe prompt', null, { modelRoute: { requestedModelId: 'google/gemini-3-flash-preview' } }
+    ), /PROVIDER_UNAVAILABLE/);
+    assert.deepEqual(calls, []);
 });
 
 test('paid OpenRouter request never reaches network when reservation is denied', async () => {
@@ -243,8 +245,6 @@ test('per-stage reasoning settings resolve to model-supported efforts', () => {
     assert.deepEqual(defaults.reasoningForStage('Stage3', 'openai/gpt-6-luna'), { effort: 'none' });
     assert.deepEqual(defaults.reasoningForStage('Stage3', 'anthropic/claude-haiku-5.5'), { enabled: false });
     assert.deepEqual(defaults.reasoningForStage('Stage2', 'anthropic/claude-haiku-5.5'), { effort: 'low' });
-    assert.deepEqual(defaults.reasoningForStage('Stage1', 'apodex/apodex-1.1-mini:free'), { enabled: false });
-    assert.deepEqual(defaults.reasoningForStage('Stage3', 'apodex/apodex-1.1-mini:free'), { enabled: false });
     assert.deepEqual(defaults.reasoningForStage('Stage2', 'nvidia/nemotron-3.5-lightning'), { enabled: false });
 
     const configured = createModelConfig({
@@ -256,8 +256,6 @@ test('per-stage reasoning settings resolve to model-supported efforts', () => {
     assert.deepEqual(configured.reasoningForStage('Stage2', 'anthropic/claude-haiku-5.5'), { effort: 'medium' });
     assert.deepEqual(configured.reasoningForStage('Stage1', 'anthropic/claude-haiku-5.5'), { effort: 'max' });
 
-    const higherEffort = createModelConfig({ OPENROUTER_REASONING_EFFORT_SCHEMA: 'medium' });
-    assert.deepEqual(higherEffort.reasoningForStage('Stage1', 'apodex/apodex-1.1-mini:free'), { enabled: true });
 });
 
 test('stream usage settles actual cost and telemetry excludes prompt text', async () => {
@@ -319,8 +317,9 @@ test('both providers send a stage-specific output cap', async () => {
         }, providerLog: logger, classifyError: () => 'NETWORK',
         ErrorCategory: { CONFIG: 'CONFIG', PROVIDER: 'PROVIDER', NETWORK: 'NETWORK' },
         providerAcceptTimeoutMs: 1000, modelList: [], stage3Only: [], reasoningForStage: () => null,
+        guard: { reserve: async () => ({ allowed: true }), settle: async () => true },
     });
-    const result = await router.call('prompt', 'Stage3', ['apodex/apodex-1.1-mini:free']);
+    const result = await router.call('prompt', 'Stage3', ['anthropic/claude-haiku-5.5']);
     for await (const chunk of result.stream) assert.equal(chunk, 'ok');
     assert.equal(bodies.at(-1).max_tokens, OUTPUT_TOKENS.Stage3);
     assert.deepEqual(bodies.at(-1).stream_options, { include_usage: true });

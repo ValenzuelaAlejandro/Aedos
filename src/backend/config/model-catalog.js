@@ -15,17 +15,6 @@ const MODEL_CATALOG = Object.freeze({
         maxSlides: Object.freeze({ flash: 15, pro: 8 }),
         compatibleStages: Object.freeze(['Flash', 'Stage3'])
     }),
-    'apodex/apodex-1.1-mini:free': Object.freeze({
-        id: 'apodex/apodex-1.1-mini:free',
-        provider: 'openrouter',
-        providerModelId: 'apodex/apodex-1.1-mini:free',
-        tier: 'free',
-        paid: false,
-        attachments: false,
-        outputMaxTokens: 235929,
-        maxSlides: Object.freeze({ flash: 15, pro: 8 }),
-        compatibleStages: Object.freeze(['Flash', 'Stage3'])
-    }),
     'nvidia/nemotron-3.5-lightning': Object.freeze({
         id: 'nvidia/nemotron-3.5-lightning',
         provider: 'openrouter',
