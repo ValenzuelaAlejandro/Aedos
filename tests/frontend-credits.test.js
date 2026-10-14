@@ -53,6 +53,23 @@ test('credits default to server balance and do not use localStorage for balance 
     assert.equal(values.size, 0);
 });
 
+test('credits service retries only transient API failures', async () => {
+    const { window } = loadCredits();
+    window.fetch = async () => ({ ok: false, status: 503 });
+    await assert.rejects(window.AedosCredits.getCredits(), error => error.retryable === true);
+
+    window.fetch = async () => ({ ok: false, status: 404 });
+    await assert.rejects(window.AedosCredits.getCredits(), error => error.retryable === false);
+});
+
+test('Vercel proxies API paths to Render without caching credit snapshots', () => {
+    const config = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend/vercel.json'), 'utf8'));
+    assert.ok(config.rewrites.some(rule => rule.source === '/api/:path*'
+        && rule.destination === 'https://aedos.onrender.com/api/:path*'));
+    assert.ok(config.headers.some(rule => rule.source === '/api/:path*'
+        && rule.headers.some(header => header.key === 'x-vercel-enable-rewrite-caching' && header.value === '0')));
+});
+
 test('catalog uses explicit billing types', () => {
     const { window } = loadCredits();
     assert.equal(window.MODEL_CATALOG.length, 4);

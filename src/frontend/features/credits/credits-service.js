@@ -6,17 +6,37 @@
         return `aedos-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
 
+    async function getJson(path, unavailableCode) {
+        let response;
+        try {
+            response = await global.fetch(path, { credentials: 'same-origin', cache: 'no-store' });
+        } catch (cause) {
+            const error = new Error(unavailableCode, { cause });
+            error.retryable = true;
+            throw error;
+        }
+        if (!response.ok) {
+            const error = new Error(unavailableCode);
+            error.retryable = [502, 503, 504].includes(response.status);
+            throw error;
+        }
+        try {
+            return await response.json();
+        } catch (cause) {
+            // Render can briefly return a startup page while the sleeping service wakes.
+            const error = new Error(unavailableCode, { cause });
+            error.retryable = true;
+            throw error;
+        }
+    }
+
     async function getCredits() {
-        const response = await global.fetch('/api/credits', { credentials: 'same-origin', cache: 'no-store' });
-        if (!response.ok) throw new Error('CREDITS_UNAVAILABLE');
-        const data = await response.json();
+        const data = await getJson('/api/credits', 'CREDITS_UNAVAILABLE');
         return { ...data, balance: data.remaining, dailyLimit: data.daily, source: 'api' };
     }
 
     async function getModels() {
-        const response = await global.fetch('/api/models', { credentials: 'same-origin', cache: 'no-store' });
-        if (!response.ok) throw new Error('MODELS_UNAVAILABLE');
-        const data = await response.json();
+        const data = await getJson('/api/models', 'MODELS_UNAVAILABLE');
         return { models: data.models || [], paymentsPaused: Boolean(data.paymentsPaused), source: 'api' };
     }
 

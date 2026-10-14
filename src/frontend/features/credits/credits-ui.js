@@ -5,6 +5,9 @@
     let balance = 50;
     let dailyLimit = 50;
     let lastCredits = null;
+    let creditsAvailable = false;
+    let refreshInFlight = null;
+    let retryTimer = null;
     let clampNoticeCount = null;
     let clampNoticeModel = null;
     let clampNoticeTimer = null;
@@ -89,6 +92,7 @@
 
     function renderBalance(credits) {
         lastCredits = credits;
+        creditsAvailable = true;
         balance = Number.isFinite(credits?.balance) ? credits.balance : 0;
         dailyLimit = Number.isFinite(credits?.dailyLimit) ? credits.dailyLimit : 50;
         const balanceNode = global.document.getElementById('credits-balance');
@@ -114,6 +118,24 @@
         if (resetNode) resetNode.textContent = format('credits.resetsAt', { time: resetTime() });
         setSlideCount(getSlideCount());
         global.AedosAttachments?.refreshAvailability?.();
+    }
+
+    function renderBalanceUnavailable() {
+        const unavailable = global.__t('credits.balanceUnavailable');
+        const balanceNode = global.document.getElementById('credits-balance');
+        const popoverBalance = global.document.getElementById('credits-popover-balance');
+        const trigger = global.document.getElementById('credits-balance-trigger');
+        creditsAvailable = false;
+        if (balanceNode) balanceNode.textContent = `— / ${dailyLimit}`;
+        if (popoverBalance) popoverBalance.textContent = unavailable;
+        if (trigger) trigger.setAttribute('aria-label', unavailable);
+        global.document.querySelectorAll('.credits-ring').forEach(ring => {
+            ring.style.setProperty('--ring-offset', '0');
+            ring.dataset.state = 'unavailable';
+        });
+        const progress = global.document.querySelector('.credits-progress[role="meter"]');
+        if (progress) progress.setAttribute('aria-valuenow', '0');
+        updateCostPreview();
     }
 
     function showInsufficientStatus({ slides, billing, rate, total }) {
@@ -156,15 +178,16 @@
         if (generateButton && !generateButton.classList.contains('is-generating')) {
             const hasPrompt = (global.document.getElementById('w-tema')?.value || '').trim().length >= 4;
             const hasFiles = (global._attachedFiles?.length || 0) > 0;
-            generateButton.disabled = (!hasPrompt && !hasFiles) || insufficient || blockedAttachments;
+            generateButton.disabled = !creditsAvailable || (!hasPrompt && !hasFiles) || insufficient || blockedAttachments;
             const missing = total - balance;
-            const label = blockedAttachments ? global.__t('credits.attachmentsGeminiOnly') : insufficient
+            const label = !creditsAvailable ? global.__t('credits.balanceUnavailable')
+                : blockedAttachments ? global.__t('credits.attachmentsGeminiOnly') : insufficient
                 ? format(missing === 1 ? 'credits.missingOne' : 'credits.missing', { n: missing })
                 : global.__t('credits.generate');
             generateButton.setAttribute('aria-label', label);
             generateButton.setAttribute('data-tooltip', label);
         }
-        return { slides, billing, rate, total, affordable: !insufficient && !blockedAttachments };
+        return { slides, billing, rate, total, affordable: creditsAvailable && !insufficient && !blockedAttachments };
     }
 
     function renderSlideTicks(limit, affordable, normalized, absolute) {
@@ -348,22 +371,36 @@
 
     async function refresh() {
         if (!global.AedosCredits) return;
-        try {
-            const [credits, modelsResult] = await Promise.all([
-                global.AedosCredits.getCredits(),
-                global.AedosCredits.getModels(),
-            ]);
-            modelList = modelsResult.models || [];
-            renderBalance(credits);
-            global.dispatchEvent?.(new global.CustomEvent('aedos:models-updated', {
-                detail: { models: modelList, paymentsPaused: modelsResult.paymentsPaused },
-            }));
-            return { credits, models: modelList, paymentsPaused: modelsResult.paymentsPaused };
-        } catch (_) {
-            renderBalance({ balance: 0, dailyLimit });
-            updateStatus('credits.unavailable', 'error');
-            return null;
-        }
+        if (refreshInFlight) return refreshInFlight;
+        refreshInFlight = (async () => {
+            try {
+                const [credits, modelsResult] = await Promise.all([
+                    global.AedosCredits.getCredits(),
+                    global.AedosCredits.getModels(),
+                ]);
+                if (retryTimer) global.clearTimeout(retryTimer);
+                retryTimer = null;
+                modelList = modelsResult.models || [];
+                renderBalance(credits);
+                global.dispatchEvent?.(new global.CustomEvent('aedos:models-updated', {
+                    detail: { models: modelList, paymentsPaused: modelsResult.paymentsPaused },
+                }));
+                return { credits, models: modelList, paymentsPaused: modelsResult.paymentsPaused };
+            } catch (_) {
+                renderBalanceUnavailable();
+                updateStatus('credits.unavailable', 'error');
+                // A failed initial request can be the Render service waking up. Retry without
+                // treating an unavailable balance as zero or charging against client state.
+                if (_?.retryable && !retryTimer) retryTimer = global.setTimeout(() => {
+                    retryTimer = null;
+                    refresh();
+                }, 10000);
+                return null;
+            } finally {
+                refreshInFlight = null;
+            }
+        })();
+        return refreshInFlight;
     }
 
     function initPopover() {
@@ -405,6 +442,8 @@
                     : format('slides.modelLimitHint', { model: selectedModel()?.name || '', n: maxSlides() });
             }
         });
+        renderBalanceUnavailable();
+        updateStatus('credits.unavailable', 'error');
         refresh();
         global.setInterval(() => refresh(), 60000);
     }
