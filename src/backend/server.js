@@ -30,7 +30,7 @@ const { sanitizeGeneratedHtml: sanitizeGeneratedHtmlMoved } = require('./sanitiz
 const { TMP_DIR, upload, handleUploadError } = require('./files/upload');
 const { createDirectoryEnsurer, ensureBackendDirectories } = require('./files/directories');
 const { extractPresentationTitle, buildFileStemFromTitle, resolveUniqueHtmlPath } = require('./files/content');
-const { buildSkeletonFileContext, buildGenerationFileContext } = require('./files/attachments');
+const { buildSkeletonFileContext, buildGenerationFileContext, discardUploadedFiles } = require('./files/attachments');
 const { createGenerationQueue } = require('./queues/generation');
 const { createFinalizeQueue } = require('./queues/finalize');
 const { createPdfExporter } = require('./export/pdf');
@@ -58,6 +58,7 @@ const { registerBackendRoutes } = require('./http/register-routes');
 
 const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
 const { verifyConnection: verifyRedis, checkRateLimits, checkFinalizeLimits } = require('./utils/rate-limiter');
+const { spendGuard } = require('./utils/spend-guard');
 
 const log = createLogger({ scope: 'SERVER' });
 const providerLog = log.child('PROVIDER');
@@ -68,6 +69,10 @@ const imageLog = log.child('IMAGES');
 const puppeteerLog = log.child('PUPPETEER');
 const runtimeConfig = loadEnvConfig(process.env);
 let testProviderOverride = null;
+// Deterministic provider stubs do not spend Redis Gemini quota in contract tests.
+const hasGeminiRequestAvailable = () => process.env.NODE_ENV === 'test' && process.env.AEDOS_TEST_STUB_PROVIDERS === '1'
+    ? Promise.resolve(true)
+    : spendGuard.hasGeminiRequestAvailable();
 const browserManager = createBrowserManager({
     rootDir: path.join(__dirname, '..', '..'),
     puppeteerLog,
@@ -256,7 +261,9 @@ const {
     tryModelsFlashThinking,
     tryModelsStage1Thinking,
     tryModelsStage2Thinking,
-    tryModelsStage3Thinking
+    tryModelsStage3Thinking,
+    trySelectedFlash,
+    trySelectedStage3Thinking
 } = createProviderRuntime({
     runtimeConfig,
     providerLog,
@@ -291,6 +298,8 @@ const handleGenerateSkeleton = createSkeletonHandler({
     ERROR_TEXT,
     MAX_PRO_SLIDES,
     MAX_FLASH_SLIDES,
+    discardUploadedFiles,
+    hasGeminiRequestAvailable,
     log,
     ErrorCategory
 });
@@ -329,8 +338,12 @@ registerBackendRoutes({
     tryModelsStage1Thinking,
     tryModelsStage2Thinking,
     tryModelsStage3Thinking,
+    trySelectedFlash,
+    trySelectedStage3Thinking,
     buildPrompt,
     buildGenerationFileContext,
+    discardUploadedFiles,
+    hasGeminiRequestAvailable,
     sanitizeTema,
     invalidTopic,
     validationFailed,

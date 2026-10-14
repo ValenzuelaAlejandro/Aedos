@@ -4,6 +4,7 @@ const express = require('express');
 const { processGeneratedOutput } = require('./generate-output');
 const { handleGenerationError } = require('./generate-errors');
 const vendorAssets = require('../../../frontend/features/shared/vendor-assets');
+const { resolveModelId, validateModelForGeneration, validateAttachments } = require('../../config/model-catalog');
 const {
     normalizeMode,
     normalizeRequestedLanguage,
@@ -20,6 +21,8 @@ const {
  * @returns {Function}
  */
 function createGenerateHandler(deps) {
+    const trySelectedFlash = deps.trySelectedFlash || deps.tryModelsFlash;
+    const trySelectedStage3Thinking = deps.trySelectedStage3Thinking || deps.tryModelsStage3Thinking;
     return async function(req, res) {
         let cancelled = false;
         let completed = false;
@@ -41,7 +44,12 @@ function createGenerateHandler(deps) {
         });
 
         try {
-            const opciones = req.body;
+            const opciones = req.body || {};
+            const modelSelection = resolveModelId(opciones.modelId);
+            if (!modelSelection.valid) {
+                await deps.discardUploadedFiles?.(req.files);
+                return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });
+            }
             const requestedLanguage = normalizeRequestedLanguage(req.body);
             if (typeof opciones.skeleton === 'string') {
                 const originalSkeleton = opciones.skeleton;
@@ -97,13 +105,33 @@ function createGenerateHandler(deps) {
                 opciones.slides = slidesNum;
             }
 
+            const modelCompatibility = validateModelForGeneration(modelSelection.model, normalizeMode(req.body), slidesNum);
+            if (!modelCompatibility.valid) {
+                await deps.discardUploadedFiles?.(req.files);
+                return res.status(422).json({ error: modelCompatibility.message, code: modelCompatibility.code,
+                    maxSlides: modelCompatibility.maxSlides });
+            }
+
+            const hasAttachments = Array.isArray(req.files) && req.files.length > 0;
+            if (hasAttachments) {
+                const geminiAvailable = await deps.hasGeminiRequestAvailable?.() === true;
+                const attachmentValidation = validateAttachments(modelSelection.model, true, geminiAvailable);
+                if (!attachmentValidation.valid) {
+                    await deps.discardUploadedFiles?.(req.files);
+                    return res.status(422).json({ error: attachmentValidation.message, code: attachmentValidation.code });
+                }
+            }
+
             const languageResult = normalizeValidatedLanguage(req.body);
             if (!languageResult.valid) {
                 deps.log.warn(deps.ErrorCategory.VALIDATION, 'Language validation failed', { requestId, idioma: req.body.idioma || 'es' });
                 return res.status(422).json(deps.validationFailed(languageResult.fields));
             }
 
-            if (!process.env.OPENROUTER_API_KEY && !process.env.GEMINI_API_KEY) {
+            const hasProviderCredentials = deps.hasProviderCredentials
+                ? deps.hasProviderCredentials()
+                : Boolean(process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY);
+            if (!hasProviderCredentials) {
                 deps.log.error(deps.ErrorCategory.CONFIG, 'Generation blocked: OpenRouter/Gemini key missing', { requestId });
                 return res.status(500).json({ error: deps.ERROR_TEXT.API_KEY_MISSING });
             }
@@ -127,6 +155,8 @@ function createGenerateHandler(deps) {
             const fileContext = await deps.buildGenerationFileContext(req.files, { requestId, log: deps.log, ErrorCategory: deps.ErrorCategory });
             let fullHtml = '';
             let hasStartedValidContent = false;
+            let selectedRoute = null;
+            let pipelineResult = null;
 
             if (!usePipeline) {
                 const flashOut = await deps.runFlashGenerationWithRetry({
@@ -136,7 +166,12 @@ function createGenerateHandler(deps) {
                     opciones,
                     fileContext,
                     slideHardLimit,
-                    tryModelsFlash: deps.tryModelsFlash,
+                    tryModelsFlash: (prompt, flashFileContext) => trySelectedFlash(prompt, flashFileContext, {
+                        selectedModel: modelSelection.model,
+                        attachmentsRequireGemini: hasAttachments,
+                        modelRoute: { requestedModelId: modelSelection.requestedModelId,
+                            effectiveModelId: modelSelection.requestedModelId, fallbackReason: null }
+                    }),
                     buildPrompt: deps.buildPrompt,
                     log: deps.log,
                     ErrorCategory: deps.ErrorCategory,
@@ -146,18 +181,33 @@ function createGenerateHandler(deps) {
                 });
                 fullHtml = flashOut.fullHtml;
                 hasStartedValidContent = flashOut.hasStartedValidContent;
+                selectedRoute = flashOut.result?.modelRoute || null;
             } else {
                 deps.log.info(deps.ErrorCategory.PIPELINE, 'Running pro pipeline path', { requestId });
                 res.write(`data: ${JSON.stringify({ pipeline: true, stage: 'content', status: 'running' })}\n\n`);
-                const pipelineResult = await deps.runPipeline({
+                pipelineResult = await deps.runPipeline({
                     rawInput: opciones.tema,
                     targetLanguage: targetLang,
                     fileContext,
                     skeleton: opciones.skeleton,
                     maxSlides: slideHardLimit,
-                    tryModelsStage1: deps.tryModelsStage1Thinking,
-                    tryModelsStage2: deps.tryModelsStage2Thinking,
-                    tryModelsStage3: deps.tryModelsStage3Thinking,
+                    tryModelsStage1: (prompt, stageFiles, options) => deps.tryModelsStage1Thinking(prompt, stageFiles, {
+                        ...options,
+                        attachmentsRequireGemini: Array.isArray(stageFiles) && stageFiles.length > 0,
+                        modelRoute: { requestedModelId: modelSelection.requestedModelId,
+                            effectiveModelId: null, fallbackReason: null }
+                    }),
+                    tryModelsStage2: (prompt, stageFiles, options) => deps.tryModelsStage2Thinking(prompt, stageFiles, {
+                        ...options,
+                        modelRoute: { requestedModelId: modelSelection.requestedModelId,
+                            effectiveModelId: null, fallbackReason: null }
+                    }),
+                    tryModelsStage3: (prompt, stageFiles, options) => trySelectedStage3Thinking(prompt, stageFiles, {
+                        ...options,
+                        selectedModel: modelSelection.model,
+                        modelRoute: { requestedModelId: modelSelection.requestedModelId,
+                            effectiveModelId: modelSelection.requestedModelId, fallbackReason: null }
+                    }),
                     onStageUpdate: (stage, data) => {
                         if (!cancelled && !res.writableEnded && !res.destroyed) {
                             const stageNames = { stage1: 'content', stage2: 'design', stage3: 'compositing' };
@@ -235,7 +285,16 @@ function createGenerateHandler(deps) {
             } else if (output.type === 'ended') {
                 return;
             } else {
-                res.write(`data: ${JSON.stringify({ done: true, html: output.html })}\n\n`);
+                const modelRoute = usePipeline ? pipelineResult?.stage3Stream?.modelRoute : selectedRoute;
+                const effectiveModelRoute = modelRoute || {
+                    requestedModelId: modelSelection.requestedModelId,
+                    effectiveModelId: modelSelection.requestedModelId,
+                    fallbackReason: null
+                };
+                res.write(`data: ${JSON.stringify({ done: true, html: output.html,
+                    requestedModelId: effectiveModelRoute.requestedModelId,
+                    effectiveModelId: effectiveModelRoute.effectiveModelId,
+                    fallbackReason: effectiveModelRoute.fallbackReason })}\n\n`);
             }
 
             completed = true;

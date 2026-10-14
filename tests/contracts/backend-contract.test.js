@@ -87,8 +87,14 @@ test('POST /generate preserves the Flash SSE contract', async () => {
     assert.ok(events.some((event) => event.metadata));
     assert.ok(events.some((event) => event.chunk));
     assert.ok(events.some((event) => event.done === true && typeof event.html === 'string'));
+    const done = events.find((event) => event.done === true);
+    assert.equal(done.requestedModelId, 'google/gemini-3-flash-preview');
+    assert.equal(done.effectiveModelId, 'google/gemini-3-flash-preview');
+    assert.equal(done.fallbackReason, null);
     fs.mkdirSync(fixtureDir, { recursive: true });
-    fs.writeFileSync(path.join(fixtureDir, 'generate.events.json'), JSON.stringify(events.map((event) => Object.keys(event).sort()), null, 2) + '\n');
+    const legacyEventKeys = events.map((event) => Object.keys(event)
+        .filter((key) => !['requestedModelId', 'effectiveModelId', 'fallbackReason'].includes(key)).sort());
+    fs.writeFileSync(path.join(fixtureDir, 'generate.events.json'), JSON.stringify(legacyEventKeys, null, 2) + '\n');
 });
 
 test('validation responses remain structured', async () => {
@@ -136,7 +142,7 @@ test('multipart accepts one and three supported files', async () => {
             { name: 'c.webp', type: 'image/webp', content: 'c' }
         ]
     ));
-    assert.equal(three.status, 200);
+    assert.equal(three.status, 200, await three.clone().text());
     const proEvents = await collectSse(three);
     assert.ok(proEvents.some((event) => event.stage));
     assert.ok(proEvents.some((event) => event.done === true));

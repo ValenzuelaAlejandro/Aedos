@@ -84,6 +84,14 @@ async function* geminiSSEToStructuredChunks(response, onMetadata = () => {}) {
     }
 }
 
+function modelRouteTelemetry(options, geminiModel) {
+    return {
+        requestedModelId: options?.modelRoute?.requestedModelId,
+        effectiveModelId: options?.modelRoute?.effectiveModelId || geminiModel,
+        fallbackReason: options?.modelRoute?.fallbackReason
+    };
+}
+
 /**
  * Create the unchanged Gemini direct provider and its 503 retry wrapper.
  * @param {{fetchWithAcceptTimeout: Function, providerLog: ProviderLogger, ErrorCategory: ErrorCategories, providerAcceptTimeoutMs: number, guard?: any}} deps provider dependencies
@@ -113,6 +121,7 @@ function createGeminiProvider({ fetchWithAcceptTimeout, providerLog, ErrorCatego
         } catch (err) {
             recordProviderCall({ stage: stageName, provider: 'gemini', model: geminiModel,
                 prompt_tokens: null, completion_tokens: null, reasoning_tokens: null, cost_usd: null,
+                ...modelRouteTelemetry(options, geminiModel),
                 finish_reason: 'request_error', duration_ms: Date.now() - started, retry: options?.retry || 0, route: 'free' });
             if (err?.message === 'GEMINI_ACCEPT_TIMEOUT') providerLog.warn(ErrorCategory.NETWORK, 'Gemini direct accept timeout', {
                 stage: stageName, model: geminiModel, timeoutMs: providerAcceptTimeoutMs
@@ -126,6 +135,7 @@ function createGeminiProvider({ fetchWithAcceptTimeout, providerLog, ErrorCatego
             });
             recordProviderCall({ stage: stageName, provider: 'gemini', model: geminiModel,
                 prompt_tokens: null, completion_tokens: null, reasoning_tokens: null, cost_usd: null,
+                ...modelRouteTelemetry(options, geminiModel),
                 finish_reason: `HTTP_${response.status}`, duration_ms: Date.now() - started, retry: options?.retry || 0, route: 'free' });
             throw new Error(`GEMINI_HTTP_${response.status}`);
         }
@@ -142,6 +152,7 @@ function createGeminiProvider({ fetchWithAcceptTimeout, providerLog, ErrorCatego
                 recordProviderCall({ stage: stageName, provider: 'gemini', model: geminiModel,
                     prompt_tokens: usage?.promptTokenCount ?? null, completion_tokens: usage?.candidatesTokenCount ?? null,
                     reasoning_tokens: usage?.thoughtsTokenCount ?? null, cost_usd: null, finish_reason: finishReason,
+                    ...modelRouteTelemetry(options, geminiModel),
                     duration_ms: Date.now() - started, retry: options?.retry || 0, route: 'free' });
             }
         }

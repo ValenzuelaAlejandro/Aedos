@@ -4,6 +4,110 @@
  * @returns {{makeCaller: Function}}
  */
 const { FREE_MODELS, PAID_MODELS } = require('../config/provider-spend');
+const { MODEL_CATALOG } = require('../config/model-catalog');
+
+function publicModelId(providerModelId) {
+    return Object.values(MODEL_CATALOG).find(model => model.providerModelId === providerModelId)?.id || providerModelId;
+}
+
+function fallbackReason(error) {
+    const rules = [
+        [() => typeof error?.fallbackReason === 'string', () => error.fallbackReason],
+        [() => error?.message === 'GEMINI_APP_CAP_REACHED', () => 'gemini_quota_exhausted'],
+        [() => ['GEMINI_ACCEPT_TIMEOUT', 'OPENROUTER_ACCEPT_TIMEOUT'].includes(error?.message), () => 'timeout'],
+        [() => /HTTP_429/.test(error?.message || ''), () => 'rate_limited'],
+        [() => /HTTP_5\d\d/.test(error?.message || ''), () => 'provider_5xx'],
+        [() => error?.message === 'PAID_PAUSED', () => 'paid_paused']
+    ];
+    const rule = rules.find(([matches]) => matches());
+    return rule ? rule[1]() : 'provider_unavailable';
+}
+
+function routeOptions(options, effectiveModelId, reason) {
+    if (!options?.modelRoute) return options;
+    return { ...options, modelRoute: { ...options.modelRoute, effectiveModelId, fallbackReason: reason } };
+}
+
+function withRoute(result, options, effectiveModelId, reason) {
+    if (!options?.modelRoute) return result;
+    const effective = result?.provider === 'openrouter' && result.model ? result.model : effectiveModelId;
+    return { ...result, modelRoute: { ...options.modelRoute, effectiveModelId: effective, fallbackReason: reason } };
+}
+
+async function tryGemini({ gemini, providerLog, ErrorCategory, prompt, stageName, geminiModel, fileContext, options }) {
+    if (!process.env.GEMINI_API_KEY) return null;
+    try {
+        const route = routeOptions(options, publicModelId(geminiModel),
+            options?.modelRoute?.fallbackReason || null);
+        const result = await gemini(prompt, stageName, geminiModel, fileContext, route);
+        return { result: withRoute(result, options, publicModelId(geminiModel), route?.modelRoute?.fallbackReason || null) };
+    } catch (error) {
+        providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct failed, falling back to OpenRouter', {
+            stage: stageName, model: geminiModel, fallbackReason: fallbackReason(error)
+        });
+        return { error };
+    }
+}
+
+async function tryFree({ openrouter, providerLog, ErrorCategory, prompt, stageName, fileContext, options, reason }) {
+    try {
+        const route = routeOptions(options, publicModelId(FREE_MODELS[0]), reason || 'gemini_unavailable');
+        const result = await openrouter(prompt, stageName, FREE_MODELS, fileContext, route);
+        return { result: withRoute(result, options, publicModelId(FREE_MODELS[0]), reason || 'gemini_unavailable') };
+    } catch (error) {
+        providerLog.warn(ErrorCategory.PROVIDER, 'Approved OpenRouter free route unavailable', {
+            stage: stageName, fallbackReason: fallbackReason(error)
+        });
+        return { error };
+    }
+}
+
+async function callPaidAfterFree({ openrouter, openrouterModels, prompt, stageName, fileContext, options, reason }) {
+    const paidModels = (openrouterModels || []).filter(model => PAID_MODELS[String(model).toLowerCase()]);
+    if (!paidModels.length) throw new Error('PROVIDER_UNAVAILABLE');
+    const route = routeOptions(options, paidModels[0], reason || 'free_route_unavailable');
+    return withRoute(await openrouter(prompt, stageName, paidModels, fileContext, route), options,
+        paidModels[0], reason || 'free_route_unavailable');
+}
+
+function blockedAttachmentFallback(fileContext, options, direct) {
+    if (!fileContext?.length || !options?.attachmentsRequireGemini || direct?.result) return null;
+    const error = new Error('ATTACHMENTS_NOT_ALLOWED');
+    if (direct?.error) error.cause = direct.error;
+    return error;
+}
+
+function selectedFallbackReason(options, direct) {
+    if (options?.modelRoute?.fallbackReason) return options.modelRoute.fallbackReason;
+    if (direct?.error) return fallbackReason(direct.error);
+    return options?.modelRoute ? 'gemini_unavailable' : null;
+}
+
+async function tryFreeThenPaid(args) {
+    const free = await tryFree({ ...args, reason: args.reason });
+    if (free.result) return free.result;
+    if (free.error?.message === 'PAID_PAUSED') throw free.error;
+    return callPaidAfterFree(args);
+}
+
+async function continueAfterGemini({ openrouter, providerLog, ErrorCategory, prompt, stageName,
+    openrouterModels, fileContext, options, direct }) {
+    const attachmentError = blockedAttachmentFallback(fileContext, options, direct);
+    if (attachmentError) throw attachmentError;
+    const reason = selectedFallbackReason(options, direct);
+    return tryFreeThenPaid({ openrouter, providerLog, ErrorCategory, prompt, stageName,
+        openrouterModels, fileContext, options, reason });
+}
+
+async function callConfiguredProviders({ gemini, openrouter, providerLog, ErrorCategory, prompt, stageName,
+    geminiModel, openrouterModels, fileContext, options }) {
+    const direct = await tryGemini({ gemini, providerLog, ErrorCategory, prompt, stageName,
+        geminiModel, fileContext, options });
+    if (direct?.result) return direct.result;
+    return continueAfterGemini({ openrouter, providerLog, ErrorCategory, prompt, stageName,
+        openrouterModels, fileContext, options, direct });
+}
+
 function createProviderFallback({ gemini, openrouter, getOverride, createStub, providerLog, ErrorCategory }) {
     async function callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext = null, options = null) {
         const testOverride = getOverride();
@@ -11,28 +115,15 @@ function createProviderFallback({ gemini, openrouter, getOverride, createStub, p
             return testOverride({ prompt, stageName, geminiModel, openrouterModels, fileContext, options });
         }
         if (process.env.NODE_ENV !== 'production' && process.env.AEDOS_TEST_STUB_PROVIDERS === '1') return createStub(stageName, options);
-        if (process.env.GEMINI_API_KEY) {
-            try { return await gemini(prompt, stageName, geminiModel, fileContext, options); }
-            catch (err) {
-                providerLog.warn(ErrorCategory.PROVIDER, 'Gemini direct failed, falling back to OpenRouter', {
-                    stage: stageName,
-                    model: geminiModel,
-                    error: err.message
-                });
-            }
-        }
-        try { return await openrouter(prompt, stageName, FREE_MODELS, fileContext, options); }
-        catch (err) {
-            if (err?.message === 'PAID_PAUSED') throw err;
-            providerLog.warn(ErrorCategory.PROVIDER, 'Approved OpenRouter free route unavailable', { stage: stageName, error: err.message });
-        }
-        const paidModels = (openrouterModels || []).filter(model => PAID_MODELS[String(model).toLowerCase()]);
-        if (!paidModels.length) throw new Error('PROVIDER_UNAVAILABLE');
-        return openrouter(prompt, stageName, paidModels, fileContext, options);
+        return callConfiguredProviders({ gemini, openrouter, providerLog, ErrorCategory, prompt, stageName,
+            geminiModel, openrouterModels, fileContext, options });
     }
+
     function makeCaller(stageName, geminiModel, openrouterModels) {
-        return async (prompt, fileContext = null, options = null) => callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext, options);
+        return (prompt, fileContext = null, options = null) =>
+            callWithFallback(prompt, stageName, geminiModel, openrouterModels, fileContext, options);
     }
+
     return { makeCaller };
 }
 

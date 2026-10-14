@@ -104,4 +104,11 @@ async function buildGenerationFileContext(files, { requestId, log, ErrorCategory
     return fileContext;
 }
 
-module.exports = { buildSkeletonFileContext, buildGenerationFileContext };
+async function discardUploadedFiles(files) {
+    if (!Array.isArray(files)) return;
+    await Promise.all(files.map(file => file?.path
+        ? fs.promises.unlink(file.path).catch(() => {})
+        : Promise.resolve()));
+}
+
+module.exports = { buildSkeletonFileContext, buildGenerationFileContext, discardUploadedFiles };

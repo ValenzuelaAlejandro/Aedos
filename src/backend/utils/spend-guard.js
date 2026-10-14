@@ -103,6 +103,16 @@ function createSpendGuard({ redis = getRedis, env = process.env, now = () => new
         } catch (_) { return false; }
     }
 
+    async function hasGeminiRequestAvailable() {
+        try {
+            const client = redis();
+            if (!client) return false;
+            const key = `{aedos-gemini}:day:${pacificDay(now())}`;
+            const used = Number(await client.get(key) || 0);
+            return Number.isFinite(used) && used < cfg.geminiDailyCap;
+        } catch (_) { return false; }
+    }
+
     async function getSpendStatus() {
         try {
             if (!env.OPENROUTER_API_KEY) return { paidPaused: true };
@@ -115,7 +125,7 @@ function createSpendGuard({ redis = getRedis, env = process.env, now = () => new
                 || Number(month || 0) + worstStageReserve > microUsd(cfg.monthlyUsd) };
         } catch (_) { return { paidPaused: true }; }
     }
-    return { reserve, settle, release, pausePaid, reserveGeminiRequest, getSpendStatus };
+    return { reserve, settle, release, pausePaid, reserveGeminiRequest, hasGeminiRequestAvailable, getSpendStatus };
 }
 
 const guard = createSpendGuard();

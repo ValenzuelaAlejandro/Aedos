@@ -1,5 +1,5 @@
 /* eslint-disable complexity, max-lines-per-function */
-const { PAID_MODELS, FREE_MODELS, OUTPUT_TOKENS, estimatePaidUsd } = require('../config/provider-spend');
+const { PAID_MODELS, FREE_MODELS, MODEL_OUTPUT_TOKENS, OUTPUT_TOKENS, estimatePaidUsd } = require('../config/provider-spend');
 const { spendGuard } = require('../utils/spend-guard');
 const { recordProviderCall } = require('./telemetry');
 /** @typedef {{info: Function, warn: Function, success: Function}} ProviderLogger */
@@ -93,6 +93,7 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
         }
         const includeReasoning = options && options.includeReasoning === true;
         let paidPaused = false;
+        let lastFailureReason = 'provider_unavailable';
         for (const [index, model] of modelsToTry.entries()) {
             const normalizedModel = model.toLowerCase();
             const route = FREE_MODELS.includes(normalizedModel) ? 'free' : PAID_MODELS[normalizedModel] ? 'paid' : null;
@@ -100,7 +101,9 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
             const reasoningConfig = options && options.reasoning === null ? null
                 : options && options.reasoning && typeof options.reasoning === 'object'
                     ? options.reasoning : reasoningForStage(stageName, normalizedModel);
-            const maxTokens = OUTPUT_TOKENS[stageName];
+            const maxTokens = Math.min(OUTPUT_TOKENS[stageName],
+                MODEL_OUTPUT_TOKENS[normalizedModel] || Number.MAX_SAFE_INTEGER,
+                Number.isFinite(options.maxOutputTokens) ? options.maxOutputTokens : Number.MAX_SAFE_INTEGER);
             const estimatedUsd = route === 'paid' ? estimatePaidUsd(normalizedModel, prompt, fileContext, maxTokens) : 0;
             const reservation = route === 'paid' ? await guard.reserve(estimatedUsd) : null;
             if (route === 'paid' && !reservation?.allowed) { paidPaused = true; continue; }
@@ -112,6 +115,9 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
                 const body = { model, messages: [{ role: 'user', content: messagesContent }], stream: true,
                     max_tokens: maxTokens, stream_options: { include_usage: true } };
                 if (providerOrder) body.provider = { order: providerOrder, allow_fallbacks: true };
+                if (Array.isArray(options.providerSelection?.providerOnly)) {
+                    body.provider = { only: options.providerSelection.providerOnly, allow_fallbacks: false };
+                }
                 if (reasoningConfig) body.reasoning = reasoningConfig;
                 const response = await fetchWithAcceptTimeout('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST', headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'HTTP-Referer': process.env.APP_URL || 'https://aedos.app', 'X-Title': 'Aedos' }, body: JSON.stringify(body)
@@ -119,12 +125,17 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
                 if (!response.ok) {
                     const responseBody = await response.text();
                     const creditLimit = isCreditLimitError(response.status, responseBody);
+                    lastFailureReason = creditLimit ? 'paid_paused' : response.status === 429 ? 'rate_limited'
+                        : response.status >= 500 ? 'provider_5xx' : 'provider_http_error';
                     providerLog.warn(ErrorCategory.PROVIDER, creditLimit ? 'OpenRouter credit limit reached' : 'OpenRouter model request failed',
                         { stage: stageName, model, status: response.status });
                     if (reservation) await guard.release(reservation);
                     recordProviderCall({ stage: stageName, provider: 'openrouter', model, prompt_tokens: null,
                         completion_tokens: null, reasoning_tokens: null, cost_usd: 0,
                         finish_reason: creditLimit ? 'PAID_PAUSED' : `HTTP_${response.status}`,
+                        requestedModelId: options.modelRoute?.requestedModelId,
+                        effectiveModelId: model,
+                        fallbackReason: options.modelRoute?.fallbackReason || lastFailureReason,
                         duration_ms: Date.now() - started, retry: index, route });
                     if (creditLimit) {
                         await guard.pausePaid?.();
@@ -161,21 +172,30 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
                             prompt_tokens: usage?.prompt_tokens ?? null, completion_tokens: usage?.completion_tokens ?? null,
                             reasoning_tokens: usage?.completion_tokens_details?.reasoning_tokens ?? usage?.reasoning_tokens ?? null,
                             cost_usd: route === 'free' ? 0 : cost, finish_reason: finishReason,
+                            requestedModelId: options.modelRoute?.requestedModelId,
+                            effectiveModelId: model,
+                            fallbackReason: options.modelRoute?.fallbackReason,
                             duration_ms: Date.now() - started, retry: index, route });
                     }
                 }
                 return { stream: measuredStream(), provider: 'openrouter', model };
             } catch (err) {
                 if (err?.message === 'PAID_PAUSED') throw err;
+                lastFailureReason = err?.message === 'OPENROUTER_ACCEPT_TIMEOUT' ? 'timeout' : lastFailureReason;
                 // Acceptance timeouts can have charged upstream; retain the reserve.
                 recordProviderCall({ stage: stageName, provider: 'openrouter', model, prompt_tokens: null,
                     completion_tokens: null, reasoning_tokens: null, cost_usd: reservation ? estimatedUsd : 0,
+                    requestedModelId: options.modelRoute?.requestedModelId,
+                    effectiveModelId: model,
+                    fallbackReason: options.modelRoute?.fallbackReason || lastFailureReason,
                     finish_reason: 'request_error', duration_ms: Date.now() - started, retry: index, route });
                 if (err?.message === 'OPENROUTER_ACCEPT_TIMEOUT') providerLog.warn(ErrorCategory.NETWORK, 'OpenRouter accept timeout', { stage: stageName, model, timeoutMs: providerAcceptTimeoutMs });
                 else providerLog.warn(classifyError(err, ErrorCategory.NETWORK), 'OpenRouter request error', { stage: stageName, model, error: err });
             }
         }
-        throw new Error(paidPaused ? 'PAID_PAUSED' : 'PROVIDER_UNAVAILABLE');
+        throw Object.assign(new Error(paidPaused ? 'PAID_PAUSED' : 'PROVIDER_UNAVAILABLE'), {
+            fallbackReason: paidPaused ? 'paid_paused' : lastFailureReason
+        });
     }
     return { call };
 }
