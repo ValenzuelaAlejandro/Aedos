@@ -85,10 +85,13 @@ test('service quotes presentation and slide billing without a mode surcharge', (
     const gemini = window.MODEL_CATALOG[0];
     const apodex = window.MODEL_CATALOG[1];
     const standard = window.MODEL_CATALOG.find(model => model.tier === 'standard');
+    const nemotron = window.MODEL_CATALOG.find(model => model.id === 'nvidia/nemotron-3.5-lightning');
 
     assert.equal(window.AedosCreditsUI.getQuote(15, gemini).total, 10);
     assert.equal(window.AedosCreditsUI.getQuote(8, apodex).total, 8);
     assert.equal(window.AedosCreditsUI.getQuote(8, standard).total, 24);
+    assert.equal(window.AedosCreditsUI.getQuote(15, nemotron).slides, 8);
+    assert.equal(window.AedosCreditsUI.getQuote(15, nemotron).total, 16);
     window.AedosStores.generation.state.proModeEnabled = true;
     assert.equal(window.AedosCreditsUI.getQuote(8, gemini).total, 10);
     assert.equal(window.AedosCreditsUI.getQuote(8, apodex).total, 8);

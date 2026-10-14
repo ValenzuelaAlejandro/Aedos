@@ -35,6 +35,7 @@
             creditsPerSlide: 2,
             paid: true,
             modes: ['flash', 'pro'],
+            maxSlides: { flash: 8, pro: 8 },
         },
         {
             id: 'openai/gpt-6-luna',

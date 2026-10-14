@@ -61,11 +61,14 @@
             element.textContent = brand === 'avatar' ? (model.name || 'A').charAt(0).toUpperCase() : '';
         }
         function selectModel(model) {
+            const previousSlides = creditsUI?.getSlideCount() || 1;
             generationState.selectedModelId = model.id;
             if (currentModelLabel) currentModelLabel.textContent = model.name;
             if (currentModelIcon) renderBrandIcon(currentModelIcon, model);
             if (modelBtn) modelBtn.setAttribute('aria-label', window.__t('credits.selectModel').replace('{model}', model.name));
-            creditsUI?.setSlideCount(creditsUI.getSlideCount());
+            creditsUI?.setSlideCount(previousSlides);
+            const newSlides = creditsUI?.getSlideCount() || previousSlides;
+            if (newSlides < previousSlides) creditsUI?.showModeClampNotice(newSlides, model.name);
             window.AedosAttachments?.refreshAvailability?.();
         }
         function renderModels(models, paused) {
