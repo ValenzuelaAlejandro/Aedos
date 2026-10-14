@@ -29,10 +29,13 @@ function createCorsMiddleware({ log, ErrorCategory }) {
             }
         }
     } else {
+        const localPort = Number(process.env.PORT) || 3000;
         allowedOrigins = [
             'http://localhost:3000',
             'http://localhost:5173',
-            'http://127.0.0.1:3000'
+            'http://127.0.0.1:3000',
+            `http://localhost:${localPort}`,
+            `http://127.0.0.1:${localPort}`
         ];
         log.warn(ErrorCategory.CONFIG, 'Using development fallback CORS origins', {
             allowedOrigins

@@ -15,6 +15,23 @@ const MODEL_CATALOG = Object.freeze({
         maxSlides: Object.freeze({ flash: 15, pro: 8 }),
         compatibleStages: Object.freeze(['Flash', 'Stage3'])
     }),
+    ...Object.fromEntries([
+        ['nvidia-build/nemotron-3.5-lightning', 'nvidia/nemotron-3.5-lightning-30b-a3b'],
+        ['nvidia-build/nemotron-3-super', 'nvidia/nemotron-3-super-120b-a12b'],
+        ['nvidia-build/nemotron-3-ultra', 'nvidia/nemotron-3-ultra-550b-a55b'],
+        ['nvidia-build/glm-5.3-flash', 'z-ai/glm-5.3-flash'],
+        ['nvidia-build/glm-5.3', 'z-ai/glm-5.3']
+    ].map(([id, providerModelId]) => [id, Object.freeze({
+        id,
+        provider: 'nvidia',
+        providerModelId,
+        tier: 'free',
+        paid: false,
+        attachments: false,
+        outputMaxTokens: 32768,
+        maxSlides: Object.freeze({ flash: 5, pro: 5 }),
+        compatibleStages: Object.freeze(['Flash', 'Stage1', 'Stage2', 'Stage3'])
+    })])),
     'nvidia/nemotron-3.5-lightning': Object.freeze({
         id: 'nvidia/nemotron-3.5-lightning',
         provider: 'openrouter',
@@ -68,12 +85,21 @@ const MODEL_CATALOG = Object.freeze({
 
 const DEFAULT_MODEL_ID = 'google/gemini-3-flash-preview';
 
-function resolveModelId(value, catalog = MODEL_CATALOG) {
+function isLocalNvidiaTrialRequest(req) {
+    const host = req?.hostname;
+    const remote = req?.socket?.remoteAddress || req?.ip;
+    return process.env.NODE_ENV === 'development' && Boolean(process.env.NVIDIA_API_KEY)
+        && ['localhost', '127.0.0.1', '::1'].includes(host)
+        && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(remote || '');
+}
+
+function resolveModelId(value, catalog = MODEL_CATALOG, options = {}) {
     const isAbsent = value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
     const requestedModelId = typeof value === 'string' ? value.trim() : null;
     const id = isAbsent ? DEFAULT_MODEL_ID : requestedModelId;
     const model = catalog[id];
-    if (!Object.prototype.hasOwnProperty.call(catalog, id) || !model || model.enabled === false) {
+    if (!Object.prototype.hasOwnProperty.call(catalog, id) || !model || model.enabled === false
+        || (model.provider === 'nvidia' && !options.localNvidiaTrial)) {
         return {
             valid: false,
             requestedModelId: requestedModelId || null,
@@ -116,6 +142,7 @@ function validateAttachments(model, hasAttachments, geminiAvailable) {
 module.exports = {
     MODEL_CATALOG,
     DEFAULT_MODEL_ID,
+    isLocalNvidiaTrialRequest,
     resolveModelId,
     validateModelForGeneration,
     validateAttachments

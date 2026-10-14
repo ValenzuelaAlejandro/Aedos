@@ -9,9 +9,10 @@ const catalogSource = fs.readFileSync(path.join(root, 'src/frontend/config/model
 const serviceSource = fs.readFileSync(path.join(root, 'src/frontend/features/credits/credits-service.js'), 'utf8');
 const uiSource = fs.readFileSync(path.join(root, 'src/frontend/features/credits/credits-ui.js'), 'utf8');
 
-function loadCredits() {
+function loadCredits(hostname) {
     const values = new Map();
     const window = {
+        location: hostname ? { hostname } : undefined,
         localStorage: {
             getItem: key => values.get(key) || null,
             setItem: (key, value) => values.set(key, value),
@@ -60,6 +61,16 @@ test('catalog uses explicit billing types and excludes Dots', () => {
     ]);
     assert.equal(window.MODE_SURCHARGE, undefined);
     assert.deepEqual(JSON.parse(JSON.stringify(window.MAX_SLIDES_BY_MODE)), { flash: 15, pro: 8 });
+});
+
+test('NVIDIA Build trial models appear only on local hosts and are capped at five slides', () => {
+    const { window } = loadCredits('localhost');
+    const models = window.MODEL_CATALOG.filter(model => model.localTrial);
+    assert.equal(models.length, 5);
+    assert.ok(models.every(model => model.tier === 'free' && model.creditsPerSlide === 1));
+    assert.ok(models.every(model => model.maxSlides.flash === 5 && model.maxSlides.pro === 5));
+    const remote = loadCredits('aedos.example').window.MODEL_CATALOG;
+    assert.equal(remote.some(model => model.localTrial), false);
 });
 
 test('slide zones cover each mode maximum without gaps or overlap', () => {

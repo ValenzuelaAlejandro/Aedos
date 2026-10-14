@@ -50,6 +50,18 @@
         },
     ];
 
+    // NVIDIA trial endpoints are exposed only on loopback; their trial terms exclude production use.
+    const isLocalEvaluationHost = ['localhost', '127.0.0.1', '::1'].includes(global.location?.hostname);
+    if (isLocalEvaluationHost) {
+        catalog.push(
+            { id: 'nvidia-build/nemotron-3.5-lightning', name: 'Nemotron 3.5 Lightning · NVIDIA Build', provider: 'NVIDIA Build', brand: 'nvidia', tier: 'free', billing: 'perSlide', creditsPerSlide: 1, paid: false, modes: ['flash', 'pro'], maxSlides: { flash: 5, pro: 5 }, localTrial: true },
+            { id: 'nvidia-build/nemotron-3-super', name: 'Nemotron 3 Super · NVIDIA Build', provider: 'NVIDIA Build', brand: 'nvidia', tier: 'free', billing: 'perSlide', creditsPerSlide: 1, paid: false, modes: ['flash', 'pro'], maxSlides: { flash: 5, pro: 5 }, localTrial: true },
+            { id: 'nvidia-build/nemotron-3-ultra', name: 'Nemotron 3 Ultra · NVIDIA Build', provider: 'NVIDIA Build', brand: 'nvidia', tier: 'free', billing: 'perSlide', creditsPerSlide: 1, paid: false, modes: ['flash', 'pro'], maxSlides: { flash: 5, pro: 5 }, localTrial: true },
+            { id: 'nvidia-build/glm-5.3-flash', name: 'GLM 5.3 Flash · NVIDIA Build', provider: 'NVIDIA Build', brand: 'nvidia', tier: 'free', billing: 'perSlide', creditsPerSlide: 1, paid: false, modes: ['flash', 'pro'], maxSlides: { flash: 5, pro: 5 }, localTrial: true },
+            { id: 'nvidia-build/glm-5.3', name: 'GLM 5.3 · NVIDIA Build', provider: 'NVIDIA Build', brand: 'nvidia', tier: 'free', billing: 'perSlide', creditsPerSlide: 1, paid: false, modes: ['flash', 'pro'], maxSlides: { flash: 5, pro: 5 }, localTrial: true }
+        );
+    }
+
     global.MAX_SLIDES_BY_MODE = Object.freeze({ flash: 15, pro: 8 });
     // Pure ranges based on the active mode's maximum, never on the credit balance.
     global.getSlideZones = function getSlideZones(max) {

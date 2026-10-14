@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { MODEL_CATALOG, DEFAULT_MODEL_ID, resolveModelId, validateAttachments,
-    validateModelForGeneration } = require('../../src/backend/config/model-catalog');
+    validateModelForGeneration, isLocalNvidiaTrialRequest } = require('../../src/backend/config/model-catalog');
 const { FREE_MODELS } = require('../../src/backend/config/provider-spend');
 const { createSelectedModelRouter } = require('../../src/backend/providers/model-selection');
 const { createGenerateHandler } = require('../../src/backend/http/routes/generate');
@@ -16,7 +16,13 @@ const emptyStream = async function* () {};
 test('model allowlist accepts catalog IDs, defaults missing IDs, and rejects unknown or disabled IDs', () => {
     assert.equal(resolveModelId(undefined).model.id, DEFAULT_MODEL_ID);
     assert.equal(resolveModelId('  ').model.id, DEFAULT_MODEL_ID);
-    for (const id of Object.keys(MODEL_CATALOG)) assert.equal(resolveModelId(id).valid, true, id);
+    for (const id of Object.keys(MODEL_CATALOG)) {
+        const model = MODEL_CATALOG[id];
+        assert.equal(resolveModelId(id, undefined, { localNvidiaTrial: model.provider === 'nvidia' }).valid, true, id);
+    }
+    for (const model of Object.values(MODEL_CATALOG).filter(entry => entry.provider === 'nvidia')) {
+        assert.equal(resolveModelId(model.id).code, 'MODEL_NOT_ALLOWED', model.id);
+    }
     assert.equal(resolveModelId('openrouter/free').code, 'MODEL_NOT_ALLOWED');
     assert.equal(resolveModelId('apodex/apodex-1.1-mini:free').code, 'MODEL_NOT_ALLOWED');
     assert.deepEqual(FREE_MODELS, []);
@@ -38,6 +44,18 @@ test('model slide compatibility respects the server output cap', () => {
     assert.equal(validateModelForGeneration(nemotron, 'flash', 8).valid, true);
     assert.equal(validateModelForGeneration(nemotron, 'flash', 9).maxSlides, 8);
     assert.equal(validateModelForGeneration(nemotron, 'pro', 8).valid, true);
+});
+
+test('NVIDIA Build trial models are allowed only from a local development request', () => {
+    const previousMode = process.env.NODE_ENV;
+    const previousKey = process.env.NVIDIA_API_KEY;
+    process.env.NODE_ENV = 'development';
+    process.env.NVIDIA_API_KEY = 'test-key';
+    assert.equal(isLocalNvidiaTrialRequest({ hostname: 'localhost', socket: { remoteAddress: '::1' } }), true);
+    assert.equal(isLocalNvidiaTrialRequest({ hostname: 'example.com', socket: { remoteAddress: '203.0.113.4' } }), false);
+    process.env.NODE_ENV = previousMode;
+    if (previousKey === undefined) delete process.env.NVIDIA_API_KEY;
+    else process.env.NVIDIA_API_KEY = previousKey;
 });
 
 test('attachments require Gemini and an available Gemini request', () => {
@@ -107,6 +125,10 @@ test('every catalog model routes to HTML through its declared provider', async (
             openrouter: async (prompt, stage, models, files, options) => {
                 calls.push({ provider: 'openrouter', models, options });
                 return { provider: 'openrouter', model: models[0], stream: emptyStream() };
+            },
+            nvidia: async (prompt, stage, selected, options) => {
+                calls.push({ provider: 'nvidia', providerModelId: selected.providerModelId, options });
+                return { provider: 'nvidia', model: selected.providerModelId, stream: emptyStream() };
             },
             makeBaseCaller: () => async () => { throw new Error('Selected routing must not use the base caller.'); },
             getOverride: () => null,
