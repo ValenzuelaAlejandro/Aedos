@@ -17,7 +17,7 @@
         {
             id: 'nvidia/nemotron-3.5-lightning',
             name: 'Nemotron 3.5 Lightning',
-            provider: 'NVIDIA',
+            provider: 'OpenRouter',
             brand: 'nvidia',
             tier: 'light',
             billing: 'perSlide',
@@ -49,11 +49,6 @@
             modes: ['flash', 'pro'],
         },
     ];
-
-    catalog.push(
-        { id: 'nvidia-build/nemotron-3.5-lightning', name: 'Nemotron 3.5 Lightning', provider: 'NVIDIA Build', brand: 'nvidia', tier: 'free', billing: 'perSlide', creditsPerSlide: 1, paid: false, modes: ['flash', 'pro'], maxSlides: { flash: 5, pro: 5 }, nvidiaTrial: true },
-        { id: 'nvidia-build/nemotron-3-super', name: 'Nemotron 3 Super', provider: 'NVIDIA Build', brand: 'nvidia', tier: 'free', billing: 'perSlide', creditsPerSlide: 1, paid: false, modes: ['flash', 'pro'], maxSlides: { flash: 5, pro: 5 }, nvidiaTrial: true }
-    );
 
     global.MAX_SLIDES_BY_MODE = Object.freeze({ flash: 15, pro: 8 });
     // Pure ranges based on the active mode's maximum, never on the credit balance.
