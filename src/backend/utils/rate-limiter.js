@@ -3,11 +3,11 @@
  *
  * Replaces express-rate-limit (in-memory) so that:
  *   • Daily counters survive Render cold-starts / sleeps
- *   • Flash and Pro modes have independent limits
+ *   • Generation attempts share a global daily limit
  *   • A short cooldown prevents spam bursts
  *
  * Keys used in Redis (per client IP):
- *   ratelimit:daily:{mode}:{ip}   – daily generation count  (TTL 24h)
+ *   ratelimit:daily:global         – global generation count  (TTL 24h)
  *   ratelimit:cooldown:{mode}:{ip} – cooldown flag           (TTL 60s)
  */
 
@@ -19,23 +19,16 @@ const { createRateLimitEvaluators } = require('./rate-limit-evaluators');
 const log = createLogger({ scope: 'RATE_LIMIT' });
 
 // ── Configuration ────────────────────────────────────────────────────────────
+function cooldownSeconds(name) {
+    const value = Number.parseInt(process.env[name] || '0', 10);
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
 const LIMITS = {
-    flash: {
-        daily: parseInt(process.env.LIMITS_FLASH_DAILY || '5', 10),
-        cooldownSec: 0,
-    },
-    pro: {
-        daily: parseInt(process.env.LIMITS_PRO_DAILY || '3', 10),
-        cooldownSec: 0,
-    },
-    outline: {
-        daily: parseInt(process.env.LIMITS_OUTLINE_DAILY || '10', 10),
-        cooldownSec: 0,
-    },
-    chat: {
-        daily: parseInt(process.env.LIMITS_CHAT_DAILY || '20', 10),
-        cooldownSec: 0,
-    },
+    flash: { cooldownSec: cooldownSeconds('LIMITS_FLASH_COOLDOWN_SEC') },
+    pro: { cooldownSec: cooldownSeconds('LIMITS_PRO_COOLDOWN_SEC') },
+    outline: { cooldownSec: cooldownSeconds('LIMITS_OUTLINE_COOLDOWN_SEC') },
+    chat: { cooldownSec: cooldownSeconds('LIMITS_CHAT_COOLDOWN_SEC') },
 };
 
 const DAILY_TTL_SEC = 24 * 60 * 60; // 24 hours
@@ -147,12 +140,6 @@ function normalizeMode(body) {
     if (body?.mode === 'outline') return 'outline';
     if (body?.mode === 'chat') return 'chat';
     return body?.mode === 'pro' ? 'pro' : 'flash';
-}
-
-function parseForwardedFor(value) {
-    if (!value) return null;
-    const first = String(value).split(',')[0].trim();
-    return first || null;
 }
 
 function normalizeIp(value) {
@@ -271,7 +258,6 @@ function checkRateLimits(req, res, next) {
             mode,
             source: decision.source,
             generationsToday: decision.generationsToday,
-            dailyLimit: cfg.daily,
             cooldownSec: cfg.cooldownSec,
             globalGenerationsToday: decision.globalGenerationsToday,
             globalDailyLimit: GLOBAL_DAILY_LIMIT,
@@ -328,6 +314,7 @@ function checkFinalizeLimits(req, res, next) {
 
 module.exports = {
     getRedis,
+    resolveClientIp,
     verifyConnection,
     checkRateLimits,
     checkFinalizeLimits,

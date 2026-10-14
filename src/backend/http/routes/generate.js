@@ -5,7 +5,7 @@ const { processGeneratedOutput } = require('./generate-output');
 const { handleGenerationError } = require('./generate-errors');
 const vendorAssets = require('../../../frontend/features/shared/vendor-assets');
 const { resolveModelId, validateModelForGeneration, validateAttachments,
-    isNvidiaTrialEnabled } = require('../../config/model-catalog');
+    isLocalNvidiaTrialRequest } = require('../../config/model-catalog');
 const {
     normalizeMode,
     normalizeRequestedLanguage,
@@ -27,6 +27,7 @@ function createGenerateHandler(deps) {
     return async function(req, res) {
         let cancelled = false;
         let completed = false;
+        let creditDelivered = false;
         let sseKeepAlive = null;
         let hasGenerationSlot = false;
         const requestId = req.requestId || 'n/a';
@@ -47,7 +48,7 @@ function createGenerateHandler(deps) {
         try {
             const opciones = req.body || {};
             const modelSelection = resolveModelId(opciones.modelId, undefined,
-                { nvidiaTrialEnabled: isNvidiaTrialEnabled() });
+                { localNvidiaTrial: isLocalNvidiaTrialRequest(req) });
             if (!modelSelection.valid) {
                 await deps.discardUploadedFiles?.(req.files);
                 return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });
@@ -297,6 +298,9 @@ function createGenerateHandler(deps) {
                     effectiveModelId: modelSelection.requestedModelId,
                     fallbackReason: null
                 };
+                if (req.creditReservation && !(await deps.creditsLedger.commit(req.creditReservation))) {
+                    throw new Error('CREDITS_UNAVAILABLE');
+                }
                 res.write(`data: ${JSON.stringify({ done: true, html: output.html,
                     requestedModelId: effectiveModelRoute.requestedModelId,
                     effectiveModelId: effectiveModelRoute.effectiveModelId,
@@ -305,6 +309,7 @@ function createGenerateHandler(deps) {
 
             completed = true;
             res.end();
+            creditDelivered = output.type === 'html';
         } catch (error) {
             handleGenerationError({
                 error,
@@ -316,6 +321,10 @@ function createGenerateHandler(deps) {
                 markCompleted: () => { completed = true; }
             });
         } finally {
+            if (req.creditReservation && !creditDelivered) {
+                try { await deps.creditsLedger.refund(req.creditReservation); }
+                catch (_) { deps.log.error(deps.ErrorCategory.NETWORK, 'Failed to refund generation credit reservation', { requestId }); }
+            }
             if (sseKeepAlive) clearInterval(sseKeepAlive);
             if (hasGenerationSlot) deps.generationQueue.release();
         }
@@ -330,7 +339,7 @@ function createGenerateHandler(deps) {
  */
 function registerGenerateRoute(deps) {
     const handler = createGenerateHandler(deps);
-    deps.app.post('/generate', deps.upload.array('files', deps.maxUploadArrayFields), express.json({ limit: '50kb' }), deps.checkGenerationPressure, deps.validateModelRequest, deps.checkRateLimits, async (req, res) => handler(req, res));
+    deps.app.post('/generate', deps.upload.array('files', deps.maxUploadArrayFields), express.json({ limit: '50kb' }), deps.checkGenerationPressure, deps.validateModelRequest, deps.checkRateLimits, deps.reserveGenerationCredits, async (req, res) => handler(req, res));
 }
 
 module.exports = { createGenerateHandler, registerGenerateRoute };

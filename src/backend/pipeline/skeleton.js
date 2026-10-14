@@ -1,6 +1,7 @@
 /* eslint-disable max-lines-per-function, complexity */
 const { resolveModelId, validateAttachments, validateModelForGeneration,
-    isNvidiaTrialEnabled } = require('../config/model-catalog');
+    isLocalNvidiaTrialRequest } = require('../config/model-catalog');
+const { getRequestIp, readRequestId, resetAt } = require('../utils/credits-ledger');
 
 /**
  * Build the skeleton-generation route handler without owning HTTP registration.
@@ -28,6 +29,8 @@ function createSkeletonHandler(deps) {
     return async function handleGenerateSkeleton(req, res) {
         const requestId = req.requestId || 'n/a';
         let cancelled = false;
+        let creditReservation = null;
+        let creditSettled = false;
 
         res.on('close', () => {
             if (res.writableEnded) return;
@@ -45,7 +48,7 @@ function createSkeletonHandler(deps) {
         try {
             const opciones = req.body || {};
             const modelSelection = resolveModelId(opciones.modelId, undefined,
-                { nvidiaTrialEnabled: isNvidiaTrialEnabled() });
+                { localNvidiaTrial: isLocalNvidiaTrialRequest(req) });
             if (!modelSelection.valid) {
                 await deps.discardUploadedFiles?.(req.files);
                 return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });
@@ -90,6 +93,33 @@ function createSkeletonHandler(deps) {
             const stage1Prompt = currentSkeleton && typeof currentSkeleton === 'object'
                 ? buildStage1RevisionPrompt(sanitizeResult.tema, currentSkeleton, targetLang)
                 : buildStage1Prompt(sanitizeResult.tema, targetLang);
+            if (currentSkeleton && typeof currentSkeleton === 'object') {
+                const idempotencyKey = readRequestId(req);
+                if (!idempotencyKey) return res.status(400).json({ error: 'IDEMPOTENCY_KEY_REQUIRED' });
+                try {
+                    creditReservation = await deps.creditsLedger.reserve(getRequestIp(req), 1, idempotencyKey);
+                } catch (_) {
+                    return res.status(503).json({ error: 'CREDITS_UNAVAILABLE' });
+                }
+                if (!creditReservation.allowed && creditReservation.code === 'INSUFFICIENT_CREDITS') {
+                    return res.status(402).json({ error: 'INSUFFICIENT_CREDITS', code: 'INSUFFICIENT_CREDITS',
+                        cost: 1, remaining: creditReservation.remaining, resetsAt: resetAt(new Date()).toISOString(),
+                        message: 'This chat update costs 1 credit. Wait for the daily reset or try again later.' });
+                }
+                if (!creditReservation.allowed) return res.status(409).json({ error: 'CREDIT_REQUEST_ALREADY_APPLIED' });
+            } else {
+                let schemaQuota;
+                try {
+                    schemaQuota = await deps.creditsLedger.reserveSchemaRequest(getRequestIp(req));
+                } catch (_) {
+                    return res.status(503).json({ error: 'CREDITS_UNAVAILABLE' });
+                }
+                if (schemaQuota.status === 'limit') {
+                    return res.status(429).json({ error: 'SCHEMA_DAILY_LIMIT', code: 'SCHEMA_DAILY_LIMIT',
+                        limit: schemaQuota.limit, resetsAt: schemaQuota.resetsAt,
+                        message: 'You have used today’s 10 free outline requests. Try again after the daily reset.' });
+                }
+            }
             const stage1Response = await trySelectedStage1Thinking(stage1Prompt, fileContext,
                 { selectedModel: modelSelection.model,
                     attachmentsRequireGemini: hasAttachments,
@@ -138,6 +168,8 @@ function createSkeletonHandler(deps) {
                 return;
             }
             if (contentJson.action === 'proceed') {
+                if (creditReservation && !(await deps.creditsLedger.commit(creditReservation))) throw new Error('CREDITS_UNAVAILABLE');
+                if (creditReservation) creditSettled = true;
                 res.write(`data: ${JSON.stringify({ done: true, skeleton: { action: 'proceed' } })}\n\n`);
                 res.end();
                 return;
@@ -156,6 +188,8 @@ function createSkeletonHandler(deps) {
                 contentJson.slide_count = maxSlides;
             }
 
+            if (creditReservation && !(await deps.creditsLedger.commit(creditReservation))) throw new Error('CREDITS_UNAVAILABLE');
+            if (creditReservation) creditSettled = true;
             writeSse(res, { done: true, skeleton: contentJson });
             res.end();
         } catch (err) {
@@ -170,7 +204,8 @@ function createSkeletonHandler(deps) {
                 }
                 return;
             }
-            const providerError = err.message === 'PAID_PAUSED' || err.message === 'PROVIDER_UNAVAILABLE';
+            const providerError = err.message === 'PAID_PAUSED' || err.message === 'PROVIDER_UNAVAILABLE'
+                || err.message === 'CREDITS_UNAVAILABLE';
             const message = providerError ? 'The AI providers are temporarily unavailable. Please try again later.' : ERROR_TEXT.OUTLINE_FAILED;
             if (!res.headersSent) {
                 res.status(providerError ? 503 : 500).json(providerError ? { error: message, code: err.message } : { error: message });
@@ -179,6 +214,11 @@ function createSkeletonHandler(deps) {
                     writeSse(res, providerError ? { error: message, code: err.message } : { error: message });
                     res.end();
                 } catch (e) { /* preserve the existing SSE error fallback */ }
+            }
+        } finally {
+            if (creditReservation && !creditSettled) {
+                try { await deps.creditsLedger.refund(creditReservation); }
+                catch (_) { log.error(ErrorCategory.NETWORK, 'Failed to refund chat credit reservation', { requestId }); }
             }
         }
     };
