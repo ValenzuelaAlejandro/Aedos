@@ -18,9 +18,6 @@ function reasoningCapabilitiesForModel(modelId) {
     if (model.startsWith('openai/gpt-6-luna')) {
         return { efforts: ['max', 'xhigh', 'high', 'medium', 'low', 'none'], canDisable: true };
     }
-    if (model.startsWith('nvidia/nemotron-3-ultra-550b-a55b')) {
-        return { efforts: ['high', 'medium'], canDisable: true };
-    }
     if (model.startsWith('nvidia/nemotron-3.5-lightning')) {
         return { efforts: null, canDisable: true };
     }

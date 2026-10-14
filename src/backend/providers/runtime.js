@@ -1,7 +1,6 @@
 const { fetchWithAcceptTimeout } = require('./common');
 const { createGeminiProvider } = require('./gemini');
 const { createOpenRouterProvider } = require('./openrouter');
-const { createNvidiaProvider } = require('./nvidia');
 const { createProviderFallback, createTestProviderResponse } = require('./fallback');
 const { createSelectedModelRouter } = require('./model-selection');
 
@@ -35,7 +34,6 @@ function createProviderRuntime({
         stage3Only: modelConfig.OPENROUTER_MODELS_STAGE3_ONLY,
         reasoningForStage: modelConfig.reasoningForStage
     });
-    const nvidiaProvider = createNvidiaProvider({ providerLog, ErrorCategory });
     const providerFallback = createProviderFallback({
         gemini: geminiProvider.call,
         openrouter: openRouterProvider.call,
@@ -47,7 +45,6 @@ function createProviderRuntime({
     const selectedModelRouter = createSelectedModelRouter({
         gemini: geminiProvider.call,
         openrouter: openRouterProvider.call,
-        nvidia: nvidiaProvider.call,
         makeBaseCaller: providerFallback.makeCaller,
         getOverride: getTestProviderOverride,
         createStub: createTestProviderResponse,

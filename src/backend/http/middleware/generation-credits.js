@@ -1,6 +1,6 @@
 'use strict';
 
-const { resolveModelId, isLocalNvidiaTrialRequest, validateModelForGeneration } = require('../../config/model-catalog');
+const { resolveModelId, validateModelForGeneration } = require('../../config/model-catalog');
 const { normalizeSlides, normalizeMode } = require('../../contracts/request-normalizers');
 const { readRequestId, getRequestIp, resetAt } = require('../../utils/credits-ledger');
 
@@ -18,8 +18,7 @@ function createGenerationCreditsMiddleware({ ledger }) {
     return async function reserveGenerationCredits(req, res, next) {
         const slides = normalizeSlides(req.body);
         if (!slides.valid) return next(); // The generation handler returns the existing validation error.
-        const selection = resolveModelId(req.body?.modelId, undefined,
-            { localNvidiaTrial: isLocalNvidiaTrialRequest(req) });
+        const selection = resolveModelId(req.body?.modelId);
         if (!selection.valid) return next(); // The earlier model validator returns the model error.
         const compatibility = validateModelForGeneration(selection.model, normalizeMode(req.body), slides.slides);
         if (!compatibility.valid) return res.status(422).json({ error: compatibility.message, code: compatibility.code,

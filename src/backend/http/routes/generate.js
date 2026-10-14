@@ -4,8 +4,7 @@ const express = require('express');
 const { processGeneratedOutput } = require('./generate-output');
 const { handleGenerationError } = require('./generate-errors');
 const vendorAssets = require('../../../frontend/features/shared/vendor-assets');
-const { resolveModelId, validateModelForGeneration, validateAttachments,
-    isLocalNvidiaTrialRequest } = require('../../config/model-catalog');
+const { resolveModelId, validateModelForGeneration, validateAttachments } = require('../../config/model-catalog');
 const {
     normalizeMode,
     normalizeRequestedLanguage,
@@ -47,8 +46,7 @@ function createGenerateHandler(deps) {
 
         try {
             const opciones = req.body || {};
-            const modelSelection = resolveModelId(opciones.modelId, undefined,
-                { localNvidiaTrial: isLocalNvidiaTrialRequest(req) });
+            const modelSelection = resolveModelId(opciones.modelId);
             if (!modelSelection.valid) {
                 await deps.discardUploadedFiles?.(req.files);
                 return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });
@@ -132,8 +130,7 @@ function createGenerateHandler(deps) {
 
             const hasProviderCredentials = deps.hasProviderCredentials
                 ? deps.hasProviderCredentials()
-                : Boolean(process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY
-                    || (modelSelection.model.provider === 'nvidia' && process.env.NVIDIA_API_KEY));
+                : Boolean(process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY);
             if (!hasProviderCredentials) {
                 deps.log.error(deps.ErrorCategory.CONFIG, 'Generation blocked: OpenRouter/Gemini key missing', { requestId });
                 return res.status(500).json({ error: deps.ERROR_TEXT.API_KEY_MISSING });
@@ -194,18 +191,14 @@ function createGenerateHandler(deps) {
                     fileContext,
                     skeleton: opciones.skeleton,
                     maxSlides: slideHardLimit,
-                    tryModelsStage1: (prompt, stageFiles, options) => (modelSelection.model.provider === 'nvidia'
-                        ? deps.trySelectedStage1Thinking : deps.tryModelsStage1Thinking)(prompt, stageFiles, {
+                    tryModelsStage1: (prompt, stageFiles, options) => deps.tryModelsStage1Thinking(prompt, stageFiles, {
                         ...options,
-                        selectedModel: modelSelection.model.provider === 'nvidia' ? modelSelection.model : undefined,
                         attachmentsRequireGemini: Array.isArray(stageFiles) && stageFiles.length > 0,
                         modelRoute: { requestedModelId: modelSelection.requestedModelId,
                             effectiveModelId: null, fallbackReason: null }
                     }),
-                    tryModelsStage2: (prompt, stageFiles, options) => (modelSelection.model.provider === 'nvidia'
-                        ? deps.trySelectedStage2Thinking : deps.tryModelsStage2Thinking)(prompt, stageFiles, {
+                    tryModelsStage2: (prompt, stageFiles, options) => deps.tryModelsStage2Thinking(prompt, stageFiles, {
                         ...options,
-                        selectedModel: modelSelection.model.provider === 'nvidia' ? modelSelection.model : undefined,
                         modelRoute: { requestedModelId: modelSelection.requestedModelId,
                             effectiveModelId: null, fallbackReason: null }
                     }),

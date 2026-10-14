@@ -10,9 +10,7 @@ const { formatSseEvent } = require('../../contracts/sse');
  */
 function handleGenerationError({ error, requestId, res, log, classifyError, ErrorCategory, markCompleted }) {
     const providerError = error.message === 'PAID_PAUSED' || error.message === 'PROVIDER_UNAVAILABLE'
-        || error.message === 'CREDITS_UNAVAILABLE'
-        || error.message === 'NVIDIA_ACCEPT_TIMEOUT' || error.message === 'NVIDIA_STREAM_TIMEOUT'
-        || /^NVIDIA_HTTP_\d+$/.test(error.message || '');
+        || error.message === 'CREDITS_UNAVAILABLE';
     const isQuotaError = error.message === 'QUOTA_EXHAUSTED';
     const isPipelineError = error.message && (
         error.message.startsWith('STAGE1_') ||

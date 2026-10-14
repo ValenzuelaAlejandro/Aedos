@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { MODEL_CATALOG, isLocalNvidiaTrialRequest } = require('../../config/model-catalog');
+const { MODEL_CATALOG } = require('../../config/model-catalog');
 const { getSpendStatus } = require('../../utils/spend-guard');
 
 /**
@@ -12,7 +12,6 @@ const { getSpendStatus } = require('../../utils/spend-guard');
 function registerEntryRoutes({ app, tmpDir, isDevelopment }) {
     app.get('/api/models', async (req, res) => {
         const models = Object.values(MODEL_CATALOG)
-            .filter(model => model.provider !== 'nvidia' || isLocalNvidiaTrialRequest(req))
             .map(({ id, name, provider, brand, tier, paid, billing, creditsPerSlide,
                 creditsPerPresentation, attachments, modes, maxSlides }) => ({
                 id, name, provider, brand, tier, paid, billing, creditsPerSlide,

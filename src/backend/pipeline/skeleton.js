@@ -1,6 +1,5 @@
 /* eslint-disable max-lines-per-function, complexity */
-const { resolveModelId, validateAttachments, validateModelForGeneration,
-    isLocalNvidiaTrialRequest } = require('../config/model-catalog');
+const { resolveModelId, validateAttachments, validateModelForGeneration } = require('../config/model-catalog');
 const { getRequestIp, readRequestId, resetAt } = require('../utils/credits-ledger');
 
 /**
@@ -47,8 +46,7 @@ function createSkeletonHandler(deps) {
 
         try {
             const opciones = req.body || {};
-            const modelSelection = resolveModelId(opciones.modelId, undefined,
-                { localNvidiaTrial: isLocalNvidiaTrialRequest(req) });
+            const modelSelection = resolveModelId(opciones.modelId);
             if (!modelSelection.valid) {
                 await deps.discardUploadedFiles?.(req.files);
                 return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });

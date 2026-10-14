@@ -64,7 +64,7 @@ async function fallbackToFree({ gemini, openrouter, providerLog, ErrorCategory, 
     });
 }
 
-function createSelectedModelRouter({ gemini, openrouter, nvidia, makeBaseCaller, getOverride, createStub, providerLog,
+function createSelectedModelRouter({ gemini, openrouter, makeBaseCaller, getOverride, createStub, providerLog,
     ErrorCategory, hasGeminiKey = () => Boolean(process.env.GEMINI_API_KEY),
     shouldUseTestStub = () => process.env.NODE_ENV === 'test' && process.env.AEDOS_TEST_STUB_PROVIDERS === '1' }) {
     function makeCaller(stageName, geminiModel, openrouterModels) {
@@ -86,9 +86,7 @@ function createSelectedModelRouter({ gemini, openrouter, nvidia, makeBaseCaller,
                 const result = selectedModel.provider === 'gemini'
                     ? await gemini(prompt, stageName, selectedModel.providerModelId, fileContext,
                         { ...options, modelRoute: initialRoute })
-                    : selectedModel.provider === 'nvidia'
-                        ? await nvidia(prompt, stageName, selectedModel, { ...options, modelRoute: initialRoute })
-                        : await openrouter(prompt, stageName, [selectedModel.providerModelId], fileContext, {
+                    : await openrouter(prompt, stageName, [selectedModel.providerModelId], fileContext, {
                         ...options,
                         modelRoute: initialRoute,
                         providerSelection: selectedModel,
@@ -96,12 +94,6 @@ function createSelectedModelRouter({ gemini, openrouter, nvidia, makeBaseCaller,
                     });
                 return resultWithRoute(result, initialRoute);
             } catch (error) {
-                // NVIDIA Build is an explicit local trial selection; do not silently spend Gemini or OpenRouter quota.
-                if (selectedModel.provider === 'nvidia') {
-                    throw Object.assign(new Error('PROVIDER_UNAVAILABLE', { cause: error }), {
-                        fallbackReason: fallbackReasonFor(error)
-                    });
-                }
                 const reason = fallbackReasonFor(error);
                 providerLog.warn(ErrorCategory.PROVIDER, 'Selected model failed; trying free fallback', {
                     stage: stageName, requestedModelId, fallbackReason: reason
