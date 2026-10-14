@@ -336,9 +336,7 @@ test('Pro final SSE event reports requested and effective model IDs after select
             sanitizerLog: logger,
             IS_DEVELOPMENT: false,
             TMP_DIR: '', fs: {}, path: {},
-            devLog: logger, classifyError: error => error,
-            extractPresentationTitle: noop, buildFileStemFromTitle: noop, resolveUniqueHtmlPath: noop,
-            EXAMPLES_FLASH_DIR: '', EXAMPLES_PRO_DIR: ''
+            devLog: logger, classifyError: error => error
         };
         const handler = createGenerateHandler(deps);
         const res = new FakeResponse();

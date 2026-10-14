@@ -662,5 +662,4 @@ When `NODE_ENV=development`:
 
 - `tmp/last_generated.html` is saved;
 - `tmp/pipeline_debug_*` files are saved;
-- examples are saved to `examples/flash/` and `examples/pro/`;
 - `GET /__dev__/last-generated` is available.

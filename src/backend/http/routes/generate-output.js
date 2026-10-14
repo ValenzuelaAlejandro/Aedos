@@ -11,7 +11,7 @@ function ensureDocumentLanguage(html, language) {
 /**
  * Normalize, validate and sanitize the complete streamed HTML response.
  *
- * @param {{fullHtml: string, usePipeline: boolean, requestId: string, opciones: any, res: any, maxProSlides: number, maxFlashSlides: number, sanitizeGeneratedHtml: Function, injectLayoutSafetyNet: Function, sanitizerLog: any, ErrorCategory: any, isDevelopment: boolean, tmpDir: string, fs: any, path: any, devLog: any, classifyError: Function, extractPresentationTitle: Function, buildFileStemFromTitle: Function, resolveUniqueHtmlPath: Function, examplesFlashDir: string, examplesProDir: string, vendorAssets: {lucide: {url: string, integrity: string}}}} deps
+ * @param {{fullHtml: string, usePipeline: boolean, requestId: string, opciones: any, res: any, maxProSlides: number, maxFlashSlides: number, sanitizeGeneratedHtml: Function, injectLayoutSafetyNet: Function, sanitizerLog: any, ErrorCategory: any, isDevelopment: boolean, tmpDir: string, fs: any, path: any, devLog: any, classifyError: Function, vendorAssets: {lucide: {url: string, integrity: string}}}} deps
  * @returns {{type: string, html?: string, message?: string}}
  */
 function processGeneratedOutput({
@@ -32,11 +32,6 @@ function processGeneratedOutput({
     path,
     devLog,
     classifyError,
-    extractPresentationTitle,
-    buildFileStemFromTitle,
-    resolveUniqueHtmlPath,
-    examplesFlashDir,
-    examplesProDir,
     vendorAssets
 }) {
     let finalHtml = fullHtml.replace(/^```html\n?/m, '').replace(/^```\n?/m, '').replace(/```\n?$/m, '').trim();
@@ -198,29 +193,6 @@ function processGeneratedOutput({
             devLog.success(ErrorCategory.FILESYSTEM, 'Saved generated debug HTML', {
                 requestId,
                 path: debugPath
-            });
-        });
-
-        const titleForFile = extractPresentationTitle(cleanedOutput) || opciones.tema || 'presentation';
-        const stem = buildFileStemFromTitle(titleForFile);
-        const modeFolder = usePipeline ? 'pro' : 'flash';
-        const modeExamplesDir = usePipeline ? examplesProDir : examplesFlashDir;
-        const examplePath = resolveUniqueHtmlPath(modeExamplesDir, stem);
-        fs.writeFile(examplePath, cleanedOutput, 'utf8', (err) => {
-            if (err) {
-                devLog.warn(classifyError(err, ErrorCategory.FILESYSTEM), 'Failed to save generated example HTML', {
-                    requestId,
-                    error: err,
-                    title: titleForFile,
-                    mode: modeFolder
-                });
-                return;
-            }
-            devLog.success(ErrorCategory.FILESYSTEM, 'Saved generated example HTML', {
-                requestId,
-                path: examplePath,
-                title: titleForFile,
-                mode: modeFolder
             });
         });
     }

@@ -661,5 +661,4 @@ Cuando `NODE_ENV=development`:
 
 - se guarda `tmp/last_generated.html`;
 - se guardan `tmp/pipeline_debug_*`;
-- se guardan ejemplos en `examples/flash/` y `examples/pro/`;
 - existe `GET /__dev__/last-generated`.

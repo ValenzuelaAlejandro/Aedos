@@ -20,7 +20,7 @@ const FREE_MODELS = Object.freeze(Object.values(MODEL_CATALOG)
 const MODEL_OUTPUT_TOKENS = Object.freeze(Object.fromEntries(Object.values(MODEL_CATALOG)
     .filter(model => model.provider === 'openrouter')
     .map(model => [model.providerModelId, model.outputMaxTokens])));
-// Typical 8-slide Pro HTML fixtures in examples/pro are 18-25k characters;
+// Typical 8-slide Pro HTML outputs are 18-25k characters;
 // these ceilings leave several times that output budget, including reasoning.
 // The 1.2 MB Java fixture is an exceptional embedded-asset outlier.
 const OUTPUT_TOKENS = Object.freeze({ Flash: 32768, Stage1: 8192, Stage2: 16384, Stage3: 65536 });

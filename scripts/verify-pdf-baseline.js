@@ -9,10 +9,7 @@ process.env.GEMINI_API_KEY = 'pdf-baseline-stub';
 process.env.AEDOS_TEST_STUB_PROVIDERS = '1';
 
 const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(
-    path.join(root, 'examples', 'flash', 'como-emprender-un-negocio.html'),
-    'utf8',
-);
+const html = fs.readFileSync(path.join(root, 'tests', 'fixtures', 'pdf-baseline.html'), 'utf8');
 const checkOnly = process.argv.includes('--check');
 const { app } = require('../src/backend/server');
 

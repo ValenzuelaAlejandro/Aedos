@@ -273,11 +273,6 @@ function createGenerateHandler(deps) {
                 path: deps.path,
                 devLog: deps.devLog,
                 classifyError: deps.classifyError,
-                extractPresentationTitle: deps.extractPresentationTitle,
-                buildFileStemFromTitle: deps.buildFileStemFromTitle,
-                resolveUniqueHtmlPath: deps.resolveUniqueHtmlPath,
-                examplesFlashDir: deps.EXAMPLES_FLASH_DIR,
-                examplesProDir: deps.EXAMPLES_PRO_DIR,
                 vendorAssets
             });
             if (output.type === 'refused') {

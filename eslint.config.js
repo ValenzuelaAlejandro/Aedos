@@ -88,7 +88,6 @@ module.exports = [
         ignores: [
             '**/node_modules/**',
             '**/tmp/**',
-            '**/examples/**',
             '**/tests/fixtures/**',
             '**/tests/baseline/**',
             '**/puppeteer-cache/**',

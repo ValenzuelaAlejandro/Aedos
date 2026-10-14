@@ -33,14 +33,9 @@ for (const [name, input] of Object.entries(cases)) {
     fs.writeFileSync(path.join(dir, `${name}.output.html`), sanitizeGeneratedHtml(input) + '\n');
 }
 
-for (const relative of [
-    'examples/flash/como-emprender-un-negocio.html',
-    'examples/pro/como-aprender-java-tu-guia-paso-a-paso.html',
-]) {
-    const input = fs.readFileSync(path.join(root, relative));
+for (const name of ['como-emprender-un-negocio', 'como-aprender-java-tu-guia-paso-a-paso']) {
+    const input = fs.readFileSync(path.join(dir, `${name}.input.html`));
     const output = sanitizeGeneratedHtml(input.toString());
-    const name = path.basename(relative, '.html');
-    fs.writeFileSync(path.join(dir, `${name}.input.html`), input);
     fs.writeFileSync(path.join(dir, `${name}.output.html`), output);
     fs.writeFileSync(
         path.join(dir, `${name}.sha256`),

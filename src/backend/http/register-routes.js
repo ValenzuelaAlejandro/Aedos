@@ -56,12 +56,7 @@ function registerBackendRoutes(deps) {
         sanitizeGeneratedHtml: deps.sanitizeGeneratedHtml,
         injectLayoutSafetyNet: deps.injectLayoutSafetyNet,
         sanitizerLog: deps.sanitizerLog,
-        IS_DEVELOPMENT: deps.IS_DEVELOPMENT,
-        extractPresentationTitle: deps.extractPresentationTitle,
-        buildFileStemFromTitle: deps.buildFileStemFromTitle,
-        resolveUniqueHtmlPath: deps.resolveUniqueHtmlPath,
-        EXAMPLES_FLASH_DIR: deps.EXAMPLES_FLASH_DIR,
-        EXAMPLES_PRO_DIR: deps.EXAMPLES_PRO_DIR
+        IS_DEVELOPMENT: deps.IS_DEVELOPMENT
     });
 
     registerFinalizeRoutes({

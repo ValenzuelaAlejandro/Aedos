@@ -7,7 +7,6 @@ tmp/
 .cache/puppeteer
 .cache
 .vercel
-examples/*
 puppeteer-cache/
 tests/baseline/diffs/
 tmp/baseline-current/

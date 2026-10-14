@@ -29,7 +29,6 @@ const { sanitizeTema } = require('./contracts/topic-sanitizer');
 const { sanitizeGeneratedHtml: sanitizeGeneratedHtmlMoved } = require('./sanitization/html');
 const { TMP_DIR, upload, handleUploadError } = require('./files/upload');
 const { createDirectoryEnsurer, ensureBackendDirectories } = require('./files/directories');
-const { extractPresentationTitle, buildFileStemFromTitle, resolveUniqueHtmlPath } = require('./files/content');
 const { buildSkeletonFileContext, buildGenerationFileContext, discardUploadedFiles } = require('./files/attachments');
 const { createGenerationQueue } = require('./queues/generation');
 const { createFinalizeQueue } = require('./queues/finalize');
@@ -157,10 +156,6 @@ const pptxFinalizer = createPptxFinalizer({
     ErrorCategory
 });
 const IS_DEVELOPMENT = RUNTIME_ENV === 'development';
-const EXAMPLES_DIR = path.join(__dirname, '..', '..', 'examples');
-const EXAMPLES_FLASH_DIR = path.join(EXAMPLES_DIR, 'flash');
-const EXAMPLES_PRO_DIR = path.join(EXAMPLES_DIR, 'pro');
-
 
 const {
     OPENROUTER_MODELS_FLASH,
@@ -223,10 +218,6 @@ app.use(createStaticFilesMiddleware({
 const ensureDirectory = createDirectoryEnsurer({ log, ErrorCategory });
 ensureBackendDirectories({
     tmpDir: TMP_DIR,
-    examplesDir: EXAMPLES_DIR,
-    examplesFlashDir: EXAMPLES_FLASH_DIR,
-    examplesProDir: EXAMPLES_PRO_DIR,
-    isDevelopment: IS_DEVELOPMENT,
     ensureDirectory
 });
 
@@ -374,11 +365,6 @@ registerBackendRoutes({
     injectLayoutSafetyNet,
     sanitizerLog,
     IS_DEVELOPMENT,
-    extractPresentationTitle,
-    buildFileStemFromTitle,
-    resolveUniqueHtmlPath,
-    EXAMPLES_FLASH_DIR,
-    EXAMPLES_PRO_DIR,
     checkFinalizePressure,
     checkFinalizeLimits,
     finalizeQueueState,

@@ -46,11 +46,6 @@ function createHandler() {
         path: {},
         devLog: { success: noop, warn: noop },
         classifyError: (error) => error,
-        extractPresentationTitle: noop,
-        buildFileStemFromTitle: noop,
-        resolveUniqueHtmlPath: noop,
-        EXAMPLES_FLASH_DIR: '',
-        EXAMPLES_PRO_DIR: '',
     });
 }
 
