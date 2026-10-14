@@ -12,9 +12,9 @@ The production model allowlist is defined by the backend catalog in
 | `openai/gpt-6-luna` | OpenRouter | Standard / 3 credits per slide | 15 Flash, 8 Pro | Production selector |
 | `anthropic/claude-haiku-5.5` | OpenRouter | Standard / 3 credits per slide | 15 Flash, 8 Pro | Production selector |
 
-NVIDIA Build entries use namespaced Aedos IDs. They are available in the
-service model catalog whenever `NVIDIA_API_KEY` is configured, independent of
-environment and client location. They never enter provider fallback. NVIDIA's
+NVIDIA Build entries use namespaced Aedos IDs. They are available only when
+`NVIDIA_API_KEY` is configured, the server runs in development, and the request
+comes from loopback. They never enter provider fallback. NVIDIA's
 model pages state the hosted endpoint is governed by NVIDIA API Trial Terms;
 confirm the account's terms permit the intended deployment before enabling the
 key in a public service.
@@ -51,7 +51,7 @@ stage, provider, model, usage, reasoning tokens, finish reason, and duration.
 
 | Variable | Purpose | Default / safe setting |
 |---|---|---|
-| `NVIDIA_API_KEY` | NVIDIA Build service credential | Required to expose NVIDIA Build models |
+| `NVIDIA_API_KEY` | NVIDIA Build service credential | Required for local NVIDIA Build tests |
 | `OPENROUTER_REASONING_EFFORT_SCHEMA` | Schema reasoning | `low` |
 | `OPENROUTER_REASONING_EFFORT_DESIGN` | Design reasoning | `low` |
 | `OPENROUTER_REASONING_EFFORT_HTML` | HTML reasoning | `none` |

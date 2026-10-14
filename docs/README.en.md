@@ -568,12 +568,17 @@ At least one of these must exist:
 | `PRESSURE_RETRY_AFTER_SEC` | Client retry hint |
 | `PUPPETEER_MAX_CONCURRENT` | Concurrent PDF renders |
 | `PUPPETEER_MAX_QUEUE` | PDF queue cap |
-| `LIMITS_FLASH_DAILY` | Daily Flash quota |
-| `LIMITS_PRO_DAILY` | Daily Pro quota |
 | `LIMITS_FLASH_COOLDOWN_SEC` | Flash cooldown |
 | `LIMITS_PRO_COOLDOWN_SEC` | Pro cooldown |
 | `GLOBAL_DAILY_GENERATION_LIMIT` | Global daily cap |
 | `LIMITS_FINALIZE_MAX` | Finalizations per window |
+
+The Flash/Pro/chat daily quotas have been replaced by a 50-credit daily balance
+per IP in Redis. The balance resets at midnight UTC and credits do not roll
+over. Initial schema generation is free, with a separate limit of 10 requests
+per IP per day. The server catalog sets the rates: Gemini 10 per presentation,
+Light 2 per slide, Standard 3 per slide, and NVIDIA trial models 1 per slide
+(local server only).
 
 ### Integrations and binaries
 

@@ -11,45 +11,46 @@ const uiSource = fs.readFileSync(path.join(root, 'src/frontend/features/credits/
 
 function loadCredits(hostname) {
     const values = new Map();
+    const requests = [];
     const window = {
         location: hostname ? { hostname } : undefined,
+        crypto: { randomUUID: () => 'request-id-0001' },
         localStorage: {
             getItem: key => values.get(key) || null,
             setItem: (key, value) => values.set(key, value),
         },
-        fetch: async url => ({ ok: true, json: async () => url === '/api/credits'
-            ? { balance: 17, dailyLimit: 50, geminiAvailable: false }
-            : { models: [{ id: 'api/model', tier: 'free', billing: 'perSlide', creditsPerSlide: 1 }], paymentsPaused: true } }),
+        fetch: async (url, options = {}) => {
+            requests.push({ url, options });
+            if (url === '/api/credits') return { ok: true, json: async () => ({ daily: 50, remaining: 17, geminiAvailable: false,
+                paidPaused: true, resetsAt: '2026-10-14T00:00:00.000Z' }) };
+            if (url === '/api/models') return { ok: true, json: async () => ({ models: [
+                { id: 'api/model', name: 'API model', tier: 'free', billing: 'perSlide', creditsPerSlide: 1 },
+            ], paymentsPaused: true }) };
+            if (url === '/api/credits/spend') return { ok: true, json: async () => ({ cost: 1, remaining: 16,
+                resetsAt: '2026-10-14T00:00:00.000Z' }) };
+            return { ok: false, json: async () => ({}) };
+        },
     };
     vm.runInNewContext(catalogSource, { window });
     vm.runInNewContext(serviceSource, { window });
-    return { window, values };
+    return { window, values, requests };
 }
 
-test('mock credits are daily, spend atomically within one tab store, and refund failed work', async () => {
-    const { window, values } = loadCredits();
+test('credits default to server balance and do not use localStorage for balance changes', async () => {
+    const { window, values, requests } = loadCredits();
     const service = window.AedosCredits;
-    assert.equal((await service.getCredits()).balance, 50);
-    assert.equal((await service.getCredits()).geminiAvailable, true);
-    assert.equal(service.spend(49).ok, true);
-    assert.equal(service.spend(2).ok, false);
-    assert.equal((await service.getCredits()).balance, 1);
-    service.refund(4);
-    assert.equal((await service.getCredits()).balance, 5);
-    const saved = JSON.parse(values.get('aedos-credit-mock-v1'));
-    saved.day = '2000-01-01';
-    values.set('aedos-credit-mock-v1', JSON.stringify(saved));
-    assert.equal((await service.getCredits()).balance, 50);
-});
-
-test('API adapter can replace simulated credits and model catalog without changing callers', async () => {
-    const { window } = loadCredits();
-    window.AedosCredits.setApiMode(true);
     assert.equal((await window.AedosCredits.getCredits()).balance, 17);
     assert.equal((await window.AedosCredits.getCredits()).geminiAvailable, false);
     const models = await window.AedosCredits.getModels();
     assert.equal(models.models[0].id, 'api/model');
     assert.equal(models.paymentsPaused, true);
+    const charged = await service.spend(999, 'add-element', 'request-id-0001');
+    assert.equal(charged.ok, true);
+    assert.equal(charged.balance, 16);
+    const spendRequest = requests.find(request => request.url === '/api/credits/spend');
+    assert.equal(spendRequest.options.headers['Idempotency-Key'], 'request-id-0001');
+    assert.deepEqual(JSON.parse(spendRequest.options.body), { operation: 'add-element' });
+    assert.equal(values.size, 0);
 });
 
 test('catalog uses explicit billing types', () => {
@@ -62,14 +63,14 @@ test('catalog uses explicit billing types', () => {
     assert.deepEqual(JSON.parse(JSON.stringify(window.MAX_SLIDES_BY_MODE)), { flash: 15, pro: 8 });
 });
 
-test('NVIDIA Build trial catalog entries are capped at five slides and hidden without server approval', async () => {
+test('NVIDIA Build trial catalog entries are capped at five slides and API catalog controls visibility', async () => {
     const { window } = loadCredits('aedos.example');
     const models = window.MODEL_CATALOG.filter(model => model.nvidiaTrial);
     assert.equal(models.length, 2);
     assert.ok(models.every(model => model.tier === 'free' && model.creditsPerSlide === 1));
     assert.ok(models.every(model => model.maxSlides.flash === 5 && model.maxSlides.pro === 5));
-    const mockModels = await window.AedosCredits.getModels();
-    assert.equal(mockModels.models.some(model => model.nvidiaTrial), false);
+    const apiModels = await window.AedosCredits.getModels();
+    assert.deepEqual(apiModels.models.map(model => model.id), ['api/model']);
 });
 
 test('slide zones cover each mode maximum without gaps or overlap', () => {

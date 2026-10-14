@@ -42,14 +42,16 @@ async function collectSse(response) {
 }
 
 function json(body) {
-    return { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
+    json.requestId = (json.requestId || 0) + 1;
+    return { method: 'POST', headers: { 'content-type': 'application/json', 'Idempotency-Key': `contract-${json.requestId}-request` }, body: JSON.stringify(body) };
 }
 
 function multipart(fields, files) {
+    multipart.requestId = (multipart.requestId || 0) + 1;
     const form = new FormData();
     for (const [key, value] of Object.entries(fields)) form.append(key, String(value));
     for (const file of files) form.append('files', new Blob([file.content], { type: file.type || 'application/octet-stream' }), file.name);
-    return { method: 'POST', body: form };
+    return { method: 'POST', headers: { 'Idempotency-Key': `multipart-${multipart.requestId}-request` }, body: form };
 }
 
 test('GET /health and GET / expose the current public entry points', async () => {

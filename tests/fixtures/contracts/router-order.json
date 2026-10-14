@@ -71,6 +71,26 @@
   },
   {
     "type": "route",
+    "path": "/api/credits",
+    "methods": [
+      "get"
+    ],
+    "stack": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "type": "route",
+    "path": "/api/credits/spend",
+    "methods": [
+      "post"
+    ],
+    "stack": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "type": "route",
     "path": "/generate-skeleton",
     "methods": [
       "post"
@@ -109,6 +129,7 @@
       "checkGenerationPressure",
       "validateModelRequest",
       "checkRateLimits",
+      "reserveGenerationCredits",
       "<anonymous>"
     ]
   },

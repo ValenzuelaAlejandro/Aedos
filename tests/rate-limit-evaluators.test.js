@@ -17,7 +17,7 @@ function makeEvaluators({ dailyTtlSec = 3600, globalDailyLimit = 10, finalizeMax
     });
 }
 
-test('memory generation evaluator preserves per-mode limit decisions', () => {
+test('memory generation evaluator no longer blocks on a per-mode daily limit', () => {
     const evaluators = makeEvaluators();
     const config = { daily: 1, cooldownSec: 0 };
 
@@ -27,29 +27,39 @@ test('memory generation evaluator preserves per-mode limit decisions', () => {
         generationsToday: 1,
         globalGenerationsToday: 1,
     });
-    const blocked = evaluators.evaluateGenerateRateLimitMemory('127.0.0.1', 'outline', config);
-    assert.deepEqual({ ...blocked, retryAfterSec: undefined }, {
-        allowed: false,
+    const second = evaluators.evaluateGenerateRateLimitMemory('127.0.0.1', 'outline', config);
+    assert.deepEqual(second, {
+        allowed: true,
         source: 'memory',
-        reason: 'daily_limit',
-        statusCode: 429,
-        errorCode: 'DAILY_LIMIT_EXCEEDED_OUTLINE',
-        retryAfterSec: undefined,
-        message: 'Daily limit reached for this mode.',
-        limit: 1,
+        generationsToday: 2,
+        globalGenerationsToday: 2,
     });
-    assert.ok(blocked.retryAfterSec >= 1 && blocked.retryAfterSec <= 3600);
+    const third = evaluators.evaluateGenerateRateLimitMemory('127.0.0.1', 'pro', config);
+    assert.deepEqual(third, {
+        allowed: true,
+        source: 'memory',
+        generationsToday: 3,
+        globalGenerationsToday: 3,
+    });
 });
 
-test('memory generation evaluator applies the shared global limit across modes', () => {
+test('memory generation evaluator preserves the shared global limit', () => {
     const evaluators = makeEvaluators({ globalDailyLimit: 1 });
 
     assert.equal(evaluators.evaluateGenerateRateLimitMemory('a', 'flash', { daily: 5, cooldownSec: 0 }).allowed, true);
     const blocked = evaluators.evaluateGenerateRateLimitMemory('b', 'chat', { daily: 5, cooldownSec: 0 });
 
-    assert.equal(blocked.errorCode, 'GLOBAL_DAILY_LIMIT_EXCEEDED');
-    assert.equal(blocked.reason, 'global_daily_limit');
-    assert.equal(blocked.limit, 1);
+    assert.deepEqual({ ...blocked, retryAfterSec: undefined }, {
+        allowed: false,
+        source: 'memory',
+        reason: 'global_daily_limit',
+        statusCode: 429,
+        errorCode: 'GLOBAL_DAILY_LIMIT_EXCEEDED',
+        retryAfterSec: undefined,
+        message: 'System daily generation limit reached. Please try again later.',
+        limit: 1,
+    });
+    assert.ok(blocked.retryAfterSec >= 1 && blocked.retryAfterSec <= 3600);
 });
 
 test('memory finalize evaluator keeps the configured rolling-window limit', () => {
@@ -83,8 +93,6 @@ test('Redis evaluator issues the same increment, expiry, and cooldown pipeline',
 
     assert.deepEqual(decision, { allowed: true, source: 'redis', generationsToday: 1, globalGenerationsToday: 1 });
     assert.deepEqual(commands, [
-        ['incr', 'ratelimit:daily:pro:127.0.0.1'],
-        ['expire', 'ratelimit:daily:pro:127.0.0.1', 3600],
         ['incr', 'ratelimit:daily:global'],
         ['expire', 'ratelimit:daily:global', 3600],
         ['set', 'ratelimit:cooldown:pro:127.0.0.1', '1', { ex: 30 }],

@@ -568,12 +568,17 @@ Al menos una de estas debe existir:
 | `PRESSURE_RETRY_AFTER_SEC` | Hint de reintento al cliente |
 | `PUPPETEER_MAX_CONCURRENT` | Renders PDF simultaneos |
 | `PUPPETEER_MAX_QUEUE` | Cola maxima de PDF |
-| `LIMITS_FLASH_DAILY` | Cupo diario Flash |
-| `LIMITS_PRO_DAILY` | Cupo diario Pro |
 | `LIMITS_FLASH_COOLDOWN_SEC` | Cooldown Flash |
 | `LIMITS_PRO_COOLDOWN_SEC` | Cooldown Pro |
 | `GLOBAL_DAILY_GENERATION_LIMIT` | Limite global diario |
 | `LIMITS_FINALIZE_MAX` | Finalizaciones por ventana |
+
+Los limites diarios Flash/Pro/chat se sustituyeron por un saldo de 50 creditos
+por IP en Redis. El saldo se reinicia a medianoche UTC; los creditos no se
+acumulan. El esquema inicial no cobra creditos y tiene un cupo independiente
+de 10 solicitudes por IP y dia. El catalogo del servidor fija los costos: Gemini
+10 por presentacion, Ligero 2 por diapositiva, Estandar 3 por diapositiva y
+modelos de prueba NVIDIA 1 por diapositiva (solo servidor local).
 
 ### Integraciones y binarios
 

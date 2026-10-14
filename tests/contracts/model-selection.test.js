@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { MODEL_CATALOG, DEFAULT_MODEL_ID, resolveModelId, validateAttachments,
-    validateModelForGeneration, isNvidiaTrialEnabled } = require('../../src/backend/config/model-catalog');
+    validateModelForGeneration, isLocalNvidiaTrialRequest } = require('../../src/backend/config/model-catalog');
 const { FREE_MODELS } = require('../../src/backend/config/provider-spend');
 const { createSelectedModelRouter } = require('../../src/backend/providers/model-selection');
 const { createGenerateHandler } = require('../../src/backend/http/routes/generate');
@@ -19,7 +19,7 @@ test('model allowlist accepts catalog IDs, defaults missing IDs, and rejects unk
     assert.equal(resolveModelId('  ').model.id, DEFAULT_MODEL_ID);
     for (const id of Object.keys(MODEL_CATALOG)) {
         const model = MODEL_CATALOG[id];
-        assert.equal(resolveModelId(id, undefined, { nvidiaTrialEnabled: model.provider === 'nvidia' }).valid, true, id);
+        assert.equal(resolveModelId(id, undefined, { localNvidiaTrial: model.provider === 'nvidia' }).valid, true, id);
     }
     for (const model of Object.values(MODEL_CATALOG).filter(entry => entry.provider === 'nvidia')) {
         assert.equal(resolveModelId(model.id).code, 'MODEL_NOT_ALLOWED', model.id);
@@ -68,11 +68,17 @@ test('schema generation routes the selected model instead of silently using Gemi
         ERROR_TEXT: {},
         MAX_PRO_SLIDES: 8,
         MAX_FLASH_SLIDES: 15,
+        creditsLedger: {
+            reserveSchemaRequest: async () => ({ status: 'allowed' }),
+            reserve: async () => { throw new Error('initial schema must not reserve credits'); },
+        },
         log: logger,
         ErrorCategory,
     });
     const req = new EventEmitter();
     req.body = { modelId: selectedModel.id, tema: 'Tema breve', mode: 'flash', slides: 1 };
+    req.headers = {};
+    req.socket = { remoteAddress: '127.0.0.1' };
     const chunks = [];
     const res = new EventEmitter();
     res.write = chunk => { chunks.push(chunk); return true; };
@@ -84,16 +90,21 @@ test('schema generation routes the selected model instead of silently using Gemi
     assert.match(chunks.join(''), /"done":true/);
 });
 
-test('NVIDIA Build trial models are available to the service in any environment when keyed', () => {
+test('NVIDIA Build trial models require a key and a local development request', () => {
     const previousMode = process.env.NODE_ENV;
     const previousKey = process.env.NVIDIA_API_KEY;
-    process.env.NODE_ENV = 'production';
+    process.env.NODE_ENV = 'development';
     process.env.NVIDIA_API_KEY = 'test-key';
-    assert.equal(isNvidiaTrialEnabled(), true);
-    assert.equal(resolveModelId('nvidia-build/nemotron-3.5-lightning', undefined, { nvidiaTrialEnabled: isNvidiaTrialEnabled() }).valid, true);
+    const localRequest = { hostname: 'localhost', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '::1' } };
+    assert.equal(isLocalNvidiaTrialRequest(localRequest), true);
+    assert.equal(resolveModelId('nvidia-build/nemotron-3.5-lightning', undefined,
+        { localNvidiaTrial: isLocalNvidiaTrialRequest(localRequest) }).valid, true);
+    process.env.NODE_ENV = 'production';
+    assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
     delete process.env.NVIDIA_API_KEY;
-    assert.equal(isNvidiaTrialEnabled(), false);
-    assert.equal(resolveModelId('nvidia-build/nemotron-3.5-lightning', undefined, { nvidiaTrialEnabled: isNvidiaTrialEnabled() }).code, 'MODEL_NOT_ALLOWED');
+    assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
+    assert.equal(resolveModelId('nvidia-build/nemotron-3.5-lightning', undefined,
+        { localNvidiaTrial: isLocalNvidiaTrialRequest(localRequest) }).code, 'MODEL_NOT_ALLOWED');
     process.env.NODE_ENV = previousMode;
     if (previousKey === undefined) delete process.env.NVIDIA_API_KEY;
     else process.env.NVIDIA_API_KEY = previousKey;

@@ -33,7 +33,7 @@ function rawPost(agent, port, topic) {
         path: '/generate',
         method: 'POST',
         agent,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'Idempotency-Key': `queue-${topic}` },
     }, (response) => {
         responseReady.resolve(response.statusCode);
         let pending = '';
