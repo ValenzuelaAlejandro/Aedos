@@ -47,7 +47,32 @@ const retryAfterMatch = rawMsg.match(/\|RETRY_AFTER=(\d+)/);
 const retryAfterSec = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) : null;
 const msg = rawMsg.replace(/\|RETRY_AFTER=\d+/, '');
 
-if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCEEDED_PRO') || msg.includes('DAILY_LIMIT_EXCEEDED_CHAT')) {
+if (msg.includes('PAYMENTS_PAUSED')) {
+    if (errTitle) errTitle.textContent = window.__t('credits.errorPaidTitle');
+    if (errSubtitle) errSubtitle.textContent = window.__t('credits.errorPaidSubtitle');
+    window.AedosCreditsUI?.updateStatus('credits.paidPaused', 'paused');
+    document.querySelectorAll('.model-dropdown-item').forEach(item => {
+        const model = (window.MODEL_CATALOG || []).find(entry => entry.id === item.dataset.modelId);
+        if (model?.tier !== 'free') {
+            item.dataset.paused = 'true';
+            item.setAttribute('aria-disabled', 'true');
+            item.setAttribute('data-tooltip', window.__t('credits.modelUnavailable'));
+        }
+    });
+} else if (msg.includes('CREDITS_EXHAUSTED') || msg.includes('INSUFFICIENT_CREDITS')) {
+    if (errTitle) errTitle.textContent = window.__t(msg.includes('CREDITS_EXHAUSTED') ? 'credits.errorExhaustedTitle' : 'credits.errorInsufficientTitle');
+    const quote = window.AedosCreditsUI?.getQuote?.();
+    const canReduce = !msg.includes('CREDITS_EXHAUSTED') && quote?.billing === 'perSlide'
+        && window.AedosCreditsUI?.getBalance?.() >= quote.rate;
+    if (errSubtitle) errSubtitle.textContent = window.__t(canReduce
+        ? 'credits.errorInsufficientSubtitleSlides' : 'credits.errorInsufficientSubtitleModel');
+    window.AedosCreditsUI?.updateStatus(msg.includes('CREDITS_EXHAUSTED') ? 'credits.exhausted' : 'credits.missingOne',
+        msg.includes('CREDITS_EXHAUSTED') ? 'empty' : 'insufficient',
+        { time: window.AedosCreditsUI?.getResetTime?.() || '', n: 1 });
+} else if (msg.includes('SCHEMA_DAILY_LIMIT')) {
+    if (errTitle) errTitle.textContent = window.__t('daily_limit_title', "You've reached today's limit");
+    if (errSubtitle) errSubtitle.textContent = window.__t('credits.schemaLimit');
+} else if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCEEDED_PRO') || msg.includes('DAILY_LIMIT_EXCEEDED_CHAT')) {
     if (errTitle) errTitle.textContent = window.__t ? window.__t('daily_limit_title', "You've reached today's limit") : "You've reached today's limit";
     if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('daily_limit_msg', "Free generations reset every 24 hours. Come back tomorrow or try again later.") : "Free generations reset every 24 hours. Come back tomorrow or try again later.";
 } else if (msg.includes('COOLDOWN_ACTIVE')) {

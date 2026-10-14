@@ -24,46 +24,149 @@
     // eslint-disable-next-line max-lines-per-function -- Keep this vertical controller in legacy registration order.
     function createAppDropdowns({ document, window, generationState, elements, finalizeBtn }) {
         const {
-            modeBtn, modeMenu, langBtn, langMenu, exportMenuBtn, exportMenu,
-            exportPptxBtn, currentModeLabel, currentLangLabel, chatInputWrapper,
+            modelBtn, modelMenu, modelOptions, modeToggle, langBtn, langMenu, exportMenuBtn, exportMenu,
+            exportPptxBtn, currentModelLabel, currentModelIcon, currentLangLabel, chatInputWrapper,
         } = elements;
 
         function closeAllDropdowns() {
-            if (modeMenu) modeMenu.classList.add('hidden');
+            if (modelMenu) modelMenu.classList.add('hidden');
             if (langMenu) langMenu.classList.add('hidden');
             if (exportMenu) exportMenu.classList.add('hidden');
-            if (modeBtn) modeBtn.setAttribute('aria-expanded', 'false');
+            if (modelBtn) modelBtn.setAttribute('aria-expanded', 'false');
             if (langBtn) langBtn.setAttribute('aria-expanded', 'false');
             if (exportMenuBtn) exportMenuBtn.setAttribute('aria-expanded', 'false');
+            const slidePanel = document.getElementById('slide-count-panel');
+            if (slidePanel) slidePanel.hidden = true;
+            document.getElementById('slide-count-trigger')?.setAttribute('aria-expanded', 'false');
+            const balancePopover = document.getElementById('credits-popover');
+            if (balancePopover) balancePopover.hidden = true;
+            document.getElementById('credits-balance-trigger')?.setAttribute('aria-expanded', 'false');
         }
 
-        if (modeBtn && modeMenu) {
-            modeBtn.addEventListener('click', (e) => {
+        const creditsUI = window.AedosCreditsUI;
+        const brands = new Set(['gemini', 'openai', 'anthropic', 'nvidia']);
+        let paymentsPaused = false;
+        function brandFor(model) {
+            if (brands.has(model.brand)) return model.brand;
+            const id = model.id || '';
+            if (id.startsWith('google/')) return 'gemini';
+            if (id.startsWith('openai/')) return 'openai';
+            if (id.startsWith('anthropic/')) return 'anthropic';
+            if (id.startsWith('nvidia/')) return 'nvidia';
+            return 'avatar';
+        }
+        function renderBrandIcon(element, model) {
+            const brand = brandFor(model);
+            element.className = `model-brand-icon model-brand-icon--${brand}`;
+            element.textContent = brand === 'avatar' ? (model.name || 'A').charAt(0).toUpperCase() : '';
+        }
+        function selectModel(model) {
+            const previousSlides = creditsUI?.getSlideCount() || 1;
+            generationState.selectedModelId = model.id;
+            if (currentModelLabel) currentModelLabel.textContent = model.name;
+            if (currentModelIcon) renderBrandIcon(currentModelIcon, model);
+            if (modelBtn) modelBtn.setAttribute('aria-label', window.__t('credits.selectModel').replace('{model}', model.name));
+            creditsUI?.setSlideCount(previousSlides);
+            const newSlides = creditsUI?.getSlideCount() || previousSlides;
+            if (newSlides < previousSlides) creditsUI?.showModeClampNotice(newSlides, model.name);
+            window.AedosAttachments?.refreshAvailability?.();
+        }
+        function renderModels(models, paused) {
+            if (!modelOptions) return;
+            paymentsPaused = paused;
+            modelOptions.replaceChildren();
+            if (creditsUI) creditsUI.setModels(models);
+            const visibleModels = models.filter(model => !paused || model.tier === 'free');
+            ['free', 'light', 'standard'].forEach(tier => {
+                const tierModels = visibleModels.filter(model => model.tier === tier);
+                if (!tierModels.length) return;
+                const heading = document.createElement('div');
+                heading.className = 'model-tier-heading';
+                heading.textContent = window.__t(`tier.${tier}`);
+                modelOptions.appendChild(heading);
+                tierModels.forEach(model => {
+                    const option = document.createElement('button');
+                    option.type = 'button';
+                    option.className = 'dropdown-item model-dropdown-item';
+                    option.dataset.modelId = model.id;
+                    option.setAttribute('role', 'menuitemradio');
+                    option.setAttribute('aria-checked', String(model.id === generationState.selectedModelId));
+                    const icon = document.createElement('span'); renderBrandIcon(icon, model); icon.setAttribute('aria-hidden', 'true');
+                    const name = document.createElement('span'); name.className = 'model-option-name';
+                    name.textContent = model.name;
+                    const quote = creditsUI.getQuote(1, model);
+                    const costKey = quote.billing === 'perPresentation'
+                        ? (quote.rate === 1 ? 'credits.perPresentationOne' : 'credits.perPresentationMany')
+                        : (quote.rate === 1 ? 'credits.perSlideOne' : 'credits.perSlideMany');
+                    const cost = document.createElement('span'); cost.className = 'model-option-cost'; cost.textContent = window.__t(costKey).replace('{n}', quote.rate);
+                    option.append(icon, name, cost);
+                    if (model.id === generationState.selectedModelId) option.classList.add('active');
+                    modelOptions.appendChild(option);
+                });
+            });
+            const pausedMessage = document.getElementById('model-payment-paused-message');
+            pausedMessage?.classList.toggle('hidden', !paused);
+            if (pausedMessage) pausedMessage.textContent = window.__t('credits.paidPaused');
+            if (paused) creditsUI?.updateStatus('credits.paidPaused', 'paused');
+            else if (document.getElementById('credits-status')?.dataset.state === 'paused') creditsUI?.updateStatus('');
+            if (!visibleModels.some(model => model.id === generationState.selectedModelId) && visibleModels[0]) selectModel(visibleModels[0]);
+            else {
+                const selected = visibleModels.find(model => model.id === generationState.selectedModelId);
+                if (selected) selectModel(selected);
+            }
+        }
+        if (modelBtn && modelMenu) {
+            modelBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (modeBtn.disabled) return;
-                const isHidden = modeMenu.classList.contains('hidden');
+                const isHidden = modelMenu.classList.contains('hidden');
                 closeAllDropdowns();
                 if (isHidden) {
-                    modeMenu.classList.remove('hidden');
-                    modeBtn.setAttribute('aria-expanded', 'true');
+                    modelMenu.classList.remove('hidden');
+                    modelBtn.setAttribute('aria-expanded', 'true');
                 }
             });
-            modeMenu.addEventListener('click', (e) => {
-                const item = e.target.closest('.dropdown-item[data-mode]');
+            modelMenu.addEventListener('click', (e) => {
+                const item = e.target.closest('.model-dropdown-item[data-model-id]');
                 if (!item) return;
-                const mode = item.dataset.mode;
-                generationState.proModeEnabled = (mode === 'pro');
-                modeMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+                const model = (creditsUI?.getModels() || window.MODEL_CATALOG || []).find(entry => entry.id === item.dataset.modelId);
+                if (!model) return;
+                selectModel(model);
+                modelMenu.querySelectorAll('.model-dropdown-item').forEach(el => { el.classList.remove('active'); el.setAttribute('aria-checked', 'false'); });
                 item.classList.add('active');
-                const labelKey = mode === 'pro' ? 'mode_pro_title' : 'mode_flash_title';
-                if (currentModeLabel) {
-                    currentModeLabel.textContent = window.__t(labelKey);
-                    currentModeLabel.setAttribute('data-i18n', labelKey);
-                }
-                if (chatInputWrapper) chatInputWrapper.classList.toggle('is-pro', generationState.proModeEnabled);
+                item.setAttribute('aria-checked', 'true');
                 closeAllDropdowns();
             });
         }
+        function renderModeToggle() {
+            if (!modeToggle) return;
+            modeToggle.setAttribute('aria-checked', String(generationState.proModeEnabled));
+            const tip = window.__t(generationState.proModeEnabled ? 'mode.tooltipPro' : 'mode.tooltipFlash');
+            modeToggle.setAttribute('data-tooltip', tip);
+            modeToggle.title = tip;
+        }
+        modeToggle?.addEventListener('click', () => {
+            const oldCount = creditsUI?.getSlideCount() || 1;
+            generationState.proModeEnabled = !generationState.proModeEnabled;
+            renderModeToggle();
+            chatInputWrapper?.classList.toggle('is-pro', generationState.proModeEnabled);
+            creditsUI?.setSlideCount(oldCount);
+            if (generationState.proModeEnabled && oldCount > window.MAX_SLIDES_BY_MODE.pro) {
+                creditsUI?.showModeClampNotice(window.MAX_SLIDES_BY_MODE.pro);
+            }
+            renderModels(creditsUI?.getModels() || window.MODEL_CATALOG || [], paymentsPaused);
+        });
+        renderModeToggle();
+        if (creditsUI) creditsUI.refresh().then(result => {
+            if (result) renderModels(result.models, result.paymentsPaused);
+        });
+        window.addEventListener('aedos:models-updated', event => {
+            const detail = event.detail || {};
+            renderModels(detail.models || [], Boolean(detail.paymentsPaused));
+        });
+        window.addEventListener('aedos:language-changed', () => {
+            renderModels(creditsUI?.getModels() || window.MODEL_CATALOG || [], paymentsPaused);
+            renderModeToggle();
+        });
 
         if (langBtn && langMenu) {
             langBtn.addEventListener('click', (e) => {
@@ -79,6 +182,7 @@
                 const item = e.target.closest('.dropdown-item[data-lang]');
                 if (!item) return;
                 generationState.targetLanguage = item.dataset.lang;
+                if (item.dataset.lang === 'es' || item.dataset.lang === 'en') window.__setUiLanguage?.(item.dataset.lang);
                 langMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
                 item.classList.add('active');
                 if (currentLangLabel) currentLangLabel.textContent = item.textContent.split(' ')[0]; // Show shortened name if space exists
@@ -112,29 +216,7 @@
 
         document.addEventListener('click', closeAllDropdowns);
 
-        // Auto-lock pro mode when files are attached
-        window._syncModeWithFiles = function () {
-            if (!modeBtn) return;
-            if (window._attachedFiles && window._attachedFiles.length > 0) {
-                generationState.proModeEnabled = true;
-                modeBtn.disabled = true;
-                modeBtn.style.opacity = '0.6';
-                modeBtn.style.cursor = 'not-allowed';
-                modeBtn.parentElement.setAttribute('data-tooltip', window.__t('mode_tooltip_file_locked', 'High Quality is required to analyze files.'));
-                if (currentModeLabel) currentModeLabel.textContent = window.__t('mode_pro_title', 'High Quality');
-                if (chatInputWrapper) chatInputWrapper.classList.add('is-pro');
-                if (modeMenu) modeMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.toggle('active', el.dataset.mode === 'pro'));
-            } else {
-                generationState.proModeEnabled = false;
-                modeBtn.disabled = false;
-                modeBtn.style.opacity = '';
-                modeBtn.style.cursor = '';
-                modeBtn.parentElement.removeAttribute('data-tooltip');
-                if (currentModeLabel) currentModeLabel.textContent = window.__t('mode_flash_title', 'Fast Mode');
-                if (chatInputWrapper) chatInputWrapper.classList.remove('is-pro');
-                if (modeMenu) modeMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.toggle('active', el.dataset.mode === 'flash'));
-            }
-        };
+        renderModels(window.MODEL_CATALOG || [], false);
     }
 
     api.createAppDropdowns = createAppDropdowns;

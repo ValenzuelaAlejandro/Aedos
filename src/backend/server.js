@@ -30,7 +30,7 @@ const { sanitizeGeneratedHtml: sanitizeGeneratedHtmlMoved } = require('./sanitiz
 const { TMP_DIR, upload, handleUploadError } = require('./files/upload');
 const { createDirectoryEnsurer, ensureBackendDirectories } = require('./files/directories');
 const { extractPresentationTitle, buildFileStemFromTitle, resolveUniqueHtmlPath } = require('./files/content');
-const { buildSkeletonFileContext, buildGenerationFileContext } = require('./files/attachments');
+const { buildSkeletonFileContext, buildGenerationFileContext, discardUploadedFiles } = require('./files/attachments');
 const { createGenerationQueue } = require('./queues/generation');
 const { createFinalizeQueue } = require('./queues/finalize');
 const { createPdfExporter } = require('./export/pdf');
@@ -58,8 +58,12 @@ const { registerBackendRoutes } = require('./http/register-routes');
 
 const { createLogger, classifyError, ErrorCategory } = require('./utils/logger');
 const { verifyConnection: verifyRedis, checkRateLimits, checkFinalizeLimits } = require('./utils/rate-limiter');
+const { spendGuard } = require('./utils/spend-guard');
+const { creditsLedger: redisCreditsLedger, createMemoryCreditsLedger } = require('./utils/credits-ledger');
 
 const log = createLogger({ scope: 'SERVER' });
+const creditsLedger = process.env.NODE_ENV === 'test' && process.env.AEDOS_TEST_STUB_PROVIDERS === '1'
+    ? createMemoryCreditsLedger() : redisCreditsLedger;
 const providerLog = log.child('PROVIDER');
 const queueLog = log.child('QUEUE');
 const sanitizerLog = log.child('SANITIZER');
@@ -68,6 +72,10 @@ const imageLog = log.child('IMAGES');
 const puppeteerLog = log.child('PUPPETEER');
 const runtimeConfig = loadEnvConfig(process.env);
 let testProviderOverride = null;
+// Deterministic provider stubs do not spend Redis Gemini quota in contract tests.
+const hasGeminiRequestAvailable = () => process.env.NODE_ENV === 'test' && process.env.AEDOS_TEST_STUB_PROVIDERS === '1'
+    ? Promise.resolve(true)
+    : spendGuard.hasGeminiRequestAvailable();
 const browserManager = createBrowserManager({
     rootDir: path.join(__dirname, '..', '..'),
     puppeteerLog,
@@ -256,7 +264,11 @@ const {
     tryModelsFlashThinking,
     tryModelsStage1Thinking,
     tryModelsStage2Thinking,
-    tryModelsStage3Thinking
+    trySelectedStage1Thinking,
+    trySelectedStage2Thinking,
+    tryModelsStage3Thinking,
+    trySelectedFlash,
+    trySelectedStage3Thinking
 } = createProviderRuntime({
     runtimeConfig,
     providerLog,
@@ -284,6 +296,7 @@ const handleGenerateSkeleton = createSkeletonHandler({
     buildStage1Prompt,
     buildStage1RevisionPrompt,
     tryModelsStage1Thinking,
+    trySelectedStage1Thinking,
     extractJson,
     setSseHeaders,
     writeSse,
@@ -291,6 +304,9 @@ const handleGenerateSkeleton = createSkeletonHandler({
     ERROR_TEXT,
     MAX_PRO_SLIDES,
     MAX_FLASH_SLIDES,
+    discardUploadedFiles,
+    hasGeminiRequestAvailable,
+    creditsLedger,
     log,
     ErrorCategory
 });
@@ -298,6 +314,7 @@ const handleGenerateOutlineItem = createOutlineItemHandler({
     buildAddSlidePrompt,
     buildAddPointPrompt,
     tryModelsStage1,
+    creditsLedger,
     extractJson,
     ERROR_TEXT,
     log,
@@ -320,6 +337,7 @@ registerBackendRoutes({
     MAX_UPLOAD_ARRAY_FIELDS,
     checkGenerationPressure,
     checkRateLimits,
+    creditsLedger,
     handleGenerateSkeleton,
     handleGenerateOutlineItem,
     generationQueue,
@@ -328,9 +346,15 @@ registerBackendRoutes({
     tryModelsFlash,
     tryModelsStage1Thinking,
     tryModelsStage2Thinking,
+    trySelectedStage1Thinking,
+    trySelectedStage2Thinking,
     tryModelsStage3Thinking,
+    trySelectedFlash,
+    trySelectedStage3Thinking,
     buildPrompt,
     buildGenerationFileContext,
+    discardUploadedFiles,
+    hasGeminiRequestAvailable,
     sanitizeTema,
     invalidTopic,
     validationFailed,

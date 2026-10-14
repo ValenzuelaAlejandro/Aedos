@@ -1,4 +1,5 @@
 const { registerEntryRoutes } = require('./routes/entry');
+const { registerCreditsRoutes } = require('./routes/credits');
 const { registerGenerationRoutes } = require('./routes/generation-endpoints');
 const { registerFinalizeRoutes } = require('./routes/finalize');
 const { registerDownloadRoute } = require('./routes/download');
@@ -10,6 +11,8 @@ const { registerDownloadRoute } = require('./routes/download');
  */
 function registerBackendRoutes(deps) {
     registerEntryRoutes({ app: deps.app, tmpDir: deps.TMP_DIR, isDevelopment: deps.IS_DEVELOPMENT });
+    registerCreditsRoutes({ app: deps.app, ledger: deps.creditsLedger,
+        hasGeminiRequestAvailable: deps.hasGeminiRequestAvailable });
 
     registerGenerationRoutes({
         app: deps.app,
@@ -17,6 +20,9 @@ function registerBackendRoutes(deps) {
         maxUploadArrayFields: deps.MAX_UPLOAD_ARRAY_FIELDS,
         checkGenerationPressure: deps.checkGenerationPressure,
         checkRateLimits: deps.checkRateLimits,
+        creditsLedger: deps.creditsLedger,
+        hasGeminiRequestAvailable: deps.hasGeminiRequestAvailable,
+        discardUploadedFiles: deps.discardUploadedFiles,
         handleGenerateSkeleton: deps.handleGenerateSkeleton,
         handleGenerateOutlineItem: deps.handleGenerateOutlineItem,
         generationQueue: deps.generationQueue,
@@ -25,7 +31,11 @@ function registerBackendRoutes(deps) {
         tryModelsFlash: deps.tryModelsFlash,
         tryModelsStage1Thinking: deps.tryModelsStage1Thinking,
         tryModelsStage2Thinking: deps.tryModelsStage2Thinking,
+        trySelectedStage1Thinking: deps.trySelectedStage1Thinking,
+        trySelectedStage2Thinking: deps.trySelectedStage2Thinking,
         tryModelsStage3Thinking: deps.tryModelsStage3Thinking,
+        trySelectedFlash: deps.trySelectedFlash,
+        trySelectedStage3Thinking: deps.trySelectedStage3Thinking,
         buildPrompt: deps.buildPrompt,
         buildGenerationFileContext: deps.buildGenerationFileContext,
         sanitizeTema: deps.sanitizeTema,

@@ -10,6 +10,13 @@ process.env.LIMITS_CHAT_DAILY = '1000';
 process.env.LIMITS_OUTLINE_DAILY = '1000';
 process.env.LIMITS_FLASH_DAILY = '1000';
 process.env.LIMITS_PRO_DAILY = '1000';
+// Provider-network tests exercise the HTTP/SSE seam; the Redis guard has its own
+// atomicity tests and is mocked here so no external account or Redis is used.
+const { spendGuard } = require('../../src/backend/utils/spend-guard');
+spendGuard.reserveGeminiRequest = async () => true;
+spendGuard.reserve = async () => ({ allowed: true });
+spendGuard.settle = async () => true;
+spendGuard.release = async () => true;
 
 const skeleton = { slides: [{ title: 'Fallback slide', subtitle: '', points: [] }] };
 const skeletonFrame = jsonFrame({ candidates: [{ content: { parts: [{ text: JSON.stringify(skeleton) }] } }] });
@@ -27,7 +34,7 @@ function events(raw) {
     return raw.trim().split('\n\n').map((block) => JSON.parse(block.replace(/^data: /, '')));
 }
 
-test('Gemini acceptance failure falls back to OpenRouter with the frozen SSE sequence', async () => {
+test('Gemini acceptance failure does not incur a paid OpenRouter fallback', async () => {
     const calls = [];
     const fakes = installProviderFakes({
         gemini: async () => {
@@ -46,13 +53,9 @@ test('Gemini acceptance failure falls back to OpenRouter with the frozen SSE seq
     try {
         const response = await fetch(`http://127.0.0.1:${server.address().port}/generate-skeleton`, json({ tema: 'Fallback', language: 'es' }));
         const raw = await readSse(response);
-        assert.equal(response.status, 200);
-        assert.deepEqual(calls, ['gemini', 'gemini', 'openrouter']);
-        assert.deepEqual(events(raw), [
-            { metadata: { provider: 'openrouter', model: 'google/gemini-2.5-flash-lite' } },
-            { chunk: JSON.stringify(skeleton) },
-            { done: true, skeleton }
-        ]);
+        assert.equal(response.status, 503);
+        assert.deepEqual(calls, ['gemini', 'gemini']);
+        assert.equal(JSON.parse(raw).code, 'PROVIDER_UNAVAILABLE');
     } finally {
         await new Promise((resolve) => server.close(resolve));
         fakes.restore();
@@ -96,8 +99,11 @@ test('Gemini and every OpenRouter model failure preserve the final error shape',
     await new Promise((resolve) => server.once('listening', resolve));
     try {
         const response = await fetch(`http://127.0.0.1:${server.address().port}/generate-skeleton`, json({ tema: 'Double failure', language: 'es' }));
-        assert.equal(response.status, 500);
-        assert.deepEqual(await response.json(), { error: 'Failed to generate outline. Please try again.' });
+        assert.equal(response.status, 503);
+        assert.deepEqual(await response.json(), {
+            error: 'The AI providers are temporarily unavailable. Please try again later.',
+            code: 'PROVIDER_UNAVAILABLE'
+        });
     } finally {
         await new Promise((resolve) => server.close(resolve));
         fakes.restore();

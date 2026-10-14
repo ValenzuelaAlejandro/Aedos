@@ -8,7 +8,7 @@
         return {
             skeleton: null,
             mode: 'flash',
-            maxSlides: 15,
+            maxSlides: window.MAX_SLIDES_BY_MODE.flash,
             isLoading: false,
             activeContainer: null
         };

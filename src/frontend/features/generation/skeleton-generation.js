@@ -49,6 +49,15 @@
                 generationState.skeletonController.abort();
                 generationState.skeletonController = null;
             }
+
+            const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
+            if (hasFiles && !window.AedosCreditsUI?.canAttachDocuments?.()) {
+                window.AedosModals.showNotice(window.__t('credits.attachmentsGeminiOnly'));
+                window.AedosAttachments?.refreshAvailability?.();
+                return;
+            }
+            // The server must reject attachments without Gemini quota or on a paid model;
+            // client-side checks and model IDs are not trustworthy.
     
             // Push state immediately so the native back button works during the loading phase
             if (window.location.hash !== '#chat') {
@@ -56,7 +65,6 @@
             }
     
             const tema = temaInput.value.trim();
-            const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
             if (!tema && !hasFiles) {
                 temaError.classList.add('visible');
                 temaInput.focus();
@@ -68,11 +76,14 @@
     
             const requestData = {
                 tema: finalTema,
-                mode: 'chat', // skeleton always draws from the chat rate-limit bucket
+                mode: 'chat', // The server applies the dedicated free schema quota; this is not a credit charge.
+                modelId: generationState.selectedModelId || 'google/gemini-3-flash-preview',
+                slides: window.AedosCreditsUI?.getSlideCount() || 8,
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
     
             const isFollowUpRequest = window.outlineEditorState && window.outlineEditorState.skeleton !== null;
+            const requestId = window.AedosCredits.createRequestId();
     
             if (isFollowUpRequest) {
                 requestData.currentSkeleton = JSON.stringify(window.outlineEditorState.skeleton);
@@ -86,10 +97,11 @@
     
             let bodyData;
             // eslint-disable-next-line prefer-const -- Retain the existing request assembly unchanged.
-            let headers = {};
+            let headers = { 'Idempotency-Key': requestId };
             if (window._attachedFiles && window._attachedFiles.length > 0) {
                 const formData = new FormData();
                 formData.append('tema', requestData.tema);
+                formData.append('modelId', requestData.modelId);
                 if (requestData.mode) formData.append('mode', requestData.mode);
                 if (requestData.language) formData.append('language', requestData.language);
                 if (requestData.slides !== undefined) formData.append('slides', requestData.slides);
@@ -139,6 +151,9 @@
     
                 if (!skeletonResponse.ok) {
                     const errData = await skeletonResponse.json().catch(() => ({}));
+                    if (skeletonResponse.status === 402 || errData.code === 'INSUFFICIENT_CREDITS') {
+                        await window.AedosCreditsUI?.refresh();
+                    }
                     const serverErr = errData.error || `Server error: ${skeletonResponse.status}`;
                     throw new Error(serverErr);
                 }
@@ -232,6 +247,8 @@
                 if (!finalSkeleton) {
                     finalSkeleton = window.parsePartialSkeleton(rawText);
                 }
+
+                await window.AedosCreditsUI?.refresh();
     
                 const hasRenderableSkeleton = !!(
                     finalSkeleton &&
@@ -283,6 +300,9 @@
                     throw new Error("Outline editor not initialized");
                 }
             } catch (error) {
+                if (isFollowUpRequest) {
+                    window.AedosCreditsUI?.refresh();
+                }
                 handleSkeletonError(error, controller);
             }
         };

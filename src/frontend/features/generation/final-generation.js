@@ -26,6 +26,7 @@
                     clearStageInlinePadding, setPreviewStreamStatus, updateMinimapSkeleton,
                     requestAnimationFrame, setTimeout, clearTimeout,
                 });
+            const creditRequestId = window.AedosCredits.createRequestId();
     
             try {
                 if (generationState.activeController) {
@@ -35,7 +36,8 @@
                 
                 const controller = new AbortController();
                 generationState.activeController = controller;
-    
+
+                const requestedSlides = Math.min(window.AedosCreditsUI.getSlideCount(), Math.max(1, Array.isArray(skeleton?.slides) ? skeleton.slides.length : 8));
                 let bodyData = window._pendingGenerateBodyData;
                 // eslint-disable-next-line prefer-const -- Retain the existing request assembly unchanged.
                 let headers = window._pendingGenerateHeaders || {};
@@ -45,35 +47,42 @@
                 if (bodyData instanceof FormData) {
                     const cloned = new FormData();
                     for (const [key, val] of bodyData.entries()) {
-                        if (key !== 'files' && key !== 'mode') {
+                        if (key !== 'files' && key !== 'mode' && key !== 'modelId' && key !== 'slides' && key !== 'requestId') {
                             cloned.append(key, val);
                         }
                     }
                     // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
-                    if (generationState.proModeEnabled) cloned.append('mode', 'pro');
+                    cloned.append('mode', generationState.proModeEnabled ? 'pro' : 'flash');
+                    // The server must validate modelId and compute the authoritative cost; client fields are untrusted.
+                    cloned.append('modelId', generationState.selectedModelId || 'google/gemini-3-flash-preview');
+                    cloned.append('slides', String(requestedSlides));
                     cloned.append('skeleton', JSON.stringify(skeleton));
+                    cloned.append('requestId', creditRequestId);
                     bodyData = cloned;
                 } else {
                     const parsed = JSON.parse(bodyData);
                     parsed.skeleton = skeleton;
+                    // The server must validate modelId and compute the authoritative cost; client fields are untrusted.
+                    parsed.modelId = generationState.selectedModelId || parsed.modelId || 'google/gemini-3-flash-preview';
+                    parsed.slides = requestedSlides;
+                    parsed.requestId = creditRequestId;
                     // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
-                    if (generationState.proModeEnabled) {
-                        parsed.mode = 'pro';
-                    } else {
-                        delete parsed.mode;
-                    }
+                    parsed.mode = generationState.proModeEnabled ? 'pro' : 'flash';
                     bodyData = JSON.stringify(parsed);
                 }
     
                 const response = await fetch('/generate', {
                     method: 'POST',
-                    headers: headers,
+                    headers: { ...headers, 'Idempotency-Key': creditRequestId },
                     body: bodyData,
                     signal: controller.signal
                 });
     
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
+                    if (response.status === 402 || errorData.code === 'INSUFFICIENT_CREDITS') {
+                        await window.AedosCreditsUI?.refresh();
+                    }
                     const serverErr = errorData.error || `Server error: ${response.status}`;
                     const retryAfter = Number(errorData.retryAfterSec);
                     if (Number.isFinite(retryAfter) && retryAfter > 0) {
@@ -173,6 +182,7 @@
                                     previewMarkupBuffer.queue(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
                             }
                             if (parsed.refused) {
+                                await window.AedosCreditsUI?.refresh();
                                 clearPendingTransition();
                                 setStabilizeMinimapOnNextPreviewInit(false);
                                 chatScreen.style.cssText = '';
@@ -240,8 +250,10 @@
                     clearPendingTransition: () => { clearPendingTransition(); },
                     setTimeout
                 })();
+                window.AedosCreditsUI?.refresh();
     
             } catch (error) {
+                window.AedosCreditsUI?.refresh();
                 previewMarkupBuffer.clearTimer();
                 previewMarkupBuffer.markClosed();
                 if (generationState.activeGeneration === generation) {

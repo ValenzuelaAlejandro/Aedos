@@ -11,6 +11,8 @@ process.env.LIMITS_CHAT_DAILY = '1000';
 process.env.LIMITS_OUTLINE_DAILY = '1000';
 process.env.LIMITS_FLASH_DAILY = '1000';
 process.env.LIMITS_PRO_DAILY = '1000';
+const { spendGuard } = require('../../src/backend/utils/spend-guard');
+spendGuard.reserveGeminiRequest = async () => true;
 
 const skeleton = { slides: [{ title: 'Timeout fallback', subtitle: '', points: [] }] };
 const openRouterFrame = jsonFrame({ choices: [{ delta: { content: JSON.stringify(skeleton) } }] });
@@ -19,11 +21,7 @@ function json(body) {
     return { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
 }
 
-function events(raw) {
-    return raw.trim().split('\n\n').map((block) => JSON.parse(block.replace(/^data: /, '')));
-}
-
-test('provider acceptance timeout falls back with the same SSE envelope', async () => {
+test('provider acceptance timeout does not incur a paid OpenRouter fallback', async () => {
     const calls = [];
     const fakes = installProviderFakes({
         gemini: async ({ options }) => new Promise((resolve, reject) => {
@@ -40,13 +38,9 @@ test('provider acceptance timeout falls back with the same SSE envelope', async 
     await new Promise((resolve) => server.once('listening', resolve));
     try {
         const response = await fetch(`http://127.0.0.1:${server.address().port}/generate-skeleton`, json({ tema: 'Timeout', language: 'es' }));
-        assert.equal(response.status, 200);
-        assert.deepEqual(calls, ['gemini', 'gemini', 'openrouter']);
-        assert.deepEqual(events(await response.text()), [
-            { metadata: { provider: 'openrouter', model: 'google/gemini-2.5-flash-lite' } },
-            { chunk: JSON.stringify(skeleton) },
-            { done: true, skeleton }
-        ]);
+        assert.equal(response.status, 503);
+        assert.deepEqual(calls, ['gemini', 'gemini']);
+        assert.equal((await response.json()).code, 'PROVIDER_UNAVAILABLE');
     } finally {
         await new Promise((resolve) => server.close(resolve));
         fakes.restore();

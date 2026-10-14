@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const { MODEL_CATALOG } = require('../../config/model-catalog');
+const { getSpendStatus } = require('../../utils/spend-guard');
 
 /**
  * Register health, root and development inspection endpoints.
@@ -8,6 +10,18 @@ const path = require('path');
  * @returns {void}
  */
 function registerEntryRoutes({ app, tmpDir, isDevelopment }) {
+    app.get('/api/models', async (req, res) => {
+        const models = Object.values(MODEL_CATALOG)
+            .map(({ id, name, provider, brand, tier, paid, billing, creditsPerSlide,
+                creditsPerPresentation, attachments, modes, maxSlides }) => ({
+                id, name, provider, brand, tier, paid, billing, creditsPerSlide,
+                creditsPerPresentation, attachments, modes, maxSlides,
+            }));
+        const spendStatus = await getSpendStatus();
+        res.set('Cache-Control', 'no-store');
+        res.json({ models, paymentsPaused: Boolean(spendStatus.paidPaused) });
+    });
+
     app.get('/health', (req, res) => {
         res.status(200).send('OK');
     });

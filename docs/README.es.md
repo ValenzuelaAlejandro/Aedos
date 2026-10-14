@@ -556,6 +556,9 @@ Al menos una de estas debe existir:
 | `OPENROUTER_MODELS_STAGE2` | CSV de fallback para Stage 2 |
 | `OPENROUTER_MODELS_STAGE3` | CSV de fallback para Stage 3 |
 | `OPENROUTER_MODELS_STAGE3_ONLY` | Modelos restringidos a composicion final |
+| `OPENROUTER_REASONING_EFFORT_SCHEMA` | Razonamiento OpenRouter para esquema |
+| `OPENROUTER_REASONING_EFFORT_DESIGN` | Razonamiento OpenRouter para diseño |
+| `OPENROUTER_REASONING_EFFORT_HTML` | Razonamiento OpenRouter para HTML |
 
 ### Colas y limites
 
@@ -568,12 +571,26 @@ Al menos una de estas debe existir:
 | `PRESSURE_RETRY_AFTER_SEC` | Hint de reintento al cliente |
 | `PUPPETEER_MAX_CONCURRENT` | Renders PDF simultaneos |
 | `PUPPETEER_MAX_QUEUE` | Cola maxima de PDF |
-| `LIMITS_FLASH_DAILY` | Cupo diario Flash |
-| `LIMITS_PRO_DAILY` | Cupo diario Pro |
 | `LIMITS_FLASH_COOLDOWN_SEC` | Cooldown Flash |
 | `LIMITS_PRO_COOLDOWN_SEC` | Cooldown Pro |
+| `LIMITS_OUTLINE_COOLDOWN_SEC` | Cooldown del esquema |
+| `LIMITS_CHAT_COOLDOWN_SEC` | Cooldown del chat |
 | `GLOBAL_DAILY_GENERATION_LIMIT` | Limite global diario |
 | `LIMITS_FINALIZE_MAX` | Finalizaciones por ventana |
+
+Los limites diarios Flash/Pro/chat se sustituyeron por un saldo de 50 creditos
+por IP en Redis. El saldo se reinicia a medianoche UTC; los creditos no se
+acumulan. El esquema inicial no cobra creditos y tiene un cupo independiente
+de 10 solicitudes por IP y dia. El catalogo del servidor fija los costos: Gemini
+10 por presentacion, Ligero 2 por diapositiva y Estandar 3 por diapositiva.
+
+
+Si Redis no responde, el servidor falla cerrado: saldo, esquema y generación
+responden con `CREDITS_UNAVAILABLE` (503); no existe saldo en memoria de respaldo.
+
+Errores de selección y cobro: `MODEL_NOT_ALLOWED` (422),
+`ATTACHMENTS_NOT_ALLOWED` (422), `INSUFFICIENT_CREDITS` (402),
+`PAID_PAUSED` (503) y `PROVIDER_UNAVAILABLE` (503).
 
 ### Integraciones y binarios
 

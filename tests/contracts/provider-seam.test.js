@@ -12,7 +12,8 @@ process.env.LIMITS_PRO_DAILY = '1000';
 const { app, setTestProviderOverride, clearTestProviderOverride } = require('../../src/backend/server');
 
 function json(body) {
-    return { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
+    json.requestId = (json.requestId || 0) + 1;
+    return { method: 'POST', headers: { 'content-type': 'application/json', 'Idempotency-Key': `provider-${json.requestId}-request` }, body: JSON.stringify(body) };
 }
 
 test.after(() => clearTestProviderOverride());

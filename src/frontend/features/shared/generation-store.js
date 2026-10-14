@@ -9,6 +9,7 @@
         skeletonController: null,
         heroCustomTextActive: false,
         proModeEnabled: false,
+        selectedModelId: 'google/gemini-3-flash-preview',
         targetLanguage: 'auto',
         requestedExportFormat: 'pdf',
         sequence: 0,

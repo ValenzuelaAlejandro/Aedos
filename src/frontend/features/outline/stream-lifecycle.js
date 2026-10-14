@@ -32,7 +32,7 @@
         state.isLoading = true;
         state.skeleton = null;
         state.mode = mode;
-        state.maxSlides = mode === 'pro' ? 8 : 15;
+        state.maxSlides = global.MAX_SLIDES_BY_MODE[mode];
 
         const activeOutlineDom = dependencies.mountActiveContainer(dependencies.getActiveContainer());
         const container = activeOutlineDom.slidesContainer;

@@ -556,6 +556,9 @@ At least one of these must exist:
 | `OPENROUTER_MODELS_STAGE2` | Fallback CSV for Stage 2 |
 | `OPENROUTER_MODELS_STAGE3` | Fallback CSV for Stage 3 |
 | `OPENROUTER_MODELS_STAGE3_ONLY` | Models restricted to final composition |
+| `OPENROUTER_REASONING_EFFORT_SCHEMA` | OpenRouter reasoning for schema |
+| `OPENROUTER_REASONING_EFFORT_DESIGN` | OpenRouter reasoning for design |
+| `OPENROUTER_REASONING_EFFORT_HTML` | OpenRouter reasoning for HTML |
 
 ### Queues and limits
 
@@ -568,12 +571,27 @@ At least one of these must exist:
 | `PRESSURE_RETRY_AFTER_SEC` | Client retry hint |
 | `PUPPETEER_MAX_CONCURRENT` | Concurrent PDF renders |
 | `PUPPETEER_MAX_QUEUE` | PDF queue cap |
-| `LIMITS_FLASH_DAILY` | Daily Flash quota |
-| `LIMITS_PRO_DAILY` | Daily Pro quota |
 | `LIMITS_FLASH_COOLDOWN_SEC` | Flash cooldown |
 | `LIMITS_PRO_COOLDOWN_SEC` | Pro cooldown |
+| `LIMITS_OUTLINE_COOLDOWN_SEC` | Schema cooldown |
+| `LIMITS_CHAT_COOLDOWN_SEC` | Chat cooldown |
 | `GLOBAL_DAILY_GENERATION_LIMIT` | Global daily cap |
 | `LIMITS_FINALIZE_MAX` | Finalizations per window |
+
+The Flash/Pro/chat daily quotas have been replaced by a 50-credit daily balance
+per IP in Redis. The balance resets at midnight UTC and credits do not roll
+over. Initial schema generation is free, with a separate limit of 10 requests
+per IP per day. The server catalog sets the rates: Gemini 10 per presentation,
+Light 2 per slide, and Standard 3 per slide.
+
+
+If Redis is unavailable, the server fails closed: balance, schema, and
+generation requests return `CREDITS_UNAVAILABLE` (503); there is no in-memory
+credit fallback.
+
+Model and billing errors: `MODEL_NOT_ALLOWED` (422),
+`ATTACHMENTS_NOT_ALLOWED` (422), `INSUFFICIENT_CREDITS` (402),
+`PAID_PAUSED` (503), and `PROVIDER_UNAVAILABLE` (503).
 
 ### Integrations and binaries
 

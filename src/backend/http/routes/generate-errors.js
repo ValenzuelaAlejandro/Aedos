@@ -9,6 +9,8 @@ const { formatSseEvent } = require('../../contracts/sse');
  * @returns {void}
  */
 function handleGenerationError({ error, requestId, res, log, classifyError, ErrorCategory, markCompleted }) {
+    const providerError = error.message === 'PAID_PAUSED' || error.message === 'PROVIDER_UNAVAILABLE'
+        || error.message === 'CREDITS_UNAVAILABLE';
     const isQuotaError = error.message === 'QUOTA_EXHAUSTED';
     const isPipelineError = error.message && (
         error.message.startsWith('STAGE1_') ||
@@ -21,7 +23,12 @@ function handleGenerationError({ error, requestId, res, log, classifyError, Erro
     const isOutputTooLarge = error.message === 'GENERATION_OUTPUT_TOO_LARGE';
 
     let userMessage;
-    if (isQuotaError) {
+    if (providerError) {
+        userMessage = error.message === 'PAID_PAUSED'
+            ? 'Paid generation is temporarily paused. Please try again later.'
+            : 'The AI providers are temporarily unavailable. Please try again later.';
+        log.warn(ErrorCategory.PROVIDER, 'Provider route unavailable', { requestId, code: error.message });
+    } else if (isQuotaError) {
         userMessage = 'The AI service has reached its usage limit. Please try again in a few minutes.';
         log.warn(ErrorCategory.QUOTA, 'All configured models are quota exhausted', { requestId });
     } else if (error.message && error.message.startsWith('STAGE_TIMEOUT')) {
@@ -45,10 +52,11 @@ function handleGenerationError({ error, requestId, res, log, classifyError, Erro
     }
 
     if (!res.headersSent) {
-        res.status(isQuotaError ? 429 : 500).json({ error: userMessage });
+        res.status(providerError ? 503 : isQuotaError ? 429 : 500).json(providerError
+            ? { error: userMessage, code: error.message } : { error: userMessage });
         markCompleted();
     } else {
-        res.write(formatSseEvent(sseError(userMessage)));
+        res.write(formatSseEvent(providerError ? { ...sseError(userMessage), code: error.message } : sseError(userMessage)));
         res.end();
         markCompleted();
     }

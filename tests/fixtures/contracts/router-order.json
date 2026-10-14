@@ -31,57 +31,143 @@
   },
   {
     "type": "route",
+    "path": "/api/models",
+    "methods": [
+      "get"
+    ],
+    "stack": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "type": "route",
     "path": "/health",
-    "methods": ["get"],
-    "stack": ["<anonymous>"]
+    "methods": [
+      "get"
+    ],
+    "stack": [
+      "<anonymous>"
+    ]
   },
   {
     "type": "route",
     "path": "/",
-    "methods": ["get"],
-    "stack": ["<anonymous>"]
+    "methods": [
+      "get"
+    ],
+    "stack": [
+      "<anonymous>"
+    ]
   },
   {
     "type": "route",
     "path": "/__dev__/last-generated",
-    "methods": ["get"],
-    "stack": ["<anonymous>"]
+    "methods": [
+      "get"
+    ],
+    "stack": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "type": "route",
+    "path": "/api/credits",
+    "methods": [
+      "get"
+    ],
+    "stack": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "type": "route",
+    "path": "/api/credits/spend",
+    "methods": [
+      "post"
+    ],
+    "stack": [
+      "<anonymous>"
+    ]
   },
   {
     "type": "route",
     "path": "/generate-skeleton",
-    "methods": ["post"],
-    "stack": ["multerMiddleware", "jsonParser", "checkGenerationPressure", "checkRateLimits", "<anonymous>"]
+    "methods": [
+      "post"
+    ],
+    "stack": [
+      "multerMiddleware",
+      "jsonParser",
+      "checkGenerationPressure",
+      "validateModelRequest",
+      "checkRateLimits",
+      "<anonymous>"
+    ]
   },
   {
     "type": "route",
     "path": "/generate-outline-item",
-    "methods": ["post"],
-    "stack": ["jsonParser", "checkGenerationPressure", "checkRateLimits", "<anonymous>"]
+    "methods": [
+      "post"
+    ],
+    "stack": [
+      "jsonParser",
+      "checkGenerationPressure",
+      "checkRateLimits",
+      "<anonymous>"
+    ]
   },
   {
     "type": "route",
     "path": "/generate",
-    "methods": ["post"],
-    "stack": ["multerMiddleware", "jsonParser", "checkGenerationPressure", "checkRateLimits", "<anonymous>"]
+    "methods": [
+      "post"
+    ],
+    "stack": [
+      "multerMiddleware",
+      "jsonParser",
+      "checkGenerationPressure",
+      "validateModelRequest",
+      "checkRateLimits",
+      "reserveGenerationCredits",
+      "<anonymous>"
+    ]
   },
   {
     "type": "route",
     "path": "/finalize-pptx",
-    "methods": ["post"],
-    "stack": ["jsonParser", "checkFinalizePressure", "checkFinalizeLimits", "<anonymous>"]
+    "methods": [
+      "post"
+    ],
+    "stack": [
+      "jsonParser",
+      "checkFinalizePressure",
+      "checkFinalizeLimits",
+      "<anonymous>"
+    ]
   },
   {
     "type": "route",
     "path": "/finalize",
-    "methods": ["post"],
-    "stack": ["jsonParser", "checkFinalizePressure", "checkFinalizeLimits", "<anonymous>"]
+    "methods": [
+      "post"
+    ],
+    "stack": [
+      "jsonParser",
+      "checkFinalizePressure",
+      "checkFinalizeLimits",
+      "<anonymous>"
+    ]
   },
   {
     "type": "route",
     "path": "/download/:filename",
-    "methods": ["get"],
-    "stack": ["<anonymous>"]
+    "methods": [
+      "get"
+    ],
+    "stack": [
+      "<anonymous>"
+    ]
   },
   {
     "type": "middleware",

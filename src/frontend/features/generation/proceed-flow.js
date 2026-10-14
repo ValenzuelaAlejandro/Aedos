@@ -8,6 +8,10 @@
      */
 
     /** Create the existing outline-proceed UI and final-generation handoff. @param {ProceedFlowDependencies} deps */
+    function syncSlideCount(window, skeleton) {
+        if (Array.isArray(skeleton?.slides)) window.AedosCreditsUI?.setSlideCount(skeleton.slides.length);
+    }
+
     function createProceedFlow({ window, document }) {
         return function handleProceedFlow(finalSkeleton) {
             const aiMessages = document.querySelectorAll('.chat-msg-ai');
@@ -27,6 +31,7 @@
                     if (window.outlineEditorState) window.outlineEditorState.skeleton = window._backupSkeleton;
                     finalSkeletonObj = window._backupSkeleton;
                 }
+                syncSlideCount(window, finalSkeletonObj);
                 window.startFinalGeneration(finalSkeletonObj);
             }
         };

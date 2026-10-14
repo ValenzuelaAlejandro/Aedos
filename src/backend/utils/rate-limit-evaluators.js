@@ -49,7 +49,6 @@ function createRateLimitEvaluators(config) {
     function evaluateGenerateRateLimitMemory(ip, mode, cfg) {
         const now = Date.now();
         const globalDailyKey = 'ratelimit:daily:global';
-        const dailyKey = `ratelimit:daily:${mode}:${ip}`;
         const cooldownKey = `ratelimit:cooldown:${mode}:${ip}`;
 
         pruneExpiredMap(memoryState.cooldowns, now);
@@ -84,24 +83,6 @@ function createRateLimitEvaluators(config) {
             };
         }
 
-        const dailyCounter = getOrInitCounter(memoryState.dailyCounters, dailyKey, dailyTtlSec, now);
-        if (dailyCounter.count >= cfg.daily) {
-            return {
-                allowed: false,
-                source: 'memory',
-                reason: 'daily_limit',
-                statusCode: 429,
-                errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' :
-                           mode === 'outline' ? 'DAILY_LIMIT_EXCEEDED_OUTLINE' :
-                           mode === 'chat' ? 'DAILY_LIMIT_EXCEEDED_CHAT' :
-                           'DAILY_LIMIT_EXCEEDED_FLASH',
-                retryAfterSec: retryAfterSec(dailyCounter.expiresAt, now),
-                message: 'Daily limit reached for this mode.',
-                limit: cfg.daily,
-            };
-        }
-
-        dailyCounter.count += 1;
         globalCounter.count += 1;
         if (cfg.cooldownSec > 0) {
             memoryState.cooldowns.set(cooldownKey, now + cfg.cooldownSec * 1000);
@@ -110,14 +91,13 @@ function createRateLimitEvaluators(config) {
         return {
             allowed: true,
             source: 'memory',
-            generationsToday: dailyCounter.count,
+            generationsToday: globalCounter.count,
             globalGenerationsToday: globalCounter.count,
         };
     }
 
     async function evaluateGenerateRateLimitRedis(client, ip, mode, cfg) {
         const globalDailyKey = 'ratelimit:daily:global';
-        const dailyKey = `ratelimit:daily:${mode}:${ip}`;
         const cooldownKey = `ratelimit:cooldown:${mode}:${ip}`;
 
         if (cfg.cooldownSec > 0) {
@@ -151,30 +131,7 @@ function createRateLimitEvaluators(config) {
             };
         }
 
-        const currentCount = parseCount(await client.get(dailyKey));
-        if (currentCount >= cfg.daily) {
-            const ttl = await client.ttl(dailyKey);
-            return {
-                allowed: false,
-                source: 'redis',
-                reason: 'daily_limit',
-                statusCode: 429,
-                errorCode: mode === 'pro' ? 'DAILY_LIMIT_EXCEEDED_PRO' :
-                           mode === 'outline' ? 'DAILY_LIMIT_EXCEEDED_OUTLINE' :
-                           mode === 'chat' ? 'DAILY_LIMIT_EXCEEDED_CHAT' :
-                           'DAILY_LIMIT_EXCEEDED_FLASH',
-                retryAfterSec: Math.max(ttl, 1),
-                message: 'Daily limit reached for this mode.',
-                limit: cfg.daily,
-            };
-        }
-
         const pipeline = client.pipeline();
-        pipeline.incr(dailyKey);
-        if (currentCount === 0) {
-            pipeline.expire(dailyKey, dailyTtlSec);
-        }
-
         pipeline.incr(globalDailyKey);
         if (globalCount === 0) {
             pipeline.expire(globalDailyKey, dailyTtlSec);
@@ -188,7 +145,7 @@ function createRateLimitEvaluators(config) {
         return {
             allowed: true,
             source: 'redis',
-            generationsToday: currentCount + 1,
+            generationsToday: globalCount + 1,
             globalGenerationsToday: globalCount + 1,
         };
     }

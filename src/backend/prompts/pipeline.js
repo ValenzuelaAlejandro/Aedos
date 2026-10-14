@@ -50,7 +50,7 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
       task: async () => {
         const stage1Prompt = buildStage1.buildStage1Prompt(rawInput, targetLanguage);
         const stage1Raw = await runStage(
-          (p) => callStage1(p, fileContext, { reasoning: null }),
+          (p) => callStage1(p, fileContext),
           stage1Prompt,
           'Stage 1 (Content)',
           stageChunk('stage1')
@@ -104,7 +104,7 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
     task: async () => {
       const stage2Prompt = buildStage2Prompt(rawInput, contentJson);
       const stage2Raw = await runStage(
-        (p) => callStage2(p, null, { reasoning: null }),
+        (p) => callStage2(p, null),
         stage2Prompt, 'Stage 2 (Design)', stageChunk('stage2')
       );
 
@@ -148,7 +148,7 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
   await new Promise(r => setTimeout(r, 1000));
   pipelineLog.info(ErrorCategory.PIPELINE, 'Stage 3 streaming started');
   
-  const stage3Stream = await callStage3(stage3Prompt, null, { reasoning: null });
+  const stage3Stream = await callStage3(stage3Prompt, null);
   
   return {
     stage3Stream,

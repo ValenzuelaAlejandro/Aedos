@@ -73,7 +73,7 @@ test('image-slot overlay system registers its classic API and preserves legacy d
     assert.match(source, /setTimeout\(positionOverlays, 100\)[\s\S]*setTimeout\(positionOverlays, 500\)[\s\S]*setTimeout\(positionOverlays, 1500\)/);
 });
 
-test('app dropdown factory keeps its legacy global and event registration order', () => {
+test('app dropdown factory keeps model, mode, language, and export registration order', () => {
     const window = {};
     vm.runInNewContext(fs.readFileSync(appDropdownsPath, 'utf8'), { window }, {
         filename: appDropdownsPath,
@@ -81,8 +81,8 @@ test('app dropdown factory keeps its legacy global and event registration order'
     assert.equal(typeof window.AedosAppDropdowns.createAppDropdowns, 'function');
     const source = fs.readFileSync(appDropdownsPath, 'utf8');
     const registrations = [
-        "modeBtn.addEventListener('click'",
-        "modeMenu.addEventListener('click'",
+        "modelBtn.addEventListener('click'",
+        "modelMenu.addEventListener('click'",
         "langBtn.addEventListener('click'",
         "langMenu.addEventListener('click'",
         "exportMenuBtn.addEventListener('click'",
@@ -92,7 +92,8 @@ test('app dropdown factory keeps its legacy global and event registration order'
     ].map(token => source.indexOf(token));
     assert.ok(registrations.every(index => index >= 0));
     assert.deepEqual(registrations, [...registrations].sort((a, b) => a - b));
-    assert.match(source, /window\._syncModeWithFiles\s*=/);
+    assert.match(source, /window\.AedosAttachments\?\.refreshAvailability\?\.\(\)/);
+    assert.match(source, /modeToggle\?\.addEventListener\('click'/);
 });
 
 test('slide discovery preserves selector precedence and editor-chrome exclusions', () => {
