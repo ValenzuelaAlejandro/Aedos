@@ -5,7 +5,7 @@ const { processGeneratedOutput } = require('./generate-output');
 const { handleGenerationError } = require('./generate-errors');
 const vendorAssets = require('../../../frontend/features/shared/vendor-assets');
 const { resolveModelId, validateModelForGeneration, validateAttachments,
-    isLocalNvidiaTrialRequest } = require('../../config/model-catalog');
+    isNvidiaTrialEnabled } = require('../../config/model-catalog');
 const {
     normalizeMode,
     normalizeRequestedLanguage,
@@ -47,7 +47,7 @@ function createGenerateHandler(deps) {
         try {
             const opciones = req.body || {};
             const modelSelection = resolveModelId(opciones.modelId, undefined,
-                { localNvidiaTrial: isLocalNvidiaTrialRequest(req) });
+                { nvidiaTrialEnabled: isNvidiaTrialEnabled() });
             if (!modelSelection.valid) {
                 await deps.discardUploadedFiles?.(req.files);
                 return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });
@@ -330,7 +330,7 @@ function createGenerateHandler(deps) {
  */
 function registerGenerateRoute(deps) {
     const handler = createGenerateHandler(deps);
-    deps.app.post('/generate', deps.upload.array('files', deps.maxUploadArrayFields), express.json({ limit: '50kb' }), deps.checkGenerationPressure, deps.checkRateLimits, async (req, res) => handler(req, res));
+    deps.app.post('/generate', deps.upload.array('files', deps.maxUploadArrayFields), express.json({ limit: '50kb' }), deps.checkGenerationPressure, deps.validateModelRequest, deps.checkRateLimits, async (req, res) => handler(req, res));
 }
 
 module.exports = { createGenerateHandler, registerGenerateRoute };
