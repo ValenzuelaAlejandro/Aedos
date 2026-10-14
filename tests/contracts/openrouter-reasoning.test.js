@@ -4,6 +4,30 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createOpenRouterProvider } = require('../../src/backend/providers/openrouter');
 const { createModelConfig } = require('../../src/backend/config/models');
+const { runPipeline } = require('../../src/backend/prompts/pipeline');
+
+test('Pro pipeline leaves each stage reasoning setting to its configured provider policy', async () => {
+    const calls = [];
+    const asStream = text => ({ stream: (async function* () { yield text; })() });
+    await runPipeline({
+        rawInput: 'A short topic',
+        targetLanguage: 'Spanish',
+        onStageUpdate() {},
+        tryModelsStage1: async (...args) => {
+            calls.push(['Stage1', args[2]]);
+            return asStream('{"topic":"A short topic","slide_count":1,"slides":[{"role":"hook","title":"Intro","subtitle":"Start","key_points":["Point"]}]}');
+        },
+        tryModelsStage2: async (...args) => {
+            calls.push(['Stage2', args[2]]);
+            return asStream('{"palette":{"colors_hex":["#123456"]},"slides":[{"title":"Intro"}]}');
+        },
+        tryModelsStage3: async (...args) => {
+            calls.push(['Stage3', args[2]]);
+            return asStream('');
+        }
+    });
+    assert.deepEqual(calls, [['Stage1', undefined], ['Stage2', undefined], ['Stage3', undefined]]);
+});
 
 test('Haiku schema call sends reasoning disabled and a bounded response budget', async () => {
     const previousKey = process.env.OPENROUTER_API_KEY;

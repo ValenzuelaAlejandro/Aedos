@@ -542,6 +542,8 @@ At least one of these must exist:
 | `PORT` | HTTP port |
 | `APP_URL` | Referer sent to OpenRouter |
 | `ALLOWED_ORIGINS` | CSV list of production CORS origins |
+| `ENABLE_NVIDIA_LOCAL` | Opt in to NVIDIA trials from loopback; requires `true` and is disabled in production |
+| `NVIDIA_API_KEY` | NVIDIA Build credential for local trials |
 
 ### Models
 
@@ -556,6 +558,9 @@ At least one of these must exist:
 | `OPENROUTER_MODELS_STAGE2` | Fallback CSV for Stage 2 |
 | `OPENROUTER_MODELS_STAGE3` | Fallback CSV for Stage 3 |
 | `OPENROUTER_MODELS_STAGE3_ONLY` | Models restricted to final composition |
+| `OPENROUTER_REASONING_EFFORT_SCHEMA` | OpenRouter reasoning for schema |
+| `OPENROUTER_REASONING_EFFORT_DESIGN` | OpenRouter reasoning for design |
+| `OPENROUTER_REASONING_EFFORT_HTML` | OpenRouter reasoning for HTML |
 
 ### Queues and limits
 
@@ -570,6 +575,8 @@ At least one of these must exist:
 | `PUPPETEER_MAX_QUEUE` | PDF queue cap |
 | `LIMITS_FLASH_COOLDOWN_SEC` | Flash cooldown |
 | `LIMITS_PRO_COOLDOWN_SEC` | Pro cooldown |
+| `LIMITS_OUTLINE_COOLDOWN_SEC` | Schema cooldown |
+| `LIMITS_CHAT_COOLDOWN_SEC` | Chat cooldown |
 | `GLOBAL_DAILY_GENERATION_LIMIT` | Global daily cap |
 | `LIMITS_FINALIZE_MAX` | Finalizations per window |
 
@@ -579,6 +586,19 @@ over. Initial schema generation is free, with a separate limit of 10 requests
 per IP per day. The server catalog sets the rates: Gemini 10 per presentation,
 Light 2 per slide, Standard 3 per slide, and NVIDIA trial models 1 per slide
 (local server only).
+
+NVIDIA Build requires compliance with the [NVIDIA API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf).
+Set `ENABLE_NVIDIA_LOCAL=true` only in a non-production environment, configure
+`NVIDIA_API_KEY`, and access from `localhost` or loopback. Without the opt-in,
+the key does not expose NVIDIA models.
+
+If Redis is unavailable, the server fails closed: balance, schema, and
+generation requests return `CREDITS_UNAVAILABLE` (503); there is no in-memory
+credit fallback.
+
+Model and billing errors: `MODEL_NOT_ALLOWED` (422),
+`ATTACHMENTS_NOT_ALLOWED` (422), `INSUFFICIENT_CREDITS` (402),
+`PAID_PAUSED` (503), and `PROVIDER_UNAVAILABLE` (503).
 
 ### Integrations and binaries
 

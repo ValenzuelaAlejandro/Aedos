@@ -112,7 +112,8 @@ function isLocalNvidiaTrialRequest(req) {
     const remote = req?.socket?.remoteAddress || req?.ip;
     const localHost = ['localhost', '127.0.0.1', '::1'].includes(host);
     const localRemote = /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(remote || '');
-    return process.env.NODE_ENV === 'development' && Boolean(process.env.NVIDIA_API_KEY)
+    return process.env.NODE_ENV !== 'production' && process.env.ENABLE_NVIDIA_LOCAL === 'true'
+        && Boolean(process.env.NVIDIA_API_KEY)
         && localHost && localRemote;
 }
 

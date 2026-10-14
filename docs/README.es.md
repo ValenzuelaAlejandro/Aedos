@@ -542,6 +542,8 @@ Al menos una de estas debe existir:
 | `PORT` | Puerto HTTP |
 | `APP_URL` | Referer enviado a OpenRouter |
 | `ALLOWED_ORIGINS` | Lista CSV de origenes CORS en produccion |
+| `ENABLE_NVIDIA_LOCAL` | Opt-in para pruebas NVIDIA desde loopback; exige `true` y no funciona en produccion |
+| `NVIDIA_API_KEY` | Credencial de NVIDIA Build para pruebas locales |
 
 ### Modelos
 
@@ -556,6 +558,9 @@ Al menos una de estas debe existir:
 | `OPENROUTER_MODELS_STAGE2` | CSV de fallback para Stage 2 |
 | `OPENROUTER_MODELS_STAGE3` | CSV de fallback para Stage 3 |
 | `OPENROUTER_MODELS_STAGE3_ONLY` | Modelos restringidos a composicion final |
+| `OPENROUTER_REASONING_EFFORT_SCHEMA` | Razonamiento OpenRouter para esquema |
+| `OPENROUTER_REASONING_EFFORT_DESIGN` | Razonamiento OpenRouter para diseño |
+| `OPENROUTER_REASONING_EFFORT_HTML` | Razonamiento OpenRouter para HTML |
 
 ### Colas y limites
 
@@ -570,6 +575,8 @@ Al menos una de estas debe existir:
 | `PUPPETEER_MAX_QUEUE` | Cola maxima de PDF |
 | `LIMITS_FLASH_COOLDOWN_SEC` | Cooldown Flash |
 | `LIMITS_PRO_COOLDOWN_SEC` | Cooldown Pro |
+| `LIMITS_OUTLINE_COOLDOWN_SEC` | Cooldown del esquema |
+| `LIMITS_CHAT_COOLDOWN_SEC` | Cooldown del chat |
 | `GLOBAL_DAILY_GENERATION_LIMIT` | Limite global diario |
 | `LIMITS_FINALIZE_MAX` | Finalizaciones por ventana |
 
@@ -579,6 +586,18 @@ acumulan. El esquema inicial no cobra creditos y tiene un cupo independiente
 de 10 solicitudes por IP y dia. El catalogo del servidor fija los costos: Gemini
 10 por presentacion, Ligero 2 por diapositiva, Estandar 3 por diapositiva y
 modelos de prueba NVIDIA 1 por diapositiva (solo servidor local).
+
+NVIDIA Build requiere aceptar y cumplir los [NVIDIA API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf).
+Activa `ENABLE_NVIDIA_LOCAL=true` solo en un entorno no productivo, configura
+`NVIDIA_API_KEY` y accede desde `localhost` o loopback. Sin la bandera, la key
+no expone modelos NVIDIA.
+
+Si Redis no responde, el servidor falla cerrado: saldo, esquema y generación
+responden con `CREDITS_UNAVAILABLE` (503); no existe saldo en memoria de respaldo.
+
+Errores de selección y cobro: `MODEL_NOT_ALLOWED` (422),
+`ATTACHMENTS_NOT_ALLOWED` (422), `INSUFFICIENT_CREDITS` (402),
+`PAID_PAUSED` (503) y `PROVIDER_UNAVAILABLE` (503).
 
 ### Integraciones y binarios
 

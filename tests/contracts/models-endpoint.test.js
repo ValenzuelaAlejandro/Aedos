@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { registerEntryRoutes } = require('../../src/backend/http/routes/entry');
 
 test('/api/models includes authoritative billing and exposes NVIDIA trial models only on a keyed local server', async () => {
-    const previous = { mode: process.env.NODE_ENV, key: process.env.NVIDIA_API_KEY };
+    const previous = { mode: process.env.NODE_ENV, key: process.env.NVIDIA_API_KEY, enabled: process.env.ENABLE_NVIDIA_LOCAL };
     const handlers = {};
     const app = { get(path, handler) { handlers[path] = handler; } };
     registerEntryRoutes({ app, tmpDir: '.', isDevelopment: false });
@@ -18,6 +18,10 @@ test('/api/models includes authoritative billing and exposes NVIDIA trial models
     try {
         process.env.NODE_ENV = 'development';
         process.env.NVIDIA_API_KEY = 'test-key';
+        delete process.env.ENABLE_NVIDIA_LOCAL;
+        await handlers['/api/models'](request, response);
+        assert.equal(response.body.models.some(model => model.id.startsWith('nvidia-build/')), false);
+        process.env.ENABLE_NVIDIA_LOCAL = 'true';
         await handlers['/api/models'](request, response);
         assert.equal(response.body.models.some(model => model.id.startsWith('nvidia-build/')), true);
         assert.deepEqual(response.body.models.find(model => model.id === 'google/gemini-3-flash-preview')?.billing,
@@ -35,7 +39,7 @@ test('/api/models includes authoritative billing and exposes NVIDIA trial models
         await handlers['/api/models'](request, response);
         assert.equal(response.body.models.some(model => model.id.startsWith('nvidia-build/')), false);
     } finally {
-        for (const [key, value] of [['NODE_ENV', previous.mode], ['NVIDIA_API_KEY', previous.key]]) {
+        for (const [key, value] of [['NODE_ENV', previous.mode], ['NVIDIA_API_KEY', previous.key], ['ENABLE_NVIDIA_LOCAL', previous.enabled]]) {
             if (value === undefined) delete process.env[key];
             else process.env[key] = value;
         }

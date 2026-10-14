@@ -90,21 +90,31 @@ test('schema generation routes the selected model instead of silently using Gemi
     assert.match(chunks.join(''), /"done":true/);
 });
 
-test('NVIDIA Build trial models require a key and a local development request', () => {
+test('NVIDIA Build trial models require opt-in, a key, and loopback outside production', () => {
     const previousMode = process.env.NODE_ENV;
     const previousKey = process.env.NVIDIA_API_KEY;
+    const previousEnabled = process.env.ENABLE_NVIDIA_LOCAL;
     process.env.NODE_ENV = 'development';
+    process.env.ENABLE_NVIDIA_LOCAL = 'true';
     process.env.NVIDIA_API_KEY = 'test-key';
     const localRequest = { hostname: 'localhost', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '::1' } };
     assert.equal(isLocalNvidiaTrialRequest(localRequest), true);
     assert.equal(resolveModelId('nvidia-build/nemotron-3.5-lightning', undefined,
         { localNvidiaTrial: isLocalNvidiaTrialRequest(localRequest) }).valid, true);
+    process.env.ENABLE_NVIDIA_LOCAL = 'false';
+    assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
+    process.env.ENABLE_NVIDIA_LOCAL = 'true';
+    localRequest.socket.remoteAddress = '198.51.100.20';
+    assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
+    localRequest.socket.remoteAddress = '::1';
     process.env.NODE_ENV = 'production';
     assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
     delete process.env.NVIDIA_API_KEY;
     assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
     assert.equal(resolveModelId('nvidia-build/nemotron-3.5-lightning', undefined,
         { localNvidiaTrial: isLocalNvidiaTrialRequest(localRequest) }).code, 'MODEL_NOT_ALLOWED');
+    if (previousEnabled === undefined) delete process.env.ENABLE_NVIDIA_LOCAL;
+    else process.env.ENABLE_NVIDIA_LOCAL = previousEnabled;
     process.env.NODE_ENV = previousMode;
     if (previousKey === undefined) delete process.env.NVIDIA_API_KEY;
     else process.env.NVIDIA_API_KEY = previousKey;

@@ -21,10 +21,6 @@ function json(body) {
     return { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
 }
 
-function events(raw) {
-    return raw.trim().split('\n\n').map((block) => JSON.parse(block.replace(/^data: /, '')));
-}
-
 test('provider acceptance timeout does not incur a paid OpenRouter fallback', async () => {
     const calls = [];
     const fakes = installProviderFakes({
