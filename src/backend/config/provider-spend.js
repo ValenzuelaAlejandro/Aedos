@@ -33,7 +33,7 @@ function nonNegativeNumber(value, fallback) {
 
 function spendConfig(env = process.env) {
     return {
-        dailyUsd: nonNegativeNumber(env.PAID_SPEND_DAILY_USD, 0.05),
+        dailyUsd: nonNegativeNumber(env.PAID_SPEND_DAILY_USD, 0.25),
         monthlyUsd: nonNegativeNumber(env.PAID_SPEND_MONTHLY_USD, 1),
         balanceFloorUsd: nonNegativeNumber(env.PAID_BALANCE_FLOOR_USD, 1),
         geminiDailyCap: Math.floor(nonNegativeNumber(env.GEMINI_DAILY_APP_CAP, 16)),

@@ -133,7 +133,7 @@ test('optional management-key balance floor is cached and fails closed', async (
     const redis = fakeRedis();
     let fetches = 0;
     const guard = createSpendGuard({ redis: () => redis,
-        env: { OPENROUTER_MANAGEMENT_KEY: 'mock-management-key', PAID_BALANCE_FLOOR_USD: '1' },
+        env: { OPENROUTER_MANAGEMENT_KEY: 'mock-management-key', PAID_BALANCE_FLOOR_USD: '1', PAID_SPEND_DAILY_USD: '0.05' },
         fetchBalance: async () => {
             fetches++;
             return { ok: true, json: async () => ({ data: { total_credits: 2, total_usage: 0.9 } }) };
@@ -143,7 +143,7 @@ test('optional management-key balance floor is cached and fails closed', async (
     assert.equal((await guard.reserve(0.001)).allowed, true);
     assert.equal(fetches, 1);
     const lowBalance = createSpendGuard({ redis: () => redis,
-        env: { OPENROUTER_MANAGEMENT_KEY: 'mock-management-key', PAID_BALANCE_FLOOR_USD: '1' },
+        env: { OPENROUTER_MANAGEMENT_KEY: 'mock-management-key', PAID_BALANCE_FLOOR_USD: '1', PAID_SPEND_DAILY_USD: '0.05' },
         fetchBalance: async () => ({ ok: true, json: async () => ({ data: { total_credits: 2, total_usage: 0.97 } }) }),
     });
     assert.equal((await lowBalance.reserve(0.001)).allowed, false);
