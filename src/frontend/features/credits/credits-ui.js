@@ -6,6 +6,7 @@
     let dailyLimit = 50;
     let lastCredits = null;
     let clampNoticeCount = null;
+    let clampNoticeModel = null;
     let clampNoticeTimer = null;
     let slideLimitAttempted = false;
 
@@ -43,8 +44,12 @@
         return global.AedosStores?.generation?.state?.proModeEnabled ? 'pro' : 'flash';
     }
 
-    function maxSlides() {
-        return global.MAX_SLIDES_BY_MODE[activeMode()];
+    function maxSlides(model = selectedModel()) {
+        const mode = activeMode();
+        const modeLimit = global.MAX_SLIDES_BY_MODE[mode];
+        const modelLimit = Number(model?.maxSlides?.[mode]);
+        return Number.isSafeInteger(modelLimit) && modelLimit > 0
+            ? Math.min(modeLimit, modelLimit) : modeLimit;
     }
 
     function absoluteMaxSlides() {
@@ -58,7 +63,7 @@
 
     // The service owns the billing formula; this layer only enforces the current mode's slide cap.
     function getQuote(slides = getSlideCount(), model = selectedModel()) {
-        const count = Math.min(maxSlides(), Math.max(1, Math.floor(Number(slides) || 1)));
+        const count = Math.min(maxSlides(model), Math.max(1, Math.floor(Number(slides) || 1)));
         return global.AedosCredits.quote(model, count);
     }
 
@@ -204,7 +209,7 @@
     function setSlideCount(count) {
         const input = global.document.getElementById('slide-count-select');
         if (!input) return;
-        if (activeMode() !== 'pro') {
+        if (maxSlides() === absoluteMaxSlides()) {
             const hint = global.document.getElementById('slide-count-limit-hint');
             if (hint) hint.hidden = true;
             slideLimitAttempted = false;
@@ -234,14 +239,16 @@
         updateCostPreview();
     }
 
-    function showModeClampNotice(count) {
+    function showModeClampNotice(count, model = null) {
         const notice = global.document.getElementById('slide-count-mode-notice');
         if (!notice) return;
         clampNoticeCount = count;
-        notice.textContent = format('slides.proClamped', { n: count });
+        clampNoticeModel = model;
+        notice.textContent = model ? format('slides.modelClamped', { model, n: count })
+            : format('slides.proClamped', { n: count });
         notice.hidden = false;
         global.clearTimeout(clampNoticeTimer);
-        clampNoticeTimer = global.setTimeout(() => { notice.hidden = true; clampNoticeCount = null; }, 4500);
+        clampNoticeTimer = global.setTimeout(() => { notice.hidden = true; clampNoticeCount = null; clampNoticeModel = null; }, 4500);
     }
 
     function initSlideControl() {
@@ -251,9 +258,11 @@
         if (!input || !trigger || !panel) return;
         const limitHint = global.document.getElementById('slide-count-limit-hint');
         const showLimitHint = () => {
-            if (activeMode() !== 'pro' || !limitHint) return;
+            if (maxSlides() >= absoluteMaxSlides() || !limitHint) return;
             slideLimitAttempted = true;
-            limitHint.textContent = format('slides.proLimitHint', { n: maxSlides() });
+            limitHint.textContent = activeMode() === 'pro'
+                ? format('slides.proLimitHint', { n: maxSlides() })
+                : format('slides.modelLimitHint', { model: selectedModel()?.name || '', n: maxSlides() });
             limitHint.hidden = false;
         };
         const close = () => {
@@ -282,18 +291,18 @@
         });
         panel.addEventListener('click', event => event.stopPropagation());
         const track = input.parentElement;
-        const beyondProLimit = event => {
-            if (activeMode() !== 'pro' || !track) return false;
+        const beyondSlideLimit = event => {
+            if (maxSlides() >= absoluteMaxSlides() || !track) return false;
             const rect = track.getBoundingClientRect();
             return event.clientX > rect.left + (maxSlides() - .5) * rect.width / absoluteMaxSlides();
         };
         let dragging = false;
         track?.addEventListener('pointerdown', event => {
             dragging = true;
-            if (beyondProLimit(event)) showLimitHint();
+            if (beyondSlideLimit(event)) showLimitHint();
         });
         global.document.addEventListener('pointermove', event => {
-            if (dragging && beyondProLimit(event)) showLimitHint();
+            if (dragging && beyondSlideLimit(event)) showLimitHint();
         });
         global.document.addEventListener('pointerup', () => { dragging = false; });
         global.document.addEventListener('pointercancel', () => { dragging = false; });
@@ -312,7 +321,7 @@
             global.document.getElementById('slide-count-announce').textContent = input.getAttribute('aria-valuetext');
         });
         input.addEventListener('keydown', event => {
-            if (activeMode() === 'pro' && Number(input.value) >= maxSlides()
+            if (maxSlides() < absoluteMaxSlides() && Number(input.value) >= maxSlides()
                 && ['ArrowRight', 'ArrowUp', 'PageUp', 'End'].includes(event.key)) showLimitHint();
             if (event.key !== 'PageUp' && event.key !== 'PageDown') return;
             event.preventDefault();
@@ -382,10 +391,14 @@
             if (lastCredits) renderBalance(lastCredits);
             else updateCostPreview();
             setSlideCount(getSlideCount());
-            if (clampNoticeCount !== null) showModeClampNotice(clampNoticeCount);
+            if (clampNoticeCount !== null) {
+                showModeClampNotice(clampNoticeCount, clampNoticeModel);
+            }
             if (slideLimitAttempted) {
                 const hint = global.document.getElementById('slide-count-limit-hint');
-                if (hint) hint.textContent = format('slides.proLimitHint', { n: maxSlides() });
+                if (hint) hint.textContent = activeMode() === 'pro'
+                    ? format('slides.proLimitHint', { n: maxSlides() })
+                    : format('slides.modelLimitHint', { model: selectedModel()?.name || '', n: maxSlides() });
             }
         });
         refresh();

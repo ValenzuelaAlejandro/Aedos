@@ -34,7 +34,7 @@ function events(raw) {
     return raw.trim().split('\n\n').map((block) => JSON.parse(block.replace(/^data: /, '')));
 }
 
-test('Gemini acceptance failure falls back to OpenRouter with the frozen SSE sequence', async () => {
+test('Gemini acceptance failure does not incur a paid OpenRouter fallback', async () => {
     const calls = [];
     const fakes = installProviderFakes({
         gemini: async () => {
@@ -53,13 +53,9 @@ test('Gemini acceptance failure falls back to OpenRouter with the frozen SSE seq
     try {
         const response = await fetch(`http://127.0.0.1:${server.address().port}/generate-skeleton`, json({ tema: 'Fallback', language: 'es' }));
         const raw = await readSse(response);
-        assert.equal(response.status, 200);
-        assert.deepEqual(calls, ['gemini', 'gemini', 'openrouter']);
-        assert.deepEqual(events(raw), [
-            { metadata: { provider: 'openrouter', model: 'apodex/apodex-1.1-mini:free' } },
-            { chunk: JSON.stringify(skeleton) },
-            { done: true, skeleton }
-        ]);
+        assert.equal(response.status, 503);
+        assert.deepEqual(calls, ['gemini', 'gemini']);
+        assert.equal(JSON.parse(raw).code, 'PROVIDER_UNAVAILABLE');
     } finally {
         await new Promise((resolve) => server.close(resolve));
         fakes.restore();

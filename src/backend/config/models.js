@@ -21,7 +21,7 @@ function reasoningCapabilitiesForModel(modelId) {
     if (model.startsWith('nvidia/nemotron-3-ultra-550b-a55b')) {
         return { efforts: ['high', 'medium'], canDisable: true };
     }
-    if (model.startsWith('nvidia/nemotron-3.5-lightning') || model.startsWith('apodex/apodex-1.1-mini')) {
+    if (model.startsWith('nvidia/nemotron-3.5-lightning')) {
         return { efforts: null, canDisable: true };
     }
     return null;

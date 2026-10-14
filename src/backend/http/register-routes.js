@@ -25,6 +25,8 @@ function registerBackendRoutes(deps) {
         tryModelsFlash: deps.tryModelsFlash,
         tryModelsStage1Thinking: deps.tryModelsStage1Thinking,
         tryModelsStage2Thinking: deps.tryModelsStage2Thinking,
+        trySelectedStage1Thinking: deps.trySelectedStage1Thinking,
+        trySelectedStage2Thinking: deps.trySelectedStage2Thinking,
         tryModelsStage3Thinking: deps.tryModelsStage3Thinking,
         trySelectedFlash: deps.trySelectedFlash,
         trySelectedStage3Thinking: deps.trySelectedStage3Thinking,

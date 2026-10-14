@@ -50,6 +50,7 @@ async function tryGemini({ gemini, providerLog, ErrorCategory, prompt, stageName
 }
 
 async function tryFree({ openrouter, providerLog, ErrorCategory, prompt, stageName, fileContext, options, reason }) {
+    if (!FREE_MODELS.length) return { error: new Error('PROVIDER_UNAVAILABLE') };
     try {
         const route = routeOptions(options, publicModelId(FREE_MODELS[0]), reason || 'gemini_unavailable');
         const result = await openrouter(prompt, stageName, FREE_MODELS, fileContext, route);
@@ -87,6 +88,9 @@ async function tryFreeThenPaid(args) {
     const free = await tryFree({ ...args, reason: args.reason });
     if (free.result) return free.result;
     if (free.error?.message === 'PAID_PAUSED') throw free.error;
+    // A free selection must never spend the owner's OpenRouter balance in a hidden Pro stage.
+    const requested = MODEL_CATALOG[args.options?.modelRoute?.requestedModelId];
+    if (requested && !requested.paid) throw new Error('PROVIDER_UNAVAILABLE');
     return callPaidAfterFree(args);
 }
 

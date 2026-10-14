@@ -1,5 +1,6 @@
 /* eslint-disable max-lines-per-function, complexity */
-const { resolveModelId, validateAttachments } = require('../config/model-catalog');
+const { resolveModelId, validateAttachments, validateModelForGeneration,
+    isLocalNvidiaTrialRequest } = require('../config/model-catalog');
 
 /**
  * Build the skeleton-generation route handler without owning HTTP registration.
@@ -13,6 +14,7 @@ function createSkeletonHandler(deps) {
         buildStage1Prompt,
         buildStage1RevisionPrompt,
         tryModelsStage1Thinking,
+        trySelectedStage1Thinking,
         extractJson,
         setSseHeaders,
         writeSse,
@@ -43,10 +45,21 @@ function createSkeletonHandler(deps) {
 
         try {
             const opciones = req.body || {};
-            const modelSelection = resolveModelId(opciones.modelId);
+            const modelSelection = resolveModelId(opciones.modelId, undefined,
+                { localNvidiaTrial: isLocalNvidiaTrialRequest(req) });
             if (!modelSelection.valid) {
                 await deps.discardUploadedFiles?.(req.files);
                 return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });
+            }
+            const mode = opciones.mode === 'pro' ? 'pro' : 'flash';
+            const requestedSlides = Number(opciones.slides);
+            if (Number.isSafeInteger(requestedSlides) && requestedSlides > 0) {
+                const slideValidation = validateModelForGeneration(modelSelection.model, mode, requestedSlides);
+                if (!slideValidation.valid) {
+                    await deps.discardUploadedFiles?.(req.files);
+                    return res.status(422).json({ error: slideValidation.message,
+                        code: slideValidation.code, maxSlides: slideValidation.maxSlides });
+                }
             }
             const hasAttachments = Array.isArray(req.files) && req.files.length > 0;
             if (hasAttachments) {
@@ -78,8 +91,11 @@ function createSkeletonHandler(deps) {
             const stage1Prompt = currentSkeleton && typeof currentSkeleton === 'object'
                 ? buildStage1RevisionPrompt(sanitizeResult.tema, currentSkeleton, targetLang)
                 : buildStage1Prompt(sanitizeResult.tema, targetLang);
-            const stage1Response = await tryModelsStage1Thinking(stage1Prompt, fileContext,
-                { attachmentsRequireGemini: hasAttachments,
+            const nvidiaTrial = modelSelection.model.provider === 'nvidia';
+            const stage1Caller = nvidiaTrial ? trySelectedStage1Thinking : tryModelsStage1Thinking;
+            const stage1Response = await stage1Caller(stage1Prompt, fileContext,
+                { selectedModel: nvidiaTrial ? modelSelection.model : undefined,
+                    attachmentsRequireGemini: hasAttachments,
                     modelRoute: { requestedModelId: modelSelection.requestedModelId, effectiveModelId: null, fallbackReason: null } });
 
             setSseHeaders(res);
@@ -135,7 +151,9 @@ function createSkeletonHandler(deps) {
                 return;
             }
 
-            const maxSlides = opciones.mode === 'pro' ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES;
+            const maxSlides = Math.min(mode === 'pro' ? MAX_PRO_SLIDES : MAX_FLASH_SLIDES,
+                modelSelection.model.maxSlides?.[mode] || Infinity,
+                Number.isSafeInteger(requestedSlides) && requestedSlides > 0 ? requestedSlides : Infinity);
             if (contentJson.slides.length > maxSlides) {
                 contentJson.slides = contentJson.slides.slice(0, maxSlides);
                 contentJson.slide_count = maxSlides;

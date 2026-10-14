@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { MODEL_CATALOG, DEFAULT_MODEL_ID, resolveModelId, validateAttachments,
-    validateModelForGeneration } = require('../../src/backend/config/model-catalog');
+    validateModelForGeneration, isLocalNvidiaTrialRequest } = require('../../src/backend/config/model-catalog');
 const { FREE_MODELS } = require('../../src/backend/config/provider-spend');
 const { createSelectedModelRouter } = require('../../src/backend/providers/model-selection');
 const { createGenerateHandler } = require('../../src/backend/http/routes/generate');
@@ -16,8 +16,16 @@ const emptyStream = async function* () {};
 test('model allowlist accepts catalog IDs, defaults missing IDs, and rejects unknown or disabled IDs', () => {
     assert.equal(resolveModelId(undefined).model.id, DEFAULT_MODEL_ID);
     assert.equal(resolveModelId('  ').model.id, DEFAULT_MODEL_ID);
-    for (const id of Object.keys(MODEL_CATALOG)) assert.equal(resolveModelId(id).valid, true, id);
+    for (const id of Object.keys(MODEL_CATALOG)) {
+        const model = MODEL_CATALOG[id];
+        assert.equal(resolveModelId(id, undefined, { localNvidiaTrial: model.provider === 'nvidia' }).valid, true, id);
+    }
+    for (const model of Object.values(MODEL_CATALOG).filter(entry => entry.provider === 'nvidia')) {
+        assert.equal(resolveModelId(model.id).code, 'MODEL_NOT_ALLOWED', model.id);
+    }
     assert.equal(resolveModelId('openrouter/free').code, 'MODEL_NOT_ALLOWED');
+    assert.equal(resolveModelId('apodex/apodex-1.1-mini:free').code, 'MODEL_NOT_ALLOWED');
+    assert.deepEqual(FREE_MODELS, []);
     assert.equal(resolveModelId('__proto__').code, 'MODEL_NOT_ALLOWED');
     assert.equal(resolveModelId('disabled/model', { 'disabled/model': { enabled: false } }).code, 'MODEL_NOT_ALLOWED');
 });
@@ -38,18 +46,28 @@ test('model slide compatibility respects the server output cap', () => {
     assert.equal(validateModelForGeneration(nemotron, 'pro', 8).valid, true);
 });
 
+test('NVIDIA Build trial models are allowed only from a local development request', () => {
+    const previousMode = process.env.NODE_ENV;
+    const previousKey = process.env.NVIDIA_API_KEY;
+    process.env.NODE_ENV = 'development';
+    process.env.NVIDIA_API_KEY = 'test-key';
+    assert.equal(isLocalNvidiaTrialRequest({ hostname: 'localhost', socket: { remoteAddress: '::1' } }), true);
+    assert.equal(isLocalNvidiaTrialRequest({ hostname: 'example.com', socket: { remoteAddress: '203.0.113.4' } }), false);
+    process.env.NODE_ENV = previousMode;
+    if (previousKey === undefined) delete process.env.NVIDIA_API_KEY;
+    else process.env.NVIDIA_API_KEY = previousKey;
+});
+
 test('attachments require Gemini and an available Gemini request', () => {
     const gemini = MODEL_CATALOG[DEFAULT_MODEL_ID];
     const paid = MODEL_CATALOG['anthropic/claude-haiku-5.5'];
-    const freeOpenRouter = MODEL_CATALOG['apodex/apodex-1.1-mini:free'];
     assert.equal(validateAttachments(gemini, true, true).valid, true);
     assert.equal(validateAttachments(gemini, true, false).code, 'ATTACHMENTS_NOT_ALLOWED');
     assert.equal(validateAttachments(paid, true, true).code, 'ATTACHMENTS_NOT_ALLOWED');
-    assert.equal(validateAttachments(freeOpenRouter, true, true).code, 'ATTACHMENTS_NOT_ALLOWED');
 });
 
 test('generate rejects unsupported attachments before provider calls and cleans uploaded files', async () => {
-    for (const modelId of ['anthropic/claude-haiku-5.5', 'apodex/apodex-1.1-mini:free', DEFAULT_MODEL_ID]) {
+    for (const modelId of ['anthropic/claude-haiku-5.5', DEFAULT_MODEL_ID]) {
         let providerCalls = 0;
         const discarded = [];
         const handler = createGenerateHandler({
@@ -108,6 +126,10 @@ test('every catalog model routes to HTML through its declared provider', async (
                 calls.push({ provider: 'openrouter', models, options });
                 return { provider: 'openrouter', model: models[0], stream: emptyStream() };
             },
+            nvidia: async (prompt, stage, selected, options) => {
+                calls.push({ provider: 'nvidia', providerModelId: selected.providerModelId, options });
+                return { provider: 'nvidia', model: selected.providerModelId, stream: emptyStream() };
+            },
             makeBaseCaller: () => async () => { throw new Error('Selected routing must not use the base caller.'); },
             getOverride: () => null,
             createStub: () => { throw new Error('Unexpected test stub.'); },
@@ -132,7 +154,7 @@ test('every catalog model routes to HTML through its declared provider', async (
     }
 });
 
-test('a failed paid selection falls back to approved free models without trying another paid model', async () => {
+test('a failed paid selection stops when no approved free model is available', async () => {
         const attemptedModels = [];
         const router = createSelectedModelRouter({
             gemini: async () => { throw new Error('Should skip Gemini when no key is configured.'); },
@@ -149,13 +171,10 @@ test('a failed paid selection falls back to approved free models without trying 
             hasGeminiKey: () => false,
             shouldUseTestStub: () => false
         });
-        const result = await router.makeCaller('Stage3', 'gemini-3.5-flash', ['anthropic/claude-haiku-5.5'])(
+        await assert.rejects(router.makeCaller('Stage3', 'gemini-3.5-flash', ['anthropic/claude-haiku-5.5'])(
             'prompt', null, { selectedModel: MODEL_CATALOG['anthropic/claude-haiku-5.5'] }
-        );
-        assert.deepEqual(attemptedModels, ['anthropic/claude-haiku-5.5', FREE_MODELS[0]]);
-        assert.equal(result.modelRoute.requestedModelId, 'anthropic/claude-haiku-5.5');
-        assert.equal(result.modelRoute.effectiveModelId, FREE_MODELS[0]);
-        assert.equal(result.modelRoute.fallbackReason, 'paid_paused');
+        ), /PROVIDER_UNAVAILABLE/);
+        assert.deepEqual(attemptedModels, ['anthropic/claude-haiku-5.5']);
 });
 
 test('fallback tries Gemini before OpenRouter free and records the effective model', async () => {
@@ -182,7 +201,7 @@ test('fallback tries Gemini before OpenRouter free and records the effective mod
         assert.equal(result.modelRoute.fallbackReason, 'timeout');
 });
 
-test('a failed Gemini selection falls back to free without a paid alternative', async () => {
+test('a failed Gemini selection does not call a paid model without an approved free alternative', async () => {
         const attempts = [];
         const router = createSelectedModelRouter({
             gemini: async () => { attempts.push('gemini'); throw new Error('GEMINI_HTTP_503'); },
@@ -198,12 +217,10 @@ test('a failed Gemini selection falls back to free without a paid alternative', 
             hasGeminiKey: () => false,
             shouldUseTestStub: () => false
         });
-        const result = await router.makeCaller('Flash', 'gemini-3-flash-preview', ['anthropic/claude-haiku-5.5'])(
+        await assert.rejects(router.makeCaller('Flash', 'gemini-3-flash-preview', ['anthropic/claude-haiku-5.5'])(
             'prompt', null, { selectedModel: MODEL_CATALOG[DEFAULT_MODEL_ID] }
-        );
-        assert.deepEqual(attempts, ['gemini', FREE_MODELS[0]]);
-        assert.equal(result.modelRoute.effectiveModelId, FREE_MODELS[0]);
-        assert.equal(result.modelRoute.fallbackReason, 'provider_5xx');
+        ), /PROVIDER_UNAVAILABLE/);
+        assert.deepEqual(attempts, ['gemini']);
 });
 
 class FakeResponse extends EventEmitter {
@@ -224,7 +241,7 @@ class FakeResponse extends EventEmitter {
 test('Pro final SSE event reports requested and effective model IDs after selected routing', async () => {
         const configuredStages = [];
         const router = createSelectedModelRouter({
-            gemini: async () => { throw new Error('Unexpected Gemini call.'); },
+            gemini: async (prompt, stage, model) => ({ provider: 'gemini', model, stream: emptyStream() }),
             openrouter: async (prompt, stage, models) => {
                 if (models[0] === 'anthropic/claude-haiku-5.5') throw new Error('PAID_PAUSED');
                 return { provider: 'openrouter', model: models[0], stream: emptyStream() };
@@ -234,7 +251,7 @@ test('Pro final SSE event reports requested and effective model IDs after select
             createStub: () => { throw new Error('Unexpected test stub.'); },
             providerLog: logger,
             ErrorCategory,
-            hasGeminiKey: () => false,
+            hasGeminiKey: () => true,
             shouldUseTestStub: () => false
         });
         const noop = () => {};
@@ -292,7 +309,7 @@ test('Pro final SSE event reports requested and effective model IDs after select
         const done = events.findLast(event => event.done === true);
         assert.equal(res.statusCode, 200);
         assert.equal(done.requestedModelId, 'anthropic/claude-haiku-5.5');
-        assert.equal(done.effectiveModelId, 'apodex/apodex-1.1-mini:free');
+        assert.equal(done.effectiveModelId, 'gemini-3.5-flash');
         assert.equal(done.fallbackReason, 'paid_paused');
         assert.deepEqual(configuredStages.map(stage => stage.stage), ['schema', 'design']);
         assert.ok(configuredStages.every(stage => stage.selectedModel === undefined));
