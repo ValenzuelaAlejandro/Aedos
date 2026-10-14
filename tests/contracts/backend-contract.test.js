@@ -13,6 +13,7 @@ process.env.LIMITS_PRO_DAILY = '1000';
 process.env.LIMITS_FINALIZE_MAX = '1000';
 
 const { app, sanitizeTema } = require('../../src/backend/server');
+const { createCanonicalRedirectMiddleware } = require('../../src/backend/http/middleware/canonical-redirect');
 const fixtureDir = path.join(__dirname, '..', 'fixtures', 'contracts');
 
 let server;
@@ -40,6 +41,21 @@ async function collectSse(response) {
         .filter((frame) => frame.startsWith('data: '))
         .map((frame) => JSON.parse(frame.slice(6)));
 }
+
+test('canonical redirect leaves API paths on the Render origin', () => {
+    const middleware = createCanonicalRedirectMiddleware();
+    let continued = false;
+    let redirectedTo = null;
+    const res = { redirect: (_status, target) => { redirectedTo = target; } };
+    const next = () => { continued = true; };
+
+    middleware({ headers: { host: 'aedos.onrender.com' }, path: '/api/credits', originalUrl: '/api/credits' }, res, next);
+    assert.equal(continued, true);
+    assert.equal(redirectedTo, null);
+
+    middleware({ headers: { host: 'aedos.onrender.com' }, path: '/about', originalUrl: '/about' }, res, next);
+    assert.equal(redirectedTo, 'https://aedoslab.xyz/about');
+});
 
 function json(body) {
     json.requestId = (json.requestId || 0) + 1;

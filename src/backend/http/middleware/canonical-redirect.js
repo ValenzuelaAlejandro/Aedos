@@ -7,7 +7,8 @@ function createCanonicalRedirectMiddleware() {
     return function(req, res, next) {
         const host = req.headers.host || '';
         const path = req.path || '';
-        const isApiRoute = /^\/(generate|finalize(?:-pptx)?|download|health|__dev__)/.test(path);
+        const isApiRoute = path === '/api' || path.startsWith('/api/')
+            || /^\/(generate|finalize(?:-pptx)?|download|health|__dev__)/.test(path);
 
         if (host.includes('onrender.com') && !isApiRoute) {
             const target = 'https://aedoslab.xyz' + req.originalUrl;
