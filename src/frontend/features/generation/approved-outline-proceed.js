@@ -22,6 +22,11 @@
                 console.warn('A generation is already in progress. Ignoring proceed request.');
                 return;
             }
+            if (window._attachedFiles?.length && !window.AedosCreditsUI?.canAttachDocuments?.()) {
+                window.AedosModals.showNotice(window.__t('credits.attachmentsGeminiOnly'));
+                window.AedosAttachments?.refreshAvailability?.();
+                return;
+            }
             if (generationState.skeletonController) {
                 generationState.skeletonController.abort();
                 generationState.skeletonController = null;
@@ -42,8 +47,12 @@
             const requestData = {
                 tema,
                 mode: 'chat',
+                modelId: generationState.selectedModelId || 'google/gemini-3-flash-preview',
+                slides: Math.min(window.MAX_SLIDES_BY_MODE[generationState.proModeEnabled ? 'pro' : 'flash'], skeleton.slides.length),
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
+            if (skeleton.slides.length > requestData.slides) skeleton.slides = skeleton.slides.slice(0, requestData.slides);
+            window.AedosCreditsUI?.setSlideCount(skeleton.slides.length);
             requestData.currentSkeleton = JSON.stringify(skeleton);
 
             let bodyData;
@@ -51,6 +60,7 @@
             if (window._attachedFiles && window._attachedFiles.length > 0) {
                 const formData = new FormData();
                 formData.append('tema', requestData.tema);
+                formData.append('modelId', requestData.modelId);
                 if (requestData.mode) formData.append('mode', requestData.mode);
                 if (requestData.language) formData.append('language', requestData.language);
                 if (requestData.slides !== undefined) formData.append('slides', requestData.slides);

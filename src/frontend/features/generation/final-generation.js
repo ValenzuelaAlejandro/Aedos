@@ -26,6 +26,8 @@
                     clearStageInlinePadding, setPreviewStreamStatus, updateMinimapSkeleton,
                     requestAnimationFrame, setTimeout, clearTimeout,
                 });
+            let chargedCredits = 0;
+            let generationCompleted = false;
     
             try {
                 if (generationState.activeController) {
@@ -35,6 +37,21 @@
                 
                 const controller = new AbortController();
                 generationState.activeController = controller;
+
+                const requestedSlides = Math.min(window.AedosCreditsUI.getSlideCount(), Math.max(1, Array.isArray(skeleton?.slides) ? skeleton.slides.length : 8));
+                const creditQuote = window.AedosCreditsUI.getQuote(requestedSlides);
+                const requestedCreditCost = creditQuote.total;
+                if (!window.AedosCreditsUI?.canSpend(requestedCreditCost)) return;
+                const creditCharge = window.AedosCredits.spend(requestedCreditCost, 'presentation');
+                if (!creditCharge.ok) {
+                    const canReduce = creditQuote.billing === 'perSlide' && creditCharge.balance >= creditQuote.rate;
+                    window.AedosCreditsUI?.updateStatus(canReduce ? 'credits.insufficientSlides' : 'credits.insufficientModel',
+                        'insufficient', { cost: requestedCreditCost, left: creditCharge.balance });
+                    chargedCredits = 0;
+                    return;
+                }
+                chargedCredits = requestedCreditCost;
+                window.AedosCreditsUI?.refresh();
     
                 let bodyData = window._pendingGenerateBodyData;
                 // eslint-disable-next-line prefer-const -- Retain the existing request assembly unchanged.
@@ -45,23 +62,25 @@
                 if (bodyData instanceof FormData) {
                     const cloned = new FormData();
                     for (const [key, val] of bodyData.entries()) {
-                        if (key !== 'files' && key !== 'mode') {
+                        if (key !== 'files' && key !== 'mode' && key !== 'modelId' && key !== 'slides') {
                             cloned.append(key, val);
                         }
                     }
                     // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
-                    if (generationState.proModeEnabled) cloned.append('mode', 'pro');
+                    cloned.append('mode', generationState.proModeEnabled ? 'pro' : 'flash');
+                    // The server must validate modelId and compute the authoritative cost; client fields are untrusted.
+                    cloned.append('modelId', generationState.selectedModelId || 'google/gemini-3-flash-preview');
+                    cloned.append('slides', String(requestedSlides));
                     cloned.append('skeleton', JSON.stringify(skeleton));
                     bodyData = cloned;
                 } else {
                     const parsed = JSON.parse(bodyData);
                     parsed.skeleton = skeleton;
+                    // The server must validate modelId and compute the authoritative cost; client fields are untrusted.
+                    parsed.modelId = generationState.selectedModelId || parsed.modelId || 'google/gemini-3-flash-preview';
+                    parsed.slides = requestedSlides;
                     // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
-                    if (generationState.proModeEnabled) {
-                        parsed.mode = 'pro';
-                    } else {
-                        delete parsed.mode;
-                    }
+                    parsed.mode = generationState.proModeEnabled ? 'pro' : 'flash';
                     bodyData = JSON.stringify(parsed);
                 }
     
@@ -173,6 +192,9 @@
                                     previewMarkupBuffer.queue(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
                             }
                             if (parsed.refused) {
+                                window.AedosCredits.refund(chargedCredits, 'refused-presentation');
+                                chargedCredits = 0;
+                                window.AedosCreditsUI?.refresh();
                                 clearPendingTransition();
                                 setStabilizeMinimapOnNextPreviewInit(false);
                                 chatScreen.style.cssText = '';
@@ -240,8 +262,14 @@
                     clearPendingTransition: () => { clearPendingTransition(); },
                     setTimeout
                 })();
+                generationCompleted = true;
+                window.AedosCreditsUI?.refresh();
     
             } catch (error) {
+                if (chargedCredits > 0 && !generationCompleted) {
+                    window.AedosCredits.refund(chargedCredits, error.name === 'AbortError' ? 'cancelled-presentation' : 'failed-presentation');
+                    window.AedosCreditsUI?.refresh();
+                }
                 previewMarkupBuffer.clearTimer();
                 previewMarkupBuffer.markClosed();
                 if (generationState.activeGeneration === generation) {

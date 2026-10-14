@@ -112,15 +112,8 @@
                     attachmentPreview.innerHTML = '';
                     attachmentPreview.classList.add('hidden');
                 }
-                const modeBtn = document.getElementById('btn-mode-dropdown');
-                if (modeBtn) {
-                    modeBtn.disabled = false;
-                    modeBtn.style.opacity = '';
-                    modeBtn.style.cursor = '';
-                    if (modeBtn.parentElement) {
-                        modeBtn.parentElement.removeAttribute('data-tooltip');
-                    }
-                }
+                const modelBtn = document.getElementById('btn-model-dropdown');
+                if (modelBtn) modelBtn.disabled = false;
             }
 
             if (window.outlineEditorState && window.AedosStores && window.AedosStores.outline) {

@@ -49,6 +49,15 @@
                 generationState.skeletonController.abort();
                 generationState.skeletonController = null;
             }
+
+            const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
+            if (hasFiles && !window.AedosCreditsUI?.canAttachDocuments?.()) {
+                window.AedosModals.showNotice(window.__t('credits.attachmentsGeminiOnly'));
+                window.AedosAttachments?.refreshAvailability?.();
+                return;
+            }
+            // The server must reject attachments without Gemini quota or on a paid model;
+            // client-side checks and model IDs are not trustworthy.
     
             // Push state immediately so the native back button works during the loading phase
             if (window.location.hash !== '#chat') {
@@ -56,7 +65,6 @@
             }
     
             const tema = temaInput.value.trim();
-            const hasFiles = window._attachedFiles && window._attachedFiles.length > 0;
             if (!tema && !hasFiles) {
                 temaError.classList.add('visible');
                 temaInput.focus();
@@ -69,10 +77,26 @@
             const requestData = {
                 tema: finalTema,
                 mode: 'chat', // skeleton always draws from the chat rate-limit bucket
+                modelId: generationState.selectedModelId || 'google/gemini-3-flash-preview',
+                slides: window.AedosCreditsUI?.getSlideCount() || 8,
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
     
             const isFollowUpRequest = window.outlineEditorState && window.outlineEditorState.skeleton !== null;
+
+            // Follow-up chat edits cost one simulated credit; initial outline/schema generation is free.
+            if (isFollowUpRequest && !window.AedosCreditsUI?.canSpend(1)) {
+                toggleGenerateLoading(false);
+                return;
+            }
+            if (isFollowUpRequest) {
+                const charge = window.AedosCredits.spend(1, 'chat');
+                if (!charge.ok) {
+                    window.AedosCreditsUI?.updateStatus('credits.missingOne', 'insufficient', { n: 1 });
+                    toggleGenerateLoading(false);
+                    return;
+                }
+            }
     
             if (isFollowUpRequest) {
                 requestData.currentSkeleton = JSON.stringify(window.outlineEditorState.skeleton);
@@ -90,6 +114,7 @@
             if (window._attachedFiles && window._attachedFiles.length > 0) {
                 const formData = new FormData();
                 formData.append('tema', requestData.tema);
+                formData.append('modelId', requestData.modelId);
                 if (requestData.mode) formData.append('mode', requestData.mode);
                 if (requestData.language) formData.append('language', requestData.language);
                 if (requestData.slides !== undefined) formData.append('slides', requestData.slides);
@@ -283,6 +308,10 @@
                     throw new Error("Outline editor not initialized");
                 }
             } catch (error) {
+                if (isFollowUpRequest) {
+                    window.AedosCredits.refund(1, 'failed-chat');
+                    window.AedosCreditsUI?.refresh();
+                }
                 handleSkeletonError(error, controller);
             }
         };
