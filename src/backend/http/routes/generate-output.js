@@ -6,6 +6,14 @@
  * @param {{fullHtml: string, usePipeline: boolean, requestId: string, opciones: any, res: any, maxProSlides: number, maxFlashSlides: number, sanitizeGeneratedHtml: Function, injectLayoutSafetyNet: Function, sanitizerLog: any, ErrorCategory: any, isDevelopment: boolean, tmpDir: string, fs: any, path: any, devLog: any, classifyError: Function, extractPresentationTitle: Function, buildFileStemFromTitle: Function, resolveUniqueHtmlPath: Function, examplesFlashDir: string, examplesProDir: string, vendorAssets: {lucide: {url: string, integrity: string}}}} deps
  * @returns {{type: string, html?: string, message?: string}}
  */
+function ensureDocumentLanguage(html, language) {
+    const value = language === 'en' ? 'en' : 'es';
+    return html.replace(/<html\b([^>]*)>/i, (tag, attributes) => {
+        const withoutLang = attributes.replace(/\s+lang\s*=\s*(["'])[^"']*\1/i, '');
+        return `<html${withoutLang} lang="${value}">`;
+    });
+}
+
 function processGeneratedOutput({
     fullHtml,
     usePipeline,
@@ -64,6 +72,8 @@ function processGeneratedOutput({
             '</html>'
         ].join('\n');
     }
+
+    if (/<html\b[^>]*>/i.test(cleanedOutput)) cleanedOutput = ensureDocumentLanguage(cleanedOutput, opciones.targetLanguage);
 
     const MAX_SLIDES = usePipeline ? maxProSlides : maxFlashSlides;
     const slideTagRe = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
@@ -218,4 +228,4 @@ function processGeneratedOutput({
     return { type: 'html', html: cleanedOutput };
 }
 
-module.exports = { processGeneratedOutput };
+module.exports = { processGeneratedOutput, ensureDocumentLanguage };

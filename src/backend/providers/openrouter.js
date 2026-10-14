@@ -2,6 +2,7 @@
 const { PAID_MODELS, FREE_MODELS, MODEL_OUTPUT_TOKENS, OUTPUT_TOKENS, estimatePaidUsd } = require('../config/provider-spend');
 const { spendGuard } = require('../utils/spend-guard');
 const { recordProviderCall } = require('./telemetry');
+const HAIKU_STAGE_OUTPUT_LIMITS = Object.freeze({ Stage1: 4096, Stage3: 32768 });
 /** @typedef {{info: Function, warn: Function, success: Function}} ProviderLogger */
 /** @typedef {Record<string, string>} ErrorCategories */
 
@@ -101,7 +102,10 @@ function createOpenRouterProvider({ fetchWithAcceptTimeout, providerLog, classif
             const reasoningConfig = options && options.reasoning === null ? null
                 : options && options.reasoning && typeof options.reasoning === 'object'
                     ? options.reasoning : reasoningForStage(stageName, normalizedModel);
-            const maxTokens = Math.min(OUTPUT_TOKENS[stageName],
+            const stageOutputLimit = normalizedModel === 'anthropic/claude-haiku-5.5'
+                ? HAIKU_STAGE_OUTPUT_LIMITS[stageName] || Number.MAX_SAFE_INTEGER
+                : Number.MAX_SAFE_INTEGER;
+            const maxTokens = Math.min(OUTPUT_TOKENS[stageName], stageOutputLimit,
                 MODEL_OUTPUT_TOKENS[normalizedModel] || Number.MAX_SAFE_INTEGER,
                 Number.isFinite(options.maxOutputTokens) ? options.maxOutputTokens : Number.MAX_SAFE_INTEGER);
             const estimatedUsd = route === 'paid' ? estimatePaidUsd(normalizedModel, prompt, fileContext, maxTokens) : 0;

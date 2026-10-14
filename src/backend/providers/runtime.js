@@ -35,7 +35,7 @@ function createProviderRuntime({
         stage3Only: modelConfig.OPENROUTER_MODELS_STAGE3_ONLY,
         reasoningForStage: modelConfig.reasoningForStage
     });
-    const nvidiaProvider = createNvidiaProvider({ providerLog, ErrorCategory, providerAcceptTimeoutMs });
+    const nvidiaProvider = createNvidiaProvider({ providerLog, ErrorCategory });
     const providerFallback = createProviderFallback({
         gemini: geminiProvider.call,
         openrouter: openRouterProvider.call,

@@ -10,9 +10,8 @@ function modelSettings(modelId) {
     if (modelId.startsWith('nvidia/nemotron-3')) {
         return { chat_template_kwargs: { enable_thinking: false } };
     }
-    if (modelId === 'z-ai/glm-5.3-flash' || modelId === 'z-ai/glm-5.3'
-        || modelId === 'moonshotai/kimi-k3') {
-        return { reasoning_effort: 'low' };
+    if (modelId === 'z-ai/glm-5.3') {
+        return { reasoning_effort: 'low', chat_template_kwargs: { clear_thinking: true } };
     }
     return {};
 }
@@ -43,13 +42,14 @@ async function* nvidiaChunks(response, includeReasoning, onMetadata) {
     }
 }
 
-function createNvidiaProvider({ providerLog, ErrorCategory, providerAcceptTimeoutMs, fetcher = fetch }) {
+function createNvidiaProvider({ providerLog, ErrorCategory, fetcher = fetch }) {
     async function call(prompt, stageName, selectedModel, options = {}) {
         const key = process.env.NVIDIA_API_KEY;
         if (!key || selectedModel?.provider !== 'nvidia') throw new Error('PROVIDER_UNAVAILABLE');
         const model = selectedModel.providerModelId;
         const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
-        const maxTokens = Math.min(OUTPUT_TOKENS[stageName], selectedModel.outputMaxTokens);
+        const maxTokens = Math.min(OUTPUT_TOKENS[stageName], selectedModel.outputMaxTokens,
+            selectedModel.stageOutputMaxTokens?.[stageName] || Number.MAX_SAFE_INTEGER);
         const body = {
             model,
             messages: [{ role: 'user', content: promptText }],
@@ -60,7 +60,7 @@ function createNvidiaProvider({ providerLog, ErrorCategory, providerAcceptTimeou
         };
         const controller = new AbortController();
         const started = Date.now();
-        let timer = setTimeout(() => controller.abort(), providerAcceptTimeoutMs);
+        const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
         let response;
         try {
             response = await fetcher(NVIDIA_URL, {
@@ -69,7 +69,6 @@ function createNvidiaProvider({ providerLog, ErrorCategory, providerAcceptTimeou
                 body: JSON.stringify(body),
                 signal: controller.signal
             });
-            clearTimeout(timer);
             if (!response.ok) {
                 await response.text();
                 providerLog.warn(ErrorCategory.PROVIDER, 'NVIDIA trial endpoint rejected request', {
@@ -86,7 +85,6 @@ function createNvidiaProvider({ providerLog, ErrorCategory, providerAcceptTimeou
                 requestedModelId: options.modelRoute?.requestedModelId, effectiveModelId: model });
             throw error.name === 'AbortError' ? new Error('NVIDIA_ACCEPT_TIMEOUT', { cause: error }) : error;
         }
-        timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
         let usage = null;
         let finish = null;
         const includeReasoning = options.includeReasoning === true;
@@ -97,6 +95,9 @@ function createNvidiaProvider({ providerLog, ErrorCategory, providerAcceptTimeou
         async function* stream() {
             try {
                 yield* nvidiaChunks(response, includeReasoning, onMetadata);
+            } catch (error) {
+                if (error.name === 'AbortError') throw new Error('NVIDIA_STREAM_TIMEOUT', { cause: error });
+                throw error;
             } finally {
                 clearTimeout(timer);
                 recordProviderCall({ stage: stageName, provider: 'nvidia', model,

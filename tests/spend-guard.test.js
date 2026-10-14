@@ -321,7 +321,7 @@ test('both providers send a stage-specific output cap', async () => {
     });
     const result = await router.call('prompt', 'Stage3', ['anthropic/claude-haiku-5.5']);
     for await (const chunk of result.stream) assert.equal(chunk, 'ok');
-    assert.equal(bodies.at(-1).max_tokens, OUTPUT_TOKENS.Stage3);
+    assert.equal(bodies.at(-1).max_tokens, 32768);
     assert.deepEqual(bodies.at(-1).stream_options, { include_usage: true });
     assert.ok(estimatePaidUsd('anthropic/claude-haiku-5.5', 'x'.repeat(100001), null, 100)
         > estimatePaidUsd('anthropic/claude-haiku-5.5', 'x'.repeat(99000), null, 100));

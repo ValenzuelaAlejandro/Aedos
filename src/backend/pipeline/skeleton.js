@@ -1,6 +1,6 @@
 /* eslint-disable max-lines-per-function, complexity */
 const { resolveModelId, validateAttachments, validateModelForGeneration,
-    isLocalNvidiaTrialRequest } = require('../config/model-catalog');
+    isNvidiaTrialEnabled } = require('../config/model-catalog');
 
 /**
  * Build the skeleton-generation route handler without owning HTTP registration.
@@ -13,7 +13,6 @@ function createSkeletonHandler(deps) {
         buildSkeletonFileContext,
         buildStage1Prompt,
         buildStage1RevisionPrompt,
-        tryModelsStage1Thinking,
         trySelectedStage1Thinking,
         extractJson,
         setSseHeaders,
@@ -46,7 +45,7 @@ function createSkeletonHandler(deps) {
         try {
             const opciones = req.body || {};
             const modelSelection = resolveModelId(opciones.modelId, undefined,
-                { localNvidiaTrial: isLocalNvidiaTrialRequest(req) });
+                { nvidiaTrialEnabled: isNvidiaTrialEnabled() });
             if (!modelSelection.valid) {
                 await deps.discardUploadedFiles?.(req.files);
                 return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });
@@ -91,10 +90,8 @@ function createSkeletonHandler(deps) {
             const stage1Prompt = currentSkeleton && typeof currentSkeleton === 'object'
                 ? buildStage1RevisionPrompt(sanitizeResult.tema, currentSkeleton, targetLang)
                 : buildStage1Prompt(sanitizeResult.tema, targetLang);
-            const nvidiaTrial = modelSelection.model.provider === 'nvidia';
-            const stage1Caller = nvidiaTrial ? trySelectedStage1Thinking : tryModelsStage1Thinking;
-            const stage1Response = await stage1Caller(stage1Prompt, fileContext,
-                { selectedModel: nvidiaTrial ? modelSelection.model : undefined,
+            const stage1Response = await trySelectedStage1Thinking(stage1Prompt, fileContext,
+                { selectedModel: modelSelection.model,
                     attachmentsRequireGemini: hasAttachments,
                     modelRoute: { requestedModelId: modelSelection.requestedModelId, effectiveModelId: null, fallbackReason: null } });
 
