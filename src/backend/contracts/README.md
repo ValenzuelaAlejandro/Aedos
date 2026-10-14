@@ -1,16 +1,14 @@
-# Contratos backend
+# Backend contracts
 
-Esta carpeta contiene límites, defaults, errores, SSE, tipos JSDoc y
-normalizadores y la sanitización pura de temas que describen contratos ya
-existentes. Los builders de `errors.js` son consumidos por las rutas HTTP;
-`formatSseEvent` por el pipeline y la ruta de errores; `request-normalizers.js`
-expone normalizadores individuales consumidos por `/generate`. `types.js` es
-solo material JSDoc, sin consumidor en runtime. Cada archivo debe mantener una
-responsabilidad pequeña y no debe iniciar servicios ni leer `req`/`res` salvo
-en el punto de integración correspondiente.
+This folder contains limits, defaults, errors, SSE, JSDoc types, normalizers,
+and pure topic sanitization describing existing contracts. HTTP routes consume
+`errors.js` builders; the pipeline and error route consume `formatSseEvent`;
+`request-normalizers.js` exposes individual normalizers consumed by
+`/generate`. `types.js` is JSDoc-only material with no runtime consumer.
+Each file should have a small responsibility and must not start services or
+read `req`/`res` except at its integration point.
 
-Para añadir una constante, conserva el valor actual, documenta el origen en
-un comentario y añade una prueba de equivalencia. Para añadir un error,
-registra código, status, cuerpo/evento y consumidor antes de reemplazar el
-literal en `server.js`. Los tipos deben reflejar fixtures y comportamiento
-observado, incluidos campos opcionales o ambiguos.
+When adding a constant, preserve its current value, document its source in
+a comment, and add an equivalence test. Before replacing an error literal
+in `server.js`, record its code, status, body/event, and consumer. Types
+must reflect fixtures and observed behavior, including optional or ambiguous fields.

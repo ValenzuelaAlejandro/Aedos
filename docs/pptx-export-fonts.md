@@ -1,16 +1,15 @@
-# Fuentes y sustituciones PPTX
+# PPTX fonts and substitutions
 
-Las sustituciones se mantienen como datos, no como reglas específicas de un
-deck. La primera familia instalada de la pila CSS se conserva; si ninguna está
-disponible se consulta esta tabla:
+Substitutions are data rather than deck-specific rules. The first installed
+family in the CSS stack is retained; if none is available, this table applies.
 
-| Categoría o patrón | Fallback Office |
+| Category or pattern | Office fallback |
 | --- | --- |
-| serif y familias serif decorativas | Georgia |
-| sans-serif genérico | Arial |
-| display/black | Arial Narrow |
-| monospace/code | Courier New |
-| familia desconocida sin categoría | Arial |
+| Serif and decorative serif families | Georgia |
+| Generic sans-serif | Arial |
+| Display/black | Arial Narrow |
+| Monospace/code | Courier New |
+| Unknown family without a category | Arial |
 
-Cada sustitución emite un warning único por familia y slide con tipo
-`font-substitution`, incluyendo la familia original y la resultante.
+Each substitution emits one `font-substitution` warning per family and slide,
+including the original and resulting families.

@@ -1,49 +1,48 @@
-# Gradientes en la exportación PPTX
+# Gradients in PPTX export
 
-El exportador usa el mismo modelo `items` que el resto de elementos editables. Un
-`linear-gradient()` o un `radial-gradient()` simple se conserva como fill nativo
-OOXML; el texto y las formas que lo rodean siguen siendo objetos editables.
+The exporter uses the same `items` model as other editable elements. A simple
+`linear-gradient()` or `radial-gradient()` remains a native OOXML fill;
+surrounding text and shapes remain editable.
 
-## Conversión de ángulos
+## Angle conversion
 
-El parser conserva los grados CSS antes de convertirlos a OOXML. CSS usa 0° hacia
-arriba y aumenta en sentido horario; DrawingML usa 0° hacia la derecha. Por eso la
-conversión es:
+The parser preserves CSS degrees before converting to OOXML. CSS starts at 0°
+upward and increases clockwise; DrawingML starts at 0° to the right.
 
 ```text
 ooxmlAngle = ((cssAngle - 90 + 360) % 360) * 60000
 ```
 
-Para `to bottom right`, la dirección se calcula con el aspect ratio de la caja:
-`90 + atan2(height, width)` en grados. Así una caja cuadrada produce 135° y una
-caja de 200×100 px produce 116.565°.
+For `to bottom right`, direction uses the box aspect ratio:
+`90 + atan2(height, width)` in degrees. A square produces 135° and a
+200×100 px box produces 116.565°.
 
-## Stops y transparencia
+## Stops and transparency
 
-Los stops se normalizan a posiciones de 0 a 100000. Los stops sin posición se
-distribuyen linealmente entre los stops vecinos. `rgba()` conserva su alpha y
-`transparent` reutiliza el color sólido más cercano con alpha 0 para evitar el
-oscurecimiento que produciría interpolar desde negro transparente.
+Stops normalize to positions from 0 to 100000. Stops without a position are
+distributed linearly between neighboring stops. `rgba()` retains alpha;
+`transparent` reuses the nearest solid color with alpha 0 to avoid darkening
+from interpolation with transparent black.
 
-## Degradación controlada
+## Controlled degradation
 
-`repeating-*`, `conic-gradient`, múltiples capas, `background-blend-mode`, máscaras
-y gradientes de texto no tienen un equivalente nativo seguro en este exportador.
-Esas regiones se capturan a DPR 2 como PNG local, se insertan en el mismo z-order y
-se registra un warning estructurado `gradient-fallback` con
-`fallback: "rasterized-region"`. Nunca se degrada silenciosamente a un color sólido.
+`repeating-*`, `conic-gradient`, multiple layers, `background-blend-mode`,
+masks, and text gradients have no safe native equivalent in this exporter.
+These regions are captured at DPR 2 as local PNGs, inserted at the same z-order,
+and logged with a structured `gradient-fallback` warning and
+`fallback: "rasterized-region"`. They never silently become a solid color.
 
-La comprobación disponible en este entorno usa `render_slides.py` de la skill de
-presentaciones, que importa el PPTX con `@oai/artifact-tool` 2.8.59. Inicialmente
-ocultaba texto en algunos slides porque Chromium entrega `transparent` como
-`rgba(0, 0, 0, 0)` y ese RGB negro llegaba al XML. El parser ahora sustituye el RGB
-de cualquier stop con alpha 0 por el stop sólido más cercano; los slides afectados
-vuelven a renderizarse con texto visible y el XML conserva el fill nativo. Se abrió y
-exportó el deck con Microsoft PowerPoint `16.0.10417.20208` sin reparación; `soffice`
-no está instalado en este entorno, por lo que no se hizo una comparación LibreOffice.
-La diferencia residual de píxeles en los paneles diagonales se clasifica como C:
-interpolación/rasterización legítimamente distinta entre Chromium y PowerPoint,
-no como un RGB o alpha incorrecto en OOXML. La evidencia es el fixture sólido
-135°: cambiar únicamente `scaled="0"` a `scaled="1"` empeora el MAE regional de
-0.791975 a 5.664315 en PowerPoint; por tanto no se corrige alterando la escala
-del gradiente.
+Verification in this environment uses the presentations skill's
+`render_slides.py`, which imports PPTX with `@oai/artifact-tool` 2.8.59.
+Initially, some slides hid text because Chromium supplies `transparent` as
+`rgba(0, 0, 0, 0)`, sending black RGB into XML. The parser now replaces RGB
+for any alpha-0 stop with the nearest solid stop; affected slides render with
+visible text and XML retains the native fill. Microsoft PowerPoint
+`16.0.10417.20208` opened and exported the deck without repair. `soffice`
+is not installed, so no LibreOffice comparison was performed.
+
+Residual pixel differences in diagonal panels are classified as C: legitimate
+interpolation/rasterization differences between Chromium and PowerPoint,
+rather than incorrect OOXML RGB or alpha. In the solid 135° fixture, changing
+only `scaled="0"` to `scaled="1"` worsens regional PowerPoint MAE from
+0.791975 to 5.664315, so changing gradient scaling is not a correction.

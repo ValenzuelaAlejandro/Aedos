@@ -88,7 +88,6 @@ Important notes:
 ```text
 Aedos/
 +-- docs/
-|   +-- README.es.md
 |   +-- README.en.md
 +-- scripts/
 |   +-- install-chrome.sh

@@ -8,5 +8,4 @@ Kendrick deck:
 | `pptx-generality-light.html` | light background, editable list and native table |
 | `pptx-generality-dark.html` | dark background, native diagonal gradient, box shadow and pseudo-element decorations |
 
-The dark fixture intentionally keeps the pseudo-elements in the source so a
-future pseudo-content pass can be measured without changing the fixture.
+The dark fixture includes pseudo-elements to exercise decoration and paint-order coverage.

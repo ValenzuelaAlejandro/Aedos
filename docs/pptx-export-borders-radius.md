@@ -1,54 +1,54 @@
-# Bordes, radios y opacidad en PPTX editable
+# Borders, corner radii, and opacity in editable PPTX
 
-## Mapeo
+## Mapping
 
-- `opacity` propio y de ancestros se multiplica en el navegador y se aplica a
-  fills, líneas, gradiente, texto, sombras y `a:alphaModFix` de imágenes.
-- `opacity: 0`, `display:none` y `visibility:hidden` se omiten.
-- Un radio uniforme se exporta como `a:prstGeom prst="roundRect"` con
-  `adj = round(radius / min(width, height) × 100000)`, limitado a `50000`.
-  Un cuadrado con radio igual a la mitad de su lado usa `ellipse`; un radio
-  grande en una caja rectangular produce una píldora `roundRect`.
-- Un borde uniforme usa `a:ln cmpd="sng"`, con color/alpha y `a:prstDash`
-  (`solid`, `dash` o `sysDot`). El rectángulo geométrico se reduce y desplaza
-  media anchura para compensar que PowerPoint centra la línea sobre la forma,
-  mientras CSS pinta el borde dentro del `border-box`.
-- Bordes distintos por lado se descomponen en cuatro rectángulos editables.
-  Las tiras laterales empiezan debajo del borde superior y terminan encima del
-  inferior para evitar doble cobertura en las esquinas.
-- `outline` sin borde se trata como borde equivalente. `outline-offset` no
-  tiene una representación nativa segura y registra warning.
-- La sombra ring (`0 0 0 Npx`) reutiliza el borde editable del bloque 4.2.
+- The browser multiplies an element's own `opacity` by ancestor opacity and
+  applies it to fills, lines, gradients, text, shadows, and image `a:alphaModFix`.
+- `opacity: 0`, `display:none`, and `visibility:hidden` are omitted.
+- A uniform radius exports as `a:prstGeom prst="roundRect"` with
+  `adj = round(radius / min(width, height) × 100000)`, capped at `50000`.
+  A square with a radius of half its side uses `ellipse`; a large radius on
+  a rectangular box produces a `roundRect` pill.
+- A uniform border uses `a:ln cmpd="sng"`, color/alpha, and `a:prstDash`
+  (`solid`, `dash`, or `sysDot`). The geometry rectangle shrinks and shifts
+  by half the border width: PowerPoint centers the line on the shape, while
+  CSS paints the border inside the `border-box`.
+- Different borders per side become four editable rectangles. Side strips
+  start below the top border and end above the bottom to avoid double coverage
+  at corners.
+- An `outline` without a border becomes an equivalent border.
+  `outline-offset` has no safe native representation and records a warning.
+- A ring shadow (`0 0 0 Npx`) reuses the editable border from block 4.2.
 
-## Fallbacks deliberados
+## Intentional fallbacks
 
-Radios elípticos/distintos, o un `border-radius` con `overflow:hidden` y hijos,
-se rasterizan como una captura PNG del nodo raíz para conservar clipping y
-curvatura. Bordes distintos combinados con radio también se rasterizan. Se
-emite siempre un warning estructurado con esta forma:
+Elliptical/different radii, or `border-radius` with `overflow:hidden` and
+children, become a PNG capture of the root node to preserve clipping and
+curvature. Different borders combined with a radius are also rasterized.
+A structured warning always uses this shape (the field names are the existing
+runtime contract):
 
 ```json
 {
   "slide": 1,
   "selector": ".card",
   "tipo": "radius-approx",
-  "motivo": "esquinas elípticas o radios distintos",
-  "fallback": "roundRect con radio máximo"
+  "motivo": "elliptical corners or different radii",
+  "fallback": "roundRect with maximum radius"
 }
 ```
 
-Los estilos `double`, `groove`, `ridge`, `inset` y `outset` conservan ancho y
-color, pero degradan el patrón a `solid` con `border-fallback`. Un elemento no
-soportado no cancela la generación del archivo.
+`double`, `groove`, `ridge`, `inset`, and `outset` retain width and color
+but degrade to `solid` with `border-fallback`. An unsupported element does
+not cancel file generation.
 
-## Verificación OOXML
+## OOXML verification
 
-Los tests comprueban `adj`, el uso del lado menor, el clamp de píldoras,
-`ellipse`, `cmpd="sng"`, los patrones de línea, alpha de fills/líneas/gradientes/
-texto/sombras/imágenes y la compensación geométrica. El `effectLst` de sombras
-queda después de `a:ln` dentro de `p:spPr`.
+Tests check `adj`, use of the shorter side, pill clamping, `ellipse`,
+`cmpd="sng"`, line patterns, alpha on fills/lines/gradients/text/shadows/images,
+and geometry compensation. Shadow `effectLst` follows `a:ln` inside `p:spPr`.
 
-Los fixtures permanentes `pptx-generality-light.html` y
-`pptx-generality-dark.html` contienen ahora radio nativo, bordes sólido/dashed
-o dotted y un grupo con alpha 0.5 y sombra. El fixture independiente de
-sombras cubre offset, blur, alpha, ring, múltiples, inset y text-shadow.
+Permanent fixtures `pptx-generality-light.html` and
+`pptx-generality-dark.html` include native radii, solid/dashed/dotted borders,
+and a group with alpha 0.5 and a shadow. The separate shadow fixture covers
+offset, blur, alpha, ring, multiple shadows, inset, and text-shadow.

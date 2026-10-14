@@ -134,13 +134,13 @@ const createAedosMinimapView = function (options) {
         const minimapContainer = document.getElementById('editor-minimap');
         if (!minimapContainer) return;
 
-        // Descontar el área ocupada por el botón + fijado al fondo
+        // Reserve the area occupied by the bottom-pinned add button.
         const addBtn = document.getElementById('btn-add-slide');
         const footerReserve = addBtn ? (addBtn.offsetHeight + 28) : 72;
         const panelHeight = minimapContainer.clientHeight;
         const viewportHeight = Math.max(120, panelHeight - footerReserve);
 
-        // Mide el item real incluyendo su margin
+        // Measure the item including its margins.
         const activeItem = items[activeIdx];
         if (!activeItem) return;
         const style = window.getComputedStyle(activeItem);
@@ -148,7 +148,7 @@ const createAedosMinimapView = function (options) {
         const marginBottom = parseFloat(style.marginBottom) || 0;
         const ITEM_HEIGHT = activeItem.offsetHeight + marginTop + marginBottom;
 
-        // Centrar dentro del área útil y limitar el desplazamiento
+        // Center within the usable area and clamp the offset.
         let offset = (viewportHeight / 2) - (activeIdx * ITEM_HEIGHT) - (ITEM_HEIGHT / 2) + 12;
         const listHeight = minimapList.scrollHeight;
         const maxOffset = 0;

@@ -1,40 +1,40 @@
-# HTML → PPTX: stacking y orden de capas
+# HTML → PPTX stacking and layer order
 
-El exportador captura cada elemento visible del slide con un `domIndex` pre-order,
-`contextId` y `zKey`. Los pseudo-elementos reciben índices durante el mismo recorrido:
-`::before` se asigna después del padre y antes de sus hijos; `::after`, después de los
-hijos. El escritor ordena `items` por `zKey` y, en empate, por `domIndex` antes de
-emitirlos en `p:spTree`; en PowerPoint ese orden es el z-order.
+The exporter captures each visible slide element with a pre-order `domIndex`,
+`contextId`, and `zKey`. Pseudo-elements receive indices in the same traversal:
+`::before` follows the parent and precedes children; `::after` follows children.
+The writer sorts `items` by `zKey`, breaking ties by `domIndex`, before
+emitting them in `p:spTree`; that order is PowerPoint's z-order.
 
-## Aproximación aplicada
+## Applied approximation
 
-- Se crea stacking context para `position` con `z-index` no `auto`, `opacity < 1`,
-  `transform`, `filter`, `isolation:isolate`, `will-change` relevante y para items
-  flex/grid con `z-index` explícito.
-- Cada contexto aporta `[grupo, z-index, domIndex]`, donde `grupo` es `-1` para
-  negativos, `0` para auto/0 y `1` para positivos.
-- Dentro del contexto usamos fases aproximadas: fondo/borde `0`, `::before` `1`,
-  contenido normal `2` y `::after` `3`. Un shape y su texto propio comparten
-  `domIndex` y el texto recibe una parte posterior.
-- El fondo del slide se emite siempre antes de los `items`.
-- `position:fixed` y `sticky` se miden respecto al viewport que coincide con el
-  slide; si intersectan el slide se tratan como elementos absolutos.
+- Stacking contexts are created for positioned elements with non-`auto`
+  `z-index`, `opacity < 1`, `transform`, `filter`,
+  `isolation:isolate`, relevant `will-change`, and flex/grid items
+  with explicit `z-index`.
+- Each context contributes `[group, z-index, domIndex]`, with group `-1`
+  for negative values, `0` for auto/0, and `1` for positive values.
+- Approximate phases within a context are background/border `0`,
+  `::before` `1`, normal content `2`, and `::after` `3`.
+  A shape and its own text share `domIndex`, with text assigned a later part.
+- The slide background always precedes `items`.
+- `position:fixed` and `sticky` are measured against the viewport matching
+  the slide; intersecting elements are treated as absolutely positioned.
 
-## Limitaciones
+## Limitations
 
-Esto no implementa todo el algoritmo CSS: floats, inline formatting contexts,
-`mix-blend-mode`, `backdrop-filter`, máscaras, compositing de grupos y ciertos
-casos de `contain` no tienen una representación editable equivalente en PPTX.
-`opacity < 1` se propaga como alpha a fills/textos soportados; PPTX no puede
-agrupar la opacidad de hijos editables, por lo que se registra un warning.
-`overflow:hidden` se conserva mediante la geometría del slide y se registra un
-warning cuando un hijo desborda; no se rasteriza el grupo automáticamente.
-Elementos completamente invisibles, de tamaño cero o fuera del slide no se
-exportan.
+This does not implement the entire CSS algorithm. Floats, inline formatting
+contexts, `mix-blend-mode`, `backdrop-filter`, masks, group compositing,
+and some `contain` cases have no equivalent editable PPTX representation.
+`opacity < 1` propagates as alpha to supported fills/text. PPTX cannot group
+the opacity of editable children, so a warning is recorded.
+`overflow:hidden` is preserved through slide geometry, with a warning when
+a child overflows; groups are not automatically rasterized.
+Completely invisible, zero-size, or off-slide elements are not exported.
 
-El fixture versionado `tests/fixtures/pptx-layer-edge.html` cubre opacity con
-hijos, `overflow:hidden`, `position:fixed`, `position:sticky` y
-`visibility:hidden`/`opacity:0`. La exportación registra warnings con la forma
-`{ slide, selector, tipo, motivo, fallback }`; en el caso de prueba se esperan
-`opacity-group` y `overflow-clipping`, mientras que los elementos ocultos se
-omiten sin warning porque no hay pérdida visual.
+The versioned `tests/fixtures/pptx-layer-edge.html` covers opacity with
+children, `overflow:hidden`, `position:fixed`, `position:sticky`,
+and `visibility:hidden`/`opacity:0`. Export warnings retain the contract
+`{ slide, selector, tipo, motivo, fallback }`. The test expects
+`opacity-group` and `overflow-clipping`; hidden elements are omitted without
+warnings because there is no visual loss.

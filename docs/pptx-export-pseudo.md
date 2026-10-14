@@ -1,19 +1,19 @@
-# Pseudo-elementos HTML → PPTX
+# HTML → PPTX pseudo-elements
 
-La extracción usa `getComputedStyle(el, '::before/::after')` y conserva el
-orden de pintura mediante `zKey`: `::before` queda antes del contenido del
-padre y `::after` después de sus hijos. Un pseudo textual estático y sin
-efectos se agrega como run al párrafo del padre, con su propio color, familia,
-tamaño, peso, estilo, sombra y espaciado medido en CSS. Los pseudo absolutos o
-decorativos (`content:""`) siguen siendo shapes independientes.
+Extraction uses `getComputedStyle(el, '::before/::after')` and preserves
+paint order with `zKey`: `::before` precedes parent content and `::after`
+follows its children. A static text pseudo-element without effects becomes
+a run in the parent's paragraph, with its own CSS-measured color, family,
+size, weight, style, shadow, and spacing. Absolute or decorative
+pseudo-elements (`content:""`) remain separate shapes.
 
-Se ignoran elementos reemplazados y pseudo de tamaño cero. `\\201C`, `\\2022`
-y escapes hex equivalentes se decodifican. `counter()`, `counters()`, `attr()`
-y `url()` emiten `pseudo-fallback`; transform, filter, mask y blend también
-emiten warning y conservan el texto del padre. La captura aislada de pseudo
-complejos queda como limitación: no se inventa un raster que incluya padre o
-hermanos.
+Replaced elements and zero-size pseudo-elements are ignored. `\\201C`,
+`\\2022`, and equivalent hex escapes are decoded. `counter()`,
+`counters()`, `attr()`, and `url()` emit `pseudo-fallback`;
+transform, filter, mask, and blend also emit warnings while preserving parent
+text. Isolated capture of complex pseudo-elements remains a limitation:
+the exporter does not invent a raster containing the parent or siblings.
 
-El fixture `tests/fixtures/pptx-pseudo.html` cubre runs inline, quote, regla,
-badge vacío, counter, attr, transform y clearfix. La salida final se inspecciona
-en `tmp/phase5-final-pseudo-powerpoint-render/slide-1.png`.
+`tests/fixtures/pptx-pseudo.html` covers inline runs, quotes, rules, empty
+badges, counter, attr, transform, and clearfix. Inspect final output in
+`tmp/phase5-final-pseudo-powerpoint-render/slide-1.png`.

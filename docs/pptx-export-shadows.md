@@ -1,9 +1,9 @@
-# Sombras editables PPTX
+# Editable PPTX shadows
 
-## Mapeo nativo
+## Native mapping
 
-Una sombra CSS simple se convierte a `a:effectLst/a:outerShdw` dentro de
-`p:spPr`, después de `a:ln`. La distancia usa el módulo de los offsets en EMU:
+A simple CSS shadow becomes `a:effectLst/a:outerShdw` inside `p:spPr`,
+after `a:ln`. Distance uses the magnitude of offsets in EMU.
 
 ```text
 dist = hypot(pxToEmu(x), pxToEmu(y))
@@ -11,33 +11,32 @@ dir  = normalize(atan2(y, x) × 60000)
 blurRad = pxToEmu(cssBlur) × CSS_BLUR_TO_SHADOW_RAD
 ```
 
-El color y alpha se conservan en `a:srgbClr/a:alpha`. La dirección se mide en
-sentido horario desde la derecha y queda normalizada a `0..360°`.
+Color and alpha remain in `a:srgbClr/a:alpha`. Direction is measured
+clockwise from the right and normalized to `0..360°`.
 
-## Calibración con PowerPoint
+## PowerPoint calibration
 
-Se usó `16.0.10417.20208`, exportando el fixture a PDF por COM y convirtiéndolo
-a PNG. Sobre las mismas regiones del HTML, el MAE total del fixture fue:
+PowerPoint `16.0.10417.20208` exported the fixture to PDF through COM,
+then it was converted to PNG. For the same HTML regions, total fixture MAE was:
 
-| Factor | MAE total | Región simple | Región horizontal | Región negativa |
+| Factor | Total MAE | Simple region | Horizontal region | Negative region |
 | ---: | ---: | ---: | ---: | ---: |
 | 0.5 | 5.701709 | 5.875011 | 5.754902 | 6.285971 |
 | 1.0 | 5.428843 | 4.780909 | 4.989965 | 6.033263 |
 | 1.5 | 5.431328 | 4.709270 | 4.699206 | 5.715966 |
 
-El factor 1.0 es el elegido porque minimiza el MAE agregado y evita el
-empeoramiento observado en la región inset con 1.5. La calibración no pretende
-que PowerPoint y Chromium produzcan el mismo blur: sólo fija la mejor escala
-empírica del atributo OOXML para este renderer.
+Factor 1.0 minimizes aggregate MAE and avoids the inset-region regression
+seen with 1.5. Calibration does not claim identical PowerPoint/Chromium blur;
+it establishes the best empirical OOXML attribute scale for this renderer.
 
-## Extensión visible por blur
+## Visible blur extent
 
-Para medir la cola se usó una caja blanca de 322×120 px sobre `#f8fafc`, sombra
-centrada con alpha 0.5, y umbral de visibilidad `alpha >= 0.01` (aprox. 2.5/255
-de oscurecimiento). La extensión es la distancia desde el borde inferior hasta
-el último píxel que supera el umbral; PowerPoint es el PNG exportado por COM.
+Tail measurement used a 322×120 px white box over `#f8fafc`, a centered
+shadow with alpha 0.5, and visibility threshold `alpha >= 0.01`
+(approximately 2.5/255 darkening). Extent is the distance from the bottom edge
+to the last pixel above the threshold; PowerPoint values come from COM PNGs.
 
-| Blur CSS | blurRad usado (EMU) | Chromium (px) | PowerPoint (px) | error (px) |
+| CSS blur | Applied blurRad (EMU) | Chromium (px) | PowerPoint (px) | Error (px) |
 | ---: | ---: | ---: | ---: | ---: |
 | 4 | 43,465 | 3 | 2 | 1 |
 | 8 | 86,930 | 7 | 5 | 2 |
@@ -45,27 +44,27 @@ el último píxel que supera el umbral; PowerPoint es el PNG exportado por COM.
 | 24 | 260,791 | 24 | 16 | 8 |
 | 48 | 521,583 | 45 | 32 | 13 |
 
-El error crece con blur; no es una relación perfectamente lineal. Evalué una
-corrección global 1.5× y 2.0× sobre el mismo XML: 1.5× produjo extensiones
-`[3,7,11,24,49]` y errores `[0,0,1,0,4]`, mientras 2.0× produjo
-`[5,10,16,32,67]` y errores `[2,3,4,8,22]`. No se activa automáticamente 1.5×:
-en el fixture completo de sombras su MAE agregado fue 5.431328 frente a 5.428843
-con 1.0×, y la región inset empeoró. La diferencia queda documentada como
-limitación de rasterizado de PowerPoint; el factor 1.0 conserva la mejor métrica
-global entre los casos editables combinados.
+Error grows with blur and is not perfectly linear. Global 1.5× and 2.0×
+corrections were evaluated on the same XML: 1.5× produced extents
+`[3,7,11,24,49]` and errors `[0,0,1,0,4]`; 2.0× produced
+`[5,10,16,32,67]` and errors `[2,3,4,8,22]`. Factor 1.5× is not applied
+automatically: full-fixture aggregate MAE was 5.431328 versus 5.428843 at
+1.0×, and the inset region worsened. This is documented as a PowerPoint
+rasterization limitation; 1.0 retains the best global metric across
+combined editable cases.
 
-En el deck oscuro, el slide completo pasó de 8.411194 a 8.479195, pero la región
-de la tarjeta y su halo mejoró de 4.203094 a 3.827256. La franja inferior de la
-sombra mejoró de 0.844164 a 0.207949 y el halo derecho de 3.868579 a 3.518736.
-El empeoramiento global proviene de la diferencia de blur fuera de la región
-afectada, no de una sombra ausente o duplicada.
+In the dark deck, full-slide MAE went from 8.411194 to 8.479195, while the card
+and halo region improved from 4.203094 to 3.827256. The bottom shadow strip
+improved from 0.844164 to 0.207949 and the right halo from 3.868579 to 3.518736.
+The overall regression comes from blur differences outside the affected
+region, not a missing or duplicated shadow.
 
 ## Fallbacks
 
-- `0 0 0 Npx` se trata como borde equivalente y no como `outerShdw`.
-- Múltiples sombras o `inset` aplican la dominante por `alpha × blur` y registran
-  `shadow-fallback` con selector, motivo y fallback.
-- `spread` distinto de cero se aproxima sin spread y registra warning.
-- `filter: drop-shadow()` o `blur()` rasteriza el nodo raíz completo a PNG y
-  registra `filter-fallback`; los hijos no se emiten de nuevo.
-- `text-shadow` simple se conserva dentro del `a:rPr` de cada run.
+- `0 0 0 Npx` becomes an equivalent border rather than `outerShdw`.
+- Multiple shadows or `inset` apply the dominant shadow by `alpha × blur`
+  and record `shadow-fallback` with selector, reason, and fallback.
+- Nonzero `spread` is approximated without spread and records a warning.
+- `filter: drop-shadow()` or `blur()` rasterizes the complete root node
+  to PNG with `filter-fallback`; children are not emitted again.
+- Simple `text-shadow` remains inside each run's `a:rPr`.

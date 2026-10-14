@@ -1,7 +1,6 @@
 # Aedos contracts
 
-This document records the public and browser-facing contracts observed during
-the Phase 0 safety work. It is descriptive and does not replace the endpoint
+This document records the public and browser-facing contracts used by the current application. It is descriptive and does not replace the endpoint
 implementation or the generated HTML model.
 
 ## HTTP endpoints
@@ -58,7 +57,7 @@ not treated as static page IDs.
 
 The frontend exposes a compatibility API on `window`, including outline state,
 i18n functions, editor/tool/minimap initializers, thinking-panel API, and
-outline actions. These names must remain stable until their consumers migrate.
+outline actions. These names are used by existing consumers and remain public compatibility APIs.
 
 ### Window inventory
 
@@ -181,8 +180,7 @@ vectors: scripts, inline handlers, `iframe`/`object`/`embed`, unsafe imports,
 `javascript:`/`data:text/html` URLs, and dangerous CSS declarations. The
 adversarial fixture expectations are the contract; representative safe Flash
 and Pro output hashes, Google Fonts, and `data:image/*` remain preserved. This
-is a bounded policy, not a general HTML allow-list; unlisted constructs still
-need a separate reviewed security task.
+is a bounded policy covering these vectors rather than a general HTML allow-list.
 
 ## Script load order
 
@@ -193,17 +191,15 @@ compatibility contract.
 
 ## Timers and watchdogs
 
-The current timer inventory is intentionally recorded here because these are
-observable timing surfaces during the refactor: `app.js` owns the 600000 ms SSE
-watchdog, 250 ms progress polling, 28 ms typewriter, 50/300/500/800 ms preview
-and editor setup timers, 100/400/500/1500 ms overlay timers, and the 100 ms
-retry; `outline.js` owns chip rendering/debounce and 400/500 ms entry effects;
-`editor-ui.js` owns `_minimapInterval`; `tools.js` owns selection debounce and
-1000 ms undo flags; `minimap.js` owns update debounce and 50/200/300 ms layout
-timers; `thinking-panel.js` owns reasoning intervals and its no-reasoning
-timeout; and `mobile/js/bridge.js` owns the 1200 ms dot-sync interval. These
-watchdogs and timers remain frozen until a later phase characterizes them with
-dedicated timing tests.
+Timers are owned by their feature modules. Final generation uses a 600000 ms
+SSE watchdog in `features/generation/final-generation.js`.
+`features/chat/loading-controller.js` schedules the 28 ms hero typewriter.
+Preview layout, overlays, asset settling, and reveal timers live in
+`features/preview/`; outline streaming and editor setup use their own modules.
+`editor-ui.js` owns `_minimapInterval`, tools/minimap modules own their
+selection/layout debounce, and `thinking-panel.js` owns reasoning timers.
+`mobile/js/nav-dots.js` synchronizes mobile dots every 1200 ms.
+These timings are observable behavior covered by the relevant lifecycle tests.
 
 ## Baseline verification
 
@@ -214,94 +210,38 @@ ZIP part list and normalized slide XML hashes without hashing the ZIP container
 timestamps. PDF checks compare URL shape, content type/signature, page count,
 dimensions, and byte count in `tests/baseline/exports/pdf-manifest.json`.
 
-## Valores duplicados en el frontend
+## Repeated frontend values
 
-The frontend currently repeats presentation limits independently: the SSE
-watchdog is 600000 ms in `src/frontend/scripts/app.js`; Flash/Pro slide limits
-are enforced in the generation UI and outline controls; attachment count and
-file-size affordances are also client-side. They remain unchanged because
-changing them would be observable behavior.
+Frontend validation and outline controls enforce slide and attachment limits
+for immediate feedback. Backend contracts remain authoritative. Generation
+watchdogs and preview timers live in their owning feature modules.
 
-The isolated pressure test characterizes `503 PRO_TEMPORARILY_PAUSED` with the
-existing local provider stub. The `429 QUEUE_FULL` route is documented by the
-error catalog, but a deterministic concurrent queue fixture would require a
-stable blocking seam. Mid-stream provider failure and Gemini-to-OpenRouter
-fallback likewise require provider-failure injection; these seams are
-intentionally deferred to Phase 3 rather than changing production behavior.
+## Frontend compatibility APIs
 
-## Frontend compatibility APIs during Etapa 8
-
-`src/frontend/features/shared/content-utils.js` loads as a classic script before
-`scripts/app.js`. `window.AedosContentUtils.sanitizeModelOutput(value)` and
-`gifToStaticDataUrl(file)` are the named service; the historical
+`src/frontend/features/shared/content-utils.js` loads as a classic script
+before `scripts/app.js`. `window.AedosContentUtils.sanitizeModelOutput(value)`
+and `gifToStaticDataUrl(file)` provide the service; the historical
 `window.sanitizeModelOutput` and `window.gifToStaticDataUrl` aliases remain.
-Model chunks still pass through the same sanitizer, and image consumers retain
-the same GIF first-frame conversion behavior.
+Model chunks pass through the sanitizer, and image consumers keep GIF
+first-frame conversion.
 
-`window.AedosAppTooltips.initialize()` is called from the former tooltip
-registration point in `app.js`. It registers the delegated `mouseover`,
+`window.AedosAppTooltips.initialize()` registers delegated `mouseover`,
 `mouseout`, `mousedown`, and capture-phase `scroll` listeners in that order.
-`src/frontend/features/editor/toolbar-{size,action,swatch}-events.js` and
-`font-size-actions.js` own only their specified controls; event selector order,
-callbacks, and legacy editor globals remain unchanged. These are transitional
-APIs, not authorization to remove existing `window.*` compatibility names.
+Editor toolbar modules own size, action, and swatch controls; selectors,
+callbacks, and public editor globals remain compatibility contracts.
 
-## Snapshot de refactor frontend 8e (2026-10-04)
+`features/editor/snap-guide-calculation.js` receives arrays and tolerance,
+returning `{ value, delta }`. It chooses distances strictly below tolerance,
+iterates candidates/targets in their existing order, and keeps the first tie.
 
-No se cambiaron endpoints, payloads, eventos SSE, markup visible ni nombres
-`window.*` en esta continuación. `features/editor/snap-guide-calculation.js`
-recibe arrays y tolerancia y devuelve `{ value, delta }`; es interno al módulo
-del iframe, no un contrato de aplicación. Preserva la búsqueda previa: distancia
-estrictamente menor que la tolerancia, iteración candidato/target en el orden
-original y primer resultado en empates. El primer intento tuvo que adaptarse a
-los loaders VM; el commit final `bb44e47` y su gate pasan. Los cortes restantes
-de `app.js` y la orquestación de puntero siguen pendientes; esto no declara
-completada la modularización de Etapa 8.
+Factories receive explicit dependencies; `window.AedosChatInput`,
+`window.AedosChatLoading`, and
+`window.AedosChatValidation.createGenerateValidation(deps)` are loaded before
+`app.js`. `window.validateGenerateButton`,
+`window.startFinalGeneration`, and preview/editor facades remain public entry
+points. Pointer/content/toolbar/lock listeners register at their existing
+bootstrap points.
 
-## Continuación de estado frontend 9a (parcial)
-
-Los commits de la rama `refactor/fase-9a-app-estado` agrupan datos locales del
-callback en objetos (`chatState`, `navigationState`, `zoomState` y
-`previewUiState`) sin cambiar los nombres o contratos públicos de `window.*`.
-No se alteraron endpoints, payloads, eventos SSE, markup, apariencia ni
-timings intencionalmente. Los objetos no son API externa ni contrato para
-consumidores; no se deben importar fuera de `app.js` mientras sigan dentro del
-callback. Los detalles de inicialización, verificaciones y trabajo pendiente
-se documentan en `docs/FRONTEND-INVENTORY.md` y `docs/HANDOFF.md`.
-
-## Fase 10: fábricas verticales (parcial)
-
-Ramas locales encadenadas desde `refactor/fase-9c-editor` (`c884fd8`):
-`refactor/fase-10a-app-bloques` (`dfa0267`) y
-`refactor/fase-10b-editor` (punta de código `ff46ad9`; el commit de cierre
-documental se agrega después). No se retiró ningún contrato público existente:
-endpoints, payloads, SSE, markup, apariencia, timings y nombres `window.*`
-legacy se mantienen. Las factories son wiring interno y reciben deps explícitas.
-Se añadieron los bootstraps `window.AedosChatInput` y
-`window.AedosChatLoading`; no reemplazan ni eliminan bridges anteriores.
-
-`createChatLoadingController` mantiene timers, callbacks y la secuencia de
-disabled/enabled de controles. `bindEditorPointerInteractions`,
-`bindEditorContentEvents`, `bindEditorToolbarEvents` y
-`bindEditorLockLifecycle` conservan sus puntos de registro. El intento de
-wrapper de teclado omitió `document` al delegar al handler, causó errores de
-`activeElement` en navegador y se revirtió. Véase `docs/HANDOFF.md` para los
-gates y los límites pendientes.
-
-## Cierre local 10b (2026-10-05)
-
-El último commit de código/test verificado en `refactor/fase-10b-editor` es
-`ba52e3f`; este cierre documental puede avanzar la punta local.
-Esta continuación no cambia los contratos de servidor listados arriba: no se
-modificaron endpoints, payloads, MIME/SSE, eventos, errores HTTP, markup visible,
-estilos ni nombres legacy `window.*`. Las nuevas `createX(deps)` son wiring
-interno; `window.AedosChatValidation.createGenerateValidation(deps)` se carga
-antes de `app.js`, y `window.validateGenerateButton` continúa siendo el wrapper
-llamado por consumidores previos. También se preservan
-`window.startFinalGeneration` y las fachadas de preview/editor. No se eliminó
-ningún global legacy.
-
-El test browser de tema vacío conserva el estado de foco de `#w-tema` esperado
-por la baseline, y oculta solo `.hero-cursor` decorativo, como el capturador de
-baseline para landing. No cambia el contrato ni el comportamiento de la
-aplicación. No se regeneraron las baselines.
+The empty-topic browser test preserves the expected focus of `#w-tema` and
+hides only decorative `.hero-cursor`, as the landing baseline capturer does.
+These are test capture controls, not application behavior changes.

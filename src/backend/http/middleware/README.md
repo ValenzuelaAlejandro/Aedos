@@ -1,8 +1,8 @@
 # HTTP middleware
 
-Este directorio contiene middleware de transporte registrado por `server.js`.
+This directory contains transport middleware registered by `server.js`.
 
-Cada módulo expone una fábrica pequeña y recibe sus dependencias explícitamente
-para conservar el orden de registro, los nombres observables de Express y los
-efectos secundarios existentes. Los módulos no registran middleware por sí
-mismos ni ejecutan configuración al importarse.
+Each module exposes a small factory and receives dependencies explicitly to
+preserve registration order, observable Express names, and existing side
+effects. Modules do not register middleware themselves or run configuration
+when imported.

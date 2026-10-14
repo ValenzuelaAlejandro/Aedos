@@ -1,55 +1,54 @@
-# Auditoría de catches silenciosos
+# Silent catch audit
 
-Auditoría realizada sobre `src/backend/` en Fase 3a. No se modificó ningún
-catch; la tabla describe qué información se descarta hoy.
+Audit of `src/backend/` during Phase 3a. No catch was changed; this table
+describes information discarded at that point.
 
-| Archivo y línea | Forma | Qué se oculta o descarta |
-|---|---|---|
-| `server.js:718, 772, 952, 980` | `catch (_) { /* skip malformed SSE frames */ }` | Frames SSE del proveedor que no pueden parsearse. |
-| `server.js:836` | catch vacío | Fallo al escribir metadata SSE cuando el socket ya no acepta datos. |
-| `server.js:1278` | `return false` | Fallo al localizar el ejecutable de Chrome. |
-| `server.js:1308` | `return null` | Fallo al inspeccionar/descomprimir Chrome. |
-| `server.js:1339` | `return` | Fallo de limpieza de cache de Chrome. |
-| `server.js:1679, 1748` | catch vacío | Fallos de escritura/cierre SSE después de desconexión. |
-| `server.js:1920, 2205, 2299, 2309` | comentarios y continuación | Socket cerrado durante generación o forwarding SSE. |
-| `server.js:4300, 4310` | comentario | El logging de cierre de respuesta nunca debe tumbar el proceso. |
-| `logger.js:97` | `return` fallback | Valor no serializable en contexto de logging. |
-| `pipeline.js:99, 113` | fall-through | Intentos de reparación/parseo JSON que deben continuar con el siguiente método. |
-| `request-normalizers.js:34` | devuelve original | JSON malformado en un campo multipart; conserva el quirk actual. |
+| File and line | Form | Hidden or discarded information |
+| --- | --- | --- |
+| `server.js:718, 772, 952, 980` | `catch (_) { /* skip malformed SSE frames */ }` | Unparseable provider SSE frames. |
+| `server.js:836` | Empty catch | Failure to write SSE metadata when the socket no longer accepts data. |
+| `server.js:1278` | `return false` | Failure to locate the Chrome executable. |
+| `server.js:1308` | `return null` | Failure to inspect/extract Chrome. |
+| `server.js:1339` | `return` | Chrome cache cleanup failure. |
+| `server.js:1679, 1748` | Empty catch | SSE write/close failures after disconnection. |
+| `server.js:1920, 2205, 2299, 2309` | Comments and continuation | Closed socket during generation or SSE forwarding. |
+| `server.js:4300, 4310` | Comment | Response-close logging must never crash the process. |
+| `logger.js:97` | Fallback `return` | Unserializable logging context value. |
+| `pipeline.js:99, 113` | Fall-through | JSON repair/parsing attempts that must continue to the next method. |
+| `request-normalizers.js:34` | Returns original value | Malformed JSON in a multipart field; preserves the existing quirk. |
 
-También existen `.catch(() => {})` explícitos en esperas de Puppeteer
-(`server.js:2710, 2713, 2734, 4074, 4081, 4090, 4161`) que absorben timeouts
-de red, fonts, iconos o screenshots no críticos. No se tocaron porque cambiar
-su observabilidad o timing afectaría PDF/PPTX.
+Explicit `.catch(() => {})` callbacks in Puppeteer waits
+(`server.js:2710, 2713, 2734, 4074, 4081, 4090, 4161`) absorb noncritical
+network, font, icon, or screenshot timeouts. They were retained because changing
+their observability or timing would affect PDF/PPTX.
 
-## Cambios de ubicación en Fase 3b
+## Location changes in Phase 3b
 
-La lógica se movió sin cambiar su política de absorción ni sus mensajes:
+Logic moved without changing error absorption policies or messages.
 
-| Nuevo archivo | Catches movidos | Responsabilidad |
-|---|---|---|
-| `src/backend/browser/manager.js` | búsqueda/extracción/instalación de Chrome y diagnóstico de `puppeteer.launch` | Recuperación y ciclo de vida del singleton Puppeteer. |
-| `src/backend/export/pdf.js` | esperas de red, fonts, iconos, normalización de layout y metadata `pdf-lib` | Render y postprocesado PDF. |
-| `src/backend/export/pptx-finalize.js` | No añade catches; la captura HTTP continúa en `server.js` | Validación, respuesta y TTL de `finalize-pptx`. |
+| New file | Moved catches | Responsibility |
+| --- | --- | --- |
+| `src/backend/browser/manager.js` | Chrome discovery/extraction/installation and `puppeteer.launch` diagnostics | Puppeteer singleton recovery and lifecycle. |
+| `src/backend/export/pdf.js` | Network, font, icon, layout-normalization, and `pdf-lib` metadata waits | PDF rendering and postprocessing. |
+| `src/backend/export/pptx-finalize.js` | No added catches; HTTP capture remains in `server.js` | `finalize-pptx` validation, response, and TTL. |
 
-Los handlers de ruta y los catches de errores HTTP permanecen en `server.js` para
-conservar el orden observable y la forma de respuesta.
+Route handlers and HTTP error catches remained in `server.js` to preserve
+observable order and response shape.
 
-## Cambios de ubicación en Fase 3c
+## Location changes in Phase 3c
 
-Las referencias de línea de la tabla histórica anterior corresponden a la
-versión de Fase 3a y pueden quedar desfasadas después de extraer módulos. La
-referencia mantenible es ahora archivo + responsabilidad:
+Historical line references above describe Phase 3a and may become outdated
+after module extraction. File plus responsibility is now the maintainable
+reference.
 
-| Área | Ubicación actual | Política conservada |
-|---|---|---|
-| Pipeline y streaming | `src/backend/pipeline/skeleton.js`, `outline-item.js`, `stream.js` | Reparación/parseo y forwarding SSE mantienen sus fall-throughs, reintentos y silencios existentes. |
-| Salida de generación | `src/backend/http/routes/generate-output.js`, `generate-errors.js`, `generate.js` | Los catches HTTP y de escritura SSE conservan status, payload, mensajes y orden. |
-| Finalización y descarga | `src/backend/http/routes/finalize.js`, `download.js` | Se mantiene la política de error, TTL y cierre de respuesta. |
-| Middleware | `src/backend/http/middleware/request-logging.js`, `cors.js`, `security-headers.js`, `canonical-redirect.js`, `static-files.js` | No se introdujeron catches nuevos ni se cambió la observabilidad. |
+| Area | Current location | Preserved policy |
+| --- | --- | --- |
+| Pipeline and streaming | `src/backend/pipeline/skeleton.js`, `outline-item.js`, `stream.js` | Repair/parsing and SSE forwarding preserve existing fall-throughs, retries, and silence. |
+| Generation output | `src/backend/http/routes/generate-output.js`, `generate-errors.js`, `generate.js` | HTTP and SSE-write catches preserve status, payload, messages, and order. |
+| Finalization and download | `src/backend/http/routes/finalize.js`, `download.js` | Error, TTL, and response-close policies remain. |
+| Middleware | `src/backend/http/middleware/request-logging.js`, `cors.js`, `security-headers.js`, `canonical-redirect.js`, `static-files.js` | No new catches or observability changes. |
 
-La extracción 3c movió el renderer PPTX entero a `export/pptx-renderer.js`, el
-runtime de providers, rutas y contratos. Los catches y sus políticas se
-conservaron; `utils/pptx-export.js` no se tocó. El sanitizer, los errores 500 de
-Multer y la semántica de `req.close` siguen sin corregirse por ser cambios de
-comportamiento reservados para otra fase.
+Phase 3c moved the whole PPTX renderer to `export/pptx-renderer.js`, along
+with provider runtime, routes, and contracts. Catches and their policies were
+preserved; `utils/pptx-export.js` was untouched. This audit records catch placement and policies at the time of extraction;
+current validation and disconnect behavior is described in [contracts](CONTRACTS.md).

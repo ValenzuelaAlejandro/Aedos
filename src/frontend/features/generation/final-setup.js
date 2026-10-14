@@ -53,7 +53,7 @@
         const btnLangSend = document.getElementById('btn-lang-dropdown');
         if (btnLangSend) btnLangSend.disabled = true;
 
-        window.removeEventListener('resize', scaleIframe); // evita acumulación
+        window.removeEventListener('resize', scaleIframe); // Prevent duplicate resize listeners.
 
         // Transition: called once when the final generation request starts, then
         // the iframe is filled incrementally as SSE HTML chunks arrive.

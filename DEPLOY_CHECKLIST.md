@@ -45,7 +45,7 @@ The application credit balance resets at midnight UTC. The OpenRouter paid-spend
 2. Restore the previous production environment values for the paid-spend daily ceiling and any other variables changed for rollout.
 3. Verify `GET /health` returns HTTP 200 and inspect server logs for startup or Redis errors.
 
-## Known pending items
+## Current verification limits
 
 - No free-provider fallback route has been validated end to end for production.
 - Credit identity is based on IP address.

@@ -1,9 +1,8 @@
 # Preview feature
 
 `overlay-style.js` inserts the existing image-slot stylesheet at the same
-point in preview initialization. The remaining overlay lifecycle still lives
-in `scripts/app.js` until its listener and state dependencies can be moved
-together without changing event order.
+point in preview initialization. Overlay positioning, labels, replacement,
+and state restoration are handled by the modules described below.
 
 `zoom-controls.js` owns the zoom values, display updates, and button listeners.
 `app.js` calls its factory at the former initialization point and keeps the

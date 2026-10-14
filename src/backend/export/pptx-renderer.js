@@ -1190,7 +1190,7 @@ async function renderEditablePptx(html, title, requestId, { debug = false } = {}
                     if (gradientWarnings.has(key)) return;
                     gradientWarnings.add(key);
                     // Background elements are rasterized above. This branch is intentionally
-                    // limited to pseudo decorations and future shape sources that cannot be
+                    // limited to decorations and shapes that cannot be
                     // mapped back to a DOM node without risking duplicate rasterization.
                     puppeteerLog.warn(ErrorCategory.PUPPETEER, 'PowerPoint gradient fallback (non-fatal)', {
                         requestId,

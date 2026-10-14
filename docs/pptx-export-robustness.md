@@ -1,24 +1,24 @@
-# Robustez y observabilidad
+# Robustness and observability
 
-`src/backend/utils/export-warnings.js` es el catálogo único. Los warnings se
-normalizan a `{ slide, selector, tipo, motivo, fallback }`, se deduplican por
-slide/selector/tipo/motivo, se escriben en log y se resumen en
-`X-Export-Warnings`. Un HTML sin slide exportable produce `400` con
-`contract-violation`.
+`src/backend/utils/export-warnings.js` is the single catalog. Warnings
+normalize to `{ slide, selector, tipo, motivo, fallback }`, are deduplicated
+by slide/selector/type/reason, written to logs, and summarized in
+`X-Export-Warnings`. HTML without an exportable slide produces `400`
+with `contract-violation`. The existing Spanish field names are runtime
+contract identifiers.
 
-Con `?debug=1` o `EXPORT_DEBUG=1` se guarda por request:
+With `?debug=1` or `EXPORT_DEBUG=1`, each request saves:
 
-- `input.html`, `slideData.json` y `warnings.json`;
-- una captura DOM por slide;
-- PNGs rasterizados de cada fallback;
-- `slideN.xml` generado.
+- `input.html`, `slideData.json`, and `warnings.json`;
+- one DOM screenshot per slide;
+- rasterized PNGs for each fallback;
+- generated `slideN.xml`.
 
-Antes de responder se valida el paquete: XML bien formado, relaciones de
-imágenes/hipervínculos, IDs únicos por slide, media deduplicado, orden de
-gradientes y ausencia de `normAutofit`. La página Puppeteer se cierra en
-`finally`. Los límites existentes de concurrencia, tamaño y tiempo siguen
-activos.
+Before responding, package validation checks well-formed XML, image/hyperlink
+relationships, unique IDs per slide, media deduplication, gradient order, and
+absence of `normAutofit`. The Puppeteer page closes in `finally`. Existing
+concurrency, size, and time limits remain active.
 
-La validación COM final abrió todos los fixtures sin diálogo de reparación.
-No se pudo verificar Keynote, Google Slides ni fuentes no instaladas en el
-equipo destino.
+Final COM validation opened every fixture without a repair dialog.
+Keynote, Google Slides, and fonts missing from the destination machine
+could not be verified.

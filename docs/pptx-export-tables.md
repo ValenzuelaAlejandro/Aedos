@@ -1,17 +1,16 @@
-# Tablas nativas
+# Native tables
 
-Un `<table>` real se convierte en `p:graphicFrame` con `<a:tbl>`, `tblGrid`,
-filas medidas y estilos explícitos por celda. Se conservan `thead/tbody/tfoot`,
-`colspan` mediante `gridSpan`, `rowspan` mediante `rowSpan`/`vMerge`, rellenos,
-bordes, alpha, padding, alineación y runs de texto. No se asigna un estilo
-predeterminado de Office que pueda cambiar los colores.
+A real `<table>` becomes a `p:graphicFrame` with `<a:tbl>`, `tblGrid`,
+measured rows, and explicit cell styles. It preserves `thead/tbody/tfoot`,
+`colspan` through `gridSpan`, `rowspan` through `rowSpan`/`vMerge`,
+fills, borders, alpha, padding, alignment, and text runs. No default Office
+style is assigned that could change colors.
 
-Tablas anidadas, tablas dentro de transform/overflow/opacity no trivial o
-estructuras que no sean `display:table` deben degradarse a raster del nodo con
-`table-fallback`; el fixture actual deja la tabla anidada en el caso de
-compatibilidad visual. El PPTX principal conserva tabla editable para las
-tablas simples y con merges.
+Nested tables, tables inside nontrivial transform/overflow/opacity, or
+structures without `display:table` must degrade to a node raster with
+`table-fallback`. The current fixture keeps the nested table in its visual
+compatibility case. The main PPTX retains editable simple and merged tables.
 
-Fixture manual: `tmp/phase5-final-tables.pptx`. Revisar grid de columnas,
-cabeceras, celdas alternas, bordes compartidos, celda con `colspan`, celda con
-`rowspan`, caption y que la tabla anidada no desplace el resto del slide.
+Manual fixture: `tmp/phase5-final-tables.pptx`. Review column grid, headers,
+alternating cells, shared borders, `colspan`, `rowspan`, caption, and
+whether the nested table shifts the rest of the slide.

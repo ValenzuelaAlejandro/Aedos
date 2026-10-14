@@ -856,7 +856,7 @@
         position: relative;
         width: 100%;
         flex: 1;
-        /* Ocupa todo el espacio restante bajo la cabecera */
+        /* Fill the remaining space below the header. */
         margin: 0;
         overflow: hidden;
     }
@@ -1004,7 +1004,7 @@
         transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    /* Asegurar que el contenido interno de la cabecera se mantenga horizontal */
+    /* Keep the header content horizontal. */
     .header-left,
     .header-right {
         display: flex !important;

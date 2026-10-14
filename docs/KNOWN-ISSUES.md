@@ -1,118 +1,24 @@
-# Known issues y decisiones pendientes
+# Current limitations
 
-Estos problemas se documentan, pero no se corrigen en esta fase porque cambiarían
-el comportamiento observable o pertenecen a una fase de correcciones separada.
+This document describes existing behavior and verification limits.
 
-1. **Cola y desconexión de petición — corregido.** `req.on('close')` también
-   se dispara al terminar de leer el body, aunque la conexión HTTP siga viva;
-   eso retiraba entradas válidas de la cola. `generation-queue-disconnect.test.js`
-   reprodujo que la tercera conexión recibía 200 y quedaba esperando en vez del
-   429 `QUEUE_FULL`. Corregido en `c133384`
-   (`fix(queue): use response close for queued request cleanup`): ahora se
-   elimina una entrada al cerrarse su response antes de terminar, y se
-   desregistra el listener al adquirir o abandonar el slot. El test confirma
-   429 real, FIFO y limpieza tras desconexión del cliente.
-
-2. **Sanitización HTML — corregida parcialmente en `42987ac`, según el alcance
-   autorizado.** El commit `fix(sanitization): block listed active content vectors` elimina
-   `iframe`, `object`, `embed`, imports no permitidos, URLs `javascript:` y
-   `data:text/html`, y declaraciones CSS con `expression()`, `behavior` o URLs
-   peligrosas. Las fixtures adversariales están actualizadas. Las salidas
-   sanitizadas y hashes de los ejemplos flash/pro siguen idénticos a HEAD antes
-   del cambio; Google Fonts y `data:image/*` se conservan. No se amplió a una
-   política HTML general ni a vectores no enumerados en esta tarea.
-
-3. **Errores de validación Multer — corregidos en `459c932`.** El
-   middleware dedicado traduce `LIMIT_FILE_SIZE` a HTTP 413 y JSON `{ error }`;
-   exceso de cantidad, extensiones no permitidas y nombres sin extensión
-   devuelven HTTP 400 en el mismo formato. El resto de errores no relacionados
-   con la carga se siguen delegando a Express. Caso borde confirmado con la
-   versión fijada: un archivo de exactamente 10 MiB también dispara
-   `LIMIT_FILE_SIZE` y devuelve 413. La actualización ensayada a Multer 2.4.0
-   cambió ese caso a 200, por lo que no se conserva sin una decisión explícita
-   sobre el límite público.
-
-4. **Fallo Gemini a mitad de stream sin fallback.** El test
-   `tests/contracts/provider-network.test.js` congela el terminal SSE cuando el
-   stream ya empezó y se interrumpe: no se reinicia retrospectivamente ese
-   stream con OpenRouter. Corrección mínima propuesta, no aplicada: buffering o
-   reanudación explícita antes de emitir contenido irreversible.
-
-5. **Dependencias vulnerables — revisión `refactor/fix-audit` (sin upgrades
-   retenidos).** `npm audit --json` con npm 11.17.0 y
-   `https://registry.npmjs.org/` conectó y reportó 16 hallazgos: 12 high y 4
-   moderate, todos en el árbol de producción (algunos también pueden estar en
-   el árbol dev). Estado de paquete, no número de avisos individuales:
-
-   | Paquete | Severidad | Relación | Entorno |
-   |---|---|---|---|
-   | `@puppeteer/browsers` | high | transitiva | producción |
-   | `@xmldom/xmldom` | high | transitiva | producción |
-   | `basic-ftp` | high | transitiva | producción |
-   | `body-parser` | moderate | transitiva | producción |
-   | `express` | moderate | directa | producción |
-   | `extract-zip` | high | transitiva | producción |
-   | `get-uri` | high | transitiva | producción |
-   | `ip-address` | high | transitiva | producción |
-   | `js-yaml` | high | transitiva | producción |
-   | `multer` | high | directa | producción |
-   | `pac-proxy-agent` | high | transitiva | producción |
-   | `protobufjs` | moderate | transitiva | producción |
-   | `proxy-agent` | high | transitiva | producción |
-   | `puppeteer` | high | directa | producción |
-   | `puppeteer-core` | high | transitiva | producción |
-   | `qs` | moderate | transitiva | producción |
-
-   Se revisó el plan `npm audit fix --dry-run`: 29 cambios semver compatibles,
-   7 retiros, sin paquetes añadidos. El ensayo con scripts de instalación
-   desactivados redujo el audit a 8 high, pero `npm run verify:all` falló en el
-   contrato multipart del archivo exactamente de 10 MiB (esperado 413,
-   observado 200 con Multer 2.4.0). Los pasos de baselines no llegaron a
-   ejecutarse en ese intento. Se restauró `package-lock.json` y `npm ci
-   --ignore-scripts` volvió a instalar Express 4.22.2, Multer 2.2.0 y Puppeteer
-   24.39.1. No hay actualizaciones de dependencias retenidas ni commit de audit.
-
-   Permanecen ocho entradas high asociadas al árbol de Puppeteer 24: `puppeteer`,
-   `puppeteer-core`, `@puppeteer/browsers`, `basic-ftp`, `extract-zip`,
-   `get-uri`, `pac-proxy-agent` y `proxy-agent`. npm solo ofrece corregirlas
-   subiendo a Puppeteer 25.12.0 (major): riesgo de API, revisión/cache de Chrome,
-   render PDF/PPTX y baselines. No aplicado. Express 5 también es major y no se
-   aplica; el ensayo de Express 4.22.3 tampoco se retuvo porque la compuerta
-   completa falló con el conjunto y se revirtió íntegramente.
-
-6. **Puppeteer puede intentar instalar Chrome al importar/inicializar.**
-   `src/backend/browser/manager.js` llama a `installChrome()` cuando el cache no
-   contiene un ejecutable; la inicialización eager ocurre desde `server.js`.
-   Evidencia: ramas `findChromeExecutable`/`installChrome` y el log de runtime
-   install. Corrección mínima propuesta, no aplicada: provisionar el cache en
-   CI/deploy y fallar de forma explícita si falta, o volver lazy la inicialización
-   tras una caracterización específica de timing.
-
-## Estado de la limpieza de Etapa 7
-
-- Las extracciones del rate limiter y del pipeline de prompts están aplicadas
-  en `4135498` y `6a65b89`; sus suites específicas y `npm run verify:all`
-  pasaron. Los textos/plantillas de prompts no se reescribieron.
-- La división de CSS es mecánica y byte-idéntica; el catálogo de assets
-  centraliza las URLs/SRI sin cambiar versiones ni orden. La CDN sirve Motion
-  12.38.0 mientras que el lockfile resuelve el paquete npm 12.37.0; igualarlos
-  cambiaría la versión cargada y queda pendiente de aprobación.
-- No se dividieron `utils/pptx-export.js` ni `export/pptx-renderer.js`: su
-  serialización/captura y baseline de 14 paquetes requieren un seam medible
-  antes de extraer. El render COM no se pudo ejecutar porque PowerPoint no está
-  instalado; sí pasó la comparación estructural PPTX.
-- El escaneo literal de `require` desde `server.js` alcanzó 56 de 57 módulos
-  backend. El único no alcanzado es `contracts/types.js`, un módulo puro de
-  typedefs; no hay módulos nuevos huérfanos.
-- Los ratchets separados quedaron en lint 129 y TypeScript 16 después de
-  `0baf654`; no se rebajaron diagnósticos para silenciar errores nuevos.
-- Estabilidad de editor: en diez repeticiones seriales frescas, una falló en
-  `flow-16-editor-layer` con diferencia visual en región `36,10`; las otras
-  nueve pasaron 30 checkpoints y 13/13 mutaciones, y `verify:all` posterior
-  también pasó. No se modificó ni regeneró la baseline. Investigar esa
-  intermitencia antes de afirmar estabilidad 10/10.
-- Pendientes que requieren decisión: migración/build con Vite y destino de
-  hosting; upgrades major de Express/Puppeteer; split adicional PPTX; retirada
-  del contenedor outline legacy. El inventario de dependencias vulnerables y
-  los límites de cobertura visual/editor siguen descritos arriba y en
-  `docs/HANDOFF.md`.
+- **Provider failure after streaming begins:** the provider-network tests
+  characterize terminal SSE behavior when a Gemini stream fails midstream.
+  Content already sent is not retrospectively restarted through OpenRouter.
+- **Browser initialization:** `src/backend/browser/manager.js` can install
+  Chrome when no executable is found. Initialization runs from the server
+  bootstrap and can depend on the local cache.
+- **Credit availability:** credit identity is based on IP. Redis failure
+  blocks credit-backed generation and paid routing.
+- **PPTX fidelity:** unsupported CSS, complex SVG/canvas, clipping, filters,
+  and nested tables can use raster fallbacks. Export warnings describe these
+  cases. Fonts unavailable on the destination machine may be substituted.
+  See the export guides for measured fidelity and compatibility limits.
+- **Verification state on 2026-10-14:** the cleanup check passed 154 of 158
+  frontend/export/prompt tests and all 63 contract/queue tests. Four failures
+  also reproduced on the unchanged source: CSS order, two outline renderer
+  cases, and vendor asset order. The editor visual flow stopped at
+  `flow-01-landing`; the same checkpoint failed before the cleanup.
+- **Quality checks:** lint and type checking use committed diagnostic
+  ratchets rather than requiring zero diagnostics. Their reports are written
+  to `tmp/`.

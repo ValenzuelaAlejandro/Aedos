@@ -1,24 +1,24 @@
-# Imágenes y SVG
+# Images and SVG
 
-`<img>`, SVG inline y canvas se miden con el DOM ya renderizado y se capturan a
-PNG cuando el contenido no tiene una traducción editable segura. El `alt` o
-`aria-label` se escribe en `p:cNvPr/@descr`; `alt=""` y
-`role="presentation"` dejan la descripción vacía. La captura respeta el
-`object-fit` y `object-position` que ya pintó Chromium, evitando reconstruir un
-`cover` desde la fuente cuando eso produciría un recorte distinto.
+`<img>`, inline SVG, and canvas are measured in the rendered DOM and captured
+as PNG when no safe editable translation exists. `alt` or `aria-label`
+becomes `p:cNvPr/@descr`; `alt=""` and `role="presentation"` leave the
+description empty. Captures respect the `object-fit` and `object-position`
+already painted by Chromium, avoiding a reconstruction of `cover` from
+the source that would produce different cropping.
 
-El exportador conserva el cálculo `srcRect` para modelos que lo proporcionen y
-lo valida en tests, pero la ruta DOM actual usa el screenshot del nodo para
-`cover/contain/fill`: es la degradación más fiel para PowerPoint real. Las
-imágenes con `border-radius`/`overflow:hidden` se rasterizan una sola vez en
-el nodo propietario; los descendientes no se vuelven a emitir. Backgrounds
-complejos se rasterizan por región, con el texto directo oculto en el clon para
-evitar duplicarlo. Medios idénticos se deduplican por SHA-256.
+The exporter retains and tests `srcRect` calculations for models that
+provide them, but the current DOM path uses a node screenshot for
+`cover/contain/fill`: the most faithful degradation in real PowerPoint.
+Images with `border-radius`/`overflow:hidden` are rasterized once at the
+owning node; descendants are not emitted again. Complex backgrounds are
+rasterized by region, hiding direct text in the clone to avoid duplication.
+Identical media are deduplicated by SHA-256.
 
-Los fallos de carga no abortan el deck y aparecen como `image-load-failed`.
-`WebP`, `AVIF`, GIF animado, filtros y SVG complejo quedan rasterizados. La
-limitación conocida es que esos elementos dejan de ser editables internamente,
-pero el resto de la diapositiva conserva shapes y texto editables.
+Load failures do not abort the deck and appear as `image-load-failed`.
+WebP, AVIF, animated GIF, filters, and complex SVG are rasterized. These
+elements lose internal editability, but the rest of the slide retains
+editable shapes and text.
 
-Fixture manual: `tmp/phase5-final-images.pptx` y
+Manual fixture: `tmp/phase5-final-images.pptx` and
 `tmp/phase5-final-images-powerpoint-render/slide-1.png`.

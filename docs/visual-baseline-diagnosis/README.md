@@ -1,36 +1,36 @@
-# Diagnóstico de la baseline visual
+# Visual baseline diagnosis
 
-La reproducción se hizo en el worktree temporal `aedos-visual-diagnosis`, desde
-`refactor/fase-3c-fix`, y el cambio se limitó a ese checkout temporal.
+Reproduction used the temporary `aedos-visual-diagnosis` worktree from
+`refactor/fase-3c-fix`; changes were limited to that temporary checkout.
 
-## Mutación del fondo de `body`
+## `body` background mutation
 
-Se sustituyó temporalmente `body { background-color: var(--bg) }` por
-`background-color: red`. En Chrome, `getComputedStyle(body).backgroundColor`
-devolvió `rgb(255, 0, 0)`. Sin embargo, `#chat-screen` tenía rectángulo
-`(0,0,1440,900)` y fondo opaco `rgb(8, 8, 8)`, cubriendo el viewport capturado.
-La mutación de `body` no cambia ningún píxel visible y debe pasar el check.
+`body { background-color: var(--bg) }` was temporarily changed to
+`background-color: red`. Chrome's `getComputedStyle(body).backgroundColor`
+returned `rgb(255, 0, 0)`. However, `#chat-screen` had rectangle
+`(0,0,1440,900)` and opaque background `rgb(8, 8, 8)`, covering the captured
+viewport. The `body` mutation changes no visible pixel and should pass.
 
-![Baseline original de escritorio](baseline-desktop.png)
+![Original desktop baseline](baseline-desktop.png)
 
-![Captura con el fondo de body rojo](body-red-capture.png)
+![Capture with a red body background](body-red-capture.png)
 
-## Qué significaban las 80 diferencias
+## Meaning of the 80 differences
 
-En la reproducción con la baseline antigua, la comparación midió
-`80/80/0/0` píxeles con threshold `0.1`. El diff los sitúa en el rectángulo
-`x=989..1004, y=496..512` (16×17 px); no se distribuyen por el fondo. El
-baseline guardado tenía el botón local `#btn-debug-last-generated`, mientras
-que el endpoint `HEAD /__dev__/last-generated` del worktree limpio devolvió
-404 y la captura actual no lo incluyó. Por tanto, el conteo era ruido de un
-fixture de desarrollo dependiente de `tmp/last-generated.html`, no detección
-del fondo rojo. No había máscaras en `visual-config.json`.
+Reproduction against the old baseline measured `80/80/0/0` pixels at
+threshold `0.1`. The diff locates them in rectangle
+`x=989..1004, y=496..512` (16×17 px), not across the background.
+The saved baseline contained local button `#btn-debug-last-generated`,
+while `HEAD /__dev__/last-generated` returned 404 in the clean worktree and
+the current capture omitted it. The count was noise from a development fixture
+depending on `tmp/last-generated.html`, not detection of the red background.
+`visual-config.json` contained no masks.
 
-![Captura actual del worktree temporal](current-desktop.png)
+![Current temporary-worktree capture](current-desktop.png)
 
-![Diff de la mutación body-red contra la baseline antigua](body-red-diff.png)
+![Body-red mutation diff against the old baseline](body-red-diff.png)
 
-La comprobación complementaria de B.4 cambia el fondo de `#chat-screen`, que sí
-se pinta en el viewport. Esa mutación produce una diferencia masiva y debe
-fallar; el fondo rojo de `body`, cubierto por `#chat-screen`, queda marcado como
-caso no visible y esperado en verde.
+The complementary B.4 check changes the `#chat-screen` background, which
+is painted in the viewport. That mutation creates a large difference and must
+fail. The red `body` background covered by `#chat-screen` is marked as
+an invisible case expected to pass.

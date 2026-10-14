@@ -1,13 +1,13 @@
-# Pruebas de proveedores a nivel de red
+# Provider tests at the network layer
 
-Los fakes de `tests/helpers/provider-fakes.js` interceptan `global.fetch` y
-`@google/genai` antes de cargar `server.js`; no habilitan
-`AEDOS_TEST_STUB_PROVIDERS` ni realizan llamadas externas.
+Fakes in `tests/helpers/provider-fakes.js` intercept `global.fetch` and
+`@google/genai` before loading `server.js`; they neither enable
+`AEDOS_TEST_STUB_PROVIDERS` nor make external calls.
 
-Quedaron cubiertos los eventos SSE de fallback Gemini → OpenRouter, fallo
-midstream de Gemini, doble fallo y timeout de aceptación.
+Coverage includes Gemini → OpenRouter fallback SSE events, Gemini midstream
+failure, double failure, and acceptance timeout.
 
-`QUEUE_FULL` no se incluye: al intentar repetirlo diez veces, la petición que
-entra en `queue` dispara el `req.close` histórico después de terminar de leer
-el body y es retirada inmediatamente. Hacerlo determinista requiere cambiar
-la costura de producción, lo cual está fuera de esta fase.
+`QUEUE_FULL` is excluded: attempts to repeat it ten times showed the queued
+request firing historical `req.close` after its body was read and being removed
+immediately. Making this deterministic requires a production seam change,
+which is outside this phase.

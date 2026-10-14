@@ -328,7 +328,7 @@
         margin: 0 !important;
     }
 
-    /* 6. Centrado del nuevo hero en móvil */
+    /* 6. Center the hero on mobile. */
     #chat-screen {
         padding: 2rem 1.5rem !important;
         padding-top: 5.9rem !important;
@@ -338,8 +338,8 @@
         justify-content: center !important;
     }
 
-    /* En chat-mode el contenido puede ser más alto que la pantalla:
-       usar flex-start para que el overflow vaya hacia abajo y sea scrolleable */
+    /* Chat content can exceed the viewport height:
+       use flex-start so overflow extends downward and remains scrollable. */
     #chat-screen.chat-mode {
         justify-content: flex-start !important;
         align-items: stretch !important;
@@ -612,8 +612,8 @@
         -webkit-backdrop-filter: none !important;
     }
 
-    /* ---- Input box: sin azul, borde gris, fondo oscuro 80% ---- */
-    /* Dark mode (por defecto) */
+    /* ---- Input box: gray border and 80% dark background ---- */
+    /* Dark mode (default) */
     .chat-input-wrapper {
         background: rgba(18, 18, 18, 0.8) !important;
         border: none !important; /* use box-shadow ring to avoid clipping */

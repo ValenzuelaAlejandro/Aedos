@@ -394,7 +394,7 @@ function initMinimap(iframe) {
         };
     }
 
-    // listener state-restored con auto-limpieza
+    // Replace the existing state-restored listener before registering.
     if (iframeWin._stateRestoredHandler) {
         iframeWin.removeEventListener('state-restored', iframeWin._stateRestoredHandler);
     }

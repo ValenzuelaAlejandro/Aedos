@@ -1,127 +1,70 @@
-# Arquitectura del backend
+# Backend architecture
 
-Este documento describe la forma actual del backend después de la limpieza de
-la Etapa 7. `src/backend/server.js` sigue siendo la fachada de
-bootstrap: conserva la inicialización eager de Puppeteer, la construcción de
-dependencias, el orden de middleware/rutas y los exports públicos.
+`src/backend/server.js` composes the Express application, environment,
+providers, queues, browser manager, route dependencies, and process handlers.
+It exports the application and test seams used by the contract suite.
 
-## Mapa de responsabilidades
+## Responsibility map
 
-| Carpeta | Responsabilidad | Punto de entrada o contrato |
-|---|---|---|
-| `server.js` | Fachada HTTP, bootstrap y composición | `app`, exports públicos, orden observable |
-| `contracts/` | Límites, errores, SSE, sanitización de temas y normalización de requests | `limits.js`, `errors.js`, `sse.js`, `topic-sanitizer.js`, `request-normalizers.js` |
-| `config/` | Lectura, modelos y validación de configuración de entorno | `env.js`, `models.js`, `environment.js` |
-| `providers/` | Adaptadores de proveedores IA, fallback y composición runtime | `gemini.js`, `openrouter.js`, `fallback.js`, `runtime.js` |
-| `queues/` | Concurrencia y colas de generación/finalización | `generation.js`, `finalize.js` |
-| `pipeline/` | Flujo de skeleton, outline-item y streaming | `skeleton.js`, `outline-item.js`, `stream.js` |
-| `http/middleware/` | CORS, logging, headers, redirect y estáticos | Fábricas registradas por `server.js` |
-| `http/` | Ensamblaje y handlers HTTP | `register-routes.js` y `routes/` |
-| `export/` | Render y finalización de documentos | `pdf.js`, `pptx-finalize.js` |
-| `files/` | Uploads, adjuntos, directorios y descargas | Utilidades usadas por rutas |
-| `browser/` | Gestión del navegador Puppeteer | `manager.js` |
-| `sanitization/` | Sanitización e inyección de HTML | `html.js` |
-| `prompts/` | Orquestación y contenido de los prompts de generación | `pipeline.js`, `stage-runner.js`, `json-extraction.js`, `skeleton-enrichment.js` y prompts por etapa |
-| `utils/` | Logger, fachada de rate limiter, evaluadores y export warnings/PPTX | Utilidades transversales |
+| Path | Responsibility |
+| --- | --- |
+| `server.js` | Bootstrap, dependency composition, process lifecycle, and public facade |
+| `contracts/` | Limits, defaults, errors, SSE, topic sanitization, request normalization, and JSDoc types |
+| `config/` | Environment configuration, model catalog, and validation |
+| `providers/` | Gemini/OpenRouter adapters, model selection, fallback, timeouts, and runtime composition |
+| `queues/` | Generation/finalization concurrency, queue capacity, and disconnect cleanup |
+| `pipeline/` | Skeleton, outline-item, and streaming generation |
+| `http/middleware/` | CORS, request logging, security headers, canonical redirect, and static files |
+| `http/register-routes.js`, `http/routes/` | Ordered route registration and HTTP handlers |
+| `export/` | PDF rendering, PPTX finalization, and DOM-based editable PPTX rendering |
+| `files/` | Uploads, attachments, directories, file content, and downloads |
+| `browser/` | Puppeteer browser lifecycle and Chrome discovery/installation |
+| `sanitization/` | Generated HTML sanitization and dependency injection |
+| `prompts/` | Stage prompts, JSON extraction, skeleton enrichment, and pipeline orchestration |
+| `utils/` | Logging, rate limits, spending/credit accounting, export warnings, and OOXML serialization |
 
-## Flujo de una solicitud de generación
+## Generation request flow
 
-1. El bootstrap de `server.js` resuelve entorno y defaults, crea las factories,
-   registra middleware y conserva la inicialización eager del navegador.
-2. La solicitud atraviesa CORS, logging/request-id, headers de seguridad,
-   redirect canónico y estáticos, en el orden congelado por el snapshot de
-   router.
-3. `http/register-routes.js` aplica las rutas en orden congelado. Los parsers y
-   middleware de cada endpoint permanecen dentro de sus fábricas. La entrada se
-   normaliza según el contrato existente, se validan límites y
-   adjuntos, y la generación se entrega a `queues/generation.js`.
-4. La cola invoca el pipeline. `pipeline/skeleton.js` y
-   `pipeline/outline-item.js` construyen las etapas; `pipeline/stream.js`
-   conserva el forwarding SSE, reintentos y bytes observables.
-5. Los adaptadores de `providers/` resuelven el proveedor configurado o el
-   fallback. Los eventos SSE llegan al cliente con sus payloads y errores
-   históricos.
-6. Al completar la generación, la salida HTML pasa por sanitización e
-   inyección. El cliente recibe el documento y los metadatos en el mismo
-   formato.
-7. Las rutas de `finalize` y descarga delegan la finalización PDF/PPTX,
-   almacenan o leen el artefacto mediante `files/` y conservan TTL, headers,
-   status y payloads.
+1. Bootstrap resolves configuration, creates dependencies, registers
+   middleware/routes, and initializes the browser manager.
+2. Middleware applies CORS, request IDs/logging, security headers, production
+   canonical redirects, and static-file serving in the registered order.
+3. Generation routes normalize input and validate topic, model, slide limits,
+   attachments, credits, and queue pressure before invoking generation.
+4. Skeleton and outline-item handlers construct prompts and parse model output.
+   Final generation runs the Flash path or the Pro content/design/HTML pipeline.
+5. Provider adapters resolve explicit model selection or configured fallback.
+   Streaming helpers forward content, reasoning, progress, and terminal SSE events.
+6. Generated HTML passes through sanitization and output preparation before
+   it reaches the client.
+7. Finalizers render the submitted document to PDF or editable PPTX. Download
+   handling retains file TTL, headers, status, and payload contracts.
 
-Los límites y errores no deben duplicarse en handlers: están centralizados en
-`contracts/limits.js`, `contracts/errors.js`, `contracts/request-normalizers.js`
-y `contracts/sse.js`, junto con los defaults de entorno de `config/env.js` y
-`contracts/config-defaults.js`.
+## Contracts and lifecycle
 
-## Recetas de extensión
+Limits and response shapes live in `contracts/`; environment defaults live
+in `config/env.js` and `contracts/config-defaults.js`.
+Route factories receive dependencies explicitly.
+`http/register-routes.js` preserves registration order.
 
-### Añadir un endpoint
+The browser manager is initialized from the server bootstrap. Process handlers
+close browser resources and report failures. Queued generation is cleaned up
+when the response closes before completion; the listener is removed when a
+request acquires or abandons its slot.
 
-Crear una fábrica en `src/backend/http/routes/` que reciba dependencias de
-bootstrap y registre únicamente sus rutas. Añadirla al punto equivalente de
-`generation-endpoints.js` o al módulo de ruta correspondiente, manteniendo el
-orden y los nombres de las capas. Añadir o actualizar el snapshot de router,
-un contrato de payload/error y pruebas sin proveedores reales. Ejecutar
-`npm run verify:all` antes de cada commit.
+## Export
 
-### Añadir un proveedor IA
+`export/pdf.js` manages PDF rendering and metadata.
+`export/pptx-renderer.js` measures rendered DOM and builds slide data.
+`utils/pptx-export.js` writes OOXML packages.
+`export/pptx-finalize.js` validates requests and manages final file responses.
+Structured warnings describe unsupported or approximated export features.
 
-Implementar el adaptador en `src/backend/providers/`, reutilizar los contratos
-de `providers/common.js` y conectar la selección/fallback desde
-`providers/fallback.js` y la configuración de entorno. Añadir pruebas de
-forma, timeout, error y fallback usando stubs; no hacer llamadas de red en la
-suite. Verificar que los eventos SSE, límites y mensajes existentes no cambien.
+## Verification
 
-### Añadir un formato de exportación
-
-Colocar el render/postprocesado en `src/backend/export/` o en una utilidad
-específica si el momento de inicialización lo exige. Integrar el finalizador,
-la ruta HTTP, la descarga y el baseline correspondiente. Añadir pruebas de
-errores, TTL, headers y bytes; actualizar el snapshot sólo si el endpoint es
-intencionalmente nuevo. El renderer PPTX monolítico actual no se divide sin
-un corte seguro que preserve su inicialización y estado.
-
-## Límites de la fase 3c
-
-El renderer PPTX se movió entero a `export/pptx-renderer.js` por la excepción de
-bloque monolítico; `utils/pptx-export.js` quedó intacto. `server.js` termina en
-424 LF, no alcanza el objetivo de 200 sin trasladar la composición de factories,
-los process handlers o el guard de arranque; las dos últimas extracciones se
-dejaron fuera cuando el ratchet detectó TS2322 y se documentan como no aplicadas.
-
-La comparación HTTP de normalizadores cubrió 50 casos con igualdad exacta de
-status y cuerpo. Los helpers están integrados en las rutas de generación y la
-suite contractual vuelve a ejecutar el probe. La selección Pro automática por
-adjuntos pertenece al frontend; el backend sólo expone la información de
-adjuntos existente.
-
-## Cierre de Etapa 7
-
-- `utils/rate-limiter.js` conserva Redis, auditoría de IP, middleware y la
-  fachada pública. `utils/rate-limit-evaluators.js` contiene sólo las decisiones
-  de contador/cooldown. Se midieron 545 líneas antes, y después 334 en la
-  fachada más 252 en el helper; las cifras salen de `git show <commit>:<path> |
-  wc -l`. `src/backend/utils/README.md` registra el límite de la extracción.
-- `prompts/pipeline.js` conserva el orden de etapas y ahora mide 165 líneas
-  frente a 489 antes. `json-extraction.js` (124), `stage-runner.js` (166) y
-  `skeleton-enrichment.js` (61) son los módulos conectados. Los cuerpos
-  ejecutables se trasladaron sin reescritura; se añadieron pruebas locales para
-  parseo, defaults del skeleton y error permanente de quota.
-- Los nuevos módulos están por debajo de 300 líneas y `prompts/README.md`
-  describe responsabilidades. `base.js`, `stage2-design.js` y
-  `stage3-compositor.js` retienen textos/plantillas interpoladas: dividirlos
-  exigiría mover fragmentos de payload y elevaría el riesgo de cambiar el prompt
-  enviado al proveedor.
-- `server.js` tiene 424 líneas en `refactor/fase-3c-fix` y 427 en la punta
-  posterior a Multer; el cambio neto corresponde al import y middleware
-  `handleUploadError` de `459c932`. En Etapa 7 no se cambió.
-- `utils/pptx-export.js` (792 líneas) y `export/pptx-renderer.js` (1,258)
-  permanecen juntos en sus responsabilidades actuales: su orden de serialización,
-  captura de DOM y dependencias de inicialización están acoplados al baseline de
-  14 paquetes. El corte propuesto necesita una interfaz específica y una
-  comparación binaria/estructural por cada extracción; no se intentó en esta
-  etapa.
-- `npm run verify:all` pasó después de cada commit de código y después del
-  commit separado de reducción de ratchets. El baseline PPTX siguió en 14
-  paquetes, el PDF en sus 8 páginas estructuralmente iguales, y la visual en
-  6/6 capturas sin diferencias.
+Contract tests cover route order, exports, request normalizers, SSE, errors,
+provider seams, model selection, credits, and queue disconnects.
+Export tests cover text, layers, styles, shadows, appearance, and advanced
+OOXML features. Sanitization tests use adversarial fixtures.
+See [contracts](CONTRACTS.md), [the model catalog](MODEL-CATALOG.md), and
+[the server inventory](SERVER-INVENTORY.md).

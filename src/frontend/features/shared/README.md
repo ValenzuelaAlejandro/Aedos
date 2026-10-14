@@ -2,7 +2,7 @@
 
 Classic scripts in this folder load before feature scripts from `index.html`.
 Keep each file focused on one cross-feature browser service and preserve its
-documented `window.*` API until consumers are migrated in a later phase.
+documented `window.*` API used by existing consumers.
 
 `content-utils.js` owns streamed model-output sanitization and first-frame GIF
 conversion. `window.AedosContentUtils` is the namespaced API; the classic

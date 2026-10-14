@@ -1,14 +1,17 @@
 # Export
 
-Responsabilidad: renderizar y postprocesar formatos finales sin cambiar los handlers ni los contratos HTTP.
+Responsibility: render and postprocess final formats without changing
+handlers or HTTP contracts.
 
-- `pdf.js`: render PDF con Puppeteer, normalización de layout y metadatos `pdf-lib`.
-- `pptx-finalize.js`: validación y respuesta de `finalize-pptx`, incluido el TTL del archivo.
-- `pptx-renderer.js`: renderer editable PPTX movido íntegramente desde la fachada; conserva la excepción monolítica por timing y warnings.
-- `utils/pptx-export.js` permanece sin cambios y contiene las primitivas de exportación compartidas.
+- `pdf.js`: Puppeteer PDF rendering, layout normalization, and `pdf-lib` metadata.
+- `pptx-finalize.js`: `finalize-pptx` validation and response, including file TTL.
+- `pptx-renderer.js`: the editable PPTX renderer moved intact from the facade;
+  it retains the monolithic exception for timing and warnings.
+- `utils/pptx-export.js` contains shared export primitives and was unchanged
+  during that extraction.
 
-El renderer conserva una supresión de lint acotada a las reglas históricas del
-bloque movido: dividirlo o reescribirlo para satisfacer `max-lines` alteraría
-el orden de captura, rasterización, warnings y empaquetado.
-También conserva `@ts-nocheck` porque el bloque evalúa DOM dentro de Puppeteer;
-su chequeo generaba errores nuevos solo por cambiar el archivo contenedor.
+The renderer retains lint suppression limited to the moved block's historical
+rules. Splitting or rewriting it to satisfy `max-lines` would change capture,
+rasterization, warning, and packaging order. It also retains `@ts-nocheck`
+because the block evaluates DOM inside Puppeteer; checking it produced new
+errors merely from changing the containing file.

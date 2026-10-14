@@ -1,206 +1,72 @@
-# Arquitectura del frontend
+# Frontend architecture
 
-Aedos sirve una SPA de JavaScript vanilla desde `src/frontend/`, sin bundler.
-`index.html` es el bootstrap y declara el orden de CSS, módulos nativos y
-scripts clásicos. La separación por carpetas es organizativa; varios helpers
-siguen publicando bridges `window.*` para el HTML, el iframe y los scripts
-clásicos.
+Aedos serves a vanilla JavaScript SPA from `src/frontend/`, without a bundler.
+`index.html` declares the order of CSS, native modules, and classic scripts.
+Classic scripts and the presentation iframe communicate through explicit
+`window.*` APIs.
 
-## Mapa
+## Responsibility map
 
-| Ruta | Responsabilidad |
+| Path | Responsibility |
 | --- | --- |
-| `index.html`, `vercel.json` | Documento SPA, carga de assets y rewrites de hosting. |
-| `styles/` | CSS principal dividido en seis segmentos concatenables en orden; `outline.css` mantiene el outline aparte. |
-| `features/shared/` | i18n, logger, cliente HTTP/SSE, stores, tema, carga de vendor assets y bootstrap compartido. |
-| `features/chat/` | Renderers de chips, razonamiento, adjuntos, bindings de entrada y estado de carga/generación. |
-| `features/outline/`, `features/skeleton/` | Render de slides de outline e inyección del skeleton. |
-| `features/modals/` | Ciclo de vida del modal de error. |
-| `features/export/` | Preparación aislada del snapshot de exportación. |
-| `features/editor/`, `editor/` | Semántica, historial, geometría, bindings de edición/puntero/toolbar y editor del iframe. |
-| `features/tools/` | Inserción de formas/iconos y herramientas del editor. |
-| `features/minimap/` | Vista, navegación y estado del minimapa. |
-| `mobile/` | Shell móvil, estilos, puntos de navegación y bridge con la SPA. |
-| `scripts/app.js`, `scripts/outline.js` | Coordinadores de generación/navegación y de outline; siguen siendo los mayores archivos de frontend. |
-| `assets/` | Imágenes estáticas. |
+| `index.html`, `vercel.json` | SPA document, asset loading, and hosting rewrites |
+| `styles/` | Application CSS, including chat, settings, dialogs, outline, preview, and workspace |
+| `features/shared/` | Translations, logger, HTTP/SSE, stores, theme, vendor assets, and shared bootstrap |
+| `features/app/` | Routing, reset, dropdowns, and tooltips |
+| `features/chat/` | Input, attachments, chips, thinking panels, loading, and validation |
+| `features/outline/`, `features/skeleton/` | Outline editing, streaming, rendering, and skeleton injection |
+| `features/generation/` | Skeleton/final SSE requests, stage/reasoning progress, preview preparation, and transitions |
+| `features/modals/` | Error, export progress, donation, and refusal dialogs |
+| `features/export/` | Export snapshot preparation and download flow |
+| `features/editor/`, `editor/` | Iframe editor, selection, history, geometry, pointer interactions, and toolbar |
+| `features/tools/` | Shape/icon insertion and editor tools |
+| `features/minimap/` | Thumbnail rendering, slide navigation, and minimap state |
+| `features/preview/` | Iframe mounting/scaling, streaming markup, navigation, image replacement, overlays, and final reveal |
+| `mobile/` | Mobile styling, navigation dots, drawers, pinch zoom, pan, and swipe |
+| `scripts/app.js`, `scripts/outline.js` | Application and outline composition |
+| `scripts/chat-design-preview.js` | Design-preview integration |
+| `assets/` | Static images and model icons |
 
-## Flujo principal
+## Main flow
 
-1. `index.html` carga los estilos y, en orden, el catálogo de vendors, i18n,
-   stores, renderers, bridges de editor/móvil y finalmente `app.js` y
-   `outline.js`. No reordenar estos scripts por agrupación estética.
-2. El chat valida el formulario y guarda estado mediante los stores compartidos.
-   `features/shared/http-sse.js` contiene el lector reutilizable; la fachada
-   `window.AedosHttpSse` sigue disponible para consumidores clásicos.
-3. El flujo de esqueleto usa SSE y `outline.js` conserva el estado de edición,
-   chips, acciones y compatibilidad de `window.*`. El render de una slide está
-   aislado en `features/outline/slide-renderer.js`.
-4. Al generar, el HTML se monta como preview/iframe. `editor/editor.js` se carga
-   como módulo nativo dentro del iframe y usa imports relativos para sus helpers
-   puros de semántica, historial, geometría e interacción de puntero. Los
-   bridges públicos editor, tools y minimap siguen comunicándose entre iframe
-   y página padre.
-5. Antes de exportar, `features/export/export-snapshot.js` congela/copía el
-   estado live con el orden histórico; luego la página llama a PDF/PPTX en el
-   backend y consume la URL de descarga.
+1. `index.html` loads styles, vendor assets, translations, stores, feature
+   scripts, and application coordinators in their declared order.
+2. Chat controllers validate input and manage attachments. Shared stores own
+   generation and preview/editor state. `features/shared/http-sse.js` provides
+   the SSE reader and the `window.AedosHttpSse` facade.
+3. Skeleton generation streams outline data. Outline modules render and edit
+   slides; `scripts/outline.js` composes their dependencies and public bridges.
+4. Final generation streams slide HTML into the preview. Preview modules manage
+   markup buffering, iframe mounting, asset settling, and editor reveal.
+5. `editor/editor.js` loads as a native module inside the iframe and imports
+   editor helpers. The parent uses compatibility hooks for selection, history,
+   image replacement, layers, tools, and minimap.
+6. Export modules prepare the live editor snapshot and call the backend's PDF
+   or PPTX finalizer. The returned URL starts the download.
 
-Los vendors externos están centralizados en
-`features/shared/vendor-assets.js`, que inserta tags parser-blocking en el mismo
-punto y orden histórico, conservando sus URL y SRI. El Motion CDN continúa en
-12.38.0 y el paquete npm resuelto por lockfile en 12.37.0; no se igualaron porque
-eso cambiaría la versión realmente cargada.
+## State and initialization
 
-## Recetas
+Factories receive DOM nodes, stores, and callbacks from their coordinators.
+They are instantiated at their existing registration points. Late callbacks
+and getters defer access to bindings initialized later in the same closure.
 
-### Añadir un renderer
+The shared stores own generation and preview/editor state. Legacy
+`window.*` accessors delegate to that state. The editor's pointer state,
+selection, and history remain per iframe. Public compatibility names are used
+by classic scripts, HTML handlers, and the parent/iframe boundary.
 
-Coloca la función pura o factory en `features/<dominio>/`. Conserva exactamente
-el HTML/atributos si se sustituye markup existente. Conecta el consumidor desde
-su coordinador actual; cuando el consumidor sea clásico, mantén un bridge
-pequeño y explícito en `window` en vez de convertir todo el grafo de carga.
-Añade test de igualdad de markup/escape y, si la vista es visible, conserva la
-baseline visual y la red de seguridad del editor.
+## Assets and languages
 
-### Añadir un store
+`features/shared/vendor-assets.js` centralizes vendor URLs and integrity
+values. Styles and scripts load in the order declared by `index.html`.
+Translations live in `features/shared/i18n.js`; user-facing content retains
+its supported languages. Project documentation and code comments are English.
 
-Coloca estado y mutaciones en `features/shared/` con defaults iguales a los
-actuales. El store no debe arrancar listeners ni renderizar UI. Durante la
-transición, getters/setters `window.*` deben delegar al mismo estado y probarse
-con asignación legacy además de la API nueva. No dupliques límites del backend:
-consulta `docs/CONTRACTS.md` y documenta la copia si aún no existe un contrato
-compartido.
+## Verification
 
-### Añadir una herramienta del editor
-
-Añade el helper de inserción/transformación a `features/tools/`; recibe como
-dependencias el documento/ventana del iframe y la función de selección activa.
-Integra controles visuales y ciclo de guardado en `features/tools/tools.js`.
-Preserva selección, `saveState`, undo/redo y callbacks hacia el padre. Cubre la
-acción con prueba de lifecycle y el flujo `npm run check:editor-safety`.
-
-### Añadir un idioma
-
-Añade traducciones a `features/shared/i18n.js`, manteniendo las claves y el
-fallback actual. Comprueba que todos los controles estáticos y dinámicos usan
-las mismas claves, que el cambio de idioma actualiza los atributos de
-`index.html`, y que `npm run check:editor-safety` conserva el estado de idioma.
-No traduzcas ni reescribas prompts de IA desde la capa de i18n.
-
-## Límites y siguientes decisiones
-
-- El outline legacy permanece: `outline.js` todavía usa `outline-edge-tab`,
-  `legacy-outline-title-input`, `btn-add-slide-ai`, `outline-empty-state` y
-  `outline-slide-count`. No se eliminó porque existen referencias activas en
-  JS y el HTML, aunque el contenedor esté oculto.
-- ESM nativo ya se usa en capas puntuales; no hay Vite ni paso de build. En la
-  medición de siete muestras, la mediana FCP pasó de 108 ms antes de migrar
-  editor + HTTP/SSE a 128 ms después (+20 ms, +18.5%). No se atribuye esa
-  variación a una causa única ni se revirtió ESM; queda como dato de rendimiento
-  a repetir en el mismo entorno antes de añadir un bundler.
-- Una migración experimental del renderer a ESM (`df02cd2`) se revirtió en
-  `55274ce`: el harness PPTX esperaba `renderSlides`, que el módulo no exponía.
-  No se conserva código muerto de ese intento.
-- Vite queda como propuesta: antes de aplicarlo hay que probar rutas de Vercel,
-  URLs de assets, módulos del iframe y `srcdoc`, sin cambiar apariencia ni
-  contrato de hosting. La evidencia actual no justifica introducirlo.
-- `app.js`, `outline.js`, `editor.js` y tools/minimap siguen siendo
-  coordinadores grandes por estado léxico y ciclo de vida compartidos; sus
-  helpers independientes ya están extraídos. Para las medidas exactas por
-  commit, véase `docs/HANDOFF.md` y el inventario histórico en
-  `docs/FRONTEND-INVENTORY.md`.
-
-## Continuación Etapa 8
-
-La rama `refactor/fase-8e-app` empezó desde el editor verificado de 8d. Se
-aislaron las utilidades compartidas y tooltips, manteniendo sus fachadas
-`window.*` y puntos de inicialización. El editor ya tenía estado explícito de
-puntero, preparación de resize, normalización, drag/resize, destinos snap y
-cleanup mouseup en módulos; esta continuación extrajo el cálculo puro de
-coincidencia de guías. `editor/editor.js` sigue en 457 líneas: su listener de
-movimiento aún coordina normalización, selección, drag, resize e historial con
-estado compartido. No se redujo a 300 líneas; los bindings deben separarse en el
-punto de registro original y con callbacks tardíos que eviten TDZ.
-
-`scripts/app.js` sigue en 4,492 líneas. El corte del router no se aplicó: el
-retorno a home sincroniza generación, transición pendiente, DOM, adjuntos y
-draft de outline dentro de un mismo cierre, sin una API explícita probada que
-preserve el orden y la identidad de esos recursos. Router, adjuntos, overlays,
-navegación, zoom, exportación, preview, chat/renderizado, transiciones, SSE y
-orquestación siguen pendientes; véase `docs/HANDOFF.md` para los cortes no
-extraídos y los resultados de compuerta.
-
-## Continuación Etapa 9 (parcial)
-
-La rama 9a comenzó a agrupar estado del callback de `app.js` sin mover sus
-funciones: `chatState` contiene timers/mensajes del botón de generación y
-estado del placeholder/warmup; `navigationState` contiene cooldown y
-coordenadas fallback de swipe; `zoomState` contiene límites/paso y el último
-modo móvil fallback; `previewUiState` contiene los flags del lifecycle de
-minimap/tools y skeleton. Los cambios se dejaron en los puntos originales de
-inicialización para conservar orden y capturas de closures. Los bridges
-`window.*` se conservaron.
-
-Esto es una migración parcial de estado, no una modularización terminada:
-`dom` aún no centraliza las referencias cacheadas y quedan otras familias del
-inventario. Tampoco se alcanzaron los objetivos de tamaño de `app.js` o
-`editor.js`. Las ramas 9b-app-bloques y 9c-editor quedaron creadas desde
-`dc2c832`; no contienen extracciones en esta continuación. El registro por
-commit y los límites verificables están en `docs/HANDOFF.md` y
-`docs/FRONTEND-INVENTORY.md`.
-
-### Receta de extracción sin adelantar estado
-
-Primero se agrupa una familia de bindings mutables conservando cada valor
-inicial y su punto de inicialización. Después, y en un commit distinto, se
-extrae un bloque como `createX(ctx)`, pasando stores, `dom` y callbacks tardíos
-explícitos. La factory debe instanciarse donde antes se registraban listeners;
-no debe resolver selectores anticipadamente ni cambiar el orden de eventos.
-Cada módulo debe tener una sola responsabilidad, JSDoc de su contexto/API,
-README en su carpeta, menos de 300 líneas y pruebas de equivalencia antes de
-pasar `npm run verify:all`.
-
-Las recetas anteriores para renderizador, store, herramienta del editor e
-idioma siguen vigentes. En particular, un renderizador nuevo debe tener casos
-byte-identical; un store debe ser dueño único del estado y conservar el bridge;
-una herramienta debe delegar selección/historial; un idioma debe completar las
-claves de `i18n.js` y sus fallbacks. El orden exacto de cortes del coordinador
-está en `docs/FRONTEND-INVENTORY.md`.
-
-### Receta: extraer un bloque vertical con `createX(deps)`
-
-Marca el bloque completo junto con sus listeners, timers y estado; define un
-typedef JSDoc para sus dependencias y pásalas explícitamente (stores/estado,
-nodos DOM y callbacks). Invoca la fábrica exactamente donde antes se registraba
-el bloque y conserva en el coordinador la creación de deps, el orden de las
-instancias y todos los bridges `window.*`. Las referencias a bindings definidos
-más tarde deben llegar como callbacks perezosos, no leerse al construir la
-fábrica. Mantén cada módulo bajo 300 líneas y añade README en su carpeta; prueba
-la equivalencia del orden de listeners y cierra cada commit con `npm run
-verify:all`.
-
-En la continuación 10, `features/chat/attachments.js`, `input-controller.js` y
-`loading-controller.js` son ejemplos de este límite para chat; `features/editor/`
-contiene factories análogas para listeners de contenido, toolbar, puntero y
-lifecycle del iframe. Los grandes flujos SSE siguen dentro del coordinador:
-comparten cierres y orden asíncrono con preview y outline, por lo que requieren
-una API explícita antes de otra extracción.
-
-## Cierre de fábricas verticales (2026-10-05)
-
-El último commit de código/test verificado de `refactor/fase-10b-editor` es
-`ba52e3f`; este cierre documental se añade encima. Tamaños del
-blob, medidos con `git show <ref>:<archivo> | wc -l`: `scripts/app.js` quedó en
-400 líneas (desde 4.492 en `05f4322`) y `editor/editor.js` en 286 (desde 582).
-La app crea deps e instancia módulos en su orden previo; handlers, timers y
-estado movidos viven en factories con APIs explícitas. `features/generation/`
-contiene los flujos SSE skeleton/final en módulos de 292 y 288 líneas. Los
-bridges `window.*` se preservaron; `window.validateGenerateButton` sigue siendo
-wrapper, y `window.startFinalGeneration` sigue siendo la fachada histórica.
-
-Para el listado de módulos y tamaños, el detalle de cortes, los intentos
-revertidos y los gates verificados, consulta `docs/FRONTEND-INVENTORY.md` y
-`docs/HANDOFF.md`. `npm run verify:all` pasó en los commits aceptados y la
-estabilidad browser se verificó con diez ejecuciones seriales verdes, cada una
-con 13/13 sentinels. La estabilización visual fue solo en el test: preservar el
-foco de `#w-tema` del baseline y ocultar el cursor decorativo del hero; no se
-regeneraron baselines ni se alteró el producto.
+Frontend tests cover stores, renderers, outline lifecycle, attachments,
+transitions, editor operations, geometry, history, tools, minimap, modals, and
+mobile navigation. `npm run check:dom` checks static IDs.
+`npm run check:editor-safety` runs browser flow and mutation checks.
+The [contracts](CONTRACTS.md) describe HTTP/SSE and public frontend APIs;
+the [frontend inventory](FRONTEND-INVENTORY.md) lists current source modules.

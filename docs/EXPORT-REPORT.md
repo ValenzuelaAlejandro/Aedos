@@ -1,49 +1,50 @@
-# Cierre del exportador HTML → PPTX
+# HTML → PPTX exporter verification
 
-Fecha de verificación: 2026-09-28. Renderer de referencia: Microsoft
-PowerPoint COM 16.0.10417.20208; cada slide final se exportó con
-`Slide.Export(..., 'PNG', 1122, 631)`. Los baseline/final usan el mismo HTML y
-los hashes de `tests/fixtures/HASHES.json`.
+Verification date: 2026-09-28. Reference renderer: Microsoft PowerPoint COM
+16.0.10417.20208. Each final slide was exported with
+`Slide.Export(..., 'PNG', 1122, 631)`. Baseline and final use the same HTML
+and hashes in `tests/fixtures/HASHES.json`.
 
-Commits de esta pasada: `7742a45` (código, fixtures y tests) y `87bb317`
-(documentación, observabilidad y reproducción COM).
+Verified commits: `7742a45` (code, fixtures, and tests) and `87bb317`
+(documentation, observability, and COM reproduction).
 
-## Estado
+## Implemented coverage
 
-| Bloque | Estado | Evidencia |
-|---|---|---|
-| Hardening 4.3 | cerrado | `docs/pptx-export-borders-radius.md`, fixture dedicado |
-| 4.4 pseudo | cerrado con degradaciones documentadas | `docs/pptx-export-pseudo.md`, runs inline y shapes decorativos |
-| 5 imágenes/SVG | cerrado con raster fallback | `docs/pptx-export-images.md`, `pptx-images.html` |
-| 6 tablas | cerrado | `docs/pptx-export-tables.md`, `pptx-tables.html` |
-| 7 robustez | cerrado | `docs/pptx-export-robustness.md`, warnings/debug/validación |
-| Fase 3 | cerrado en Windows | COM, hashes, ZIP/XML, regresiones y stress deck |
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Border/radius/opacity hardening | Implemented | `docs/pptx-export-borders-radius.md`, dedicated fixture |
+| Pseudo-elements | Implemented with documented degradation | `docs/pptx-export-pseudo.md`, inline runs and decorative shapes |
+| Images/SVG | Implemented with raster fallback | `docs/pptx-export-images.md`, `pptx-images.html` |
+| Tables | Implemented | `docs/pptx-export-tables.md`, `pptx-tables.html` |
+| Robustness | Implemented | `docs/pptx-export-robustness.md`, warnings/debug/validation |
+| Windows verification | Completed | COM, hashes, ZIP/XML, regression cases, and stress deck |
 
-La suite terminó en `31/31`. Los cambios del exportador no tocaron las
-modificaciones frontend preexistentes del usuario.
+The suite passed `31/31`. Exporter changes preserved the user's preexisting
+frontend modifications.
 
-## Cambios principales
+## Export implementation
 
-- `server.js`: modelo intermedio medido, pseudo-runs, imágenes/SVG/canvas,
-  tablas, clonación de backgrounds sin texto duplicado, fallbacks aislados,
-  debug por request y warnings estructurados.
-- `pptx-export.js`: geometry de radios/ellipse, líneas con `prstDash`, alpha,
-  `srcRect`, descripciones, tablas nativas, media deduplicado por SHA-256 y
-  validación OOXML.
-- `export-warnings.js`: catálogo único y conteos en `X-Export-Warnings`.
-- `scripts/verify-pptx-export.js`, `render-pptx-com.ps1` y
-  `validate-pptx-package.ps1`: reproducción con un comando y COM.
+- The measured intermediate model includes pseudo-runs, images/SVG/canvas,
+  tables, background cloning without duplicate text, isolated fallbacks,
+  per-request debug output, and structured warnings.
+- `pptx-export.js` handles radius/ellipse geometry, `prstDash` lines, alpha,
+  `srcRect`, descriptions, native tables, SHA-256 media deduplication, and
+  OOXML validation.
+- `export-warnings.js` centralizes the catalog and `X-Export-Warnings` counts.
+- `scripts/verify-pptx-export.js`, `render-pptx-com.ps1`, and
+  `validate-pptx-package.ps1` provide command-line/COM reproduction.
 
-## Métrica COM vs HTML
+## COM vs HTML metric
 
-MAE es `Σ|COM - HTML| / (W×H×3)`, rango `0..255`, en el slide completo salvo
-la región indicada. `delta = final - baseline`; negativo acerca al HTML.
+MAE is `Σ|COM - HTML| / (W×H×3)`, range `0..255`, over the whole slide
+unless a region is specified. `delta = final - baseline`; negative values
+are closer to HTML.
 
-| Deck/slide | Baseline | Final | Delta | Región afectada |
+| Deck/slide | Baseline | Final | Delta | Affected region |
 |---|---:|---:|---:|---:|
 | borders-radius-opacity/1 | 4.903975 | 4.903975 | 0 | 5.357910 → 5.357910 |
 | edge-effects/1 | 1.395411 | 1.395411 | 0 | — |
-| generality-dark/1 | 5.080892 | 5.342591 | +0.261699 | header localizado; tarjetas 8.998107 → 8.928149 |
+| generality-dark/1 | 5.080892 | 5.342591 | +0.261699 | localized header; cards 8.998107 → 8.928149 |
 | generality-light/1 | 5.469828 | 5.456641 | -0.013187 | — |
 | images/1 | 10.088587 | 5.508730 | -4.579857 | 10.589752 → 6.006858 |
 | kendrick/1 | 10.512866 | 10.512866 | 0 | — |
@@ -62,24 +63,23 @@ la región indicada. `delta = final - baseline`; negativo acerca al HTML.
 | shadows/1 | 5.213686 | 5.213686 | 0 | — |
 | tables/1 | 7.766409 | 7.766409 | 0 | 8.485305 → 8.485305 |
 
-El único delta positivo es `generality-dark`. Está diagnosticado, no oculto: el
-header cambió de dos text-shapes mal posicionados a un run inline medido; la
-región de tarjetas mejora y el resultado final coincide estructuralmente con
-el HTML, pero PowerPoint mide la combinación de runs distinto a Chromium. El
-caso queda como diferencia A/C conocida y no como regresión silenciosa.
+The only positive delta is `generality-dark`. Its header changed from two
+mispositioned text shapes to a measured inline run. The card region improves
+and the final result matches HTML structurally, but PowerPoint measures the
+run combination differently from Chromium. This is a documented A/C difference.
 
-El stress deck tiene 32 slides: MAE medio baseline/final `3.016648` por slide
-en la comparación directa final; el
-PPTX pesa aproximadamente `469411` bytes y sus PNG COM `2772518` bytes. No se
-observaron faltas de slide ni fugas de página en el servidor.
+The stress deck has 32 slides, with baseline/final mean MAE `3.016648` per
+slide in the final direct comparison. PPTX size is approximately `469411`
+bytes; COM PNGs total `2772518` bytes. No missing slides or server page leaks
+were observed.
 
-## Warnings finales
+## Final warnings
 
-| Deck | Conteo por tipo |
+| Deck | Count by type |
 |---|---|
 | borders-radius-opacity | radius-approx 2, border-fallback 2, opacity-group 1 |
 | edge-effects | opacity-group 1, radius-approx 1, overflow-clipping 1, position-fallback 2, visibility-fallback 1 |
-| generality-dark/light | opacity-group 1 cada uno |
+| generality-dark/light | opacity-group 1 each |
 | images | radius-approx 6, overflow-clipping 1, opacity-group 1, image-load-failed 3 |
 | kendrick | font-substitution 24, radius-approx 1 |
 | layer-edge | opacity-group 1, overflow-clipping 1, position-fallback 2, visibility-fallback 1 |
@@ -87,38 +87,38 @@ observaron faltas de slide ni fugas de página en el servidor.
 | regression-dark/light, minimal, tables, stress | 0 |
 | shadows | shadow-fallback 2, filter-fallback 1 |
 
-Ninguna sombra, imagen fallida, pseudo complejo o nodo no soportado se descarta
-sin warning. El fallback de `object-fit` usa screenshot del nodo ya renderizado;
-el `srcRect` nativo se conserva para modelos compatibles y tiene test OOXML.
+No shadow, failed image, complex pseudo-element, or unsupported node is
+discarded without a warning. The `object-fit` fallback uses a screenshot of
+the rendered node; native `srcRect` remains available for compatible models
+and has an OOXML test.
 
-## Generalidad y limitaciones
+## Generality and limitations
 
-El grep del diff del exportador no contiene literales de deck como colores,
-selectores o copy. Las menciones de nombres de fuentes están confinadas a la
-tabla de datos/fallback y a tests explícitos de sustitución; los prompts de
-generación existentes no forman parte de la lógica de exportación. Se
-versionaron fixtures claros/oscuros, imágenes, pseudo, tablas, bordes y stress.
+The exporter diff contains no deck-specific color, selector, or copy literals.
+Font names are limited to fallback data and explicit substitution tests.
+Generation prompts are separate from export logic. Versioned fixtures cover
+light/dark decks, images, pseudo-elements, tables, borders, and stress cases.
 
-Limitaciones deliberadas: fuentes web no embebidas se sustituyen por familias
-Office; SVG complejo, canvas, filtros, backgrounds repetidos, radios con
-clipping y tablas anidadas pueden rasterizar; `counter/attr/url` en pseudo
-emiten warning; no se verificó Keynote, Google Slides ni una máquina sin las
-fuentes instaladas. PowerPoint COM abrió todos los PPTX sin aviso de reparar.
+Nonembedded web fonts can be substituted with Office families. Complex SVG,
+canvas, filters, repeating backgrounds, clipped radii, and nested tables can
+be rasterized. Pseudo-element `counter/attr/url` emits warnings. Keynote,
+Google Slides, and a machine without the installed fonts were not verified.
+PowerPoint COM opened all PPTX files without a repair warning.
 
-## Reproducción
+## Reproduction
 
-En Windows con Node, Chromium de Puppeteer y PowerPoint instalado:
+On Windows with Node, Puppeteer's Chromium, and PowerPoint installed:
 
 ```powershell
 npm run verify:pptx
 ```
 
-El comando valida hashes, genera todos los fixtures con `?debug=1`, valida el
-ZIP/XML/relaciones, y exporta cada slide a PNG por PowerPoint COM en
-`tmp/verify-pptx/com/`. La comparación visual histórica reproducible está en
-`tmp/phase5-metrics.py`; requiere el Python empaquetado con Pillow.
+The command validates hashes, generates fixtures with `?debug=1`, validates
+ZIP/XML/relationships, and exports slides to PNG with PowerPoint COM in
+`tmp/verify-pptx/com/`. The historical visual comparison script is
+`tmp/phase5-metrics.py`; it requires bundled Python with Pillow.
 
-Para revisión manual están disponibles `tmp/phase5-final-*.pptx`, las carpetas
-`tmp/phase5-final-*-powerpoint-render/` y los mapas de celdas en los fixtures:
-`pptx-pseudo.html`, `pptx-images.html`, `pptx-tables.html` y
+Manual-review artifacts use `tmp/phase5-final-*.pptx` and
+`tmp/phase5-final-*-powerpoint-render/`. Cell maps are in
+`pptx-pseudo.html`, `pptx-images.html`, `pptx-tables.html`, and
 `pptx-borders-radius-opacity.html`.
