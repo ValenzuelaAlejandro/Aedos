@@ -1,11 +1,5 @@
 /* eslint-disable max-lines-per-function, complexity */
 
-/**
- * Normalize, validate and sanitize the complete streamed HTML response.
- *
- * @param {{fullHtml: string, usePipeline: boolean, requestId: string, opciones: any, res: any, maxProSlides: number, maxFlashSlides: number, sanitizeGeneratedHtml: Function, injectLayoutSafetyNet: Function, sanitizerLog: any, ErrorCategory: any, isDevelopment: boolean, tmpDir: string, fs: any, path: any, devLog: any, classifyError: Function, extractPresentationTitle: Function, buildFileStemFromTitle: Function, resolveUniqueHtmlPath: Function, examplesFlashDir: string, examplesProDir: string, vendorAssets: {lucide: {url: string, integrity: string}}}} deps
- * @returns {{type: string, html?: string, message?: string}}
- */
 function ensureDocumentLanguage(html, language) {
     const value = language === 'en' ? 'en' : 'es';
     return html.replace(/<html\b([^>]*)>/i, (tag, attributes) => {
@@ -14,6 +8,12 @@ function ensureDocumentLanguage(html, language) {
     });
 }
 
+/**
+ * Normalize, validate and sanitize the complete streamed HTML response.
+ *
+ * @param {{fullHtml: string, usePipeline: boolean, requestId: string, opciones: any, res: any, maxProSlides: number, maxFlashSlides: number, sanitizeGeneratedHtml: Function, injectLayoutSafetyNet: Function, sanitizerLog: any, ErrorCategory: any, isDevelopment: boolean, tmpDir: string, fs: any, path: any, devLog: any, classifyError: Function, extractPresentationTitle: Function, buildFileStemFromTitle: Function, resolveUniqueHtmlPath: Function, examplesFlashDir: string, examplesProDir: string, vendorAssets: {lucide: {url: string, integrity: string}}}} deps
+ * @returns {{type: string, html?: string, message?: string}}
+ */
 function processGeneratedOutput({
     fullHtml,
     usePipeline,

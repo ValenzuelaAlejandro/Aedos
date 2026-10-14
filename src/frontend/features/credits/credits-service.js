@@ -40,6 +40,33 @@
         return { models: data.models || [], paymentsPaused: Boolean(data.paymentsPaused), source: 'api' };
     }
 
+    function createRefresher({ onSuccess, onUnavailable }) {
+        let inFlight = null;
+        let retryTimer = null;
+
+        return function refresh() {
+            if (inFlight) return inFlight;
+            inFlight = (async () => {
+                try {
+                    const [credits, models] = await Promise.all([getCredits(), getModels()]);
+                    if (retryTimer) global.clearTimeout(retryTimer);
+                    retryTimer = null;
+                    return onSuccess(credits, models);
+                } catch (error) {
+                    onUnavailable(error);
+                    if (error?.retryable && !retryTimer) retryTimer = global.setTimeout(() => {
+                        retryTimer = null;
+                        refresh();
+                    }, 10000);
+                    return null;
+                } finally {
+                    inFlight = null;
+                }
+            })();
+            return inFlight;
+        };
+    }
+
     function quote(model, slides) {
         const count = Math.max(1, Math.floor(Number(slides) || 1));
         if (model?.billing === 'perPresentation') {
@@ -72,6 +99,6 @@
         return { ok: true, balance: data.remaining, amount: data.cost, resetsAt: data.resetsAt };
     }
 
-    const service = Object.freeze({ getCredits, getModels, quote, spend, createRequestId });
+    const service = Object.freeze({ getCredits, getModels, createRefresher, quote, spend, createRequestId });
     global.AedosCredits = service;
 })(typeof window !== 'undefined' ? window : globalThis);

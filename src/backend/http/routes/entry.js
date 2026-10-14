@@ -12,10 +12,19 @@ const { getSpendStatus } = require('../../utils/spend-guard');
 function registerEntryRoutes({ app, tmpDir, isDevelopment }) {
     app.get('/api/models', async (req, res) => {
         const models = Object.values(MODEL_CATALOG)
-            .map(({ id, name, provider, brand, tier, paid, billing, creditsPerSlide,
-                creditsPerPresentation, attachments, modes, maxSlides }) => ({
-                id, name, provider, brand, tier, paid, billing, creditsPerSlide,
-                creditsPerPresentation, attachments, modes, maxSlides,
+            .map(model => ({
+                id: model.id,
+                name: model.name,
+                provider: model.provider,
+                brand: model.brand,
+                tier: model.tier,
+                paid: model.paid,
+                billing: model.billing,
+                creditsPerSlide: model.billing === 'perSlide' ? model.creditsPerSlide : undefined,
+                creditsPerPresentation: model.billing === 'perPresentation' ? model.creditsPerPresentation : undefined,
+                attachments: model.attachments,
+                modes: model.modes,
+                maxSlides: model.maxSlides,
             }));
         const spendStatus = await getSpendStatus();
         res.set('Cache-Control', 'no-store');

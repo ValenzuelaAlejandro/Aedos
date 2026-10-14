@@ -1,6 +1,25 @@
 (function registerStageProgress(global) {
     'use strict';
 
+    function stageText(parsed, window) {
+        if (parsed.status === 'retrying') {
+            const tpl = window.__t
+                ? window.__t('stage_retry', 'The AI stumbled — retrying ({attempt}/{maxAttempts})...')
+                : 'The AI stumbled — retrying ({attempt}/{maxAttempts})...';
+            const attempt = Number.isFinite(parsed.attempt) ? parsed.attempt : '?';
+            const maxAttempts = Number.isFinite(parsed.maxAttempts) ? parsed.maxAttempts : '?';
+            return tpl.replace('{attempt}', String(attempt)).replace('{maxAttempts}', String(maxAttempts));
+        }
+        const stageI18nKeys = { content: 'stage_content', design: 'stage_design', compositing: 'stage_compositing' };
+        const stageFallbacks = {
+            content: 'Analyzing content...', design: 'Resolving design...', compositing: 'Composing slides...'
+        };
+        const i18nKey = stageI18nKeys[parsed.stage];
+        return i18nKey
+            ? (window.__t ? window.__t(i18nKey, stageFallbacks[parsed.stage]) : stageFallbacks[parsed.stage])
+            : parsed.stage;
+    }
+
     /**
      * @typedef {Object} StageProgressDependencies
      * @property {Window} window Existing localization and animation APIs.
@@ -17,37 +36,14 @@
 
         return function showStageProgress(parsed) {
             pauseBtnMessages();
-            let stageText;
-            if (parsed.status === 'retrying') {
-                const tpl = window.__t
-                    ? window.__t('stage_retry', 'The AI stumbled — retrying ({attempt}/{maxAttempts})...')
-                    : 'The AI stumbled — retrying ({attempt}/{maxAttempts})...';
-                const attempt = Number.isFinite(parsed.attempt) ? parsed.attempt : '?';
-                const maxAttempts = Number.isFinite(parsed.maxAttempts) ? parsed.maxAttempts : '?';
-                stageText = tpl.replace('{attempt}', String(attempt)).replace('{maxAttempts}', String(maxAttempts));
-            } else {
-                const stageI18nKeys = {
-                    content: 'stage_content',
-                    design: 'stage_design',
-                    compositing: 'stage_compositing'
-                };
-                const stageFallbacks = {
-                    content: 'Analyzing content...',
-                    design: 'Resolving design...',
-                    compositing: 'Composing slides...'
-                };
-                const i18nKey = stageI18nKeys[parsed.stage];
-                stageText = i18nKey
-                    ? (window.__t ? window.__t(i18nKey, stageFallbacks[parsed.stage]) : stageFallbacks[parsed.stage])
-                    : parsed.stage;
-            }
-            if (previewContainer && previewContainer.classList.contains('is-generating')) setPreviewStreamStatus(stageText);
+            const text = stageText(parsed, window);
+            if (previewContainer && previewContainer.classList.contains('is-generating')) setPreviewStreamStatus(text);
             window.AedosOrbs?.setPreviewState(parsed.stage);
             const aiBodies = window.document.querySelectorAll('.chat-msg-ai .chat-ai-body');
             const aiBody = aiBodies[aiBodies.length - 1];
             const thinkingStage = { content: 'stage1', design: 'stage2', compositing: 'stage3' }[parsed.stage];
-            if (aiBody && thinkingStage) window.AedosThinking?.updateStatus(aiBody, stageText, thinkingStage);
-            if (typeof animateHeroTitle === 'function') animateHeroTitle(stageText);
+            if (aiBody && thinkingStage) window.AedosThinking?.updateStatus(aiBody, text, thinkingStage);
+            if (typeof animateHeroTitle === 'function') animateHeroTitle(text);
             const label = generateBtn.querySelector('.btn-generate-label');
             if (label) {
                 if (window.gsap) {
@@ -56,12 +52,12 @@
                         y: -5,
                         duration: 0.2,
                         onComplete: () => {
-                            label.textContent = stageText;
+                            label.textContent = text;
                             window.gsap.fromTo(label, { opacity: 0, y: 5 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' });
                         }
                     });
                 } else {
-                    label.textContent = stageText;
+                    label.textContent = text;
                 }
             }
         };

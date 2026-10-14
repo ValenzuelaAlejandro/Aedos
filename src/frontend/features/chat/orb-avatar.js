@@ -16,6 +16,7 @@
         return colorScheme.matches;
     }
 
+    // eslint-disable-next-line max-lines-per-function -- Canvas lifecycle, animation state, observers, and cleanup share one controller closure.
     function mount(target, { state = 'working', size = 20, displaySize = size, paused = false } = {}) {
         if (!target) return null;
         if (target.__aedosOrb) {
@@ -128,6 +129,7 @@
         return controller;
     }
 
+    // eslint-disable-next-line max-lines-per-function -- Preview rendering state, transitions, and observers are intentionally owned together.
     function mountPreview() {
         const host = document.querySelector('.preview-stream-orb');
         const container = document.getElementById('preview-container');

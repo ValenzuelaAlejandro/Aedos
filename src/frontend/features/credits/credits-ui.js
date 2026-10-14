@@ -6,8 +6,7 @@
     let dailyLimit = 50;
     let lastCredits = null;
     let creditsAvailable = false;
-    let refreshInFlight = null;
-    let retryTimer = null;
+    let refreshRunner = null;
     let clampNoticeCount = null;
     let clampNoticeModel = null;
     let clampNoticeTimer = null;
@@ -190,28 +189,6 @@
         return { slides, billing, rate, total, affordable: creditsAvailable && !insufficient && !blockedAttachments };
     }
 
-    function renderSlideTicks(limit, affordable, normalized, absolute) {
-        const ticks = global.document.getElementById('slide-count-ticks');
-        if (!ticks) return;
-        const cuts = new Set(global.getSlideZones(limit).slice(0, -1).map(entry => entry.end));
-        const marks = [];
-        for (let n = 1; n <= absolute; n++) {
-            const tick = global.document.createElement('span');
-            tick.className = 'slide-count-tick';
-            tick.style.setProperty('--tick-height', `${6 + 12 * ((n - 1) / Math.max(1, absolute - 1)) + (n % 5 === 0 ? 3 : 0)}px`);
-            if (n <= normalized) tick.classList.add('is-active');
-            if (n > limit || n > affordable) tick.classList.add('is-disabled');
-            if (cuts.has(n)) tick.classList.add('is-zone-end');
-            if (n === 1 || n % 5 === 0) {
-                const label = global.document.createElement('small');
-                label.textContent = String(n);
-                tick.append(label);
-            }
-            marks.push(tick);
-        }
-        ticks.replaceChildren(...marks);
-    }
-
     function renderSlideValue(input, normalized, limit) {
         const unit = format(normalized === 1 ? 'slides.unitOne' : 'slides.unitMany', { n: normalized });
         const zone = global.getSlideZones(limit).find(entry => normalized >= entry.start && normalized <= entry.end);
@@ -263,7 +240,7 @@
             input.style.width = `${24 + (effective - 1) * tickWidth}px`;
         }
         renderSlideValue(input, normalized, limit);
-        renderSlideTicks(limit, affordable, normalized, absolute);
+        global.AedosCreditsSlideView.renderTicks(limit, affordable, normalized, absolute);
         updateCostPreview();
     }
 
@@ -371,60 +348,25 @@
 
     async function refresh() {
         if (!global.AedosCredits) return;
-        if (refreshInFlight) return refreshInFlight;
-        refreshInFlight = (async () => {
-            try {
-                const [credits, modelsResult] = await Promise.all([
-                    global.AedosCredits.getCredits(),
-                    global.AedosCredits.getModels(),
-                ]);
-                if (retryTimer) global.clearTimeout(retryTimer);
-                retryTimer = null;
+        if (!refreshRunner) refreshRunner = global.AedosCredits.createRefresher({
+            onSuccess: (credits, modelsResult) => {
                 modelList = modelsResult.models || [];
                 renderBalance(credits);
                 global.dispatchEvent?.(new global.CustomEvent('aedos:models-updated', {
                     detail: { models: modelList, paymentsPaused: modelsResult.paymentsPaused },
                 }));
                 return { credits, models: modelList, paymentsPaused: modelsResult.paymentsPaused };
-            } catch (_) {
+            },
+            onUnavailable: () => {
                 renderBalanceUnavailable();
                 updateStatus('credits.unavailable', 'error');
-                // A failed initial request can be the Render service waking up. Retry without
-                // treating an unavailable balance as zero or charging against client state.
-                if (_?.retryable && !retryTimer) retryTimer = global.setTimeout(() => {
-                    retryTimer = null;
-                    refresh();
-                }, 10000);
-                return null;
-            } finally {
-                refreshInFlight = null;
-            }
-        })();
-        return refreshInFlight;
-    }
-
-    function initPopover() {
-        const trigger = global.document.getElementById('credits-balance-trigger');
-        const popover = global.document.getElementById('credits-popover');
-        if (!trigger || !popover) return;
-        const close = () => { popover.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
-        trigger.addEventListener('click', event => {
-            event.stopPropagation();
-            const slidePanel = global.document.getElementById('slide-count-panel');
-            if (slidePanel) slidePanel.hidden = true;
-            global.document.getElementById('slide-count-trigger')?.setAttribute('aria-expanded', 'false');
-            global.document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
-            global.document.querySelectorAll('.dropdown-container > button[aria-expanded]').forEach(button => button.setAttribute('aria-expanded', 'false'));
-            popover.hidden = !popover.hidden;
-            trigger.setAttribute('aria-expanded', String(!popover.hidden));
+            },
         });
-        popover.addEventListener('click', event => event.stopPropagation());
-        global.document.addEventListener('click', close);
-        global.document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
+        return refreshRunner();
     }
 
     function init() {
-        initPopover();
+        global.AedosCreditsPopover?.init();
         initSlideControl();
         global.document.getElementById('w-tema')?.addEventListener('input', updateCostPreview);
         global.document.getElementById('btn-generate')?.addEventListener('click', () => updateCostPreview());
