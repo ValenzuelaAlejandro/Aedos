@@ -76,27 +76,14 @@
     
             const requestData = {
                 tema: finalTema,
-                mode: 'chat', // skeleton always draws from the chat rate-limit bucket
+                mode: 'chat', // The server applies the dedicated free schema quota; this is not a credit charge.
                 modelId: generationState.selectedModelId || 'google/gemini-3-flash-preview',
                 slides: window.AedosCreditsUI?.getSlideCount() || 8,
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
     
             const isFollowUpRequest = window.outlineEditorState && window.outlineEditorState.skeleton !== null;
-
-            // Follow-up chat edits cost one simulated credit; initial outline/schema generation is free.
-            if (isFollowUpRequest && !window.AedosCreditsUI?.canSpend(1)) {
-                toggleGenerateLoading(false);
-                return;
-            }
-            if (isFollowUpRequest) {
-                const charge = window.AedosCredits.spend(1, 'chat');
-                if (!charge.ok) {
-                    window.AedosCreditsUI?.updateStatus('credits.missingOne', 'insufficient', { n: 1 });
-                    toggleGenerateLoading(false);
-                    return;
-                }
-            }
+            const requestId = window.AedosCredits.createRequestId();
     
             if (isFollowUpRequest) {
                 requestData.currentSkeleton = JSON.stringify(window.outlineEditorState.skeleton);
@@ -110,7 +97,7 @@
     
             let bodyData;
             // eslint-disable-next-line prefer-const -- Retain the existing request assembly unchanged.
-            let headers = {};
+            let headers = { 'Idempotency-Key': requestId };
             if (window._attachedFiles && window._attachedFiles.length > 0) {
                 const formData = new FormData();
                 formData.append('tema', requestData.tema);
@@ -164,6 +151,9 @@
     
                 if (!skeletonResponse.ok) {
                     const errData = await skeletonResponse.json().catch(() => ({}));
+                    if (skeletonResponse.status === 402 || errData.code === 'INSUFFICIENT_CREDITS') {
+                        await window.AedosCreditsUI?.refresh();
+                    }
                     const serverErr = errData.error || `Server error: ${skeletonResponse.status}`;
                     throw new Error(serverErr);
                 }
@@ -257,6 +247,8 @@
                 if (!finalSkeleton) {
                     finalSkeleton = window.parsePartialSkeleton(rawText);
                 }
+
+                await window.AedosCreditsUI?.refresh();
     
                 const hasRenderableSkeleton = !!(
                     finalSkeleton &&
@@ -309,7 +301,6 @@
                 }
             } catch (error) {
                 if (isFollowUpRequest) {
-                    window.AedosCredits.refund(1, 'failed-chat');
                     window.AedosCreditsUI?.refresh();
                 }
                 handleSkeletonError(error, controller);

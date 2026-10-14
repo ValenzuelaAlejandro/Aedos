@@ -10,14 +10,19 @@
     let clampNoticeTimer = null;
     let slideLimitAttempted = false;
 
+    function nextUtcReset() {
+        const now = new Date();
+        return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    }
+
     function format(key, params = {}) {
         return global.__t(key).replace(/\{([a-z]+)\}/g, (match, name) =>
             Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match);
     }
 
     function resetTime() {
-        const candidate = lastCredits?.resetsAt ? new Date(lastCredits.resetsAt) : global.AedosCredits.nextLocalReset();
-        const reset = Number.isNaN(candidate.getTime()) ? global.AedosCredits.nextLocalReset() : candidate;
+        const candidate = lastCredits?.resetsAt ? new Date(lastCredits.resetsAt) : nextUtcReset();
+        const reset = Number.isNaN(candidate.getTime()) ? nextUtcReset() : candidate;
         const locale = global.currentLang === 'es' ? 'es-MX' : 'en-US';
         // An API ISO timestamp is parsed as an instant, then formatted in the browser's local zone.
         return reset.toLocaleTimeString(locale, {
@@ -355,8 +360,7 @@
             }));
             return { credits, models: modelList, paymentsPaused: modelsResult.paymentsPaused };
         } catch (_) {
-            lastCredits = null;
-            global.AedosAttachments?.refreshAvailability?.();
+            renderBalance({ balance: 0, dailyLimit });
             updateStatus('credits.unavailable', 'error');
             return null;
         }

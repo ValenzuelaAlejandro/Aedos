@@ -48,13 +48,21 @@ function initTools(iframe) {
         clone.addEventListener(event, cb);
     }
 
-    function chargeAddedElement() {
+    async function chargeAddedElement() {
         const credits = window.AedosCredits;
         const ui = window.AedosCreditsUI;
         if (!credits || !ui?.canSpend(1)) return false;
-        const result = credits.spend(1, 'add-element');
-        if (!result.ok) return false;
-        ui.refresh();
+        try {
+            const result = await credits.spend(1, 'add-element');
+            await ui.refresh();
+            if (!result.ok) {
+                ui.updateStatus('credits.missingOne', 'insufficient', { n: 1 });
+                return false;
+            }
+        } catch (_) {
+            ui.updateStatus('credits.unavailable', 'error');
+            return false;
+        }
         return true;
     }
 
@@ -216,8 +224,8 @@ function initTools(iframe) {
             document.getElementById('lib-back-btn').addEventListener('click', () => renderTools(null));
 
             dynamicContainer.querySelectorAll('.lib-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    if (!chargeAddedElement()) return;
+                item.addEventListener('click', async () => {
+                    if (!(await chargeAddedElement())) return;
                     const type = item.dataset.type;
                     if (type === 'icon') {
                         insertIcon(item.dataset.val);
@@ -769,7 +777,7 @@ function initTools(iframe) {
     });
 
     // --- Add Elements listeners ---
-    safeAddListener('btn-add-text', 'click', () => {
+    safeAddListener('btn-add-text', 'click', async () => {
         const btnId = 'btn-add-text';
         if (toolsPanel && toolsPanel.classList.contains('active') && panelOwner === btnId) {
             clearTimeout(selectionT);
@@ -780,7 +788,7 @@ function initTools(iframe) {
             if (iframeWin.editorDeselect) iframeWin.editorDeselect();
             return;
         }
-        if (!chargeAddedElement()) return;
+        if (!(await chargeAddedElement())) return;
         // Mark that the upcoming selection-changed was triggered by this btn
         _settingPanelOwner = true;
         panelOwner = btnId;
@@ -810,7 +818,7 @@ function initTools(iframe) {
         }
     });
 
-    safeAddListener('btn-add-image', 'click', () => {
+    safeAddListener('btn-add-image', 'click', async () => {
         const btnId = 'btn-add-image';
         if (toolsPanel && toolsPanel.classList.contains('active') && panelOwner === btnId) {
             clearTimeout(selectionT);
@@ -821,7 +829,7 @@ function initTools(iframe) {
             if (iframeWin.editorDeselect) iframeWin.editorDeselect();
             return;
         }
-        if (!chargeAddedElement()) return;
+        if (!(await chargeAddedElement())) return;
         // Mark that the upcoming selection-changed was triggered by this btn
         _settingPanelOwner = true;
         panelOwner = btnId;
@@ -916,10 +924,10 @@ function initTools(iframe) {
     });
 
     // --- drop images handler ---
-    const addImageAtHandler = (e) => {
+    const addImageAtHandler = async (e) => {
         const { file, x, y } = e.detail;
         if (!file) return;
-        if (!chargeAddedElement()) return;
+        if (!(await chargeAddedElement())) return;
         fixToolsPanel();
         if (iframeWin.editorSaveState) iframeWin.editorSaveState();
         const slide = getActiveSlide();

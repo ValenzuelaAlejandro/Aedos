@@ -69,6 +69,9 @@ if (msg.includes('PAYMENTS_PAUSED')) {
     window.AedosCreditsUI?.updateStatus(msg.includes('CREDITS_EXHAUSTED') ? 'credits.exhausted' : 'credits.missingOne',
         msg.includes('CREDITS_EXHAUSTED') ? 'empty' : 'insufficient',
         { time: window.AedosCreditsUI?.getResetTime?.() || '', n: 1 });
+} else if (msg.includes('SCHEMA_DAILY_LIMIT')) {
+    if (errTitle) errTitle.textContent = window.__t('daily_limit_title', "You've reached today's limit");
+    if (errSubtitle) errSubtitle.textContent = window.__t('credits.schemaLimit');
 } else if (msg.includes('DAILY_LIMIT_EXCEEDED_FLASH') || msg.includes('DAILY_LIMIT_EXCEEDED_PRO') || msg.includes('DAILY_LIMIT_EXCEEDED_CHAT')) {
     if (errTitle) errTitle.textContent = window.__t ? window.__t('daily_limit_title', "You've reached today's limit") : "You've reached today's limit";
     if (errSubtitle) errSubtitle.textContent = window.__t ? window.__t('daily_limit_msg', "Free generations reset every 24 hours. Come back tomorrow or try again later.") : "Free generations reset every 24 hours. Come back tomorrow or try again later.";
