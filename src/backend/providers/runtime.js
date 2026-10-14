@@ -64,7 +64,6 @@ function createProviderRuntime({
         tryModelsStage1,
         tryModelsStage2,
         tryModelsStage3,
-        tryModelsFlashThinking: (prompt, fileContext) => tryModelsFlash(prompt, fileContext, { includeReasoning: true }),
         tryModelsStage1Thinking: (prompt, fileContext, options = {}) => tryModelsStage1(prompt, fileContext,
             { ...options, includeReasoning: true }),
         tryModelsStage2Thinking: (prompt, fileContext, options = {}) => tryModelsStage2(prompt, fileContext,

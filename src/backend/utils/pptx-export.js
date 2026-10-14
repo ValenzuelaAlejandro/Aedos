@@ -432,24 +432,6 @@ function shapeXml(id, shape, { textBox = false, addHyperlink } = {}) {
 
     let txBody = '';
     if (textBox) {
-        const fontSize = Math.max(600, Math.round(pxToPt(Number(shape.fontSize) || 12) * 100));
-        const fontFace = escapeXml(shape.fontFace || 'Aptos');
-        const textColor = color(shape.textColor, '111111');
-        const paragraphProps = (shape.bullet ? ' marL="228600" indent="-228600"' : '') +
-            '><a:lnSpc><a:spcPct val="115000"/></a:lnSpc>' +
-            (shape.paragraphGap ? '<a:spcAft><a:spcPts val="500"/></a:spcAft>' : '');
-        const legacyParagraphs = String(shape.text || '').split(/\r?\n/).map(lineText => `
-            <a:p>
-                <a:pPr algn="${paragraphAlignment(shape.align)}"${paragraphProps}${shape.bullet ? '<a:buChar char="•"/>' : ''}</a:pPr>
-                <a:r>
-                    <a:rPr lang="en-US" sz="${fontSize}"${shape.bold ? ' b="1"' : ''}${shape.italic ? ' i="1"' : ''}>
-                        <a:solidFill><a:srgbClr val="${textColor}"/></a:solidFill>
-                        <a:latin typeface="${fontFace}"/>
-                    </a:rPr>
-                    <a:t>${escapeXml(lineText || ' ')}</a:t>
-                </a:r>
-                <a:endParaRPr lang="en-US" sz="${fontSize}"/>
-            </a:p>`).join('');
         const paragraphsModel = Array.isArray(shape.paragraphs) && shape.paragraphs.length
             ? shape.paragraphs
             : String(shape.text || '').split(/\r?\n/).map(text => ({ text, align: shape.align }));

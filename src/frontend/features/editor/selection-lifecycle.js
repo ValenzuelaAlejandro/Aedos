@@ -87,7 +87,6 @@ export function createEditorSelectionLifecycle({
                 // Grow-upwards only for standalone absolute elements normalized directly under a slide.
                 if (element.isContentEditable && element._baseBottom !== undefined && element.style.position === 'absolute') {
                     const rect = element.getBoundingClientRect();
-                    const slide = element.closest('.s') || document.body;
                     const currentHeight = rect.height;
                     const newTop = Math.max(0, element._baseBottom - currentHeight);
                     element.style.top = newTop + "px";

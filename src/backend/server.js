@@ -3,8 +3,6 @@ if (process.env.NODE_ENV !== 'test') {
 }
 const express = require('express');
 const fs = require('fs');
-const http = require('http');
-const https = require('https');
 const path = require('path');
 const {
     MAX_UPLOAD_ARRAY_FIELDS,
@@ -41,7 +39,7 @@ process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '..', '..', 'puppeteer-ca
 const { createBrowserManager } = require('./browser/manager');
 const { createPptxRenderer } = require('./export/pptx-renderer');
 
-const { runPipeline, buildLegacyPrompt, extractJson } = require('./prompts/pipeline');
+const { runPipeline, extractJson } = require('./prompts/pipeline');
 const { createSkeletonHandler } = require('./pipeline/skeleton');
 const { createOutlineItemHandler } = require('./pipeline/outline-item');
 const { consumeModelStream, runFlashGenerationWithRetry } = require('./pipeline/stream');
@@ -68,7 +66,6 @@ const providerLog = log.child('PROVIDER');
 const queueLog = log.child('QUEUE');
 const sanitizerLog = log.child('SANITIZER');
 const devLog = log.child('DEV');
-const imageLog = log.child('IMAGES');
 const puppeteerLog = log.child('PUPPETEER');
 const runtimeConfig = loadEnvConfig(process.env);
 let testProviderOverride = null;
@@ -253,7 +250,6 @@ const { createProviderRuntime } = require('./providers/runtime');
 const {
     tryModelsFlash,
     tryModelsStage1,
-    tryModelsFlashThinking,
     tryModelsStage1Thinking,
     tryModelsStage2Thinking,
     trySelectedStage1Thinking,

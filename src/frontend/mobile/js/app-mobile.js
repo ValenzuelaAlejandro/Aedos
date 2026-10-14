@@ -68,18 +68,6 @@
         return { onTouchStart, onTouchEnd };
     }
 
-    function blurFocusedTextControl() {
-        const activeEl = document.activeElement;
-        if (!activeEl) return;
-        const isTextControl =
-            activeEl.tagName === 'TEXTAREA' ||
-            activeEl.tagName === 'INPUT' ||
-            activeEl.isContentEditable;
-        if (isTextControl && typeof activeEl.blur === 'function') {
-            activeEl.blur();
-        }
-    }
-
     window.MobileRuntime = Object.assign(window.MobileRuntime || {}, {
         isMobileLayout,
         resetZoomState,

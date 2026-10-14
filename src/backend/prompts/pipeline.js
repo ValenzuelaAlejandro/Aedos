@@ -8,7 +8,6 @@ const enrichSkeletonForStage2 = require('./skeleton-enrichment');
 
 const pipelineLog = createLogger({ scope: 'PIPELINE' });
 
-const buildLegacyPrompt = require('./base');
 
 /**
  * Runs the full 3-stage pipeline.
@@ -160,6 +159,5 @@ async function runPipeline({ rawInput, targetLanguage, fileContext, skeleton, tr
 
 module.exports = {
   runPipeline,
-  extractJson,
-  buildLegacyPrompt
+  extractJson
 };

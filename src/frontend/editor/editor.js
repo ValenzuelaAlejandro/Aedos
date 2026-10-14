@@ -5,7 +5,7 @@
 import { createAedosEditorSemantics } from '../features/editor/semantics.js';
 import { createEditorHistory } from '../features/editor/history.js';
 import { calculateEditorSelectionGeometry } from '../features/editor/selection-geometry.js';
-import { resolveDragCollision, resolveResizeCollision } from '../features/editor/collision-geometry.js';
+import { resolveDragCollision } from '../features/editor/collision-geometry.js';
 import { createEditorTargeting } from '../features/editor/targeting.js';
 import { createEditorStyleSnapshot } from '../features/editor/style-snapshot.js';
 import { createEditorSelectionUi } from '../features/editor/selection-ui.js';
@@ -53,15 +53,12 @@ function initEditor() {
 
     const {
         selectionBox,
-        handleEls,
         toolbar,
         guideH,
         guideV,
         ensureUI,
         getToolbarHTML,
         bindToolbarEvents,
-        getDynamicPalette,
-        showColorPicker,
         updateSizeDisplay,
     } = createEditorSelectionToolbarRuntime({
         document,
@@ -84,22 +81,16 @@ function initEditor() {
     const {
         editableSelectors,
         textEditableSelectors: TEXT_EDITABLE_SELECTORS,
-        ignoreSelectors,
-        getSlideRoot,
-        isIgnoredElement,
         isTextEditableElement,
         isHeadingLikeElement,
         isTextContainerElement,
         isImageSlotElement,
-        isVisualLeafElement,
         isSemanticContainer,
         getNearestSemanticContainerAncestor,
-        isEditableElement,
     } = editorSemantics;
     window.editableSelectors = editableSelectors; // Export for UI
 
     const {
-        getEditableElementsInNode,
         getEditableElementsInSlide,
         getTopLevelEditableElements,
         getAllEditableElements,

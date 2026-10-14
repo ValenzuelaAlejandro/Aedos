@@ -20,9 +20,6 @@ export function bindEditorToolbarSwatchEvents({
             if (isTextEditableElement(selectedElement) || selectedElement.matches('button, i, svg, [data-lucide], .lucide, .lucide-icon')) {
                 selectedElement.style.color = color;
                 selectedElement.style.webkitTextFillColor = color;
-                if (selectedElement.tagName.toLowerCase() === 'svg' || selectedElement.querySelector('svg')) {
-                    const svg = selectedElement.tagName.toLowerCase() === 'svg' ? selectedElement : selectedElement.querySelector('svg');
-                }
             } else {
                 selectedElement.style.backgroundColor = color;
             }

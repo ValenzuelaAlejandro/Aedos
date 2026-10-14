@@ -1,12 +1,9 @@
 /**
  * Mobile Bridge
- * Maps touch events to mouse events to enable editor interactivity on mobile
- * without modifying the core desktop-focused editor.js.
- *
- * Version v=12 - LONG-PRESS DRAG + INTENT-BASED GESTURE STATE MACHINE + DOUBLE-TAP FIX
+ * Handles mobile drawers, pinch zoom, canvas pan, and slide swipes.
  */
 (function() {
-    const mobileCfg = window.MobileConfig || { breakpoint: 850, longPressMs: 320 };
+    const mobileCfg = window.MobileConfig || { breakpoint: 850 };
 
     // Global navigation toggle for mobile drawers
     window.toggleMobileDrawer = (type, e) => {
@@ -53,7 +50,6 @@
         const isMobile = () => window.innerWidth <= mobileCfg.breakpoint;
         if (!isMobile()) return;
 
-        let dragTarget = null;
         let panState = null;
 
         window._mobile_zoom = window._mobile_zoom || 1;
@@ -160,99 +156,32 @@
             applyZoomAndPan();
         }
 
-        function mapTouchToMouse(e, type, overrideTouch) {
-            if (!overrideTouch && e && e.touches && e.touches.length > 1) return;
-
-            const touch = overrideTouch ||
-                (e && e.touches && e.touches[0]) ||
-                (e && e.changedTouches && e.changedTouches[0]);
-            if (!touch) return;
-
-            const iframe = document.getElementById('preview-iframe');
-            if (!iframe) return;
-            const iframeDoc = iframe.contentDocument;
-            const iframeWin = iframe.contentWindow;
-            if (!iframeDoc || !iframeWin) return;
-
-            const rect = iframe.getBoundingClientRect();
-            const scale = iframeWin._iframeScale || window._iframeScale || 1;
-            
-            const relX = (touch.clientX - rect.left) / scale;
-            const relY = (touch.clientY - rect.top) / scale;
-
-            const eventInit = {
-                clientX: relX,
-                clientY: relY,
-                screenX: touch.screenX,
-                screenY: touch.screenY,
-                bubbles: true,
-                cancelable: true,
-                view: iframeWin,
-                buttons: 1,
-                which: 1,
-                composed: true
-            };
-
-            const mouseEvent = new MouseEvent(type, eventInit);
-
-            if (type === 'mousedown') {
-                dragTarget = iframeDoc.elementFromPoint(relX, relY) || iframeDoc.body;
-                const possibleHandle = dragTarget.closest('.editor-resize-handle');
-                if (possibleHandle) dragTarget = possibleHandle;
-            }
-
-            const target = dragTarget || iframeDoc.body;
-            target.dispatchEvent(mouseEvent);
-
-            if (type === 'mouseup') {
-                dragTarget = null;
-            }
-
-            if (dragTarget && dragTarget !== iframeDoc.body && dragTarget !== iframeDoc.documentElement) {
-                if (e && e.cancelable) e.preventDefault();
-            }
-        }
-
         const overlay = document.getElementById('touch-capture-overlay');
         if (overlay) {
-            const LONG_PRESS_MS  = mobileCfg.longPressMs;
             const MOVE_THRESHOLD = 10;
             const SWIPE_MIN      = 40;
 
             let mode = null;
-            let longPressTimer = null;
             let touchOriginX = 0, touchOriginY = 0;
-            let pendingTouchCoords = null;
-
-            function cancelLP() {
-                if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-            }
 
             overlay.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) {
-                    cancelLP();
-                    if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
                     panState = null;
                     mode = null;
                     return;
                 }
                 const t = e.touches[0];
-                cancelLP();
                 touchOriginX = t.clientX;
                 touchOriginY = t.clientY;
-                pendingTouchCoords = { clientX: t.clientX, clientY: t.clientY,
-                                       screenX: t.screenX,  screenY: t.screenY };
 
                 if (window._mobile_zoom > 1) {
                     mode = 'pan';
                     panState = {
                         startX: t.clientX,  startY: t.clientY,
-                        startPanX: window._pan.x, startPanY: window._pan.y,
-                        moved: false
+                        startPanX: window._pan.x, startPanY: window._pan.y
                     };
                 } else {
                     mode = 'pending';
-                    // No long-press-drag: canvas is read-only on mobile
                 }
                 if (e.cancelable) e.preventDefault();
             }, { passive: false });
@@ -265,7 +194,6 @@
                 const dist = Math.hypot(dx, dy);
 
                 if (mode === 'pan' && panState) {
-                    panState.moved = panState.moved || dist > MOVE_THRESHOLD;
                     window._pan.x = panState.startPanX + dx;
                     window._pan.y = panState.startPanY + dy;
                     applyZoomAndPan();
@@ -274,22 +202,14 @@
                 }
 
                 if (mode === 'pending' && dist > MOVE_THRESHOLD) {
-                    cancelLP();
                     const isHoriz = Math.abs(dx) > Math.abs(dy) * 1.4;
                     mode = isHoriz ? 'slide-swipe' : 'none';
-                }
-
-                if (mode === 'longpress-drag') {
-                    mapTouchToMouse(e, 'mousemove');
-                    if (e.cancelable) e.preventDefault();
-                    return;
                 }
 
                 if (e.cancelable) e.preventDefault();
             }, { passive: false });
 
             overlay.addEventListener('touchend', (e) => {
-                cancelLP();
                 const ct = e.changedTouches[0];
                 const dx = ct.clientX - touchOriginX;
                 const prevMode = mode;
@@ -297,19 +217,12 @@
 
                 if (prevMode === 'pan') {
                     panState = null;
-                    dragTarget = null;
                     return;
                 }
 
                 if (prevMode === 'slide-swipe') {
-                    dragTarget = null;
                     if (dx < -SWIPE_MIN && window.nextSlide) window.nextSlide();
                     else if (dx > SWIPE_MIN && window.prevSlide) window.prevSlide();
-                    return;
-                }
-
-                if (prevMode === 'longpress-drag') {
-                    mapTouchToMouse(e, 'mouseup');
                     return;
                 }
 
@@ -320,15 +233,11 @@
                     // so they never reach this handler. Nothing else to do.
                     return;
                 }
-
-                if (dragTarget) mapTouchToMouse(e, 'mouseup');
             }, { passive: false });
 
-            overlay.addEventListener('touchcancel', (e) => {
-                cancelLP();
+            overlay.addEventListener('touchcancel', () => {
                 panState = null;
                 mode = null;  
-                if (dragTarget) { mapTouchToMouse(e, 'mouseup'); dragTarget = null; }
             }, { passive: false });
         }
 
@@ -338,7 +247,6 @@
             if (t0.target && t0.target.closest('#mobile-bottom-nav, .editor-tools-panel')) return;
             e.preventDefault();
             panState = null;
-            if (dragTarget) { dragTarget = null; }
             startPinchFromTouchList(e.touches);
         }, { passive: false });
 

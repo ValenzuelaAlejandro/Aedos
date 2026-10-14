@@ -25,8 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const refusedMessage = document.getElementById('refused-message');
     const errorModal = window.AedosModals.createErrorModal(errorContainer);
 
-    const downloadBtn = document.getElementById('download-btn');
-    const resultSubtitle = document.getElementById('result-subtitle');
     const resetBtn = document.getElementById('reset-btn');
     const backBtn = document.getElementById('back-btn');
     const errorMessage = document.getElementById('error-message');
