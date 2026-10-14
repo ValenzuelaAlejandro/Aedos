@@ -14,6 +14,8 @@ const previewEditorFixturePath = path.join(root, 'tests/fixtures/frontend/stores
 
 function loadOutlineStore() {
     const window = {};
+    const catalogPath = path.join(root, 'src/frontend/config/model-catalog.js');
+    vm.runInNewContext(fs.readFileSync(catalogPath, 'utf8'), { window }, { filename: catalogPath });
     vm.runInNewContext(fs.readFileSync(storePath, 'utf8'), { window }, { filename: storePath });
     return window;
 }

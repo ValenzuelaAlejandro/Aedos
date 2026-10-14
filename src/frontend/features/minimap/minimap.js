@@ -23,7 +23,7 @@ function initMinimap(iframe) {
             if (sections.length > 0) slides.push(...sections);
         }
 
-        const MAX_SLIDES = 15;
+        const MAX_SLIDES = window.MAX_SLIDES_BY_MODE.flash;
         const reachedLimit = slides.length >= MAX_SLIDES;
 
         // Disable add buttons visual state

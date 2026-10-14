@@ -160,7 +160,6 @@ function createChatLoadingController(deps) {
                 if (modeBtn) modeBtn.disabled = false;
             }
             if (langBtn) langBtn.disabled = false;
-            if (btnAttachFile) btnAttachFile.disabled = false;
             if (state.typewriterCursor) state.typewriterCursor.style.display = '';
             stopBtnMessages();
             document.querySelectorAll('.suggestion-pill, .file-chip-remove').forEach(el => el.disabled = false);
@@ -168,6 +167,7 @@ function createChatLoadingController(deps) {
             const updateZoomDisplay = getUpdateZoomDisplay();
             if (typeof updateZoomDisplay === 'function') updateZoomDisplay();
         }
+        window.AedosAttachments?.refreshAvailability?.();
     }
 
     return {
