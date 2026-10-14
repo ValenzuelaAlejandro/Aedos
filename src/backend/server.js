@@ -62,7 +62,8 @@ const { spendGuard } = require('./utils/spend-guard');
 const { creditsLedger: redisCreditsLedger, createMemoryCreditsLedger } = require('./utils/credits-ledger');
 
 const log = createLogger({ scope: 'SERVER' });
-const creditsLedger = process.env.NODE_ENV === 'test' && process.env.AEDOS_TEST_STUB_PROVIDERS === '1'
+// Tests always isolate credit state, including tests that exercise real provider HTTP seams.
+const creditsLedger = process.env.NODE_ENV === 'test'
     ? createMemoryCreditsLedger() : redisCreditsLedger;
 const providerLog = log.child('PROVIDER');
 const queueLog = log.child('QUEUE');

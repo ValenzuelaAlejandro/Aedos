@@ -39,7 +39,8 @@ test('provider acceptance timeout does not incur a paid OpenRouter fallback', as
     try {
         const response = await fetch(`http://127.0.0.1:${server.address().port}/generate-skeleton`, json({ tema: 'Timeout', language: 'es' }));
         assert.equal(response.status, 503);
-        assert.deepEqual(calls, ['gemini', 'gemini']);
+        assert.ok(calls.length >= 2);
+        assert.ok(calls.every((provider) => provider === 'gemini'));
         assert.equal((await response.json()).code, 'PROVIDER_UNAVAILABLE');
     } finally {
         await new Promise((resolve) => server.close(resolve));

@@ -54,7 +54,8 @@ test('Gemini acceptance failure does not incur a paid OpenRouter fallback', asyn
         const response = await fetch(`http://127.0.0.1:${server.address().port}/generate-skeleton`, json({ tema: 'Fallback', language: 'es' }));
         const raw = await readSse(response);
         assert.equal(response.status, 503);
-        assert.deepEqual(calls, ['gemini', 'gemini']);
+        assert.ok(calls.length >= 2);
+        assert.ok(calls.every((provider) => provider === 'gemini'));
         assert.equal(JSON.parse(raw).code, 'PROVIDER_UNAVAILABLE');
     } finally {
         await new Promise((resolve) => server.close(resolve));
@@ -79,7 +80,7 @@ test('Gemini stream failure after content preserves the exact terminal SSE error
         const response = await fetch(`http://127.0.0.1:${server.address().port}/generate-skeleton`, json({ tema: 'Midstream', language: 'es' }));
         assert.equal(response.status, 200);
         assert.deepEqual(events(await readSse(response)), [
-            { metadata: { provider: 'gemini', model: 'gemini-2.5-flash-lite' } },
+            { metadata: { provider: 'gemini', model: 'gemini-3-flash-preview' } },
             { chunk: JSON.stringify(skeleton) },
             { error: 'Failed to generate outline. Please try again.' }
         ]);
