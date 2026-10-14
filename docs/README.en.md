@@ -542,8 +542,6 @@ At least one of these must exist:
 | `PORT` | HTTP port |
 | `APP_URL` | Referer sent to OpenRouter |
 | `ALLOWED_ORIGINS` | CSV list of production CORS origins |
-| `ENABLE_NVIDIA_LOCAL` | Opt in to NVIDIA trials from loopback; requires `true` and is disabled in production |
-| `NVIDIA_API_KEY` | NVIDIA Build credential for local trials |
 
 ### Models
 
@@ -584,13 +582,8 @@ The Flash/Pro/chat daily quotas have been replaced by a 50-credit daily balance
 per IP in Redis. The balance resets at midnight UTC and credits do not roll
 over. Initial schema generation is free, with a separate limit of 10 requests
 per IP per day. The server catalog sets the rates: Gemini 10 per presentation,
-Light 2 per slide, Standard 3 per slide, and NVIDIA trial models 1 per slide
-(local server only).
+Light 2 per slide, and Standard 3 per slide.
 
-NVIDIA Build requires compliance with the [NVIDIA API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf).
-Set `ENABLE_NVIDIA_LOCAL=true` only in a non-production environment, configure
-`NVIDIA_API_KEY`, and access from `localhost` or loopback. Without the opt-in,
-the key does not expose NVIDIA models.
 
 If Redis is unavailable, the server fails closed: balance, schema, and
 generation requests return `CREDITS_UNAVAILABLE` (503); there is no in-memory

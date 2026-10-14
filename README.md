@@ -7,5 +7,5 @@ incremental con `npm run verify:quality`, y ambas juntas con
 `npm run verify:all`. Los ratchets de ESLint y TypeScript comparan el estado
 actual con sus baselines para impedir que aumenten los problemas existentes.
 
-El catálogo, sus límites, las variables de razonamiento y la disponibilidad de
-NVIDIA Build están documentados en [docs/MODEL-CATALOG.md](docs/MODEL-CATALOG.md).
+El catálogo de modelos, sus límites y las variables de razonamiento están
+documentados en [docs/MODEL-CATALOG.md](docs/MODEL-CATALOG.md).

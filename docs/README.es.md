@@ -542,8 +542,6 @@ Al menos una de estas debe existir:
 | `PORT` | Puerto HTTP |
 | `APP_URL` | Referer enviado a OpenRouter |
 | `ALLOWED_ORIGINS` | Lista CSV de origenes CORS en produccion |
-| `ENABLE_NVIDIA_LOCAL` | Opt-in para pruebas NVIDIA desde loopback; exige `true` y no funciona en produccion |
-| `NVIDIA_API_KEY` | Credencial de NVIDIA Build para pruebas locales |
 
 ### Modelos
 
@@ -584,13 +582,8 @@ Los limites diarios Flash/Pro/chat se sustituyeron por un saldo de 50 creditos
 por IP en Redis. El saldo se reinicia a medianoche UTC; los creditos no se
 acumulan. El esquema inicial no cobra creditos y tiene un cupo independiente
 de 10 solicitudes por IP y dia. El catalogo del servidor fija los costos: Gemini
-10 por presentacion, Ligero 2 por diapositiva, Estandar 3 por diapositiva y
-modelos de prueba NVIDIA 1 por diapositiva (solo servidor local).
+10 por presentacion, Ligero 2 por diapositiva y Estandar 3 por diapositiva.
 
-NVIDIA Build requiere aceptar y cumplir los [NVIDIA API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf).
-Activa `ENABLE_NVIDIA_LOCAL=true` solo en un entorno no productivo, configura
-`NVIDIA_API_KEY` y accede desde `localhost` o loopback. Sin la bandera, la key
-no expone modelos NVIDIA.
 
 Si Redis no responde, el servidor falla cerrado: saldo, esquema y generación
 responden con `CREDITS_UNAVAILABLE` (503); no existe saldo en memoria de respaldo.
