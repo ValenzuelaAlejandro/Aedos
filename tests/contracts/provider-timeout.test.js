@@ -11,6 +11,8 @@ process.env.LIMITS_CHAT_DAILY = '1000';
 process.env.LIMITS_OUTLINE_DAILY = '1000';
 process.env.LIMITS_FLASH_DAILY = '1000';
 process.env.LIMITS_PRO_DAILY = '1000';
+const { spendGuard } = require('../../src/backend/utils/spend-guard');
+spendGuard.reserveGeminiRequest = async () => true;
 
 const skeleton = { slides: [{ title: 'Timeout fallback', subtitle: '', points: [] }] };
 const openRouterFrame = jsonFrame({ choices: [{ delta: { content: JSON.stringify(skeleton) } }] });
@@ -43,7 +45,7 @@ test('provider acceptance timeout falls back with the same SSE envelope', async 
         assert.equal(response.status, 200);
         assert.deepEqual(calls, ['gemini', 'gemini', 'openrouter']);
         assert.deepEqual(events(await response.text()), [
-            { metadata: { provider: 'openrouter', model: 'google/gemini-2.5-flash-lite' } },
+            { metadata: { provider: 'openrouter', model: 'apodex/apodex-1.1-mini:free' } },
             { chunk: JSON.stringify(skeleton) },
             { done: true, skeleton }
         ]);

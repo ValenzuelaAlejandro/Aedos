@@ -327,6 +327,7 @@ function checkFinalizeLimits(req, res, next) {
 }
 
 module.exports = {
+    getRedis,
     verifyConnection,
     checkRateLimits,
     checkFinalizeLimits,

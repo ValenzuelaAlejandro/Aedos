@@ -127,11 +127,13 @@ function createSkeletonHandler(deps) {
             res.end();
         } catch (err) {
             log.error(ErrorCategory.PIPELINE, 'Failed to generate skeleton', { requestId, error: err.message });
+            const providerError = err.message === 'PAID_PAUSED' || err.message === 'PROVIDER_UNAVAILABLE';
+            const message = providerError ? 'The AI providers are temporarily unavailable. Please try again later.' : ERROR_TEXT.OUTLINE_FAILED;
             if (!res.headersSent) {
-                res.status(500).json({ error: ERROR_TEXT.OUTLINE_FAILED });
+                res.status(providerError ? 503 : 500).json(providerError ? { error: message, code: err.message } : { error: message });
             } else {
                 try {
-                    writeSse(res, { error: ERROR_TEXT.OUTLINE_FAILED });
+                    writeSse(res, providerError ? { error: message, code: err.message } : { error: message });
                     res.end();
                 } catch (e) { /* preserve the existing SSE error fallback */ }
             }
