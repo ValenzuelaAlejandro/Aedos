@@ -15,7 +15,6 @@ test('server catalog is the only source of model credit costs', () => {
     assert.equal(quoteModel(MODEL_CATALOG['google/gemini-3-flash-preview'], 15), 10);
     assert.equal(quoteModel(MODEL_CATALOG['nvidia/nemotron-3.5-lightning'], 3), 6);
     assert.equal(quoteModel(MODEL_CATALOG['openai/gpt-6-luna'], 5), 15);
-    assert.equal(quoteModel(MODEL_CATALOG['nvidia-build/nemotron-3-super'], 5), 5);
 });
 
 test('insufficient balance returns 402 before the generation handler can call a provider', async () => {

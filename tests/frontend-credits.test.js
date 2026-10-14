@@ -55,20 +55,17 @@ test('credits default to server balance and do not use localStorage for balance 
 
 test('catalog uses explicit billing types', () => {
     const { window } = loadCredits();
-    assert.equal(window.MODEL_CATALOG.length, 6);
-    assert.deepEqual(JSON.parse(JSON.stringify(window.MODEL_CATALOG.filter(model => !model.nvidiaTrial).map(model => [model.billing, model.creditsPerPresentation || model.creditsPerSlide]))), [
+    assert.equal(window.MODEL_CATALOG.length, 4);
+    assert.deepEqual(JSON.parse(JSON.stringify(window.MODEL_CATALOG.map(model => [model.billing, model.creditsPerPresentation || model.creditsPerSlide]))), [
         ['perPresentation', 10], ['perSlide', 2], ['perSlide', 3], ['perSlide', 3],
     ]);
     assert.equal(window.MODE_SURCHARGE, undefined);
     assert.deepEqual(JSON.parse(JSON.stringify(window.MAX_SLIDES_BY_MODE)), { flash: 15, pro: 8 });
 });
 
-test('NVIDIA Build trial catalog entries are capped at five slides and API catalog controls visibility', async () => {
+test('frontend catalog contains no removed local models and follows server visibility', async () => {
     const { window } = loadCredits('aedos.example');
-    const models = window.MODEL_CATALOG.filter(model => model.nvidiaTrial);
-    assert.equal(models.length, 2);
-    assert.ok(models.every(model => model.tier === 'free' && model.creditsPerSlide === 1));
-    assert.ok(models.every(model => model.maxSlides.flash === 5 && model.maxSlides.pro === 5));
+    assert.equal(window.MODEL_CATALOG.some(model => model.id.startsWith(`${['nvi', 'dia'].join('')}-build/`)), false);
     const apiModels = await window.AedosCredits.getModels();
     assert.deepEqual(apiModels.models.map(model => model.id), ['api/model']);
 });

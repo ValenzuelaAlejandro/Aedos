@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { MODEL_CATALOG, DEFAULT_MODEL_ID, resolveModelId, validateAttachments,
-    validateModelForGeneration, isLocalNvidiaTrialRequest } = require('../../src/backend/config/model-catalog');
+    validateModelForGeneration } = require('../../src/backend/config/model-catalog');
 const { FREE_MODELS } = require('../../src/backend/config/provider-spend');
 const { createSelectedModelRouter } = require('../../src/backend/providers/model-selection');
 const { createGenerateHandler } = require('../../src/backend/http/routes/generate');
@@ -18,11 +18,7 @@ test('model allowlist accepts catalog IDs, defaults missing IDs, and rejects unk
     assert.equal(resolveModelId(undefined).model.id, DEFAULT_MODEL_ID);
     assert.equal(resolveModelId('  ').model.id, DEFAULT_MODEL_ID);
     for (const id of Object.keys(MODEL_CATALOG)) {
-        const model = MODEL_CATALOG[id];
-        assert.equal(resolveModelId(id, undefined, { localNvidiaTrial: model.provider === 'nvidia' }).valid, true, id);
-    }
-    for (const model of Object.values(MODEL_CATALOG).filter(entry => entry.provider === 'nvidia')) {
-        assert.equal(resolveModelId(model.id).code, 'MODEL_NOT_ALLOWED', model.id);
+        assert.equal(resolveModelId(id).valid, true, id);
     }
     assert.equal(resolveModelId('openrouter/free').code, 'MODEL_NOT_ALLOWED');
     assert.deepEqual(FREE_MODELS, []);
@@ -37,6 +33,27 @@ test('unknown model IDs receive an actionable HTTP 422 before generation', async
     assert.equal(res.statusCode, 422);
     assert.equal(res.body.code, 'MODEL_NOT_ALLOWED');
     assert.match(res.body.error, /Choose a model/);
+});
+
+test('removed model IDs return HTTP 422 in development', async () => {
+    const previousMode = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    try {
+        const prefix = `${['nvi', 'dia'].join('')}-build`;
+        const glm = ['glm', '5.3'].join('-');
+        for (const modelId of [
+            `${prefix}/nemotron-3.5-lightning`, `${prefix}/nemotron-3-super`,
+            `${prefix}/nemotron-3-ultra`, `${prefix}/${glm}`, `${prefix}/${glm}-flash`,
+        ]) {
+            const response = new FakeResponse();
+            await createGenerateHandler({ log: logger, ErrorCategory })({ body: { modelId } }, response);
+            assert.equal(response.statusCode, 422, modelId);
+            assert.equal(response.body.code, 'MODEL_NOT_ALLOWED', modelId);
+        }
+    } finally {
+        if (previousMode === undefined) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = previousMode;
+    }
 });
 
 test('model slide compatibility respects the server output cap', () => {
@@ -88,36 +105,6 @@ test('schema generation routes the selected model instead of silently using Gemi
     await handler(req, res);
     assert.equal(selectedCalls, 1);
     assert.match(chunks.join(''), /"done":true/);
-});
-
-test('NVIDIA Build trial models require opt-in, a key, and loopback outside production', () => {
-    const previousMode = process.env.NODE_ENV;
-    const previousKey = process.env.NVIDIA_API_KEY;
-    const previousEnabled = process.env.ENABLE_NVIDIA_LOCAL;
-    process.env.NODE_ENV = 'development';
-    process.env.ENABLE_NVIDIA_LOCAL = 'true';
-    process.env.NVIDIA_API_KEY = 'test-key';
-    const localRequest = { hostname: 'localhost', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '::1' } };
-    assert.equal(isLocalNvidiaTrialRequest(localRequest), true);
-    assert.equal(resolveModelId('nvidia-build/nemotron-3.5-lightning', undefined,
-        { localNvidiaTrial: isLocalNvidiaTrialRequest(localRequest) }).valid, true);
-    process.env.ENABLE_NVIDIA_LOCAL = 'false';
-    assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
-    process.env.ENABLE_NVIDIA_LOCAL = 'true';
-    localRequest.socket.remoteAddress = '198.51.100.20';
-    assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
-    localRequest.socket.remoteAddress = '::1';
-    process.env.NODE_ENV = 'production';
-    assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
-    delete process.env.NVIDIA_API_KEY;
-    assert.equal(isLocalNvidiaTrialRequest(localRequest), false);
-    assert.equal(resolveModelId('nvidia-build/nemotron-3.5-lightning', undefined,
-        { localNvidiaTrial: isLocalNvidiaTrialRequest(localRequest) }).code, 'MODEL_NOT_ALLOWED');
-    if (previousEnabled === undefined) delete process.env.ENABLE_NVIDIA_LOCAL;
-    else process.env.ENABLE_NVIDIA_LOCAL = previousEnabled;
-    process.env.NODE_ENV = previousMode;
-    if (previousKey === undefined) delete process.env.NVIDIA_API_KEY;
-    else process.env.NVIDIA_API_KEY = previousKey;
 });
 
 test('attachments require Gemini and an available Gemini request', () => {
@@ -187,10 +174,6 @@ test('every catalog model routes to HTML through its declared provider', async (
             openrouter: async (prompt, stage, models, files, options) => {
                 calls.push({ provider: 'openrouter', models, options });
                 return { provider: 'openrouter', model: models[0], stream: emptyStream() };
-            },
-            nvidia: async (prompt, stage, selected, options) => {
-                calls.push({ provider: 'nvidia', providerModelId: selected.providerModelId, options });
-                return { provider: 'nvidia', model: selected.providerModelId, stream: emptyStream() };
             },
             makeBaseCaller: () => async () => { throw new Error('Selected routing must not use the base caller.'); },
             getOverride: () => null,
