@@ -1,6 +1,8 @@
 (function registerCreditsUi(global) {
     'use strict';
 
+/* eslint-disable max-lines -- This module owns the page's credit state and related controls. */
+
     let modelList = [];
     let balance = 50000;
     let dailyLimit = 50000;
@@ -111,11 +113,20 @@
         const fill = global.document.getElementById('credits-progress-fill');
         const resetNode = global.document.getElementById('credits-reset-time');
         const remaining = percent(balance), count = format('credits.chip', { remaining });
+        const lowBalanceWarning = global.document.getElementById('mobile-low-balance-warning');
+        if (lowBalanceWarning) {
+            lowBalanceWarning.textContent = global.__t('credits.lowBalance');
+            lowBalanceWarning.hidden = Number.parseInt(remaining, 10) >= 20;
+        }
         const percentNode = global.document.getElementById('credits-balance-percent');
         if (percentNode) percentNode.textContent = remaining;
         else if (balanceNode) balanceNode.textContent = count;
         if (popoverBalance) popoverBalance.textContent = count;
-        if (trigger) trigger.setAttribute('aria-label', format('credits.balanceAria', { remaining }));
+        if (trigger) {
+            const accessibleBalance = format('credits.balanceAria', { remaining });
+            trigger.setAttribute('aria-label', accessibleBalance);
+            trigger.setAttribute('title', accessibleBalance);
+        }
         const ratio = dailyLimit > 0 ? Math.max(0, Math.min(1, balance / dailyLimit)) : 0;
         global.document.querySelectorAll('.credits-ring').forEach(ring => {
             ring.style.setProperty('--ring-offset', String(2 * Math.PI * 8 * (1 - ratio)));
@@ -140,9 +151,11 @@
         creditsPhase = phase;
         if (trigger) { trigger.setAttribute('aria-busy', 'true'); trigger.dataset.state = phase; }
         const percentNode = global.document.getElementById('credits-balance-percent');
+        const lowBalanceWarning = global.document.getElementById('mobile-low-balance-warning');
+        if (lowBalanceWarning) lowBalanceWarning.hidden = true;
         if (percentNode) percentNode.textContent = '—'; else if (balanceNode) balanceNode.textContent = '—';
         if (popoverBalance) popoverBalance.textContent = unavailable;
-        if (trigger) trigger.setAttribute('aria-label', unavailable);
+        if (trigger) { trigger.setAttribute('aria-label', unavailable); trigger.setAttribute('title', unavailable); }
         global.document.querySelectorAll('.credits-ring').forEach(ring => {
             ring.style.setProperty('--ring-offset', '0');
             ring.dataset.state = 'unavailable';
@@ -174,13 +187,13 @@
         const preview = global.document.getElementById('credits-cost-preview');
         const generateButton = global.document.getElementById('btn-generate');
         if (preview) {
-            preview.textContent = format(billing === 'chat' ? 'credits.chatReserve' : 'credits.cost', { n: percent(total) });
+            preview.textContent = `${format('credits.costLabel')} ~${percent(total)}`;
             preview.setAttribute('aria-label', format('credits.costAria', { n: percent(total) }));
         }
-        const liveCost = global.document.getElementById('slide-count-live-cost');
-        if (liveCost) {
-            liveCost.textContent = format('credits.cost', { n: percent(total) });
-            liveCost.classList.toggle('is-insufficient', total > balance);
+        const settingsUsage = global.document.getElementById('mobile-settings-usage-estimate');
+        if (settingsUsage) {
+            const presentationQuote = global.AedosCredits.quote(selectedModel(), getSlideCount(), activeMode());
+            settingsUsage.textContent = `~${percent(presentationQuote.total)}`;
         }
         const insufficient = total > balance;
         const blockedAttachments = global.AedosAttachments?.hasBlockingAttachments?.() === true;
@@ -207,6 +220,7 @@
         return { slides, billing, rate, total, affordable: creditsAvailable && !insufficient && !blockedAttachments && !spendPaused };
     }
 
+    // eslint-disable-next-line complexity -- Update optional slider, badge, announcement, and accessibility nodes together.
     function renderSlideValue(input, normalized, limit) {
         const unit = format(normalized === 1 ? 'slides.unitOne' : 'slides.unitMany', { n: normalized });
         const zone = global.getSlideZones(limit).find(entry => normalized >= entry.start && normalized <= entry.end);
@@ -216,6 +230,8 @@
         const zoneNode = global.document.getElementById('slide-count-zone');
         const triggerValue = global.document.getElementById('slide-count-value');
         if (triggerValue) triggerValue.textContent = String(normalized);
+        const settingsBadge = global.document.getElementById('mobile-settings-slide-badge');
+        if (settingsBadge) settingsBadge.textContent = String(normalized);
         if (panelValue) panelValue.textContent = String(normalized);
         if (unitNode) unitNode.textContent = unit.replace(String(normalized), '').trim();
         if (zoneNode) { zoneNode.textContent = zoneLabel; zoneNode.dataset.zone = zone?.key || ''; }
@@ -227,6 +243,7 @@
         const spokenZone = zoneLabel.toLocaleLowerCase(global.currentLang === 'es' ? 'es' : 'en');
         input.setAttribute('aria-valuetext', zone ? format('slides.valueText', { slides: unit, zone: spokenZone }) : unit);
         global.document.getElementById('slide-count-trigger')?.setAttribute('aria-label', `${global.__t('slides.ariaLabel')}: ${unit}`);
+        global.document.getElementById('mobile-settings-trigger')?.setAttribute('aria-label', `${global.__t('chat.settings')}: ${unit}`);
     }
 
     function setSlideCount(count) {
@@ -274,11 +291,51 @@
         clampNoticeTimer = global.setTimeout(() => { notice.hidden = true; clampNoticeCount = null; clampNoticeModel = null; }, 4500);
     }
 
+    // eslint-disable-next-line max-lines-per-function, complexity -- Wire the slide control and its responsive settings lifecycle together.
     function initSlideControl() {
         const input = global.document.getElementById('slide-count-select');
+        const chatContainer = global.document.querySelector('.chat-container');
         const trigger = global.document.getElementById('slide-count-trigger');
+        const settingsTrigger = global.document.getElementById('mobile-settings-trigger');
+        const settingsPanel = global.document.getElementById('mobile-settings-panel');
+        const settingsBackdrop = global.document.getElementById('mobile-settings-backdrop');
+        const settingsSlides = settingsPanel?.querySelector('.slide-count-control');
+        const costPreviewAnchor = global.document.createComment('slide-count-desktop-home');
+        const costPreview = global.document.getElementById('credits-cost-preview');
         const panel = global.document.getElementById('slide-count-panel');
         if (!input || !trigger || !panel) return;
+        if (costPreview?.parentNode) costPreview.parentNode.insertBefore(costPreviewAnchor, costPreview);
+        const settingsAnchor = global.document.createComment('mobile-settings-home');
+        if (settingsPanel && settingsBackdrop) {
+            settingsBackdrop.parentNode.insertBefore(settingsAnchor, settingsBackdrop);
+            const syncSettingsPortal = () => {
+                const minFullWidth = parseFloat(global.getComputedStyle(global.document.documentElement)
+                    .getPropertyValue('--chat-toolbar-full-min-width'));
+                const compact = chatContainer
+                    ? chatContainer.getBoundingClientRect().width < minFullWidth
+                    : true;
+                global.document.documentElement.classList.toggle('compact-chat-controls', compact);
+                if (compact) {
+                    if (settingsPanel.parentNode !== global.document.body) global.document.body.append(settingsBackdrop, settingsPanel);
+                    if (settingsSlides && settingsSlides.parentNode !== settingsPanel) {
+                        settingsPanel.insertBefore(settingsSlides, settingsPanel.querySelector('.chat-settings-language'));
+                    }
+                } else {
+                    if (settingsPanel.parentNode === global.document.body && settingsAnchor.parentNode) {
+                        settingsAnchor.parentNode.insertBefore(settingsBackdrop, settingsAnchor);
+                        settingsAnchor.parentNode.insertBefore(settingsPanel, settingsAnchor);
+                    }
+                    if (settingsSlides && costPreviewAnchor.parentNode && settingsSlides.parentNode !== costPreviewAnchor.parentNode) {
+                        costPreviewAnchor.parentNode.insertBefore(settingsSlides, costPreviewAnchor.nextSibling);
+                    }
+                }
+            };
+            syncSettingsPortal();
+            global.addEventListener('resize', syncSettingsPortal);
+            if (global.ResizeObserver && chatContainer) {
+                new global.ResizeObserver(syncSettingsPortal).observe(chatContainer);
+            }
+        }
         const limitHint = global.document.getElementById('slide-count-limit-hint');
         const showLimitHint = () => {
             if (maxSlides() >= absoluteMaxSlides() || !limitHint) return;
@@ -291,6 +348,14 @@
         const close = () => {
             panel.hidden = true;
             trigger.setAttribute('aria-expanded', 'false');
+            if (settingsPanel) settingsPanel.hidden = true;
+            if (settingsBackdrop) settingsBackdrop.hidden = true;
+            settingsPanel?.classList.remove('is-open');
+            global.document.documentElement.classList.remove('mobile-settings-open');
+            global.document.body.classList.remove('mobile-settings-open');
+            settingsTrigger?.setAttribute('aria-expanded', 'false');
+            global.document.getElementById('btn-lang-dropdown')?.setAttribute('aria-expanded', 'false');
+            global.document.getElementById('lang-dropdown-menu')?.classList.add('hidden');
             if (limitHint) limitHint.hidden = true;
             slideLimitAttempted = false;
         };
@@ -312,6 +377,36 @@
             trigger.setAttribute('aria-expanded', String(!panel.hidden));
             if (!panel.hidden) { setSlideCount(input.value); input.focus({ preventScroll: true }); position(); }
         });
+        settingsTrigger?.addEventListener('click', event => {
+            event.stopPropagation();
+            if (!settingsPanel) return;
+            const opening = settingsPanel.hidden;
+            settingsPanel.hidden = !opening;
+            if (settingsBackdrop) settingsBackdrop.hidden = !opening;
+            settingsPanel.classList.toggle('is-open', opening);
+            global.document.documentElement.classList.toggle('mobile-settings-open', opening);
+            global.document.body.classList.toggle('mobile-settings-open', opening);
+            panel.hidden = !opening;
+            settingsTrigger.setAttribute('aria-expanded', String(opening));
+            trigger.setAttribute('aria-expanded', String(opening));
+            if (opening) {
+                setSlideCount(input.value);
+            }
+        });
+        global.document.getElementById('mobile-settings-close')?.addEventListener('click', close);
+        settingsBackdrop?.addEventListener('click', close);
+        const handle = global.document.getElementById('mobile-settings-handle');
+        let handleStartY = null;
+        handle?.addEventListener('pointerdown', event => {
+            handleStartY = event.clientY;
+            handle.setPointerCapture?.(event.pointerId);
+        });
+        handle?.addEventListener('pointerup', event => {
+            if (handleStartY !== null && event.clientY - handleStartY > 24) close();
+            handleStartY = null;
+        });
+        handle?.addEventListener('pointercancel', () => { handleStartY = null; });
+        settingsPanel?.addEventListener('click', event => event.stopPropagation());
         panel.addEventListener('click', event => event.stopPropagation());
         const track = input.parentElement;
         const beyondSlideLimit = event => {
@@ -332,7 +427,9 @@
         global.document.addEventListener('click', close);
         global.document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
         global.addEventListener('resize', () => { setSlideCount(input.value); position(); });
-        global.addEventListener('scroll', close, true);
+        global.addEventListener('scroll', () => {
+            if (settingsPanel?.hidden !== false) close();
+        }, true);
         let previousStep = Number(input.value);
         input.addEventListener('input', () => {
             const step = Number(input.value);

@@ -198,6 +198,9 @@
                 if (isHidden) {
                     langMenu.classList.remove('hidden');
                     langBtn.setAttribute('aria-expanded', 'true');
+                    if (window.matchMedia('(max-width: 480px)').matches) {
+                        window.requestAnimationFrame(() => langMenu.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+                    }
                 }
             });
             langMenu.addEventListener('click', (e) => {

@@ -15,7 +15,7 @@ process.env.GEMINI_API_KEY = 'ui-local-stub';
 require('dotenv').config = () => ({ parsed: {} });
 const { app, setTestProviderOverride, clearTestProviderOverride } = require('../src/backend/server');
 const models = Object.values(require('../src/backend/config/model-catalog').MODEL_CATALOG);
-const output = path.resolve('test-evidence/block4');
+const output = path.resolve(process.env.AEDOS_UI_EVIDENCE_DIR || 'test-evidence/block4');
 fs.mkdirSync(output, { recursive: true });
 const skeleton = { topic: 'Energía solar', language: 'es', slide_count: 2, tone: 'academic', audience: 'general',
     slides: [{ index: 1, role: 'cover', title: 'Esquema completo', key_points: ['Energía limpia'] },
@@ -40,6 +40,15 @@ setTestProviderOverride(({ stageName }) => ({ provider: 'test', model: 'same-mod
 
 function gates() { return { partial: deferred(), retry: deferred(), finish: deferred() }; }
 async function capture(page, name) { await page.screenshot({ path: path.join(output, `${name}.png`), fullPage: false }); }
+async function dragSettingsHandle(page) {
+    const bounds = await page.$eval('#mobile-settings-handle', node => {
+        const rect = node.getBoundingClientRect(); return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    });
+    await page.mouse.move(bounds.x, bounds.y);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x, bounds.y + 35, { steps: 3 });
+    await page.mouse.up();
+}
 function luminance(color) {
     const channels = color.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => {
         const normalized = value / 255;
@@ -86,6 +95,7 @@ async function configureRequests(page, origin, creditGate) {
     });
 }
 
+// eslint-disable-next-line max-lines-per-function, complexity -- Validate the full browser retry and responsive lifecycle in one isolated scenario.
 async function check(page, origin, width, theme) {
     await page.setViewport({ width, height: 900, deviceScaleFactor: 1 });
     const creditGate = deferred();
@@ -107,6 +117,11 @@ async function check(page, origin, width, theme) {
     assert.ok(header.iconVerticalCenterError <= 1, JSON.stringify({ width, header }));
     assert.match(header.creditsPercent, /^\d+(?:\.\d+)?%$/);
     assert.ok(header.supportAccessibleName);
+    if (width <= 480) {
+        assert.notEqual(await page.$eval('#credits-balance-label', node => getComputedStyle(node).display), 'none');
+        assert.match(await page.$eval('#credits-balance-label', node => node.textContent), /restante|remaining/i);
+        assert.match(await page.$eval('#credits-balance-trigger', node => node.title), /Quedan|remains/);
+    }
     if (width <= 430) {
         assert.ok(header.discordHidden);
         for (const control of header.topControls.filter(item => item.width > 0)) {
@@ -114,6 +129,135 @@ async function check(page, origin, width, theme) {
                 JSON.stringify({ width, header, control }));
         }
     }
+    const compactLayout = await page.$eval('html', node => node.classList.contains('compact-chat-controls'));
+    if (compactLayout) {
+        const controls = await page.evaluate(() => [...document.querySelectorAll(
+            '#btn-attach-file, #generation-mode-toggle, #btn-model-dropdown, #mobile-settings-trigger, #btn-generate'
+        )].map(node => { const rect = node.getBoundingClientRect(); return { id: node.id, x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height }; }));
+        assert.equal(controls.length, 5);
+        assert.ok(controls.every(control => control.width >= 40 && control.height >= 39.5), JSON.stringify({ width, controls }));
+        assert.ok(controls.every((control, index) => index === 0 || controls[index - 1].right <= control.x + 1), JSON.stringify({ width, controls }));
+        assert.ok(controls.slice(1, 4).every((control, index) => control.x - controls[index].right <= 12), JSON.stringify({ width, controls }));
+        assert.equal(await page.$eval('#credits-cost-preview', node => getComputedStyle(node).display), 'none');
+        assert.equal(await page.$eval('#current-model-label', node => getComputedStyle(node).display), 'none');
+        assert.match(await page.$eval('#btn-model-dropdown', node => node.getAttribute('aria-label')), /Gemini|model/i);
+        await page.click('#mobile-settings-trigger');
+        await new Promise(resolve => setTimeout(resolve, 220));
+        assert.equal(await page.$eval('#mobile-settings-panel', node => node.hidden), false);
+        const settingsBounds = await page.$eval('#mobile-settings-panel', node => {
+            const bounds = node.getBoundingClientRect(), track = node.querySelector('.slide-count-range-track').getBoundingClientRect();
+            const trigger = document.getElementById('mobile-settings-trigger').getBoundingClientRect();
+            const badge = document.getElementById('mobile-settings-slide-badge').getBoundingClientRect();
+            const overlayHit = point => document.elementFromPoint(point.x, point.y)?.id;
+            const textarea = document.getElementById('w-tema').getBoundingClientRect();
+            return { panel: { left: bounds.left, right: bounds.right, width: bounds.width, top: bounds.top, bottom: bounds.bottom,
+                    height: bounds.height, scrollHeight: node.scrollHeight }, track: { left: track.left, right: track.right },
+                badge: { left: badge.left, right: badge.right, top: badge.top, bottom: badge.bottom },
+                trigger: { left: trigger.left, right: trigger.right, top: trigger.top, bottom: trigger.bottom },
+                triggerHit: overlayHit({ x: trigger.left + trigger.width / 2, y: trigger.top + trigger.height / 2 }),
+                chatboxHit: overlayHit({ x: textarea.left + textarea.width / 2, y: textarea.top + textarea.height / 2 }),
+                headerHit: overlayHit({ x: 10, y: 10 }), viewport: window.innerWidth,
+                children: [...node.children].map(child => ({ id: child.id, className: child.className, top: child.getBoundingClientRect().top,
+                    bottom: child.getBoundingClientRect().bottom, height: child.getBoundingClientRect().height, display: getComputedStyle(child).display })) };
+        });
+        assert.ok(settingsBounds.panel.left === 0 && settingsBounds.panel.right === settingsBounds.viewport, JSON.stringify(settingsBounds));
+        assert.ok(settingsBounds.panel.bottom >= 899 && settingsBounds.panel.height <= 630, JSON.stringify(settingsBounds));
+        assert.ok(settingsBounds.panel.scrollHeight <= settingsBounds.panel.height + 1, JSON.stringify(settingsBounds));
+        assert.ok(settingsBounds.track.left >= settingsBounds.panel.left && settingsBounds.track.right <= settingsBounds.panel.right, JSON.stringify(settingsBounds));
+        assert.ok(settingsBounds.badge.left >= settingsBounds.trigger.left && settingsBounds.badge.right <= settingsBounds.trigger.right
+            && settingsBounds.badge.top >= settingsBounds.trigger.top && settingsBounds.badge.bottom <= settingsBounds.trigger.bottom, JSON.stringify(settingsBounds));
+        assert.equal(settingsBounds.triggerHit, 'mobile-settings-backdrop', JSON.stringify(settingsBounds));
+        assert.equal(settingsBounds.chatboxHit, 'mobile-settings-backdrop', JSON.stringify(settingsBounds));
+        assert.equal(settingsBounds.headerHit, 'mobile-settings-backdrop', JSON.stringify(settingsBounds));
+        assert.equal(await page.$eval('#mobile-settings-trigger', node => node.style.zIndex), '');
+        assert.equal(await page.$eval('body', node => getComputedStyle(node).overflowY), 'hidden');
+        assert.equal(await page.$eval('#mobile-settings-backdrop', node => node.hidden), false);
+        assert.match(await page.$eval('#mobile-settings-usage-estimate', node => node.textContent), /\d+(?:\.\d+)?%/);
+        assert.match(await page.$eval('#credits-balance-trigger', node => node.getAttribute('aria-label')), /Quedan|remains/);
+        await capture(page, `settings-open-${width}-${theme}`);
+        assert.equal(await page.$eval('#slide-count-select', node => /** @type {HTMLInputElement} */ (node).max), '8');
+        await page.click('#mobile-settings-close');
+        assert.equal(await page.$eval('#mobile-settings-panel', node => node.hidden), true);
+        assert.equal(await page.$eval('body', node => node.classList.contains('mobile-settings-open')), false);
+        await page.click('#generation-mode-toggle');
+        await page.waitForFunction(() => /** @type {HTMLInputElement} */ (document.getElementById('slide-count-select')).max === '15');
+        await page.click('#generation-mode-toggle');
+        await page.waitForFunction(() => /** @type {HTMLInputElement} */ (document.getElementById('slide-count-select')).max === '8');
+        await page.click('#mobile-settings-trigger');
+        await page.click('#btn-lang-dropdown');
+        const languageScroll = await page.$eval('#lang-dropdown-menu', menu => {
+            const sheet = document.getElementById('mobile-settings-panel');
+            const style = getComputedStyle(menu);
+            sheet.scrollTop = sheet.scrollHeight;
+            return { sheetTop: sheet.scrollTop, sheetHeight: sheet.scrollHeight, sheetClient: sheet.clientHeight,
+                menuTop: menu.scrollTop, menuHeight: menu.scrollHeight, menuClient: menu.clientHeight,
+                position: style.position, maxHeight: style.maxHeight, overflowY: style.overflowY,
+                labelWhiteSpace: getComputedStyle(document.querySelector('.chat-settings-language-row .mobile-settings-row-label')).whiteSpace };
+        });
+        assert.ok(languageScroll.sheetTop > 0 && languageScroll.sheetHeight > languageScroll.sheetClient, JSON.stringify(languageScroll));
+        assert.equal(languageScroll.menuTop, 0);
+        assert.equal(languageScroll.menuHeight, languageScroll.menuClient);
+        assert.equal(languageScroll.position, 'static');
+        assert.equal(languageScroll.maxHeight, 'none');
+        assert.equal(languageScroll.overflowY, 'visible');
+        assert.equal(languageScroll.labelWhiteSpace, 'nowrap');
+        assert.equal(await page.$eval('#mobile-settings-panel', node => node.hidden), false);
+        await page.click('#lang-dropdown-menu [data-lang="ar"]');
+        assert.equal(await page.$eval('#mobile-settings-panel', node => node.hidden), false);
+        assert.equal(await page.$eval('#lang-dropdown-menu', node => node.classList.contains('hidden')), true);
+        assert.equal(await page.$eval('#btn-lang-dropdown', node => node.getAttribute('aria-expanded')), 'false');
+        assert.equal(await page.$eval('#current-lang-label', node => node.textContent), 'العربية');
+        assert.equal(await page.$eval('#current-lang-label', node => node.scrollWidth <= node.clientWidth), true);
+        await page.mouse.click(2, 2);
+        assert.equal(await page.$eval('#mobile-settings-panel', node => node.hidden), true);
+        assert.equal(await page.$eval('body', node => node.classList.contains('mobile-settings-open')), false);
+    }
+    const proModelOrder = await page.evaluate(() => {
+        const pro = document.getElementById('generation-mode-toggle').getBoundingClientRect();
+        const model = document.getElementById('btn-model-dropdown').getBoundingClientRect();
+        return { gap: model.left - pro.right, pro: { left: pro.left, right: pro.right }, model: { left: model.left, right: model.right } };
+    });
+    assert.ok(proModelOrder.gap >= 0 && proModelOrder.gap <= 24, JSON.stringify({ width, proModelOrder }));
+    const toolbar = await page.evaluate(() => {
+        const compact = document.documentElement.classList.contains('compact-chat-controls');
+        const selectors = ['#btn-debug-last-generated', '#btn-attach-file', '#generation-mode-toggle', '#btn-model-dropdown', '#mobile-settings-trigger',
+            '#btn-lang-dropdown', '#slide-count-trigger', '#credits-cost-preview', '#btn-generate'];
+        const controls = selectors.map(selector => {
+            const element = document.querySelector(selector);
+            if (!element) return null;
+            const rect = element.getBoundingClientRect();
+            return { id: element.id, x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height,
+                shown: getComputedStyle(element).display !== 'none' && rect.width > 0 && rect.height > 0 };
+        }).filter(control => control?.shown).sort((a, b) => a.x - b.x);
+        const bar = document.querySelector('.chat-actions').getBoundingClientRect();
+        const rootWidth = document.querySelector('.chat-container').getBoundingClientRect().width;
+        const threshold = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chat-toolbar-full-min-width'));
+        const fullControlIds = ['.attach-button-wrap', '#generation-mode-toggle', '#btn-model-dropdown', '#btn-lang-dropdown',
+            '#slide-count-trigger', '#credits-cost-preview', '#btn-generate'];
+        const fullControlWidth = fullControlIds.reduce((sum, selector) => sum + document.querySelector(selector).getBoundingClientRect().width, 0);
+        const wrapperStyle = getComputedStyle(document.querySelector('.chat-input-wrapper'));
+        const horizontalPadding = parseFloat(wrapperStyle.paddingLeft) + parseFloat(wrapperStyle.paddingRight)
+            + parseFloat(wrapperStyle.borderLeftWidth) + parseFloat(wrapperStyle.borderRightWidth);
+        const leftGap = parseFloat(getComputedStyle(document.querySelector('.chat-actions-left')).gap);
+        const rightGap = parseFloat(getComputedStyle(document.querySelector('.chat-actions-right')).gap);
+        const betweenGroups = parseFloat(getComputedStyle(document.querySelector('.chat-actions')).gap);
+        const measuredMinimum = fullControlWidth + 3 * leftGap + 2 * rightGap + betweenGroups + horizontalPadding;
+        return { compact, containerWidth: rootWidth, threshold, measuredMinimum,
+            controls, bar: { left: bar.left, right: bar.right } };
+    });
+    assert.equal(toolbar.compact, toolbar.containerWidth < toolbar.threshold, JSON.stringify({ width, toolbar }));
+    if (!toolbar.compact) assert.ok(toolbar.threshold >= toolbar.measuredMinimum, JSON.stringify({ width, toolbar }));
+    const expectedToolbarOrder = toolbar.compact
+        ? ['btn-attach-file', 'generation-mode-toggle', 'btn-model-dropdown', 'mobile-settings-trigger', 'btn-generate']
+        : ['btn-attach-file', 'generation-mode-toggle', 'btn-model-dropdown', 'btn-lang-dropdown', 'slide-count-trigger', 'credits-cost-preview', 'btn-generate'];
+    if (toolbar.controls.some(control => control.id === 'btn-debug-last-generated')) expectedToolbarOrder.unshift('btn-debug-last-generated');
+    assert.deepEqual(toolbar.controls.map(control => control.id), expectedToolbarOrder, JSON.stringify({ width, toolbar }));
+    assert.ok(toolbar.controls.every((control, index) => index === 0 || toolbar.controls[index - 1].right <= control.x + 1), JSON.stringify({ width, toolbar }));
+    assert.ok(toolbar.controls.every(control => control.x >= toolbar.bar.left - 1 && control.right <= toolbar.bar.right + 1), JSON.stringify({ width, toolbar }));
+    assert.ok(Math.max(...toolbar.controls.map(control => control.y)) - Math.min(...toolbar.controls.map(control => control.y)) <= 12,
+        JSON.stringify({ width, toolbar }));
+    assert.ok(await page.$eval('#credits-cost-preview', node => node.textContent.includes('~')
+        && /Uso estimado|Estimated use/.test(node.textContent) && !/Esta presentación usará|This presentation will use/.test(node.textContent)));
     await page.evaluate(() => { window.AedosStores.generation.state.targetLanguage = 'es'; });
     // Keep the harness outline and user request aligned with Block 3's exact
     // slide-count contract; the slider starts at 8 by default.
@@ -139,6 +283,46 @@ async function check(page, origin, width, theme) {
     await page.waitForFunction(() => [...document.querySelectorAll('.chat-thinking-status-text')].some(e => e.textContent === 'Creando esquema…'));
     scenario.finish.release();
     await page.waitForFunction(() => window.outlineEditorState.skeleton?.slides?.length === 2);
+    assert.equal(await page.$eval('#btn-model-dropdown', node => node.disabled), true);
+    assert.equal(await page.$eval('#generation-mode-toggle', node => node.disabled), true);
+    const activeToolbar = await page.evaluate(() => {
+        const containerWidth = document.querySelector('.chat-container').getBoundingClientRect().width;
+        const threshold = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chat-toolbar-full-min-width'));
+        const ids = ['#btn-debug-last-generated', '#btn-attach-file', '#generation-mode-toggle', '#btn-model-dropdown', '#mobile-settings-trigger',
+            '#btn-lang-dropdown', '#slide-count-trigger', '#credits-cost-preview', '#btn-generate'];
+        const controls = ids.map(selector => {
+            const element = document.querySelector(selector);
+            if (!element) return null;
+            const rect = element.getBoundingClientRect();
+            return { id: element.id, left: rect.left, right: rect.right, top: rect.top, width: rect.width,
+                shown: getComputedStyle(element).display !== 'none' && rect.width > 0 };
+        }).filter(control => control?.shown).sort((a, b) => a.left - b.left);
+        const bar = document.querySelector('.chat-actions').getBoundingClientRect();
+        return { compact: document.documentElement.classList.contains('compact-chat-controls'), containerWidth, threshold,
+            controls, bar: { left: bar.left, right: bar.right } };
+    });
+    assert.equal(activeToolbar.compact, activeToolbar.containerWidth < activeToolbar.threshold, JSON.stringify({ width, activeToolbar }));
+    const expectedActiveOrder = activeToolbar.compact
+        ? ['btn-attach-file', 'generation-mode-toggle', 'btn-model-dropdown', 'mobile-settings-trigger', 'btn-generate']
+        : ['btn-attach-file', 'generation-mode-toggle', 'btn-model-dropdown', 'btn-lang-dropdown', 'btn-generate'];
+    if (activeToolbar.controls.some(control => control.id === 'btn-debug-last-generated')) expectedActiveOrder.unshift('btn-debug-last-generated');
+    assert.deepEqual(activeToolbar.controls.map(control => control.id), expectedActiveOrder, JSON.stringify({ width, activeToolbar }));
+    assert.ok(activeToolbar.controls.every((control, index) => index === 0 || activeToolbar.controls[index - 1].right <= control.left + 1), JSON.stringify({ width, activeToolbar }));
+    assert.ok(activeToolbar.controls.every(control => control.left >= activeToolbar.bar.left - 1 && control.right <= activeToolbar.bar.right + 1), JSON.stringify({ width, activeToolbar }));
+    assert.ok(Math.max(...activeToolbar.controls.map(control => control.top)) - Math.min(...activeToolbar.controls.map(control => control.top)) <= 12,
+        JSON.stringify({ width, activeToolbar }));
+    if (activeToolbar.compact) {
+        await page.click('#mobile-settings-trigger');
+        assert.equal(await page.$eval('#btn-lang-dropdown', node => node.disabled), false);
+        await page.click('#btn-lang-dropdown');
+        await page.$eval('#mobile-settings-panel', sheet => { sheet.scrollTop = sheet.scrollHeight; });
+        assert.equal(await page.$eval('#mobile-settings-panel', node => node.hidden), false);
+        await page.click('#lang-dropdown-menu [data-lang="es"]');
+        assert.equal(await page.$eval('#mobile-settings-panel', node => node.hidden), false);
+        assert.equal(await page.$eval('#current-lang-label', node => node.scrollWidth <= node.clientWidth), true);
+        await dragSettingsHandle(page);
+        assert.equal(await page.$eval('#mobile-settings-panel', node => node.hidden), true);
+    }
     scenario = gates();
     await page.evaluate(s => { window.__uiGeneration = window.startFinalGeneration(s); }, skeleton);
     await page.waitForFunction(() => document.querySelector('iframe').contentDocument?.body?.textContent.includes('FAILED SLIDE'));
@@ -166,7 +350,8 @@ async function check(page, origin, width, theme) {
     await page.evaluate(() => window.__uiGeneration);
     await page.waitForFunction(() => document.querySelector('iframe').contentDocument?.body?.textContent.includes('Presentación completa'));
     assert.ok(!await page.evaluate(() => document.querySelector('iframe').contentDocument.body.textContent.includes('FAILED')));
-    return { width, theme, header, chatControls, geometry, contrast, liveChat: true, discardedChatDraft: true, discardedSlides: true, retryTextRestored: true };
+    return { width, theme, header, toolbar, activeCompact: activeToolbar.compact, chatControls, geometry, contrast,
+        liveChat: true, discardedChatDraft: true, discardedSlides: true, retryTextRestored: true };
 }
 
 (async () => {
