@@ -12,6 +12,9 @@ function readEffort(value, fallback) {
 // Models without published effort lists receive no invented effort value.
 function reasoningCapabilitiesForModel(modelId) {
     const model = String(modelId || '').trim().toLowerCase();
+    if (model.startsWith('google/gemini-3-flash-preview')) {
+        return { efforts: ['high', 'medium', 'low', 'minimal'], canDisable: false };
+    }
     if (model.startsWith('anthropic/claude-haiku-5.5')) {
         return { efforts: ['max', 'xhigh', 'high', 'medium', 'low'], canDisable: true };
     }
@@ -33,22 +36,12 @@ function createReasoningConfig(env) {
     };
 
     function reasoningForStage(stageName, modelId) {
-        const requestedEffort = efforts[stageName] || 'low';
         const capabilities = reasoningCapabilitiesForModel(modelId);
         if (!capabilities) return null;
-        if (requestedEffort === 'none') {
-            if (capabilities.efforts?.includes('none')) return { effort: 'none' };
-            if (capabilities.canDisable) return { enabled: false };
-        }
         if (!capabilities.efforts) {
-            if (!capabilities.canDisable) return null;
-            // With only a reasoning toggle, low/minimal maps to off; higher efforts
-            // enable the provider's documented default of medium.
-            return { enabled: !['minimal', 'low'].includes(requestedEffort) };
+            return capabilities.canDisable ? { enabled: false } : null;
         }
-        if (capabilities.efforts.includes(requestedEffort)) return { effort: requestedEffort };
-
-        // Use the lowest documented effort when the model cannot accept the setting.
+        if (capabilities.efforts.includes('low')) return { effort: 'low' };
         const lowestEffort = capabilities.efforts[capabilities.efforts.length - 1];
         return lowestEffort ? { effort: lowestEffort } : null;
     }

@@ -77,8 +77,10 @@
             const requestData = {
                 tema: finalTema,
                 mode: 'chat', // The server applies the dedicated free schema quota; this is not a credit charge.
+                generationMode: generationState.proModeEnabled ? 'pro' : 'flash',
                 modelId: generationState.selectedModelId || 'google/gemini-3-flash-preview',
                 slides: window.AedosCreditsUI?.getSlideCount() || 8,
+                conversationId: window.AedosConversation?.getId(),
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
     
@@ -103,6 +105,7 @@
                 formData.append('tema', requestData.tema);
                 formData.append('modelId', requestData.modelId);
                 if (requestData.mode) formData.append('mode', requestData.mode);
+                formData.append('generationMode', requestData.generationMode);
                 if (requestData.language) formData.append('language', requestData.language);
                 if (requestData.slides !== undefined) formData.append('slides', requestData.slides);
                 if (requestData.currentSkeleton) formData.append('currentSkeleton', requestData.currentSkeleton);
@@ -119,6 +122,8 @@
             if (window.showOutlineEditorLoading) {
                 window.showOutlineEditorLoading(requestData.slides || 8);
             }
+
+            window.AedosConversation?.begin();
     
             // Before stream starts, prepare the outline streaming layout (fading pills, moving containers, etc.)
             if (window.prepareOutlineStreaming) {
@@ -151,7 +156,7 @@
     
                 if (!skeletonResponse.ok) {
                     const errData = await skeletonResponse.json().catch(() => ({}));
-                    if (skeletonResponse.status === 402 || errData.code === 'INSUFFICIENT_CREDITS') {
+                    if (skeletonResponse.status === 402 || errData.code === 'INSUFFICIENT_USAGE') {
                         await window.AedosCreditsUI?.refresh();
                     }
                     const serverErr = errData.error || `Server error: ${skeletonResponse.status}`;
@@ -161,20 +166,36 @@
                 const skeletonStream = window.AedosHttpSse.openResponse(skeletonResponse, { framing: 'line' });
                 let rawText = '';
                 let finalSkeleton = null;
-                let sawSkeletonSseParseError = false;
                 const _skeletonReasoningAiBody = (() => {
                     const _aiMessages = document.querySelectorAll('.chat-msg-ai');
                     const _latestAi = _aiMessages[_aiMessages.length - 1];
                     return _latestAi && _latestAi.querySelector('.chat-ai-body');
                 })();
+                let emittedLanguage;
+                const retryStatus = window.AedosStreamRetry.create({
+                    getLanguage: () => window.AedosStreamRetry.language(generationState, emittedLanguage),
+                    setText: text => window.AedosThinking?.setStatusText(_skeletonReasoningAiBody, text)
+                });
     
                 for await (const { data: dataStr } of skeletonStream.events) {
                     if (!dataStr) continue;
+                    if (dataStr.trim() === '[DONE]') continue;
+                    if (finalSkeleton) continue;
+                    let data;
                     try {
-                        const data = JSON.parse(dataStr);
-                        if (data.error) {
-                            throw new Error(data.error);
-                        }
+                        data = JSON.parse(dataStr);
+                    } catch (cause) {
+                        throw new Error('The outline response was interrupted. Please try again.', { cause });
+                    }
+                    if (data.error) throw new Error(data.error);
+                    if (data.reset) {
+                        rawText = ''; finalSkeleton = null;
+                        window.prepareOutlineStreaming?.(generationState.proModeEnabled ? 'pro' : 'flash');
+                        window.AedosThinking?.resetReasoning(_skeletonReasoningAiBody);
+                        retryStatus.reset();
+                        continue;
+                    }
+                    {
     
                         // Reasoning tokens — surface in the thinking panel
                         // for the currently active AI bubble. The first
@@ -198,11 +219,10 @@
                         }
     
                         if (data.chunk) {
+                            retryStatus.content();
                             rawText += data.chunk;
                             const partialSkeleton = window.parsePartialSkeleton(rawText);
-                            if (window.outlineEditorState) {
-                                window.outlineEditorState.skeleton = partialSkeleton;
-                            }
+                            emittedLanguage = partialSkeleton?.language || emittedLanguage;
                             if (window.renderStreamingOutline) {
                                 window.renderStreamingOutline(partialSkeleton);
                             }
@@ -213,6 +233,8 @@
                                     window.AedosThinking.collapseDetails(_skeletonReasoningAiBody);
                                     const outlineLabel = window.__t ? window.__t('chat_stage_outline', 'Building your outline…') : 'Building your outline…';
                                     window.AedosThinking.updateStatus(_skeletonReasoningAiBody, outlineLabel, 'outline');
+                                    window.AedosThinking.setStatusText?.(_skeletonReasoningAiBody,
+                                        window.AedosStreamRetry.text(window.AedosStreamRetry.language(generationState, emittedLanguage), 'outline'));
                                 }
                                 // Legacy fall-back: also hide the old
                                 // dot loader if it's still around.
@@ -226,12 +248,7 @@
                         }
                         if (data.done) {
                             finalSkeleton = data.skeleton;
-                        }
-                    } catch (e) {
-                        sawSkeletonSseParseError = true;
-                        console.error('SSE JSON error:', e);
-                        if (e.message && (e.message.includes('Limit') || e.message.includes('pressure') || e.message.includes('failed') || e.message.includes('REJECTED'))) {
-                            throw e;
+                            break;
                         }
                     }
                 }
@@ -245,7 +262,7 @@
                 toggleGenerateLoading(false);
     
                 if (!finalSkeleton) {
-                    finalSkeleton = window.parsePartialSkeleton(rawText);
+                    throw new Error(window.__t('outline_stream_interrupted', 'The outline response was interrupted. Please try again.'));
                 }
 
                 await window.AedosCreditsUI?.refresh();
@@ -257,7 +274,7 @@
                 );
     
                 if (!hasRenderableSkeleton && (!finalSkeleton || !finalSkeleton.action)) {
-                    const streamWasInterrupted = sawSkeletonSseParseError || rawText.trim().length > 0 || !finalSkeleton;
+                    const streamWasInterrupted = rawText.trim().length > 0 || !finalSkeleton;
                     if (streamWasInterrupted) {
                         throw new Error(
                             window.__t
@@ -300,6 +317,11 @@
                     throw new Error("Outline editor not initialized");
                 }
             } catch (error) {
+                if (generationState.skeletonController && generationState.skeletonController !== controller) return;
+                window.prepareOutlineStreaming?.(generationState.proModeEnabled ? 'pro' : 'flash');
+                if (window.outlineEditorState) window.outlineEditorState.skeleton = window._backupSkeleton || null;
+                const failedBodies = document.querySelectorAll('.chat-msg-ai .chat-ai-body');
+                window.AedosThinking?.resetReasoning(failedBodies[failedBodies.length - 1]);
                 if (isFollowUpRequest) {
                     window.AedosCreditsUI?.refresh();
                 }

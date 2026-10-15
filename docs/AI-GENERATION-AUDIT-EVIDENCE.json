@@ -1,0 +1,70 @@
+[
+  {
+    "width": 1440,
+    "initial": {
+      "text": "El servidor puede estar despertando. Volveremos a consultar tu saldo en breve.",
+      "hidden": false,
+      "display": "block",
+      "state": "error"
+    },
+    "afterInput": {
+      "text": "",
+      "hidden": true,
+      "display": "none",
+      "state": ""
+    },
+    "controls": {
+      "proDisabled": false,
+      "modelDisabled": false,
+      "languageDisabled": false
+    },
+    "requests": [
+      {
+        "path": "/generate-skeleton",
+        "slides": 15,
+        "mode": "chat",
+        "modelId": "google/gemini-3-flash-preview"
+      },
+      {
+        "path": "/generate",
+        "slides": 8,
+        "mode": "flash",
+        "modelId": "google/gemini-3-flash-preview"
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "initial": {
+      "text": "El servidor puede estar despertando. Volveremos a consultar tu saldo en breve.",
+      "hidden": false,
+      "display": "block",
+      "state": "error"
+    },
+    "afterInput": {
+      "text": "",
+      "hidden": true,
+      "display": "none",
+      "state": ""
+    },
+    "controls": {
+      "proDisabled": false,
+      "modelDisabled": false,
+      "languageDisabled": false
+    },
+    "requests": [
+      {
+        "path": "/generate-skeleton",
+        "slides": 15,
+        "mode": "chat",
+        "modelId": "google/gemini-3-flash-preview"
+      },
+      {
+        "path": "/generate",
+        "slides": 8,
+        "mode": "flash",
+        "modelId": "google/gemini-3-flash-preview"
+      }
+    ]
+  }
+]

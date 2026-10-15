@@ -21,6 +21,7 @@ function registerBackendRoutes(deps) {
         checkGenerationPressure: deps.checkGenerationPressure,
         checkRateLimits: deps.checkRateLimits,
         creditsLedger: deps.creditsLedger,
+        conversationStore: deps.conversationStore,
         hasGeminiRequestAvailable: deps.hasGeminiRequestAvailable,
         discardUploadedFiles: deps.discardUploadedFiles,
         handleGenerateSkeleton: deps.handleGenerateSkeleton,

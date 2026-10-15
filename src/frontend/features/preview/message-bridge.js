@@ -21,8 +21,9 @@
                     slideLabel.textContent = tpl.replace('{current}', count).replace('{total}', count);
                 }
                 previewState.currentSlide = count - 1;
-                if (previewContainer && previewContainer.classList.contains('is-generating')) {
-                    setPreviewStreamStatus(`Generando presentación… ${count} slide${count === 1 ? '' : 's'} recibida${count === 1 ? '' : 's'}`);
+                if (previewContainer && previewContainer.classList.contains('is-generating') && previewContainer.dataset.retrying !== 'true') {
+                    const language = window.AedosStreamRetry.language(window.AedosStores.generation.state);
+                    setPreviewStreamStatus(`${window.AedosStreamRetry.text(language, 'slides')} ${count}`);
                 }
     
                 // The preview is now entered optimistically when /generate starts;

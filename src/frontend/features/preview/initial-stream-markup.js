@@ -17,7 +17,7 @@
         const { window, iframeDoc, generationState, setPreviewStreamStatus, reasoningBody, fontLinks, loadingHtml } = deps;
 
         return function writeInitialStreamMarkup() {
-            setPreviewStreamStatus(generationState.proModeEnabled ? 'Componiendo slides…' : 'Recibiendo slides…');
+            setPreviewStreamStatus(window.AedosStreamRetry.text(window.AedosStreamRetry.language(generationState), 'slides'));
             if (window.AedosThinking) window.AedosThinking.collapse(reasoningBody);
             iframeDoc.open();
             const skelStyle = `

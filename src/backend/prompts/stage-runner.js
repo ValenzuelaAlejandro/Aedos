@@ -13,15 +13,33 @@ const { createLogger, ErrorCategory } = require('../utils/logger');
 
 const pipelineLog = createLogger({ scope: 'PIPELINE' });
 
-// Safety cap per pipeline stage. In production a single Stage 2 (Design) call
-// ran for 275s and streamed 0 chars (OpenRouter + gemini-2.5-flash-lite with
-// reasoning effort=medium). A hard wall-clock budget turns that into a fast,
-// retryable timeout instead of a minutes-long user wait. Configurable via env.
-const STAGE_TIMEOUT_MS =
-  (Number(process.env.STAGE_TIMEOUT_MS) > 0 ? Number(process.env.STAGE_TIMEOUT_MS) : 180000);
+function handleStageControl(chunk, state, onChunk) {
+  if (chunk?.type === 'reset') {
+    state.fullText = '';
+    state.waitingForRetryContent = true;
+    if (onChunk) onChunk(chunk);
+    return true;
+  }
+  if (chunk?.type === 'metadata') return true;
+  if (state.waitingForRetryContent && (typeof chunk === 'string' || chunk?.type !== 'reasoning')) {
+    state.waitingForRetryContent = false;
+    if (onChunk) onChunk({ type: 'resumed', text: '' });
+  }
+  return false;
+}
+
+function appendStageContent(chunk, state, onChunk) {
+  if (chunk && typeof chunk === 'object' && typeof chunk.text === 'string') {
+    if (onChunk) onChunk(chunk);
+    if (chunk.type !== 'reasoning') state.fullText += chunk.text;
+  } else if (typeof chunk === 'string') {
+    if (onChunk) onChunk({ type: 'content', text: chunk });
+    state.fullText += chunk;
+  }
+}
 
 /**
- * Runs a non-streaming generation call against the model.
+ * Runs a generation call against the model while forwarding each live chunk.
  * @param {Function} tryModelsFn - The tryModels function from server.js
  * @param {string} prompt - The prompt text
  * @param {string} stageName - For logging
@@ -30,63 +48,21 @@ const STAGE_TIMEOUT_MS =
  *   chat SSE response without buffering the whole output first.
  * @returns {Promise<string>} The full text response
  */
-// eslint-disable-next-line complexity -- preserve the pipeline's existing stream state machine verbatim
 async function runStage(tryModelsFn, prompt, stageName, onChunk = null) {
   pipelineLog.info(ErrorCategory.PIPELINE, 'Stage started', { stage: stageName });
   const startTime = Date.now();
-
-  const stageTimeoutError = () => {
-    const elapsedSeconds = (Date.now() - startTime) / 1000;
-    pipelineLog.warn(ErrorCategory.PIPELINE, 'Stage wall-clock timeout reached', {
-      stage: stageName,
-      timeoutMs: STAGE_TIMEOUT_MS,
-      elapsedSeconds: Number(elapsedSeconds.toFixed(1))
-    });
-    return new Error(`STAGE_TIMEOUT: ${stageName} exceeded ${STAGE_TIMEOUT_MS}ms wall-clock limit`);
-  };
-
   const result = await tryModelsFn(prompt);
-
-  const iterator = result.stream[Symbol.asyncIterator]();
-  let fullText = '';
-  for (;;) {
-    const elapsedMs = Date.now() - startTime;
-    if (elapsedMs > STAGE_TIMEOUT_MS) throw stageTimeoutError();
-
-    // Race every read against the remaining time budget so a provider that
-    // accepts the request but then stalls mid-stream still gets cut off.
-    let next;
-    try {
-      next = await Promise.race([
-        iterator.next(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('STAGE_TIMEOUT')), STAGE_TIMEOUT_MS - elapsedMs)
-        )
-      ]);
-    } catch (err) {
-      if (err && err.message === 'STAGE_TIMEOUT') throw stageTimeoutError();
-      throw err;
-    }
-
-    if (next.done) break;
-    const chunk = next.value;
-
+  const state = { fullText: '', waitingForRetryContent: false };
+  for await (const chunk of result.stream) {
     // The stream may be plain text (legacy) or tagged {type,text} objects
     // (chat/reasoning-aware mode). Normalize so we always get a string for
     // the JSON parse AND can still forward reasoning to the client live.
-    if (chunk && typeof chunk === 'object' && typeof chunk.text === 'string') {
-      if (onChunk) onChunk(chunk);
-      if (chunk.type === 'reasoning') continue; // reasoning isn't part of the JSON
-      fullText += chunk.text;
-    } else if (typeof chunk === 'string') {
-      if (onChunk) onChunk({ type: 'content', text: chunk });
-      fullText += chunk;
-    }
+    if (!handleStageControl(chunk, state, onChunk)) appendStageContent(chunk, state, onChunk);
   }
 
   const elapsedSeconds = (Date.now() - startTime) / 1000;
 
-  if (fullText.trim().length === 0) {
+  if (state.fullText.trim().length === 0) {
     // Provider returned 200 but streamed nothing usable. This was the
     // production failure mode (`STAGE2_PARSE_ERROR ... Raw: <empty>`): we
     // sent a 275s response with 0 chars into the JSON parser and then burned
@@ -101,10 +77,10 @@ async function runStage(tryModelsFn, prompt, stageName, onChunk = null) {
   pipelineLog.success(ErrorCategory.PIPELINE, 'Stage completed', {
     stage: stageName,
     elapsedSeconds: Number(elapsedSeconds.toFixed(1)),
-    outputChars: fullText.length
+    outputChars: state.fullText.length
   });
 
-  return fullText;
+  return state.fullText;
 }
 
 /**
@@ -137,6 +113,9 @@ async function runContentStageWithRetry({ task, maxRetries = 2, stageName, stage
       // attempt burning 5+ minutes of provider timeouts).
       if (msg.startsWith('CONTENT_REJECTED')) throw err;
       if (msg === 'QUOTA_EXHAUSTED') throw err;
+      if (['PROVIDER_SAFETY', 'PROVIDER_UNAVAILABLE', 'PAID_PAUSED', 'IP_SPEND_LIMIT', 'REQUEST_SPEND_LIMIT',
+        'REQUEST_ATTEMPT_LIMIT', 'REQUEST_TIMEOUT', 'SPEND_GUARD_UNAVAILABLE', 'PROVIDER_REQUEST_TIMEOUT',
+        'PROVIDER_CANCELLED'].includes(msg)) throw err;
       // Out of retries — bubble up so the SSE error path can show a friendly
       // message and the user can try again with different wording.
       if (attempt >= maxAttempts) throw err;

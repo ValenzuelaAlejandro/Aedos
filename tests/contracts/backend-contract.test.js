@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -65,7 +66,8 @@ function json(body) {
 function multipart(fields, files) {
     multipart.requestId = (multipart.requestId || 0) + 1;
     const form = new FormData();
-    for (const [key, value] of Object.entries(fields)) form.append(key, String(value));
+    const formFields = { ...fields, conversationId: fields.conversationId || randomUUID() };
+    for (const [key, value] of Object.entries(formFields)) form.append(key, String(value));
     for (const file of files) form.append('files', new Blob([file.content], { type: file.type || 'application/octet-stream' }), file.name);
     return { method: 'POST', headers: { 'Idempotency-Key': `multipart-${multipart.requestId}-request` }, body: form };
 }
@@ -79,7 +81,13 @@ test('GET /health and GET / expose the current public entry points', async () =>
 });
 
 test('POST /generate-outline-item returns the current item envelope', async () => {
-    const response = await request('/generate-outline-item', json({ type: 'slide', topic: 'Testing' }));
+    const conversationId = randomUUID();
+    const start = await request('/generate-skeleton', json({ tema: 'Testing', mode: 'flash', slides: 1,
+        modelId: 'google/gemini-3-flash-preview', conversationId }));
+    assert.equal(start.status, 200);
+    await collectSse(start);
+    const response = await request('/generate-outline-item', json({ type: 'slide', topic: 'Testing', mode: 'flash',
+        modelId: 'google/gemini-3-flash-preview', conversationId }));
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.deepEqual(Object.keys(body), ['item']);
@@ -87,19 +95,21 @@ test('POST /generate-outline-item returns the current item envelope', async () =
 });
 
 test('POST /generate-skeleton preserves the SSE contract', async () => {
-    const response = await request('/generate-skeleton', json({ tema: 'Testing', mode: 'flash', language: 'en' }));
+    const response = await request('/generate-skeleton', json({ tema: 'Testing', mode: 'flash', language: 'en', slides: 1,
+        modelId: 'google/gemini-3-flash-preview', conversationId: '11111111-1111-4111-8111-111111111111' }));
     assert.equal(response.status, 200);
     const events = await collectSse(response);
     assert.ok(events.some((event) => event.metadata));
     assert.ok(events.some((event) => event.reasoning));
     assert.ok(events.some((event) => event.chunk));
-    assert.deepEqual(events.at(-1), { done: true, skeleton: { slide_count: 1, slides: [{ title: 'Test slide', subtitle: 'Test subtitle', role: 'concept', key_points: ['Test point'] }] } });
+    assert.deepEqual(events.at(-1), { done: true, skeleton: { slide_count: 1, slides: [{ title: 'Test slide', subtitle: 'Test subtitle', role: 'cover', key_points: ['Test point'] }] } });
     fs.mkdirSync(fixtureDir, { recursive: true });
     fs.writeFileSync(path.join(fixtureDir, 'generate-skeleton.events.json'), JSON.stringify(events.map((event) => Object.keys(event).sort()), null, 2) + '\n');
 });
 
 test('POST /generate preserves the Flash SSE contract', async () => {
-    const response = await request('/generate', json({ tema: 'Testing', mode: 'flash', idioma: 'es', slides: 1 }));
+    const response = await request('/generate', json({ tema: 'Testing', mode: 'flash', idioma: 'es', slides: 1,
+        modelId: 'google/gemini-3-flash-preview', conversationId: '11111111-1111-4111-8111-111111111111' }));
     assert.equal(response.status, 200);
     const events = await collectSse(response);
     assert.ok(events.some((event) => event.metadata));
@@ -117,14 +127,42 @@ test('POST /generate preserves the Flash SSE contract', async () => {
 
 test('validation responses remain structured', async () => {
     assert.equal(sanitizeTema('x'.repeat(601)).tema.length, 600);
-
-    const invalidItem = await request('/generate-outline-item', json({ type: 'unknown', topic: 'Testing' }));
+    const conversationId = randomUUID();
+    const start = await request('/generate-skeleton', json({ tema: 'Testing', mode: 'flash', slides: 1,
+        modelId: 'google/gemini-3-flash-preview', conversationId }));
+    assert.equal(start.status, 200);
+    await collectSse(start);
+    const invalidItem = await request('/generate-outline-item', json({ type: 'unknown', topic: 'Testing',
+        mode: 'flash', modelId: 'google/gemini-3-flash-preview', conversationId }));
     assert.equal(invalidItem.status, 400);
     assert.equal((await invalidItem.json()).error, 'Invalid item type');
-
-    const invalidIdioma = await request('/generate', json({ tema: 'Testing', idioma: 'ja' }));
+    const invalidIdioma = await request('/generate', json({ tema: 'Testing', idioma: 'xx', modelId: 'google/gemini-3-flash-preview',
+        mode: 'flash', slides: 1, conversationId }));
     assert.equal(invalidIdioma.status, 422);
-    assert.deepEqual((await invalidIdioma.json()).fields, { idioma: 'must be one of: es, en, fr, pt, de' });
+    assert.deepEqual((await invalidIdioma.json()).fields, { idioma: 'must be one of: auto, es, en, fr, pt, de, it, zh, ja, ru, ar' });
+});
+
+test('conversation pins model and mode on the server while allowing output-language changes', async () => {
+    const conversationId = randomUUID();
+    const first = await request('/generate-skeleton', json({ tema: 'Renewable energy', modelId: 'google/gemini-3-flash-preview',
+        mode: 'flash', language: 'en', slides: 1, conversationId }));
+    assert.equal(first.status, 200);
+    await collectSse(first);
+
+    const changedLanguage = await request('/generate-skeleton', json({ tema: 'Renewable energy', modelId: 'google/gemini-3-flash-preview',
+        mode: 'flash', language: 'fr', slides: 1, conversationId }));
+    assert.equal(changedLanguage.status, 200);
+    await collectSse(changedLanguage);
+
+    const changedMode = await request('/generate-skeleton', json({ tema: 'Renewable energy', modelId: 'google/gemini-3-flash-preview',
+        mode: 'pro', language: 'fr', slides: 1, conversationId }));
+    assert.equal(changedMode.status, 409);
+    assert.equal((await changedMode.json()).code, 'CONVERSATION_CONFIG_MISMATCH');
+
+    const changedModel = await request('/generate', json({ tema: 'Renewable energy', modelId: 'anthropic/claude-haiku-5.5',
+        mode: 'flash', language: 'fr', slides: 1, conversationId }));
+    assert.equal(changedModel.status, 409);
+    assert.equal((await changedModel.json()).code, 'CONVERSATION_CONFIG_MISMATCH');
 });
 
 test('finalize validation and missing downloads are reachable without launching Chrome', async () => {
@@ -145,15 +183,17 @@ test('download path traversal attempts remain rejected', async () => {
 });
 
 test('multipart accepts one and three supported files', async () => {
+    const proConversationId = randomUUID();
     const one = await request('/generate-skeleton', multipart(
-        { tema: 'Multipart', mode: 'pro', language: 'en' },
+        { tema: 'Multipart', mode: 'pro', language: 'en', modelId: 'google/gemini-3-flash-preview', conversationId: proConversationId },
         [{ name: 'notes.txt.pdf', type: 'application/pdf', content: 'fixture' }]
     ));
     assert.equal(one.status, 200);
     assert.equal((await collectSse(one)).at(-1).done, true);
 
     const three = await request('/generate', multipart(
-        { tema: 'Multipart', mode: 'pro', idioma: 'es', slides: 1 },
+        { tema: 'Multipart', mode: 'pro', idioma: 'es', slides: 1,
+            modelId: 'google/gemini-3-flash-preview', conversationId: proConversationId },
         [
             { name: 'a.pdf', type: 'application/pdf', content: 'a' },
             { name: 'b.doc', type: 'application/msword', content: 'b' },

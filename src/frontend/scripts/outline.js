@@ -124,7 +124,6 @@ function renderOutlineSlides() {
     if (!container) return;
     const slides = window.outlineEditorState.skeleton.slides || [];
     window.AedosOutlineRenderer.renderSlides(container, slides);
-    window.AedosCreditsUI?.setSlideCount(slides.length);
     bindOutlineEvents();
 }
 

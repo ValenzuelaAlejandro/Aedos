@@ -53,7 +53,9 @@ async function startRuntime() {
     const { app } = require('../src/backend/server');
     const server = app.listen(0, '127.0.0.1');
     await new Promise((resolve) => server.once('listening', resolve));
-    const origin = `http://127.0.0.1:${server.address().port}`;
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Visual server did not bind a TCP port');
+    const origin = `http://127.0.0.1:${address.port}`;
     const browser = await puppeteer.launch({ headless: true, executablePath: chromePath });
     return {
         browser,

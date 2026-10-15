@@ -356,11 +356,11 @@ test('outline point command preserves inline editing and delete callbacks', () =
     assert.equal(frames.length, 1);
 });
 
-test('outline slide deletion preserves confirmation and rerender behavior', () => {
+test('outline keeps one slide and skips confirmation or rerender on delete', () => {
     const { slides, getRenders, commands, dependencies } = createSlideCommandHarness();
     commands.deleteSlide(0, dependencies);
-    assert.deepEqual(slides, []);
-    assert.equal(getRenders(), 1);
+    assert.equal(slides.length, 1);
+    assert.equal(getRenders(), 0);
 });
 
 test('outline drawer controls preserve translated dropdown sync and bootstrap timing', () => {

@@ -72,6 +72,7 @@ function resolveFontFamily(value) {
     return 'Arial';
 }
 
+/** @param {{slide?: number|string, onWarning?: (warning: object) => void}} [options] */
 function createFontWarningCollector({ slide, onWarning } = {}) {
     const warnedFamilies = new Set();
     return (original, selector = 'text') => {
@@ -421,7 +422,9 @@ function paragraphXml(paragraph, shape, addHyperlink) {
     return `<a:p><a:pPr algn="${paragraphAlignment(paragraph.align || shape.align)}"${bulletAttrs}${marginAttrs}>${spacing}${bulletXml}</a:pPr>${content}<a:endParaRPr lang="en-US" sz="${endSize}"/></a:p>`;
 }
 
-function shapeXml(id, shape, { textBox = false, addHyperlink } = {}) {
+/** @param {number} id @param {any} shape @param {{textBox?: boolean, addHyperlink?: (target: string) => string|null}} [options] */
+function shapeXml(id, shape, options = {}) {
+    const { textBox = false, addHyperlink } = options;
     const fill = textBox ? '<a:noFill/>' : fillXml(shape.fill, shape);
     const shadow = textBox ? { warnings: [] } : analyzeCssShadow(shape.shadow);
     const ringColor = shadow.ring?.color || shape.borderColor;

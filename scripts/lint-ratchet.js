@@ -42,7 +42,27 @@ function summarize(report) {
     };
 }
 
-const summary = summarize(runLint());
+function verifyKnownErrors(report) {
+    const { allowed } = JSON.parse(fs.readFileSync(path.join(root, 'tests/baseline/lint-errors-baseline.json'), 'utf8'));
+    const counts = {};
+    for (const item of report) {
+        const file = path.relative(root, item.filePath).split(path.sep).join('/');
+        for (const message of item.messages.filter(entry => entry.severity === 2)) {
+            const key = JSON.stringify([file, message.ruleId, message.message]);
+            counts[key] = (counts[key] || 0) + 1;
+        }
+    }
+    const unexpected = Object.keys(counts).filter(key => counts[key] > (allowed[key] || 0));
+    console.log(`Legacy ESLint error diagnostics: ${Object.values(counts).reduce((sum, count) => sum + count, 0)}; new: ${unexpected.length}`);
+    if (unexpected.length) {
+        console.error(`Unexpected ESLint errors: ${unexpected.join('\n')}`);
+        process.exit(1);
+    }
+}
+
+const report = runLint();
+verifyKnownErrors(report);
+const summary = summarize(report);
 if (writeBaseline || !fs.existsSync(baselinePath)) {
     fs.mkdirSync(path.dirname(baselinePath), { recursive: true });
     fs.writeFileSync(baselinePath, `${JSON.stringify(summary, null, 2)}\n`);

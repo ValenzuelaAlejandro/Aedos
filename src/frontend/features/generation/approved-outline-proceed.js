@@ -47,12 +47,13 @@
             const requestData = {
                 tema,
                 mode: 'chat',
+                generationMode: generationState.proModeEnabled ? 'pro' : 'flash',
                 modelId: generationState.selectedModelId || 'google/gemini-3-flash-preview',
-                slides: Math.min(window.MAX_SLIDES_BY_MODE[generationState.proModeEnabled ? 'pro' : 'flash'], skeleton.slides.length),
+                conversationId: window.AedosConversation?.getId(),
+                slides: window.AedosCreditsUI?.getSlideCount()
+                    || Math.min(window.MAX_SLIDES_BY_MODE[generationState.proModeEnabled ? 'pro' : 'flash'], 8),
                 ...(generationState.targetLanguage !== 'auto' ? { language: generationState.targetLanguage } : {})
             };
-            if (skeleton.slides.length > requestData.slides) skeleton.slides = skeleton.slides.slice(0, requestData.slides);
-            window.AedosCreditsUI?.setSlideCount(skeleton.slides.length);
             requestData.currentSkeleton = JSON.stringify(skeleton);
 
             let bodyData;
@@ -62,6 +63,7 @@
                 formData.append('tema', requestData.tema);
                 formData.append('modelId', requestData.modelId);
                 if (requestData.mode) formData.append('mode', requestData.mode);
+                formData.append('generationMode', requestData.generationMode);
                 if (requestData.language) formData.append('language', requestData.language);
                 if (requestData.slides !== undefined) formData.append('slides', requestData.slides);
                 if (requestData.currentSkeleton) formData.append('currentSkeleton', requestData.currentSkeleton);
@@ -74,6 +76,7 @@
 
             window._pendingGenerateBodyData = bodyData;
             window._pendingGenerateHeaders = headers;
+            window.AedosConversation?.begin();
 
             const btnGen = document.getElementById('btn-outline-generate');
             const btnAdd = document.getElementById('btn-outline-add-slide');

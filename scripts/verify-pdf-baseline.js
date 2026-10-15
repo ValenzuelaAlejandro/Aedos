@@ -38,7 +38,10 @@ function extractPageText(pdf, page) {
 async function main() {
     const server = app.listen(0);
     await new Promise((resolve) => server.once('listening', resolve));
-    const baseUrl = `http://127.0.0.1:${server.address().port}`;
+    const address = server.address();
+    if (!address || typeof address === 'string')
+        throw new Error('PDF baseline server did not bind a TCP port');
+    const baseUrl = `http://127.0.0.1:${address.port}`;
     try {
         const response = await fetch(`${baseUrl}/finalize`, {
             method: 'POST',

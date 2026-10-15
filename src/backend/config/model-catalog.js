@@ -1,27 +1,36 @@
 'use strict';
 
+const { USAGE_PER_SLIDE_UNITS, reserveChatUsageUnits, MAX_CHAT_INPUT_TOKENS } = require('./usage-policy');
+
+function chatReservationUnits(id) {
+    return Object.freeze(Object.fromEntries(['flash', 'pro'].map(mode =>
+        [mode, reserveChatUsageUnits(id, mode, MAX_CHAT_INPUT_TOKENS)])));
+}
+
 // Model IDs verified against OpenRouter's official Models API on 2026-10-12.
 // Gemini's public selector ID maps to the direct Google model ID below.
 // Never pass a request's modelId directly to a provider without resolving it here.
 const MODEL_CATALOG = Object.freeze({
     'google/gemini-3-flash-preview': Object.freeze({
         id: 'google/gemini-3-flash-preview',
+        chatReservationUnits: chatReservationUnits('google/gemini-3-flash-preview'),
         name: 'Gemini 3 Flash',
         provider: 'gemini',
         providerModelId: 'gemini-3-flash-preview',
         brand: 'gemini',
         tier: 'free',
         paid: false,
-        billing: 'perPresentation',
-        creditsPerPresentation: 10,
+        billing: 'perSlide',
+        usagePerSlideUnits: USAGE_PER_SLIDE_UNITS['google/gemini-3-flash-preview'],
         attachments: true,
         modes: Object.freeze(['flash', 'pro']),
         outputMaxTokens: 65536,
-        maxSlides: Object.freeze({ flash: 15, pro: 8 }),
+        maxSlides: Object.freeze({ flash: 8, pro: 15 }),
         compatibleStages: Object.freeze(['Flash', 'Stage3'])
     }),
     'nvidia/nemotron-3.5-lightning': Object.freeze({
         id: 'nvidia/nemotron-3.5-lightning',
+        chatReservationUnits: chatReservationUnits('nvidia/nemotron-3.5-lightning'),
         name: 'Nemotron 3.5 Lightning',
         provider: 'openrouter',
         providerModelId: 'nvidia/nemotron-3.5-lightning',
@@ -30,16 +39,18 @@ const MODEL_CATALOG = Object.freeze({
         tier: 'light',
         paid: true,
         billing: 'perSlide',
-        creditsPerSlide: 2,
+        usagePerSlideUnits: USAGE_PER_SLIDE_UNITS['nvidia/nemotron-3.5-lightning'],
         attachments: false,
         modes: Object.freeze(['flash', 'pro']),
         outputMaxTokens: 32768,
-        maxSlides: Object.freeze({ flash: 8, pro: 8 }),
+        maxSlides: Object.freeze({ flash: 8, pro: 15 }),
         compatibleStages: Object.freeze(['Flash', 'Stage3']),
-        pricing: Object.freeze({ input: 0.00000006, output: 0.00000016 })
+        // Reserve against the upper end of OpenRouter's currently published provider prices.
+        pricing: Object.freeze({ input: 0.0000001, output: 0.00000025 })
     }),
     'openai/gpt-6-luna': Object.freeze({
         id: 'openai/gpt-6-luna',
+        chatReservationUnits: chatReservationUnits('openai/gpt-6-luna'),
         name: 'GPT-6 Luna',
         provider: 'openrouter',
         providerModelId: 'openai/gpt-6-luna',
@@ -47,22 +58,24 @@ const MODEL_CATALOG = Object.freeze({
         tier: 'standard',
         paid: true,
         billing: 'perSlide',
-        creditsPerSlide: 3,
+        usagePerSlideUnits: USAGE_PER_SLIDE_UNITS['openai/gpt-6-luna'],
         attachments: false,
         modes: Object.freeze(['flash', 'pro']),
         outputMaxTokens: 128000,
-        maxSlides: Object.freeze({ flash: 15, pro: 8 }),
+        maxSlides: Object.freeze({ flash: 8, pro: 15 }),
         compatibleStages: Object.freeze(['Flash', 'Stage3']),
         pricing: Object.freeze({
-            input: 0.0000001,
-            output: 0.0000005,
+            // OpenRouter lists routes up to $0.20/M input and $1.00/M output.
+            input: 0.0000002,
+            output: 0.000001,
             longPromptThreshold: 272000,
             longInput: 0.0000002,
-            longOutput: 0.00000075
+            longOutput: 0.000001
         })
     }),
     'anthropic/claude-haiku-5.5': Object.freeze({
         id: 'anthropic/claude-haiku-5.5',
+        chatReservationUnits: chatReservationUnits('anthropic/claude-haiku-5.5'),
         name: 'Claude Haiku 5.5',
         provider: 'openrouter',
         providerModelId: 'anthropic/claude-haiku-5.5',
@@ -70,11 +83,11 @@ const MODEL_CATALOG = Object.freeze({
         tier: 'standard',
         paid: true,
         billing: 'perSlide',
-        creditsPerSlide: 3,
+        usagePerSlideUnits: USAGE_PER_SLIDE_UNITS['anthropic/claude-haiku-5.5'],
         attachments: false,
         modes: Object.freeze(['flash', 'pro']),
         outputMaxTokens: 128000,
-        maxSlides: Object.freeze({ flash: 15, pro: 8 }),
+        maxSlides: Object.freeze({ flash: 8, pro: 15 }),
         compatibleStages: Object.freeze(['Flash', 'Stage3']),
         pricing: Object.freeze({
             input: 0.0000001,

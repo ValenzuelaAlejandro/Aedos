@@ -69,7 +69,7 @@ test('implementation uses generation events instead of the fixed 670ms race', ()
     assert.match(finalSetupSource, /finalPreviewMounted/);
     assert.match(
         finalSetupSource,
-        /setPreviewStreamStatus\((?:generationState\.)?proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/,
+        /setPreviewStreamStatus\(window\.AedosStreamRetry\.text\(outputLanguage, generationState\.proModeEnabled \? 'analyze' : 'slides'\)\)/,
     );
     assert.doesNotMatch(finalSetupSource, /setTimeout\(\(\) => fn\(\), 670\)/);
 });
@@ -99,7 +99,7 @@ test('optimistic loader and incremental paints start before 5s and 60s completio
 test('implementation enters preview before HTML and flushes chunks on a short cadence', () => {
     assert.match(
         finalSetupSource,
-        /setPreviewStreamStatus\((?:generationState\.)?proModeEnabled \? 'Analizando contenido…' : 'Generando presentación…'\)/,
+        /setPreviewStreamStatus\(window\.AedosStreamRetry\.text\(outputLanguage, generationState\.proModeEnabled \? 'analyze' : 'slides'\)\)/,
     );
     assert.match(finalSetupSource, /doTransitionToPreview\(\);\s*\/\/ Writing every model token/s);
     const bufferSource = fs.readFileSync(

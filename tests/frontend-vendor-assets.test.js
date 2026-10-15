@@ -30,7 +30,7 @@ test('index loads the shared catalog before app globals and contains no duplicat
     const html = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8');
     const loader = '<script src="features/shared/vendor-assets.js?v=1"></script>';
     const loaderIndex = html.indexOf(loader);
-    const i18nIndex = html.indexOf('<script src="features/shared/i18n.js?v=3"></script>');
+    const i18nIndex = html.indexOf('<script src="features/shared/i18n.js?');
 
     assert.notEqual(loaderIndex, -1);
     assert.ok(loaderIndex < i18nIndex, 'vendor globals are installed before feature scripts');

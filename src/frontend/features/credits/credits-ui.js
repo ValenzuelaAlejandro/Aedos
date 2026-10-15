@@ -2,15 +2,17 @@
     'use strict';
 
     let modelList = [];
-    let balance = 50;
-    let dailyLimit = 50;
+    let balance = 50000;
+    let dailyLimit = 50000;
     let lastCredits = null;
     let creditsAvailable = false;
+    let creditsPhase = 'loading';
     let refreshRunner = null;
     let clampNoticeCount = null;
     let clampNoticeModel = null;
     let clampNoticeTimer = null;
     let slideLimitAttempted = false;
+    let spendPaused = false;
 
     function nextUtcReset() {
         const now = new Date();
@@ -21,6 +23,8 @@
         return global.__t(key).replace(/\{([a-z]+)\}/g, (match, name) =>
             Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match);
     }
+
+    const percent = units => global.AedosCredits.percent(units, dailyLimit);
 
     function resetTime() {
         const candidate = lastCredits?.resetsAt ? new Date(lastCredits.resetsAt) : nextUtcReset();
@@ -64,14 +68,15 @@
     }
 
     function affordableMaxSlides() {
-        const quote = global.AedosCredits.quote(selectedModel(), 1);
+        const quote = global.AedosCredits.quote(selectedModel(), 1, activeMode());
         return quote.billing === 'perSlide' ? Math.min(maxSlides(), Math.floor(balance / quote.rate)) : maxSlides();
     }
 
     // The service owns the billing formula; this layer only enforces the current mode's slide cap.
     function getQuote(slides = getSlideCount(), model = selectedModel()) {
+        if (global.AedosConversation?.isActive()) return global.AedosCredits.quoteChat(model, activeMode());
         const count = Math.min(maxSlides(model), Math.max(1, Math.floor(Number(slides) || 1)));
-        return global.AedosCredits.quote(model, count);
+        return global.AedosCredits.quote(model, count, activeMode());
     }
 
     function getSlideCount() {
@@ -81,6 +86,7 @@
     }
 
     function updateStatus(key = '', state = '', params = {}) {
+        if (!creditsAvailable) { key = creditsPhase === 'loading' ? 'credits.loading' : 'credits.unavailable'; state = 'loading'; }
         const status = global.document?.getElementById('credits-status');
         if (!status) return;
         status.textContent = key ? format(key, params) : '';
@@ -89,21 +95,27 @@
         status.dataset.state = state;
     }
 
+    // eslint-disable-next-line complexity -- The ready balance synchronizes the chip, meter, slide quote and attachments.
     function renderBalance(credits) {
         lastCredits = credits;
         creditsAvailable = true;
+        creditsPhase = 'ready';
         balance = Number.isFinite(credits?.balance) ? credits.balance : 0;
-        dailyLimit = Number.isFinite(credits?.dailyLimit) ? credits.dailyLimit : 50;
+        dailyLimit = Number.isFinite(credits?.dailyLimit) ? credits.dailyLimit : 50000;
+        spendPaused = credits?.spendPaused === true;
         const balanceNode = global.document.getElementById('credits-balance');
         const popoverBalance = global.document.getElementById('credits-popover-balance');
         const trigger = global.document.getElementById('credits-balance-trigger');
+        if (trigger) { trigger.setAttribute('aria-busy', 'false'); trigger.dataset.state = 'ready'; }
         const progress = global.document.querySelector('.credits-progress[role="meter"]');
         const fill = global.document.getElementById('credits-progress-fill');
         const resetNode = global.document.getElementById('credits-reset-time');
-        const count = format('credits.chip', { remaining: balance, total: dailyLimit });
-        if (balanceNode) balanceNode.textContent = count;
+        const remaining = percent(balance), count = format('credits.chip', { remaining });
+        const percentNode = global.document.getElementById('credits-balance-percent');
+        if (percentNode) percentNode.textContent = remaining;
+        else if (balanceNode) balanceNode.textContent = count;
         if (popoverBalance) popoverBalance.textContent = count;
-        if (trigger) trigger.setAttribute('aria-label', format('credits.balanceAria', { remaining: balance, total: dailyLimit }));
+        if (trigger) trigger.setAttribute('aria-label', format('credits.balanceAria', { remaining }));
         const ratio = dailyLimit > 0 ? Math.max(0, Math.min(1, balance / dailyLimit)) : 0;
         global.document.querySelectorAll('.credits-ring').forEach(ring => {
             ring.style.setProperty('--ring-offset', String(2 * Math.PI * 8 * (1 - ratio)));
@@ -111,21 +123,24 @@
         });
         if (fill) fill.style.width = `${dailyLimit > 0 ? Math.max(0, Math.min(100, (balance / dailyLimit) * 100)) : 0}%`;
         if (progress) {
-            progress.setAttribute('aria-valuemax', String(dailyLimit));
-            progress.setAttribute('aria-valuenow', String(balance));
+            progress.setAttribute('aria-valuemax', '100');
+            progress.setAttribute('aria-valuenow', String(Math.floor(ratio * 100)));
         }
         if (resetNode) resetNode.textContent = format('credits.resetsAt', { time: resetTime() });
         setSlideCount(getSlideCount());
         global.AedosAttachments?.refreshAvailability?.();
     }
 
-    function renderBalanceUnavailable() {
+    function renderBalanceUnavailable(phase = creditsPhase) {
         const unavailable = global.__t('credits.balanceUnavailable');
         const balanceNode = global.document.getElementById('credits-balance');
         const popoverBalance = global.document.getElementById('credits-popover-balance');
         const trigger = global.document.getElementById('credits-balance-trigger');
         creditsAvailable = false;
-        if (balanceNode) balanceNode.textContent = `— / ${dailyLimit}`;
+        creditsPhase = phase;
+        if (trigger) { trigger.setAttribute('aria-busy', 'true'); trigger.dataset.state = phase; }
+        const percentNode = global.document.getElementById('credits-balance-percent');
+        if (percentNode) percentNode.textContent = '—'; else if (balanceNode) balanceNode.textContent = '—';
         if (popoverBalance) popoverBalance.textContent = unavailable;
         if (trigger) trigger.setAttribute('aria-label', unavailable);
         global.document.querySelectorAll('.credits-ring').forEach(ring => {
@@ -143,7 +158,7 @@
         updateStatus(balance <= 0 ? 'credits.exhausted'
             : (canReduce ? 'credits.insufficientSlides' : 'credits.insufficientModel'),
         balance <= 0 ? 'empty' : 'insufficient',
-        { time: resetTime(), cost: total, left: balance });
+        { time: resetTime(), cost: percent(total), left: percent(balance) });
         if (!canReduce) return;
         const action = global.document.createElement('button');
         action.type = 'button';
@@ -159,34 +174,37 @@
         const preview = global.document.getElementById('credits-cost-preview');
         const generateButton = global.document.getElementById('btn-generate');
         if (preview) {
-            preview.textContent = format(total === 1 ? 'credits.costOne' : 'credits.cost', { n: total });
-            preview.setAttribute('aria-label', format('credits.costAria', { n: total }));
+            preview.textContent = format(billing === 'chat' ? 'credits.chatReserve' : 'credits.cost', { n: percent(total) });
+            preview.setAttribute('aria-label', format('credits.costAria', { n: percent(total) }));
         }
         const liveCost = global.document.getElementById('slide-count-live-cost');
         if (liveCost) {
-            liveCost.textContent = format(total === 1 ? 'credits.costOne' : 'credits.cost', { n: total });
+            liveCost.textContent = format('credits.cost', { n: percent(total) });
             liveCost.classList.toggle('is-insufficient', total > balance);
         }
         const insufficient = total > balance;
         const blockedAttachments = global.AedosAttachments?.hasBlockingAttachments?.() === true;
         preview?.classList.toggle('is-insufficient', insufficient);
-        if (insufficient) showInsufficientStatus({ slides, billing, rate, total });
+        if (spendPaused) updateStatus('credits.spendPaused', 'paused');
+        else if (insufficient && billing === 'chat') updateStatus('credits.chatInsufficient', 'insufficient', { left: percent(balance), n: percent(total) });
+        else if (insufficient) showInsufficientStatus({ slides, billing, rate, total });
         else if (global.document.getElementById('credits-status')?.dataset.state !== 'paused') {
             updateStatus('');
         }
         if (generateButton && !generateButton.classList.contains('is-generating')) {
             const hasPrompt = (global.document.getElementById('w-tema')?.value || '').trim().length >= 4;
             const hasFiles = (global._attachedFiles?.length || 0) > 0;
-            generateButton.disabled = !creditsAvailable || (!hasPrompt && !hasFiles) || insufficient || blockedAttachments;
+            generateButton.disabled = !creditsAvailable || (!hasPrompt && !hasFiles) || insufficient || blockedAttachments || spendPaused;
             const missing = total - balance;
-            const label = !creditsAvailable ? global.__t('credits.balanceUnavailable')
+            const label = spendPaused ? global.__t('credits.spendPaused')
+                : !creditsAvailable ? global.__t('credits.balanceUnavailable')
                 : blockedAttachments ? global.__t('credits.attachmentsGeminiOnly') : insufficient
-                ? format(missing === 1 ? 'credits.missingOne' : 'credits.missing', { n: missing })
+                ? format('credits.missing', { n: percent(missing) })
                 : global.__t('credits.generate');
             generateButton.setAttribute('aria-label', label);
             generateButton.setAttribute('data-tooltip', label);
         }
-        return { slides, billing, rate, total, affordable: creditsAvailable && !insufficient && !blockedAttachments };
+        return { slides, billing, rate, total, affordable: creditsAvailable && !insufficient && !blockedAttachments && !spendPaused };
     }
 
     function renderSlideValue(input, normalized, limit) {
@@ -223,24 +241,23 @@
         const affordable = affordableMaxSlides();
         const effective = Math.max(1, affordable);
         const normalized = Math.min(effective, Math.max(1, Math.floor(Number(count) || 1)));
-        const absolute = absoluteMaxSlides();
         input.max = String(effective);
         input.disabled = affordable < 1;
         input.value = String(normalized);
         const wrapper = input.closest('.slide-count-control');
-        wrapper?.style.setProperty('--tick-count', String(absolute));
-        wrapper?.style.setProperty('--n-size', `${32 + 24 * ((normalized - 1) / Math.max(1, absolute - 1))}px`);
+        wrapper?.style.setProperty('--tick-count', String(limit));
+        wrapper?.style.setProperty('--n-size', `${32 + 24 * ((normalized - 1) / Math.max(1, limit - 1))}px`);
         const trackWidth = input.parentElement?.clientWidth || 0;
         if (trackWidth > 0) {
-            const tickWidth = trackWidth / absolute;
+            const tickWidth = trackWidth / limit;
             wrapper?.style.setProperty('--rail-start', `${tickWidth / 2}px`);
-            wrapper?.style.setProperty('--rail-length', `${(absolute - 1) * tickWidth}px`);
+            wrapper?.style.setProperty('--rail-length', `${(limit - 1) * tickWidth}px`);
             wrapper?.style.setProperty('--rail-fill', `${(normalized - 1) * tickWidth}px`);
-            input.style.left = `${trackWidth / (absolute * 2) - 12}px`;
+            input.style.left = `${trackWidth / (limit * 2) - 12}px`;
             input.style.width = `${24 + (effective - 1) * tickWidth}px`;
         }
         renderSlideValue(input, normalized, limit);
-        global.AedosCreditsSlideView.renderTicks(limit, affordable, normalized, absolute);
+        global.AedosCreditsSlideView.renderTicks(limit, affordable, normalized);
         updateCostPreview();
     }
 
@@ -249,8 +266,9 @@
         if (!notice) return;
         clampNoticeCount = count;
         clampNoticeModel = model;
-        notice.textContent = model ? format('slides.modelClamped', { model, n: count })
-            : format('slides.proClamped', { n: count });
+        notice.textContent = model && model !== 'flash' && model !== 'pro'
+            ? format('slides.modelClamped', { model, n: count })
+            : format(model === 'flash' ? 'slides.flashClamped' : 'slides.proClamped', { n: count });
         notice.hidden = false;
         global.clearTimeout(clampNoticeTimer);
         clampNoticeTimer = global.setTimeout(() => { notice.hidden = true; clampNoticeCount = null; clampNoticeModel = null; }, 4500);
@@ -299,7 +317,7 @@
         const beyondSlideLimit = event => {
             if (maxSlides() >= absoluteMaxSlides() || !track) return false;
             const rect = track.getBoundingClientRect();
-            return event.clientX > rect.left + (maxSlides() - .5) * rect.width / absoluteMaxSlides();
+            return event.clientX > rect.left + (maxSlides() - .5) * rect.width / maxSlides();
         };
         let dragging = false;
         track?.addEventListener('pointerdown', event => {
@@ -339,8 +357,8 @@
     function canSpend(amount) {
         if (balance < amount) {
             const missing = amount - balance;
-            updateStatus(balance <= 0 ? 'credits.exhausted' : (missing === 1 ? 'credits.missingOne' : 'credits.missing'),
-                balance <= 0 ? 'empty' : 'insufficient', { time: resetTime(), n: missing });
+            updateStatus(balance <= 0 ? 'credits.exhausted' : 'credits.missing',
+                balance <= 0 ? 'empty' : 'insufficient', { time: resetTime(), n: percent(missing) });
             return false;
         }
         return true;
@@ -349,17 +367,17 @@
     async function refresh() {
         if (!global.AedosCredits) return;
         if (!refreshRunner) refreshRunner = global.AedosCredits.createRefresher({
-            onSuccess: (credits, modelsResult) => {
+            onCredits: credits => renderBalance(credits),
+            onModels: modelsResult => {
                 modelList = modelsResult.models || [];
-                renderBalance(credits);
-                global.dispatchEvent?.(new global.CustomEvent('aedos:models-updated', {
-                    detail: { models: modelList, paymentsPaused: modelsResult.paymentsPaused },
-                }));
+                global.dispatchEvent?.(new global.CustomEvent('aedos:models-updated', { detail: { models: modelList, paymentsPaused: modelsResult.paymentsPaused } }));
+            },
+            onSuccess: (credits, modelsResult) => {
                 return { credits, models: modelList, paymentsPaused: modelsResult.paymentsPaused };
             },
             onUnavailable: () => {
-                renderBalanceUnavailable();
-                updateStatus('credits.unavailable', 'error');
+                renderBalanceUnavailable('retrying');
+                updateStatus('credits.unavailable', 'loading');
             },
         });
         return refreshRunner();
@@ -371,7 +389,7 @@
         global.document.getElementById('w-tema')?.addEventListener('input', updateCostPreview);
         global.document.getElementById('btn-generate')?.addEventListener('click', () => updateCostPreview());
         global.addEventListener('aedos:language-changed', () => {
-            if (lastCredits) renderBalance(lastCredits);
+            if (lastCredits && creditsAvailable) renderBalance(lastCredits);
             else updateCostPreview();
             setSlideCount(getSlideCount());
             if (clampNoticeCount !== null) {
@@ -384,6 +402,7 @@
                     : format('slides.modelLimitHint', { model: selectedModel()?.name || '', n: maxSlides() });
             }
         });
+        global.addEventListener('aedos:conversation-lock-changed', updateCostPreview);
         renderBalanceUnavailable();
         updateStatus('credits.unavailable', 'error');
         refresh();
@@ -401,6 +420,7 @@
         getQuote,
         canSpend,
         getBalance: () => balance,
+        getRemainingPercent: () => percent(balance),
         getResetTime: resetTime,
         getSelectedModel: selectedModel,
         canAttachDocuments,

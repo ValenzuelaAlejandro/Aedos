@@ -1,7 +1,10 @@
 /* eslint-disable max-lines-per-function, complexity */
+const { countSlides, countCompleteSlides } = require('../../pipeline/slide-output');
+
+const { VALID_LANGUAGES } = require('../../contracts/request-normalizers');
 
 function ensureDocumentLanguage(html, language) {
-    const value = language === 'en' ? 'en' : 'es';
+    const value = VALID_LANGUAGES.includes(language) && language !== 'auto' ? language : 'es';
     return html.replace(/<html\b([^>]*)>/i, (tag, attributes) => {
         const withoutLang = attributes.replace(/\s+lang\s*=\s*(["'])[^"']*\1/i, '');
         return `<html${withoutLang} lang="${value}">`;
@@ -11,14 +14,15 @@ function ensureDocumentLanguage(html, language) {
 /**
  * Normalize, validate and sanitize the complete streamed HTML response.
  *
- * @param {{fullHtml: string, usePipeline: boolean, requestId: string, opciones: any, res: any, maxProSlides: number, maxFlashSlides: number, sanitizeGeneratedHtml: Function, injectLayoutSafetyNet: Function, sanitizerLog: any, ErrorCategory: any, isDevelopment: boolean, tmpDir: string, fs: any, path: any, devLog: any, classifyError: Function, vendorAssets: {lucide: {url: string, integrity: string}}}} deps
- * @returns {{type: string, html?: string, message?: string}}
+ * @param {{fullHtml: string, usePipeline: boolean, requestId: string, opciones: any, requestedSlides: number, res: any, maxProSlides: number, maxFlashSlides: number, sanitizeGeneratedHtml: Function, injectLayoutSafetyNet: Function, sanitizerLog: any, ErrorCategory: any, isDevelopment: boolean, tmpDir: string, fs: any, path: any, devLog: any, classifyError: Function, vendorAssets: {lucide: {url: string, integrity: string}}}} deps
+ * @returns {{type: string, html?: string, message?: string, deliveredSlides?: number}}
  */
 function processGeneratedOutput({
     fullHtml,
     usePipeline,
     requestId,
     opciones,
+    requestedSlides,
     res,
     maxProSlides,
     maxFlashSlides,
@@ -71,19 +75,10 @@ function processGeneratedOutput({
     if (/<html\b[^>]*>/i.test(cleanedOutput)) cleanedOutput = ensureDocumentLanguage(cleanedOutput, opciones.targetLanguage);
 
     const MAX_SLIDES = usePipeline ? maxProSlides : maxFlashSlides;
-    const slideTagRe = /<section[^>]*\bclass="[^"]*\bs\b[^"]*"[^>]*>/gi;
-    const slideMatches = [...cleanedOutput.matchAll(slideTagRe)];
-    if (slideMatches.length > MAX_SLIDES) {
-        const cutIndex = slideMatches[MAX_SLIDES].index;
-        const bodyClose = cleanedOutput.lastIndexOf('</body>');
-        const scripts = bodyClose !== -1 ? cleanedOutput.slice(bodyClose) : '</body></html>';
-        cleanedOutput = cleanedOutput.slice(0, cutIndex) + '\n' + scripts;
-        sanitizerLog.info(ErrorCategory.SANITIZER, 'Trimmed extra slides in sanitizer', {
-            requestId,
-            beforeSlides: slideMatches.length,
-            maxSlides: MAX_SLIDES
-        });
-    }
+    const slideMatches = countSlides(cleanedOutput);
+    const targetSlides = Number.isSafeInteger(requestedSlides) ? requestedSlides : MAX_SLIDES;
+    if (slideMatches > MAX_SLIDES || slideMatches > targetSlides) throw new Error('SLIDE_COUNT_EXCEEDED');
+    if (slideMatches === 0 || countCompleteSlides(cleanedOutput) !== slideMatches) throw new Error('SLIDES_INCOMPLETE_EMPTY');
 
     const overflowScrollRe = /\boverflow-y\s*:\s*(auto|scroll)\b/gi;
     const overflowShorthandRe = /\boverflow\s*:\s*(auto|scroll)\b/gi;
@@ -121,6 +116,9 @@ function processGeneratedOutput({
 
     cleanedOutput = sanitizeGeneratedHtml(cleanedOutput);
     cleanedOutput = injectLayoutSafetyNet(cleanedOutput);
+    const deliveredSlides = countCompleteSlides(cleanedOutput);
+    if (deliveredSlides !== slideMatches) throw new Error('SLIDE_COUNT_CHANGED_BY_SANITIZER');
+    if (deliveredSlides > MAX_SLIDES || deliveredSlides > targetSlides) throw new Error('SLIDE_COUNT_EXCEEDED');
 
     const lucideSrc = vendorAssets.lucide.url;
     const lucideIntegrity = vendorAssets.lucide.integrity;
@@ -197,7 +195,7 @@ function processGeneratedOutput({
         });
     }
 
-    return { type: 'html', html: cleanedOutput };
+    return { type: 'html', html: cleanedOutput, deliveredSlides };
 }
 
 module.exports = { processGeneratedOutput, ensureDocumentLanguage };

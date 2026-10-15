@@ -2,6 +2,7 @@ node_modules/
 .env
 aedos.env
 .env.production
+.env.preprod
 tmp/
 *.pdf
 .cache/puppeteer

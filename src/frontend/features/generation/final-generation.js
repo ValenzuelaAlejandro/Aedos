@@ -17,7 +17,7 @@
                 setStabilizeMinimapOnNextPreviewInit, slideDots, slideLabel,
                 stopBtnMessages, resetMobileZoomState, updateZoomDisplay,
                 clearStageInlinePadding, updateMinimapSkeleton, requestAnimationFrame } = getDeps();
-            const { generation, iframeDoc, previewMarkupBuffer, G_FONTS, loadingHtml, tema, previewLabel, hasTransitioned } =
+            const setup =
                 window.AedosGeneration.createFinalGenerationSetup({
                     window, document, generationState, previewState, previewUiState,
                     previewContainer, previewHeader, chatScreen, slideDots, slideLabel,
@@ -26,6 +26,8 @@
                     clearStageInlinePadding, setPreviewStreamStatus, updateMinimapSkeleton,
                     requestAnimationFrame, setTimeout, clearTimeout,
                 });
+            const { generation, G_FONTS, loadingHtml, tema, previewLabel, hasTransitioned } = setup;
+            let { iframeDoc, previewMarkupBuffer } = setup;
             const creditRequestId = window.AedosCredits.createRequestId();
     
             try {
@@ -37,7 +39,7 @@
                 const controller = new AbortController();
                 generationState.activeController = controller;
 
-                const requestedSlides = Math.min(window.AedosCreditsUI.getSlideCount(), Math.max(1, Array.isArray(skeleton?.slides) ? skeleton.slides.length : 8));
+                const requestedSlides = window.AedosCreditsUI.getSlideCount();
                 let bodyData = window._pendingGenerateBodyData;
                 // eslint-disable-next-line prefer-const -- Retain the existing request assembly unchanged.
                 let headers = window._pendingGenerateHeaders || {};
@@ -64,6 +66,7 @@
                     parsed.skeleton = skeleton;
                     // The server must validate modelId and compute the authoritative cost; client fields are untrusted.
                     parsed.modelId = generationState.selectedModelId || parsed.modelId || 'google/gemini-3-flash-preview';
+                    parsed.conversationId = window.AedosConversation?.getId() || parsed.conversationId;
                     parsed.slides = requestedSlides;
                     parsed.requestId = creditRequestId;
                     // Restore actual generation mode (skeleton was tagged 'chat' for rate limiting)
@@ -80,7 +83,7 @@
     
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    if (response.status === 402 || errorData.code === 'INSUFFICIENT_CREDITS') {
+                    if (response.status === 402 || errorData.code === 'INSUFFICIENT_USAGE') {
                         await window.AedosCreditsUI?.refresh();
                     }
                     const serverErr = errorData.error || `Server error: ${response.status}`;
@@ -93,12 +96,13 @@
     
                 const reader = response.body.getReader();
                 let firstWrite = true;
+                let partialSlidesWarning = null;
                 const _generateReasoningAiBody = (() => {
                     const _aiMessages = document.querySelectorAll('.chat-msg-ai');
                     const _latestAi = _aiMessages[_aiMessages.length - 1];
                     return _latestAi && _latestAi.querySelector('.chat-ai-body');
                 })();
-                const writeInitialStreamMarkup = window.AedosPreview.createInitialStreamMarkup({
+                const makeInitialMarkup = () => window.AedosPreview.createInitialStreamMarkup({
                     window,
                     iframeDoc,
                     generationState,
@@ -106,6 +110,15 @@
                     reasoningBody: _generateReasoningAiBody,
                     fontLinks: G_FONTS,
                     loadingHtml,
+                });
+                let writeInitialStreamMarkup = makeInitialMarkup();
+                const retryStatus = window.AedosStreamRetry.create({
+                    getLanguage: () => window.AedosStreamRetry.language(generationState, skeleton?.language),
+                    normal: 'slides',
+                    setText: text => {
+                        setPreviewStreamStatus(text);
+                        window.AedosThinking?.setStatusText(_generateReasoningAiBody, text);
+                    }
                 });
                 // Safety timeout: if no SSE data arrives within a period, abort to prevent
                 // an infinite hang when the server closes without sending {done:true}.
@@ -129,19 +142,28 @@
                     flushTail: true,
                     onChunk: resetWatchdog
                 });
-                for await (const { data: dataStr, tail } of generationEvents) {
-                    if (tail) {
-                        try {
-                            const parsed = JSON.parse(dataStr);
-                            if (parsed.chunk) previewMarkupBuffer.queue(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
-                            if (parsed.done && parsed.html) previewState.generatedHtml = parsed.html;
-                        // eslint-disable-next-line no-empty -- Preserve the original optional SSE-tail parse guard.
-                        } catch (e) { }
-                        continue;
-                    }
+                for await (const { data: dataStr } of generationEvents) {
                     if (dataStr.trim() === '[DONE]') continue;
                     let parsed;
-                    try { parsed = JSON.parse(dataStr); } catch (e) { continue; }
+                    try { parsed = JSON.parse(dataStr); } catch (cause) { throw new Error('The presentation response was interrupted. Please try again.', { cause }); }
+                    if (parsed.reset || (parsed.pipeline && parsed.status === 'retrying')) {
+                        ({ iframeDoc, previewMarkupBuffer } = window.AedosStreamRetry.resetPreview({
+                            previewState, previewMarkupBuffer, previewContainer, document, setTimeout, clearTimeout
+                        }));
+                        previewUiState.minimapAlreadyInit = false;
+                        previewUiState.toolsAlreadyInit = false;
+                        firstWrite = true;
+                        writeInitialStreamMarkup = makeInitialMarkup();
+                        window.AedosThinking?.resetReasoning(_generateReasoningAiBody);
+                        previewContainer.dataset.retrying = 'true';
+                        retryStatus.reset();
+                        continue;
+                    }
+                    if (parsed.resumed) {
+                        previewContainer.dataset.retrying = 'false';
+                        retryStatus.content();
+                        continue;
+                    }
     
                             if (parsed.queued === true) {
                                 pauseBtnMessages();
@@ -165,6 +187,7 @@
                             // update the panel's accent color and label.
                             if (parsed.reasoning && typeof parsed.reasoning === 'string') {
                                 appendReasoningProgress(parsed);
+                                if (retryStatus.retrying) retryStatus.reset();
                                 continue;
                             }
     
@@ -174,11 +197,13 @@
                                 continue;
                             }
     
-                                if (parsed.chunk) {
+                            if (parsed.chunk) {
+                                    previewContainer.dataset.retrying = 'false';
                                     if (firstWrite) {
                                         firstWrite = false;
                                         writeInitialStreamMarkup();
                                     }
+                                    if (!parsed.replay) retryStatus.content();
                                     previewMarkupBuffer.queue(window.AedosContentUtils.sanitizeModelOutput(parsed.chunk));
                             }
                             if (parsed.refused) {
@@ -206,6 +231,8 @@
                                 continue;
                             }
                             if (parsed.done) {
+                                partialSlidesWarning = parsed.warning?.code === 'SLIDES_INCOMPLETE'
+                                    ? parsed.warning : null;
                                 previewState.generatedHtml = parsed.html;
                                 let displayTitle = tema;
                                 const configMatch = previewState.generatedHtml.match(/<!--\s*CONFIG\s*([\s\S]*?)\s*-->/i);
@@ -232,6 +259,7 @@
                                     else previewLabel.textContent = displayTitle;
                                 }
                                 previewState.currentTitle = displayTitle;
+                                break;
                             }
                 }
     
@@ -251,11 +279,21 @@
                     setTimeout
                 })();
                 window.AedosCreditsUI?.refresh();
+                if (partialSlidesWarning) {
+                    const message = window.__t('generation.partialSlides',
+                        'Some slides could not be completed. The presentation contains {delivered} of {requested} slides.');
+                    window.AedosModals?.showNotice(message
+                        .replace('{delivered}', String(partialSlidesWarning.delivered))
+                        .replace('{requested}', String(partialSlidesWarning.requested)));
+                }
     
             } catch (error) {
                 window.AedosCreditsUI?.refresh();
                 previewMarkupBuffer.clearTimer();
                 previewMarkupBuffer.markClosed();
+                ({ iframeDoc } = window.AedosStreamRetry.resetPreview({
+                    previewState, previewMarkupBuffer, previewContainer, document, setTimeout, clearTimeout
+                }));
                 if (generationState.activeGeneration === generation) {
                     generationState.activeGeneration = null;
                     clearPendingTransition();

@@ -57,11 +57,16 @@ const { createLogger, classifyError, ErrorCategory } = require('./utils/logger')
 const { verifyConnection: verifyRedis, checkRateLimits, checkFinalizeLimits } = require('./utils/rate-limiter');
 const { spendGuard } = require('./utils/spend-guard');
 const { creditsLedger: redisCreditsLedger, createMemoryCreditsLedger } = require('./utils/credits-ledger');
+const { createConversationStore } = require('./utils/conversation-store');
+const { recordChatUsage } = require('./providers/telemetry');
 
 const log = createLogger({ scope: 'SERVER' });
 // Tests always isolate credit state, including tests that exercise real provider HTTP seams.
 const creditsLedger = process.env.NODE_ENV === 'test'
-    ? createMemoryCreditsLedger() : redisCreditsLedger;
+    ? createMemoryCreditsLedger({ schemaDaily: 1000 }) : redisCreditsLedger;
+const conversationStore = createConversationStore({
+    redis: process.env.NODE_ENV === 'test' ? () => null : undefined
+});
 const providerLog = log.child('PROVIDER');
 const queueLog = log.child('QUEUE');
 const sanitizerLog = log.child('SANITIZER');
@@ -249,7 +254,6 @@ section.s[style*='flex-direction:row'] .flex-col:has(> .card:nth-of-type(3)) > .
 const { createProviderRuntime } = require('./providers/runtime');
 const {
     tryModelsFlash,
-    tryModelsStage1,
     tryModelsStage1Thinking,
     tryModelsStage2Thinking,
     trySelectedStage1Thinking,
@@ -295,14 +299,17 @@ const handleGenerateSkeleton = createSkeletonHandler({
     discardUploadedFiles,
     hasGeminiRequestAvailable,
     creditsLedger,
+    conversationStore,
+    recordChatUsage,
     log,
     ErrorCategory
 });
 const handleGenerateOutlineItem = createOutlineItemHandler({
     buildAddSlidePrompt,
     buildAddPointPrompt,
-    tryModelsStage1,
+    trySelectedStage1Thinking,
     creditsLedger,
+    recordChatUsage,
     extractJson,
     ERROR_TEXT,
     log,
@@ -326,6 +333,7 @@ registerBackendRoutes({
     checkGenerationPressure,
     checkRateLimits,
     creditsLedger,
+    conversationStore,
     handleGenerateSkeleton,
     handleGenerateOutlineItem,
     generationQueue,
@@ -394,10 +402,9 @@ process.on('uncaughtException', (err) => {
 
 process.on('unhandledRejection', (reason) => {
     try {
+        const error = reason instanceof Error ? reason : new Error(String(reason));
         log.error(ErrorCategory.UNKNOWN, 'Unhandled promise rejection caught, process kept alive', {
-            error: reason && reason.stack
-                ? String(reason.stack).split('\n').slice(0, 6).join(' | ')
-                : String(reason)
+            error: error.stack ? String(error.stack).split('\n').slice(0, 6).join(' | ') : error.message
         });
     } catch (_) { /* logging must never crash */ }
 });

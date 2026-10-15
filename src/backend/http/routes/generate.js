@@ -5,9 +5,10 @@ const { processGeneratedOutput } = require('./generate-output');
 const { handleGenerationError } = require('./generate-errors');
 const vendorAssets = require('../../../frontend/features/shared/vendor-assets');
 const { resolveModelId, validateModelForGeneration, validateAttachments } = require('../../config/model-catalog');
+const { quoteModel } = require('../middleware/generation-credits');
+const { countCompleteSlides, extractCompleteSlides, appendSlides, buildMissingSlidesPrompt } = require('../../pipeline/slide-output');
 const {
     normalizeMode,
-    normalizeRequestedLanguage,
     normalizeValidatedLanguage,
     normalizeSlides,
     normalizeSkeletonValue,
@@ -51,7 +52,12 @@ function createGenerateHandler(deps) {
                 await deps.discardUploadedFiles?.(req.files);
                 return res.status(422).json({ error: modelSelection.message, code: modelSelection.code });
             }
-            const requestedLanguage = normalizeRequestedLanguage(req.body);
+            const languageResult = normalizeValidatedLanguage(req.body);
+            if (!languageResult.valid) {
+                deps.log.warn(deps.ErrorCategory.VALIDATION, 'Language validation failed', { requestId, idioma: req.body.language || req.body.idioma || 'auto' });
+                return res.status(422).json(deps.validationFailed(languageResult.fields));
+            }
+            const requestedLanguage = languageResult.idioma;
             if (typeof opciones.skeleton === 'string') {
                 const originalSkeleton = opciones.skeleton;
                 opciones.skeleton = normalizeSkeletonValue(originalSkeleton);
@@ -91,20 +97,12 @@ function createGenerateHandler(deps) {
             const slidesResult = normalizeSlides(req.body);
             if (!slidesResult.valid) {
                 deps.log.warn(deps.ErrorCategory.VALIDATION, 'Slides validation failed', { requestId, slides: req.body.slides });
-                return res.status(422).json(deps.validationFailed({ slides: 'must be integer between 1 and 15' }));
+                return res.status(422).json(deps.validationFailed(slidesResult.fields));
             }
 
             const slideHardLimit = usePipeline ? deps.MAX_PRO_SLIDES : deps.MAX_FLASH_SLIDES;
-            let slidesNum = slidesResult.requestedSlides;
-            if (slidesResult.capped) {
-                deps.log.warn(deps.ErrorCategory.VALIDATION, 'Slides capped to mode hard limit', {
-                    requestId,
-                    requestedSlides: slidesNum,
-                    appliedLimit: slideHardLimit
-                });
-                slidesNum = slidesResult.slides;
-                opciones.slides = slidesNum;
-            }
+            const slidesNum = slidesResult.slides;
+            opciones.slides = slidesNum;
             const modelCompatibility = validateModelForGeneration(modelSelection.model, normalizeMode(req.body), slidesNum);
             if (!modelCompatibility.valid) {
                 await deps.discardUploadedFiles?.(req.files);
@@ -120,12 +118,6 @@ function createGenerateHandler(deps) {
                     await deps.discardUploadedFiles?.(req.files);
                     return res.status(422).json({ error: attachmentValidation.message, code: attachmentValidation.code });
                 }
-            }
-
-            const languageResult = normalizeValidatedLanguage(req.body);
-            if (!languageResult.valid) {
-                deps.log.warn(deps.ErrorCategory.VALIDATION, 'Language validation failed', { requestId, idioma: req.body.idioma || 'es' });
-                return res.status(422).json(deps.validationFailed(languageResult.fields));
             }
 
             const hasProviderCredentials = deps.hasProviderCredentials
@@ -157,6 +149,9 @@ function createGenerateHandler(deps) {
             let hasStartedValidContent = false;
             let selectedRoute = null;
             let pipelineResult = null;
+            const consume = (streamResult, response, id, cancelledRef, hardLimit, options) => deps.consumeModelStream(
+                { log: deps.log, ErrorCategory: deps.ErrorCategory }, streamResult, response, id, cancelledRef, hardLimit, options
+            );
 
             if (!usePipeline) {
                 const flashOut = await deps.runFlashGenerationWithRetry({
@@ -165,9 +160,10 @@ function createGenerateHandler(deps) {
                     requestId,
                     opciones,
                     fileContext,
-                    slideHardLimit,
+                    slideHardLimit: slidesNum,
                     tryModelsFlash: (prompt, flashFileContext) => trySelectedFlash(prompt, flashFileContext, {
                         selectedModel: modelSelection.model,
+                        expectedMaxSlides: slidesNum,
                         attachmentsRequireGemini: hasAttachments,
                         modelRoute: { requestedModelId: modelSelection.requestedModelId,
                             effectiveModelId: modelSelection.requestedModelId, fallbackReason: null }
@@ -175,8 +171,8 @@ function createGenerateHandler(deps) {
                     buildPrompt: deps.buildPrompt,
                     log: deps.log,
                     ErrorCategory: deps.ErrorCategory,
-                    consumeStream: (streamResult, response, id, cancelledRef, hardLimit) => deps.consumeModelStream(
-                        { log: deps.log, ErrorCategory: deps.ErrorCategory }, streamResult, response, id, cancelledRef, hardLimit
+                    consumeStream: (streamResult, response, id, cancelledRef, hardLimit) => consume(
+                        streamResult, response, id, cancelledRef, hardLimit
                     )
                 });
                 fullHtml = flashOut.fullHtml;
@@ -191,19 +187,24 @@ function createGenerateHandler(deps) {
                     fileContext,
                     skeleton: opciones.skeleton,
                     maxSlides: slideHardLimit,
-                    tryModelsStage1: (prompt, stageFiles, options) => deps.tryModelsStage1Thinking(prompt, stageFiles, {
+                    requestedSlides: slidesNum,
+                    tryModelsStage1: (prompt, stageFiles, options) => (deps.trySelectedStage1Thinking || deps.tryModelsStage1Thinking)(prompt, stageFiles, {
                         ...options,
+                        expectedOutput: 'outline',
+                        selectedModel: modelSelection.model,
                         attachmentsRequireGemini: Array.isArray(stageFiles) && stageFiles.length > 0,
                         modelRoute: { requestedModelId: modelSelection.requestedModelId,
                             effectiveModelId: null, fallbackReason: null }
                     }),
-                    tryModelsStage2: (prompt, stageFiles, options) => deps.tryModelsStage2Thinking(prompt, stageFiles, {
+                    tryModelsStage2: (prompt, stageFiles, options) => (deps.trySelectedStage2Thinking || deps.tryModelsStage2Thinking)(prompt, stageFiles, {
                         ...options,
+                        selectedModel: modelSelection.model,
                         modelRoute: { requestedModelId: modelSelection.requestedModelId,
                             effectiveModelId: null, fallbackReason: null }
                     }),
                     tryModelsStage3: (prompt, stageFiles, options) => trySelectedStage3Thinking(prompt, stageFiles, {
                         ...options,
+                        expectedMaxSlides: slidesNum,
                         selectedModel: modelSelection.model,
                         modelRoute: { requestedModelId: modelSelection.requestedModelId,
                             effectiveModelId: modelSelection.requestedModelId, fallbackReason: null }
@@ -217,6 +218,14 @@ function createGenerateHandler(deps) {
                         }
                     },
                     onChunk: (item) => {
+                        if (item?.type === 'resumed' && !cancelled && !res.writableEnded && !res.destroyed) {
+                            res.write(`data: ${JSON.stringify({ resumed: true, stage: item.stage })}\n\n`);
+                            return;
+                        }
+                        if (item?.type === 'reset' && !cancelled && !res.writableEnded && !res.destroyed) {
+                            res.write(`data: ${JSON.stringify({ reset: true, stage: item.stage, attempt: item.attempt })}\n\n`);
+                            return;
+                        }
                         if (!cancelled && !res.writableEnded && !res.destroyed && item && item.type === 'reasoning' && item.stage !== 'stage3') {
                             try {
                                 res.write(`data: ${JSON.stringify({ reasoning: item.text, stage: item.stage })}\n\n`);
@@ -243,7 +252,7 @@ function createGenerateHandler(deps) {
                 const proStream = await deps.consumeModelStream(
                     { log: deps.log, ErrorCategory: deps.ErrorCategory },
                     pipelineResult.stage3Stream,
-                    res, requestId, () => cancelled, slideHardLimit
+                    res, requestId, () => cancelled, slidesNum
                 );
                 fullHtml = proStream.fullHtml;
                 hasStartedValidContent = proStream.hasStartedValidContent;
@@ -255,11 +264,68 @@ function createGenerateHandler(deps) {
                 return;
             }
 
+            // Complete only missing trailing slides with the originally selected model.
+            // Each repair batch is isolated; provider resets replay only accepted HTML.
+            let deliveredSlides = countCompleteSlides(fullHtml);
+            if (deliveredSlides > slidesNum) throw new Error('SLIDE_COUNT_EXCEEDED');
+            let repairRoute = null;
+            for (let repairRound = 0; deliveredSlides > 0 && deliveredSlides < slidesNum && repairRound < 5; repairRound += 1) {
+                const batchSize = Math.min(3, slidesNum - deliveredSlides);
+                const repairPrompt = buildMissingSlidesPrompt({
+                    topic: opciones.tema,
+                    language: targetLang,
+                    requestedSlides: slidesNum,
+                    firstMissingIndex: deliveredSlides + 1,
+                    count: batchSize,
+                    outline: pipelineResult?.contentJson?.slides || opciones.skeleton?.slides,
+                    acceptedHtml: fullHtml
+                });
+                try {
+                    const callRepairModel = usePipeline
+                        ? () => trySelectedStage3Thinking(repairPrompt, null, {
+                            selectedModel: modelSelection.model,
+                            expectedMaxSlides: batchSize,
+                            modelRoute: { requestedModelId: modelSelection.requestedModelId,
+                                effectiveModelId: modelSelection.requestedModelId, fallbackReason: null }
+                        })
+                        : () => trySelectedFlash(repairPrompt, fileContext, {
+                            selectedModel: modelSelection.model,
+                            expectedMaxSlides: batchSize,
+                            modelRoute: { requestedModelId: modelSelection.requestedModelId,
+                                effectiveModelId: modelSelection.requestedModelId, fallbackReason: null }
+                        });
+                    const repairResult = await callRepairModel();
+                    repairRoute = repairResult?.modelRoute || repairRoute;
+                    const repaired = await consume(repairResult, res, requestId, () => cancelled, batchSize,
+                        { baselineHtml: fullHtml });
+                    const repairSlides = extractCompleteSlides(repaired.repairHtml || repaired.fullHtml);
+                    if (!repairSlides.length) {
+                        res.write(`data: ${JSON.stringify({ reset: true, stage: 'content' })}\n\n`);
+                        res.write(`data: ${JSON.stringify({ chunk: fullHtml, replay: true })}\n\n`);
+                        break;
+                    }
+                    fullHtml = appendSlides(fullHtml, repairSlides.slice(0, batchSize));
+                    deliveredSlides = countCompleteSlides(fullHtml);
+                } catch (repairError) {
+                    deps.log.warn(deps.ErrorCategory.PIPELINE, 'Missing slide repair exhausted for selected model', {
+                        requestId, selectedModelId: modelSelection.requestedModelId,
+                        requestedSlides: slidesNum, deliveredSlides, repairRound: repairRound + 1,
+                        reason: repairError.message
+                    });
+                    if (!cancelled && !res.writableEnded && !res.destroyed) {
+                        res.write(`data: ${JSON.stringify({ reset: true, stage: 'content' })}\n\n`);
+                        res.write(`data: ${JSON.stringify({ chunk: fullHtml, replay: true })}\n\n`);
+                    }
+                    break;
+                }
+            }
+
             const output = processGeneratedOutput({
                 fullHtml,
                 usePipeline,
                 requestId,
                 opciones,
+                requestedSlides: slidesNum,
                 res,
                 maxProSlides: deps.MAX_PRO_SLIDES,
                 maxFlashSlides: deps.MAX_FLASH_SLIDES,
@@ -281,15 +347,19 @@ function createGenerateHandler(deps) {
                 return;
             } else {
                 const modelRoute = usePipeline ? pipelineResult?.stage3Stream?.modelRoute : selectedRoute;
-                const effectiveModelRoute = modelRoute || {
+                const effectiveModelRoute = repairRoute || modelRoute || {
                     requestedModelId: modelSelection.requestedModelId,
                     effectiveModelId: modelSelection.requestedModelId,
                     fallbackReason: null
                 };
-                if (req.creditReservation && !(await deps.creditsLedger.commit(req.creditReservation))) {
-                    throw new Error('CREDITS_UNAVAILABLE');
+                const actualCost = req.creditReservation
+                    ? quoteModel(modelSelection.model, output.deliveredSlides, slidesNum, normalizeMode(req.body)) : 0;
+                if (req.creditReservation && !(await deps.creditsLedger.commit(req.creditReservation, actualCost))) {
+                    throw new Error('USAGE_UNAVAILABLE');
                 }
                 res.write(`data: ${JSON.stringify({ done: true, html: output.html,
+                    ...(output.deliveredSlides < slidesNum ? { warning: { code: 'SLIDES_INCOMPLETE',
+                        requested: slidesNum, delivered: output.deliveredSlides } } : {}),
                     requestedModelId: effectiveModelRoute.requestedModelId,
                     effectiveModelId: effectiveModelRoute.effectiveModelId,
                     fallbackReason: effectiveModelRoute.fallbackReason })}\n\n`);
@@ -299,6 +369,7 @@ function createGenerateHandler(deps) {
             res.end();
             creditDelivered = output.type === 'html';
         } catch (error) {
+            if (cancelled || res.destroyed) return;
             handleGenerationError({
                 error,
                 requestId,
@@ -327,7 +398,7 @@ function createGenerateHandler(deps) {
  */
 function registerGenerateRoute(deps) {
     const handler = createGenerateHandler(deps);
-    deps.app.post('/generate', deps.upload.array('files', deps.maxUploadArrayFields), express.json({ limit: '50kb' }), deps.checkGenerationPressure, deps.validateModelRequest, deps.checkRateLimits, deps.reserveGenerationCredits, async (req, res) => handler(req, res));
+    deps.app.post('/generate', deps.upload.array('files', deps.maxUploadArrayFields), express.json({ limit: '50kb' }), deps.checkGenerationPressure, deps.validateModelRequest, deps.requireConversation, deps.checkRateLimits, deps.reserveGenerationCredits, async (req, res) => handler(req, res));
 }
 
 module.exports = { createGenerateHandler, registerGenerateRoute };

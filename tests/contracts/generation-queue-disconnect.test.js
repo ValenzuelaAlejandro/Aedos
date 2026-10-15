@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const crypto = require('node:crypto');
 
 process.env.NODE_ENV = 'test';
 process.env.GEMINI_API_KEY = 'queue-test-stub';
@@ -22,7 +23,7 @@ function deferred() {
     return { promise, resolve };
 }
 
-function rawPost(agent, port, topic) {
+function rawPost(agent, port, topic, conversationId) {
     const responseReady = deferred();
     const responseEnded = deferred();
     const events = [];
@@ -56,7 +57,8 @@ function rawPost(agent, port, topic) {
         responseReady.resolve({ error });
         responseEnded.resolve();
     });
-    request.end(JSON.stringify({ tema: topic, idioma: 'es', slides: 1, mode: 'flash' }));
+    request.end(JSON.stringify({ tema: topic, idioma: 'es', slides: 1, mode: 'flash',
+        modelId: 'google/gemini-3-flash-preview', conversationId }));
     return {
         request,
         events,
@@ -84,11 +86,21 @@ function waitForStart(starts, index, timeoutMs = 1500) {
     ]);
 }
 
+async function seedConversation(port, topic, conversationId) {
+    const response = await fetch(`http://127.0.0.1:${port}/generate-skeleton`, {
+        method: 'POST', headers: { 'content-type': 'application/json', 'Idempotency-Key': `seed-${topic}` },
+        body: JSON.stringify({ tema: topic, language: 'es', slides: 1, mode: 'flash',
+            modelId: 'google/gemini-3-flash-preview', conversationId }),
+    });
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /"done":true/);
+}
+
 test('queued generation survives request close, enforces capacity, resumes in order and removes real disconnects', async () => {
     const providerGates = [deferred(), deferred(), deferred()];
     const providerStarts = [];
     const startSignals = [];
-    setTestProviderOverride(async () => {
+    const providerOverride = async () => {
         const index = providerStarts.length;
         providerStarts.push(index);
         startSignals[index]?.();
@@ -100,7 +112,7 @@ test('queued generation survives request close, enforces capacity, resumes in or
                 yield '<!-- CONFIG test --><html><head><style>section.s{width:1280px;height:720px}</style></head><body><section class="s"><h1>Queue test</h1></section></body></html>';
             })(),
         };
-    });
+    };
 
     const server = app.listen(0, '127.0.0.1');
     await new Promise((resolve) => server.once('listening', resolve));
@@ -112,12 +124,17 @@ test('queued generation survives request close, enforces capacity, resumes in or
     let fourth;
     let fifth;
     try {
-        first = rawPost(agent, port, 'first');
+        const conversations = Object.fromEntries(['first', 'second', 'third', 'disconnecting', 'fifth']
+            .map(topic => [topic, crypto.randomUUID()]));
+        clearTestProviderOverride();
+        for (const [topic, id] of Object.entries(conversations)) await seedConversation(port, topic, id);
+        setTestProviderOverride(providerOverride);
+        first = rawPost(agent, port, 'first', conversations.first);
         await waitForStart(startSignals, 0);
-        second = rawPost(agent, port, 'second');
+        second = rawPost(agent, port, 'second', conversations.second);
         await second.waitForEvent((event) => event.queued === true);
         assert.equal(second.request.socket.destroyed, false);
-        third = rawPost(agent, port, 'third');
+        third = rawPost(agent, port, 'third', conversations.third);
         assert.equal(await third.responseReady, 429);
         const thirdBody = await third.responseEnded;
         assert.deepEqual(JSON.parse(thirdBody), {
@@ -128,11 +145,11 @@ test('queued generation survives request close, enforces capacity, resumes in or
 
         providerGates[0].resolve();
         await waitForStart(startSignals, 1);
-        fourth = rawPost(agent, port, 'disconnecting');
+        fourth = rawPost(agent, port, 'disconnecting', conversations.disconnecting);
         await fourth.waitForEvent((event) => event.queued === true);
         fourth.destroy();
         await new Promise((resolve) => setTimeout(resolve, 50));
-        fifth = rawPost(agent, port, 'fifth');
+        fifth = rawPost(agent, port, 'fifth', conversations.fifth);
         await fifth.waitForEvent((event) => event.queued === true);
         const thirdProviderStarted = waitForStart(startSignals, 2);
         providerGates[1].resolve();

@@ -11,7 +11,7 @@
     --tp-border-soft: color-mix(in srgb, var(--text, #ededed) 5%, transparent);
     --tp-text: var(--text, #ededed);
     --tp-muted: var(--muted, #9a9a9a);
-    --tp-faint: rgba(255, 255, 255, 0.55);
+    --tp-faint: var(--text-secondary, var(--text));
     --tp-accent: var(--accent, #e0e0e0);
     --tp-radius: 13px;
     --tp-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Fira Code', Menlo, Consolas, monospace;
@@ -110,7 +110,7 @@
     font-weight: 650;
     letter-spacing: 0.09em;
     text-transform: uppercase;
-    color: var(--tp-muted);
+    color: var(--tp-text);
     line-height: 1;
 }
 

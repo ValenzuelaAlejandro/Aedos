@@ -10,15 +10,15 @@ test('main style sheets preserve their source cascade order as a contiguous grou
     const stylesheetHrefs = [...html.matchAll(/<link\b[^>]*>/g)]
         .map(([tag]) => tag)
         .filter((tag) => /\brel="stylesheet"/.test(tag))
-        .map((tag) => tag.match(/\bhref="([^"]+)"/)?.[1])
+        .map((tag) => tag.match(/\bhref="([^"]+)"/)?.[1]?.split('?')[0])
         .filter(Boolean);
     const expected = [
-        'styles/foundation.css?v=1',
-        'styles/chat.css?v=1',
-        'styles/settings.css?v=1',
-        'styles/dialogs.css?v=1',
-        'styles/preview.css?v=1',
-        'styles/workspace.css?v=1',
+        'styles/foundation.css',
+        'styles/chat.css',
+        'styles/settings.css',
+        'styles/dialogs.css',
+        'styles/preview.css',
+        'styles/workspace.css',
     ];
     const start = stylesheetHrefs.indexOf(expected[0]);
 

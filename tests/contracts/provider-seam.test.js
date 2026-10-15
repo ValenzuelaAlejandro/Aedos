@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { randomUUID } = require('node:crypto');
 
 process.env.NODE_ENV = 'test';
 process.env.GEMINI_API_KEY = 'provider-seam-stub';
@@ -20,24 +21,35 @@ test.after(() => clearTestProviderOverride());
 
 test('test-only provider seam can return a deterministic fallback-shaped response', async () => {
     const calls = [];
-    setTestProviderOverride(({ stageName, openrouterModels }) => {
-        calls.push({ stageName, openrouterModels });
+    setTestProviderOverride(({ stageName, openrouterModels, options }) => {
+        calls.push({ stageName, openrouterModels, expectedOutput: options.expectedOutput });
+        const output = options.expectedOutput === 'outline-item'
+            ? JSON.stringify({ title: 'Injected item', role: 'concept', key_points: [] })
+            : JSON.stringify({ slides: [{ title: 'Seed slide', key_points: ['Seed point'] }] });
         return {
             provider: 'openrouter',
             model: 'test/fallback',
             stream: (async function* () {
-                yield JSON.stringify({ title: 'Injected item', role: 'concept', key_points: [] });
+                yield output;
             })(),
         };
     });
     const server = app.listen(0);
     await new Promise((resolve) => server.once('listening', resolve));
     try {
-        const response = await fetch(`http://127.0.0.1:${server.address().port}/generate-outline-item`, json({ type: 'slide', topic: 'Injected' }));
+        const conversationId = randomUUID();
+        const origin = `http://127.0.0.1:${server.address().port}`;
+        const start = await fetch(`${origin}/generate-skeleton`, json({ tema: 'Injected', conversationId,
+            modelId: 'google/gemini-3-flash-preview', mode: 'flash', slides: 1 }));
+        assert.equal(start.status, 200);
+        await start.text();
+        const response = await fetch(`${origin}/generate-outline-item`, json({ type: 'slide', topic: 'Injected', conversationId,
+            modelId: 'google/gemini-3-flash-preview', mode: 'flash' }));
         assert.equal(response.status, 200);
         assert.deepEqual(await response.json(), { item: { title: 'Injected item', role: 'concept', key_points: [] } });
-        assert.equal(calls[0].stageName, 'Stage1');
-        assert.ok(Array.isArray(calls[0].openrouterModels));
+        assert.equal(calls.at(-1).stageName, 'Stage1');
+        assert.equal(calls.at(-1).expectedOutput, 'outline-item');
+        assert.ok(Array.isArray(calls.at(-1).openrouterModels));
     } finally {
         await new Promise((resolve) => server.close(resolve));
     }

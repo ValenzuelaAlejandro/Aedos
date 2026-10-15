@@ -4,14 +4,11 @@ const { resolveModelId, validateModelForGeneration } = require('../../config/mod
 const { normalizeSlides, normalizeMode } = require('../../contracts/request-normalizers');
 const { readRequestId, getRequestIp, resetAt } = require('../../utils/credits-ledger');
 
-function quoteModel(model, slides) {
-    if (model.billing === 'perPresentation' && Number.isSafeInteger(model.creditsPerPresentation)) {
-        return model.creditsPerPresentation;
-    }
-    if (model.billing === 'perSlide' && Number.isSafeInteger(model.creditsPerSlide)) {
-        return slides * model.creditsPerSlide;
-    }
-    throw new Error('INVALID_MODEL_BILLING');
+function quoteModel(model, slides, requestedSlides = slides, mode = 'flash') {
+    const rate = model?.usagePerSlideUnits?.[mode];
+    if (!Number.isSafeInteger(rate) || rate <= 0 || !Number.isSafeInteger(slides) || slides < 0
+        || !Number.isSafeInteger(requestedSlides) || requestedSlides < slides) throw new Error('INVALID_MODEL_USAGE_RATE');
+    return slides * rate;
 }
 
 function createGenerationCreditsMiddleware({ ledger }) {
@@ -23,25 +20,26 @@ function createGenerationCreditsMiddleware({ ledger }) {
         const compatibility = validateModelForGeneration(selection.model, normalizeMode(req.body), slides.slides);
         if (!compatibility.valid) return res.status(422).json({ error: compatibility.message, code: compatibility.code,
             maxSlides: compatibility.maxSlides });
-        const cost = quoteModel(selection.model, slides.slides);
+        const mode = normalizeMode(req.body);
+        const cost = quoteModel(selection.model, slides.slides, slides.slides, mode);
         const requestId = readRequestId(req);
         if (!requestId) return res.status(400).json({ error: 'IDEMPOTENCY_KEY_REQUIRED' });
         try {
             const reservation = await ledger.reserve(getRequestIp(req), cost, requestId);
-            if (!reservation.allowed && reservation.code === 'INSUFFICIENT_CREDITS') {
-                return res.status(402).json({ error: 'INSUFFICIENT_CREDITS', code: 'INSUFFICIENT_CREDITS',
-                    cost, remaining: reservation.remaining, resetsAt: resetAt(new Date()).toISOString(),
-                    message: 'Choose a lower-cost model or fewer slides, or try again after the daily reset.' });
+            if (!reservation.allowed && reservation.code === 'INSUFFICIENT_USAGE') {
+                return res.status(402).json({ error: 'INSUFFICIENT_USAGE', code: 'INSUFFICIENT_USAGE',
+                    costUnits: cost, remainingUnits: reservation.remaining, resetsAt: resetAt(new Date()).toISOString(),
+                    message: 'This presentation exceeds your remaining daily usage. Choose fewer slides, another model, or try again after the reset.' });
             }
             if (!reservation.allowed) {
                 return res.status(409).json({ error: reservation.code || 'CREDIT_REQUEST_ALREADY_APPLIED' });
             }
             req.creditReservation = reservation;
             req.creditCost = cost;
-            req.effectiveMode = normalizeMode(req.body);
+            req.effectiveMode = mode;
             return next();
         } catch (_) {
-            return res.status(503).json({ error: 'CREDITS_UNAVAILABLE', message: 'Credits are temporarily unavailable. Try again shortly.' });
+            return res.status(503).json({ error: 'USAGE_UNAVAILABLE', message: 'Daily usage is temporarily unavailable. Try again shortly.' });
         }
     };
 }

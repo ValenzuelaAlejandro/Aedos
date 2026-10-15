@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { MODEL_CATALOG } = require('../../config/model-catalog');
 const { getSpendStatus } = require('../../utils/spend-guard');
+const { preproductionAttestation } = require('../../utils/preproduction-isolation');
 
 /**
  * Register health, root and development inspection endpoints.
@@ -20,8 +21,8 @@ function registerEntryRoutes({ app, tmpDir, isDevelopment }) {
                 tier: model.tier,
                 paid: model.paid,
                 billing: model.billing,
-                creditsPerSlide: model.billing === 'perSlide' ? model.creditsPerSlide : undefined,
-                creditsPerPresentation: model.billing === 'perPresentation' ? model.creditsPerPresentation : undefined,
+                usagePerSlideUnits: model.usagePerSlideUnits,
+                chatReservationUnits: model.chatReservationUnits,
                 attachments: model.attachments,
                 modes: model.modes,
                 maxSlides: model.maxSlides,
@@ -32,6 +33,8 @@ function registerEntryRoutes({ app, tmpDir, isDevelopment }) {
     });
 
     app.get('/health', (req, res) => {
+        const verification = preproductionAttestation();
+        if (verification) return res.status(200).json({ status: 'OK', verification });
         res.status(200).send('OK');
     });
 

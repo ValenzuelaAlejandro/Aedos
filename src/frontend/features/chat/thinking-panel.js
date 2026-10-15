@@ -459,7 +459,25 @@
         return aiBody.__aedosThinkingRefs ? aiBody.__aedosThinkingRefs.root : null;
     }
 
+    function setStatusText(aiBody, text) {
+        const localState = getState(aiBody);
+        if (!localState) return;
+        localState.refs.statusTextEl.textContent = text;
+    }
+
+    function resetReasoning(aiBody) {
+        const localState = getState(aiBody);
+        if (!localState) return;
+        localState.fullReasoning = '';
+        localState.receivedReasoning = false;
+        localState.refs.contentEl.replaceChildren();
+        localState.refs.root.classList.remove('is-collapsed');
+        localState.refs.root.classList.add('is-active');
+    }
+
     window.AedosThinking = {
+        setStatusText,
+        resetReasoning,
         show,
         appendReasoning,
         updateStatus,

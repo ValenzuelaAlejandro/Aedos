@@ -44,6 +44,7 @@
         }
 
         const creditsUI = window.AedosCreditsUI;
+        const newConversationBtn = document.getElementById('new-conversation-btn');
         const brands = new Set(['gemini', 'openai', 'anthropic', 'nvidia']);
         let paymentsPaused = false;
         function brandFor(model) {
@@ -76,7 +77,7 @@
             paymentsPaused = paused;
             modelOptions.replaceChildren();
             if (creditsUI) creditsUI.setModels(models);
-            const visibleModels = models.filter(model => !paused || model.tier === 'free');
+            const visibleModels = models.filter(model => !paused || model.tier === 'free' || model.id === generationState.selectedModelId);
             ['free', 'light', 'standard'].forEach(tier => {
                 const tierModels = visibleModels.filter(model => model.tier === tier);
                 if (!tierModels.length) return;
@@ -89,16 +90,16 @@
                     option.type = 'button';
                     option.className = 'dropdown-item model-dropdown-item';
                     option.dataset.modelId = model.id;
+                    option.dataset.paid = String(model.paid === true);
+                    option.disabled = paused && model.paid === true;
                     option.setAttribute('role', 'menuitemradio');
                     option.setAttribute('aria-checked', String(model.id === generationState.selectedModelId));
                     const icon = document.createElement('span'); renderBrandIcon(icon, model); icon.setAttribute('aria-hidden', 'true');
                     const name = document.createElement('span'); name.className = 'model-option-name';
                     name.textContent = model.name;
                     const quote = creditsUI.getQuote(1, model);
-                    const costKey = quote.billing === 'perPresentation'
-                        ? (quote.rate === 1 ? 'credits.perPresentationOne' : 'credits.perPresentationMany')
-                        : (quote.rate === 1 ? 'credits.perSlideOne' : 'credits.perSlideMany');
-                    const cost = document.createElement('span'); cost.className = 'model-option-cost'; cost.textContent = window.__t(costKey).replace('{n}', quote.rate);
+                    const cost = document.createElement('span'); cost.className = 'model-option-cost';
+                    cost.textContent = window.__t('credits.perSlideMany').replace('{n}', String(quote.ratePercent));
                     option.append(icon, name, cost);
                     if (model.id === generationState.selectedModelId) option.classList.add('active');
                     modelOptions.appendChild(option);
@@ -109,11 +110,11 @@
             if (pausedMessage) pausedMessage.textContent = window.__t('credits.paidPaused');
             if (paused) creditsUI?.updateStatus('credits.paidPaused', 'paused');
             else if (document.getElementById('credits-status')?.dataset.state === 'paused') creditsUI?.updateStatus('');
-            if (!visibleModels.some(model => model.id === generationState.selectedModelId) && visibleModels[0]) selectModel(visibleModels[0]);
-            else {
+            {
                 const selected = visibleModels.find(model => model.id === generationState.selectedModelId);
                 if (selected) selectModel(selected);
             }
+            setConversationLock(window.AedosConversation?.isActive?.() === true);
         }
         if (modelBtn && modelMenu) {
             modelBtn.addEventListener('click', (e) => {
@@ -127,7 +128,7 @@
             });
             modelMenu.addEventListener('click', (e) => {
                 const item = e.target.closest('.model-dropdown-item[data-model-id]');
-                if (!item) return;
+                if (!item || item.disabled || window.AedosConversation?.isActive?.()) return;
                 const model = (creditsUI?.getModels() || window.MODEL_CATALOG || []).find(entry => entry.id === item.dataset.modelId);
                 if (!model) return;
                 selectModel(model);
@@ -144,15 +145,36 @@
             modeToggle.setAttribute('data-tooltip', tip);
             modeToggle.title = tip;
         }
+        function setConversationLock(locked) {
+            if (modelBtn) {
+                modelBtn.disabled = locked;
+                modelBtn.setAttribute('aria-disabled', String(locked));
+                if (locked) { modelMenu?.classList.add('hidden'); modelBtn.setAttribute('aria-expanded', 'false'); }
+            }
+            if (modeToggle) {
+                modeToggle.disabled = locked;
+                modeToggle.setAttribute('aria-disabled', String(locked));
+            }
+            modelOptions?.querySelectorAll('.model-dropdown-item').forEach(option => {
+                option.disabled = locked || (paymentsPaused && option.dataset.paid === 'true');
+                option.setAttribute('aria-disabled', String(option.disabled));
+            });
+            if (newConversationBtn) newConversationBtn.hidden = !locked;
+        }
+        newConversationBtn?.addEventListener('click', () => window.AedosConversation?.startNew());
+        window.addEventListener('aedos:conversation-lock-changed', event => setConversationLock(Boolean(event.detail?.locked)));
+        setConversationLock(window.AedosConversation?.isActive?.() === true);
+        // eslint-disable-next-line complexity -- The event keeps model and slide controls synchronized with the selected mode.
         modeToggle?.addEventListener('click', () => {
+            if (window.AedosConversation?.isActive?.()) return;
             const oldCount = creditsUI?.getSlideCount() || 1;
             generationState.proModeEnabled = !generationState.proModeEnabled;
             renderModeToggle();
             chatInputWrapper?.classList.toggle('is-pro', generationState.proModeEnabled);
             creditsUI?.setSlideCount(oldCount);
-            if (generationState.proModeEnabled && oldCount > window.MAX_SLIDES_BY_MODE.pro) {
-                creditsUI?.showModeClampNotice(window.MAX_SLIDES_BY_MODE.pro);
-            }
+            const adjustedCount = creditsUI?.getSlideCount() || oldCount;
+            if (adjustedCount < oldCount) creditsUI?.showModeClampNotice(adjustedCount,
+                generationState.proModeEnabled ? 'pro' : 'flash');
             renderModels(creditsUI?.getModels() || window.MODEL_CATALOG || [], paymentsPaused);
         });
         renderModeToggle();

@@ -1,77 +1,58 @@
 {
-  "totalWarnings": 57,
+  "totalWarnings": 31,
   "byRule": {
-    "no-empty": 2,
-    "complexity": 12,
-    "max-lines-per-function": 13,
-    "max-lines": 6,
-    "no-unused-vars": 13,
+    "complexity": 9,
     "no-shadow": 3,
+    "max-lines": 2,
+    "max-lines-per-function": 8,
     "eqeqeq": 1,
-    "prefer-const": 3,
-    "no-undef": 4
+    "no-undef": 4,
+    "prefer-const": 2,
+    "no-empty": 1,
+    "no-unused-vars": 1
   },
   "byFile": {
-    "scripts\\verify-pptx-export.js": 2,
-    "src\\backend\\prompts\\base.js": 2,
-    "src\\backend\\prompts\\pipeline.js": 1,
-    "src\\backend\\prompts\\stage1-content.js": 1,
-    "src\\backend\\prompts\\stage2-design.js": 2,
-    "src\\backend\\prompts\\stage3-compositor.js": 2,
-    "src\\backend\\server.js": 5,
-    "src\\backend\\utils\\logger.js": 1,
-    "src\\backend\\utils\\pptx-export.js": 11,
-    "src\\backend\\utils\\rate-limiter.js": 1,
-    "src\\frontend\\editor\\editor-ui.js": 2,
-    "src\\frontend\\features\\minimap\\minimap.js": 5,
-    "src\\frontend\\features\\shared\\i18n.js": 2,
-    "src\\frontend\\features\\shared\\init.js": 2,
-    "src\\frontend\\features\\tools\\tools.js": 5,
-    "src\\frontend\\mobile\\js\\app-mobile.js": 1,
-    "src\\frontend\\mobile\\js\\bridge.js": 5,
-    "src\\frontend\\scripts\\app.js": 6,
-    "tests\\pptx-export-advanced.test.js": 1
+    "src/backend/utils/pptx-export.js": 10,
+    "src/frontend/editor/editor-ui.js": 2,
+    "src/frontend/features/minimap/minimap.js": 5,
+    "src/frontend/features/shared/init.js": 2,
+    "src/frontend/features/tools/tools.js": 5,
+    "src/frontend/mobile/js/bridge.js": 2,
+    "src/frontend/scripts/app.js": 4,
+    "tests/pptx-export-advanced.test.js": 1
   },
   "topFiles": [
     [
-      "src\\backend\\utils\\pptx-export.js",
-      11
+      "src/backend/utils/pptx-export.js",
+      10
     ],
     [
-      "src\\frontend\\scripts\\app.js",
-      6
-    ],
-    [
-      "src\\backend\\server.js",
+      "src/frontend/features/minimap/minimap.js",
       5
     ],
     [
-      "src\\frontend\\features\\minimap\\minimap.js",
+      "src/frontend/features/tools/tools.js",
       5
     ],
     [
-      "src\\frontend\\features\\tools\\tools.js",
-      5
+      "src/frontend/scripts/app.js",
+      4
     ],
     [
-      "src\\frontend\\mobile\\js\\bridge.js",
-      5
-    ],
-    [
-      "scripts\\verify-pptx-export.js",
+      "src/frontend/editor/editor-ui.js",
       2
     ],
     [
-      "src\\backend\\prompts\\base.js",
+      "src/frontend/features/shared/init.js",
       2
     ],
     [
-      "src\\backend\\prompts\\stage2-design.js",
+      "src/frontend/mobile/js/bridge.js",
       2
     ],
     [
-      "src\\backend\\prompts\\stage3-compositor.js",
-      2
+      "tests/pptx-export-advanced.test.js",
+      1
     ]
   ]
 }

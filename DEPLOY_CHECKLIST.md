@@ -14,7 +14,7 @@ Configure these names in the production environment. Put credentials in the secr
 | `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL (secret/config value) |
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token (secret) |
 | `PAID_SPEND_DAILY_USD` | `0.25` (daily paid-provider ceiling) |
-| `PAID_SPEND_MONTHLY_USD` | Set the approved monthly ceiling |
+| `PAID_SPEND_MONTHLY_USD` | `1.00` (monthly paid-provider ceiling) |
 | `PAID_BALANCE_FLOOR_USD` | Set the approved minimum balance floor |
 | `GEMINI_DAILY_APP_CAP` | Set the application request cap within the Google project quota |
 | `OPENROUTER_REASONING_EFFORT_SCHEMA` | Set the approved schema-stage effort |

@@ -16,11 +16,13 @@ const { formatSseEvent } = require('../contracts/sse');
  * @param {string} requestId request identifier
  * @param {Function} cancelledRef cancellation predicate
  * @param {number} slideHardLimit slide limit
- * @returns {Promise<{fullHtml: string, hasStartedValidContent: boolean, streamSlideCount: number}>}
+ * @returns {Promise<{fullHtml: string, repairHtml: string, hasStartedValidContent: boolean, streamSlideCount: number}>}
  */
-async function consumeModelStream(deps, streamResult, res, requestId, cancelledRef, slideHardLimit) {
+async function consumeModelStream(deps, streamResult, res, requestId, cancelledRef, slideHardLimit, options = {}) {
     const { log, ErrorCategory } = deps;
-    let fullHtml = '';
+    let fullHtml = options.baselineHtml || '';
+    let repairHtml = '';
+    let repairVisible = '';
     let hasStartedValidContent = false;
     let streamSlideCount = 0;
     const maxStreamChars = 2_000_000;
@@ -47,6 +49,18 @@ async function consumeModelStream(deps, streamResult, res, requestId, cancelledR
                 break;
             }
             if (res.writableEnded || res.destroyed) break;
+            if (item?.type === 'reset') {
+                fullHtml = options.baselineHtml || ''; repairHtml = ''; repairVisible = '';
+                hasStartedValidContent = Boolean(options.baselineHtml);
+                streamSlideCount = 0;
+                res.write(formatSseEvent({ reset: true, stage: item.stage, attempt: item.attempt }));
+                if (options.baselineHtml) res.write(formatSseEvent({ chunk: options.baselineHtml, replay: true }));
+                continue;
+            }
+            if (item?.type === 'metadata') {
+                res.write(formatSseEvent({ metadata: { provider: item.provider, model: item.model } }));
+                continue;
+            }
 
             let chunkText = null;
             if (item && typeof item === 'object' && typeof item.text === 'string') {
@@ -66,22 +80,50 @@ async function consumeModelStream(deps, streamResult, res, requestId, cancelledR
             if (matches) {
                 streamSlideCount += matches.length;
                 if (streamSlideCount > slideHardLimit) {
-                    log.warn(ErrorCategory.VALIDATION, 'Stream exceeded slide hard limit, stopping generation', {
+                    log.warn(ErrorCategory.VALIDATION, 'Stream exceeded slide hard limit; rejecting the attempt', {
                         requestId,
                         streamSlideCount,
                         slideHardLimit
                     });
-                    break;
+                    throw new Error('SLIDE_COUNT_EXCEEDED');
                 }
             }
 
             fullHtml += chunkText;
+            if (options.baselineHtml) repairHtml += chunkText;
             if (fullHtml.length > maxStreamChars) {
                 log.warn(ErrorCategory.VALIDATION, 'Generation stream exceeded HTML size limit', {
                     requestId,
                     maxStreamChars
                 });
                 throw new Error('GENERATION_OUTPUT_TOO_LARGE');
+            }
+
+            if (options.baselineHtml) {
+                // Repair providers return a document-shaped response, but the
+                // accepted presentation already owns its CSS and HTML shell.
+                // Stream only the new slide sections into that document.
+                const firstSlide = repairHtml.search(slideTagRegex);
+                if (firstSlide !== -1) {
+                    let nextVisibleRepair = repairHtml.slice(firstSlide);
+                    nextVisibleRepair = nextVisibleRepair
+                        .replace(/<!doctype[^>]*>/gi, '')
+                        .replace(/<\/?(?:html|head|body)\b[^>]*>/gi, '')
+                        .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+                    nextVisibleRepair = cleanSSEChunk(nextVisibleRepair);
+                    const lastTagStart = nextVisibleRepair.lastIndexOf('<');
+                    if (lastTagStart !== -1
+                        && !nextVisibleRepair.slice(lastTagStart).includes('>')
+                        && /^<\/?[A-Za-z0-9:-]*$/.test(nextVisibleRepair.slice(lastTagStart))) {
+                        nextVisibleRepair = nextVisibleRepair.slice(0, lastTagStart);
+                    }
+                    if (nextVisibleRepair.startsWith(repairVisible)) {
+                        const delta = nextVisibleRepair.slice(repairVisible.length);
+                        repairVisible = nextVisibleRepair;
+                        if (delta) res.write(formatSseEvent({ chunk: delta }));
+                    }
+                }
+                continue;
             }
 
             let cleanChunk = cleanSSEChunk(chunkText);
@@ -105,7 +147,7 @@ async function consumeModelStream(deps, streamResult, res, requestId, cancelledR
                 res.write(formatSseEvent({ chunk: cleanChunk }));
             }
     }
-    return { fullHtml, hasStartedValidContent, streamSlideCount };
+    return { fullHtml, repairHtml, hasStartedValidContent, streamSlideCount };
 }
 
 /**
@@ -118,7 +160,7 @@ async function runFlashGenerationWithRetry(deps) {
         cancelledRef, res, requestId, opciones, fileContext, slideHardLimit,
         tryModelsFlash, buildPrompt, log, ErrorCategory, consumeStream
     } = deps;
-    const FLASH_MAX_RETRIES = 2;
+    const FLASH_MAX_RETRIES = 1;
     let lastError;
     for (let attempt = 1; attempt <= FLASH_MAX_RETRIES + 1; attempt++) {
         if (cancelledRef()) throw new Error('GENERATION_CANCELLED');
@@ -129,7 +171,7 @@ async function runFlashGenerationWithRetry(deps) {
                 status: 'retrying',
                 attempt: attempt - 1,
                 maxAttempts: FLASH_MAX_RETRIES + 1,
-                error: lastError ? lastError.message : 'AI returned bad output'
+                reset: true
             }));
             await new Promise(r => setTimeout(r, 500 * (attempt - 1)));
             if (cancelledRef()) throw new Error('GENERATION_CANCELLED');

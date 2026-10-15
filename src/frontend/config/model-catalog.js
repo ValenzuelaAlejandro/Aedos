@@ -9,10 +9,11 @@
             provider: 'Google',
             brand: 'gemini',
             tier: 'free',
-            billing: 'perPresentation',
-            creditsPerPresentation: 10,
+            billing: 'perSlide',
+            usagePerSlideUnits: { flash: 1600, pro: 3200 },
             paid: false,
             modes: ['flash', 'pro'],
+            maxSlides: { flash: 8, pro: 15 },
         },
         {
             id: 'nvidia/nemotron-3.5-lightning',
@@ -21,10 +22,10 @@
             brand: 'nvidia',
             tier: 'light',
             billing: 'perSlide',
-            creditsPerSlide: 2,
+            usagePerSlideUnits: { flash: 800, pro: 1600 },
             paid: true,
             modes: ['flash', 'pro'],
-            maxSlides: { flash: 8, pro: 8 },
+            maxSlides: { flash: 8, pro: 15 },
         },
         {
             id: 'openai/gpt-6-luna',
@@ -33,9 +34,10 @@
             brand: 'openai',
             tier: 'standard',
             billing: 'perSlide',
-            creditsPerSlide: 3,
+            usagePerSlideUnits: { flash: 1200, pro: 2400 },
             paid: true,
             modes: ['flash', 'pro'],
+            maxSlides: { flash: 8, pro: 15 },
         },
         {
             id: 'anthropic/claude-haiku-5.5',
@@ -44,13 +46,14 @@
             brand: 'anthropic',
             tier: 'standard',
             billing: 'perSlide',
-            creditsPerSlide: 3,
+            usagePerSlideUnits: { flash: 1200, pro: 2400 },
             paid: true,
             modes: ['flash', 'pro'],
+            maxSlides: { flash: 8, pro: 15 },
         },
     ];
 
-    global.MAX_SLIDES_BY_MODE = Object.freeze({ flash: 15, pro: 8 });
+    global.MAX_SLIDES_BY_MODE = Object.freeze({ flash: 8, pro: 15 });
     // Pure ranges based on the active mode's maximum, never on the credit balance.
     global.getSlideZones = function getSlideZones(max) {
         const limit = Math.max(1, Math.floor(Number(max) || 1));

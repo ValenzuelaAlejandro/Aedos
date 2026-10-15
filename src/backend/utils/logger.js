@@ -1,3 +1,4 @@
+const { redactText, redactSecrets } = require('./redact-secrets');
 const COLORS = {
   reset: '\x1b[0m',
   dim: '\x1b[2m',
@@ -66,14 +67,14 @@ function formatError(error) {
 
   return {
     name: error.name,
-    code: error.code,
+    code: /** @type {NodeJS.ErrnoException} */ (error).code,
     message: clip(error.message || ''),
     stack: clip(error.stack || '', 600)
   };
 }
 
 function serializeMeta(meta = {}) {
-  const entries = Object.entries(meta).filter(([, value]) => value !== undefined);
+  const entries = Object.entries(redactSecrets(meta)).filter(([, value]) => value !== undefined);
   if (entries.length === 0) return '';
 
   return entries
@@ -101,21 +102,17 @@ function serializeMeta(meta = {}) {
     .join(' ');
 }
 
+/** @type {Array<[string, RegExp]>} */
+const ERROR_PATTERNS = [
+  ['QUOTA', /quota_exhausted|429|quota/], ['PIPELINE', /stage1_|stage2_|content_rejected|pipeline/],
+  ['SECURITY', /cors/], ['VALIDATION', /validation|invalid|must be/], ['PUPPETEER', /puppeteer/],
+  ['STREAM', /stream/], ['MODEL', /model|not available|not found/],
+  ['NETWORK', /fetch|network|econn|etimedout/], ['FILESYSTEM', /enoent|eacces|file/]
+];
 function classifyError(error, fallback = ErrorCategory.UNKNOWN) {
-  const raw = `${error?.name || ''} ${error?.message || error || ''}`.toLowerCase();
-
-  if (!raw.trim()) return fallback;
-  if (raw.includes('quota_exhausted') || raw.includes('429') || raw.includes('quota')) return ErrorCategory.QUOTA;
-  if (raw.includes('stage1_') || raw.includes('stage2_') || raw.includes('content_rejected') || raw.includes('pipeline')) return ErrorCategory.PIPELINE;
-  if (raw.includes('cors') || raw.includes('not allowed by cors')) return ErrorCategory.SECURITY;
-  if (raw.includes('validation') || raw.includes('invalid') || raw.includes('must be')) return ErrorCategory.VALIDATION;
-  if (raw.includes('puppeteer')) return ErrorCategory.PUPPETEER;
-  if (raw.includes('parse stream') || raw.includes('stream')) return ErrorCategory.STREAM;
-  if (raw.includes('model') || raw.includes('not available') || raw.includes('not found')) return ErrorCategory.MODEL;
-  if (raw.includes('fetch') || raw.includes('network') || raw.includes('econn') || raw.includes('etimedout')) return ErrorCategory.NETWORK;
-  if (raw.includes('enoent') || raw.includes('eacces') || raw.includes('file')) return ErrorCategory.FILESYSTEM;
-
-  return fallback;
+  const raw = String(error?.name || '') + ' ' + String(error?.message || error || '');
+  const match = ERROR_PATTERNS.find(([, pattern]) => pattern.test(raw.toLowerCase()));
+  return match ? ErrorCategory[match[0]] : fallback;
 }
 
 function createLogger({ scope = 'APP', minLevel = process.env.LOG_LEVEL || DEFAULT_LEVEL } = {}) {
@@ -135,7 +132,7 @@ function createLogger({ scope = 'APP', minLevel = process.env.LOG_LEVEL || DEFAU
     const style = LEVEL_STYLE[level] || LEVEL_STYLE.info;
     const timestamp = new Date().toISOString();
     const levelToken = decorate(style, `${style.icon} ${style.label}`);
-    const lineStart = `${timestamp} ${levelToken} [${scope}] [${category || 'GENERAL'}] ${message}`;
+    const lineStart = redactText(`${timestamp} ${levelToken} [${scope}] [${category || 'GENERAL'}] ${message}`);
     const metaText = serializeMeta(meta);
     const finalLine = metaText ? `${lineStart} | ${metaText}` : lineStart;
 
@@ -157,7 +154,7 @@ function createLogger({ scope = 'APP', minLevel = process.env.LOG_LEVEL || DEFAU
     const list = Array.isArray(lines) ? lines : String(lines).split('\n');
     for (const line of list) {
       const text = colorEnabled ? `${palette}${line}${reset}` : line;
-      process.stdout.write(`${text}\n`);
+      process.stdout.write(`${redactText(text)}\n`);
     }
   }
 

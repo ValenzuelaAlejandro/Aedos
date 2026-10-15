@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { spawn, spawnSync } = require('child_process');
+const net = require('net');
 
 const root = path.resolve(__dirname, '..');
 const fixtureDir = path.join(root, 'tests', 'fixtures');
@@ -12,8 +13,20 @@ const outputDir = path.resolve(
         : path.join(root, 'tmp', 'verify-pptx'),
 );
 const hashes = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'HASHES.json'), 'utf8'));
-const port = 3000;
+let port;
 const skipCom = process.argv.includes('--skip-com');
+
+function findAvailablePort() {
+    return new Promise((resolve, reject) => {
+        const probe = net.createServer();
+        probe.once('error', reject);
+        probe.listen(0, '127.0.0.1', () => {
+            const address = probe.address();
+            const selected = address && typeof address === 'object' ? address.port : null;
+            probe.close((error) => error ? reject(error) : resolve(selected));
+        });
+    });
+}
 
 function sha256(file) {
     return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -24,14 +37,17 @@ function sleep(ms) {
 async function waitForServer() {
     for (let i = 0; i < 60; i++) {
         try {
-            const response = await fetch(`http://localhost:${port}/`);
+            const response = await fetch(`http://127.0.0.1:${port}/`);
             if (response.status < 500) return;
-        } catch {}
+        } catch {
+            // The isolated server may still be starting; retry below.
+        }
         await sleep(500);
     }
-    throw new Error('server did not become ready on port 3000');
+    throw new Error(`server did not become ready on port ${port}`);
 }
 async function main() {
+    port = await findAvailablePort();
     for (const fixture of hashes) {
         const actual = sha256(path.join(fixtureDir, fixture.file));
         if (actual !== fixture.sha256) throw new Error(`fixture hash changed: ${fixture.file}`);
@@ -40,27 +56,23 @@ async function main() {
     fs.mkdirSync(outputDir, { recursive: true });
     let server;
     try {
-        try {
-            await waitForServer();
-        } catch {
-            server = spawn(process.execPath, [path.join(root, 'src', 'backend', 'server.js')], {
-                cwd: root,
-                stdio: 'inherit',
-                env: { ...process.env, LIMITS_FINALIZE_MAX: '100' },
-            });
-            await waitForServer();
-        }
+        server = spawn(process.execPath, [path.join(root, 'src', 'backend', 'server.js')], {
+            cwd: root,
+            stdio: 'inherit',
+            env: { ...process.env, PORT: String(port), LIMITS_FINALIZE_MAX: '100' },
+        });
+        await waitForServer();
         for (const fixture of hashes) {
             const name = fixture.file.replace(/^pptx-/, '').replace(/\.html$/, '');
             const html = fs.readFileSync(path.join(fixtureDir, fixture.file), 'utf8');
-            const response = await fetch(`http://localhost:${port}/finalize-pptx?debug=1`, {
+            const response = await fetch(`http://127.0.0.1:${port}/finalize-pptx?debug=1`, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ html, title: `verify ${name}` }),
             });
             const payload = await response.json();
             if (!response.ok) throw new Error(`${fixture.file}: ${JSON.stringify(payload)}`);
-            const file = await fetch(`http://localhost:${port}${payload.pptxUrl}`);
+            const file = await fetch(`http://127.0.0.1:${port}${payload.pptxUrl}`);
             fs.writeFileSync(
                 path.join(outputDir, `${name}.pptx`),
                 Buffer.from(await file.arrayBuffer()),

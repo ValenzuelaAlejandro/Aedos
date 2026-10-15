@@ -71,12 +71,22 @@
   },
   {
     "type": "route",
+    "path": "/api/usage",
+    "methods": [
+      "get"
+    ],
+    "stack": [
+      "usageHandler"
+    ]
+  },
+  {
+    "type": "route",
     "path": "/api/credits",
     "methods": [
       "get"
     ],
     "stack": [
-      "<anonymous>"
+      "usageHandler"
     ]
   },
   {
@@ -113,6 +123,8 @@
     "stack": [
       "jsonParser",
       "checkGenerationPressure",
+      "validateModelRequest",
+      "lockConversation",
       "checkRateLimits",
       "<anonymous>"
     ]
@@ -128,6 +140,7 @@
       "jsonParser",
       "checkGenerationPressure",
       "validateModelRequest",
+      "lockConversation",
       "checkRateLimits",
       "reserveGenerationCredits",
       "<anonymous>"

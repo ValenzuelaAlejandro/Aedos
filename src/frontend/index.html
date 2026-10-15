@@ -29,35 +29,38 @@
     <link rel="stylesheet" href="features/minimap/minimap.css?v=3">
     <link rel="stylesheet" href="features/tools/tools.css?v=3">
     <link rel="stylesheet" href="features/chat/thinking-panel.css?v=9">
-    <link rel="stylesheet" href="styles/foundation.css?v=5">
-    <link rel="stylesheet" href="styles/chat.css?v=14">
+    <link rel="stylesheet" href="styles/foundation.css?v=6">
+    <link rel="stylesheet" href="styles/chat.css?v=15">
     <link rel="stylesheet" href="styles/settings.css?v=2">
     <link rel="stylesheet" href="styles/dialogs.css?v=3">
     <link rel="stylesheet" href="styles/preview.css?v=12">
     <link rel="stylesheet" href="styles/workspace.css?v=10">
     <link rel="stylesheet" href="styles/outline.css?v=39">
     <link rel="stylesheet" href="mobile/css/style-mobile-overrides.css?v=1">
-    <link rel="stylesheet" href="mobile/css/index.css?v=9">
+    <link rel="stylesheet" href="mobile/css/index.css?v=10">
     <link rel="stylesheet" href="styles/typography.css?v=1">
     <!-- Parser-blocking loader keeps third-party globals in their original load order. -->
     <script src="features/shared/vendor-assets.js?v=1"></script>
     <!-- i18n Translation System -->
-    <script src="features/shared/i18n.js?v=16"></script>
+    <script src="features/shared/i18n-en.js?v=1"></script>
+    <script src="features/shared/i18n-es.js?v=1"></script>
+    <script src="features/shared/i18n.js?v=17"></script>
     <script src="features/shared/logger.js?v=1"></script>
     <script type="module" src="features/shared/http-sse.js?v=1"></script>
-    <script src="config/model-catalog.js?v=5"></script>
+    <script src="config/model-catalog.js?v=6"></script>
     <script src="features/shared/outline-store.js?v=2"></script>
     <script src="features/shared/generation-store.js?v=2"></script>
     <script src="features/shared/preview-editor-store.js?v=1"></script>
-    <script src="features/credits/credits-service.js?v=3"></script>
+    <script src="features/credits/credits-service.js?v=4"></script>
     <script src="features/credits/credits-popover.js?v=1"></script>
     <script src="features/credits/credits-slide-view.js?v=1"></script>
-    <script src="features/credits/credits-ui.js?v=9"></script>
+    <script src="features/credits/credits-ui.js?v=10"></script>
     <script src="features/shared/theme-controller.js?v=1"></script>
     <script src="features/minimap/minimap-view.js?v=1"></script>
     <script src="features/minimap/minimap.js?v=3"></script>
     <script src="features/shared/init.js?v=1"></script>
       <script src="features/chat/orb-avatar.js?v=12"></script>
+    <script src="features/chat/conversation.js?v=1"></script>
       <script src="features/chat/thinking-panel.js?v=14"></script>
       <script src="features/chat/attachment-renderer.js?v=1"></script>
       <script src="features/chat/attachments.js?v=5"></script>
@@ -72,7 +75,8 @@
     <script src="features/generation/approved-outline-proceed.js?v=4"></script>
     <script src="features/generation/stage-progress.js?v=2"></script>
     <script src="features/generation/reasoning-progress.js?v=3"></script>
-    <script src="features/generation/skeleton-generation.js?v=5"></script>
+    <script src="features/generation/retry-status.js?v=1"></script>
+    <script src="features/generation/skeleton-generation.js?v=6"></script>
     <script src="features/generation/final-setup.js?v=3"></script>
     <script src="features/generation/final-generation.js?v=6"></script>
     <script src="features/preview/overlay-style.js?v=1"></script>
@@ -129,23 +133,23 @@
                     <span class="top-brand-name" data-i18n="brand_name">Aedos</span>
                 </div>
                 <div class="top-controls">
-                    <a class="home-donation-link" href="https://ko-fi.com/valenzuelacastrojesusalejandro" target="_blank" rel="noopener noreferrer" data-i18n-title="support_on_kofi">
+                    <a class="home-donation-link" href="https://ko-fi.com/valenzuelacastrojesusalejandro" target="_blank" rel="noopener noreferrer" data-i18n-title="support_on_kofi" data-i18n-aria-label="support_on_kofi">
                         <img class="kofi-cup-icon" src="assets/images/kofi-official-icon.avif" alt="" aria-hidden="true">
                         <span data-i18n="support">Support</span>
                     </a>
                     <div class="credits-header-control">
                         <button type="button" id="credits-balance-trigger" class="credits-balance-chip" aria-expanded="false" aria-controls="credits-popover" data-i18n-aria-label="credits.balanceTitle">
                             <svg class="credits-ring" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle class="credits-ring-track" cx="12" cy="12" r="8"/><circle class="credits-ring-arc" cx="12" cy="12" r="8"/></svg>
-                            <span id="credits-balance"></span>
+                            <span id="credits-balance"><span id="credits-balance-percent"></span> <span id="credits-balance-label" data-i18n="credits.chipLabel"></span></span>
                         </button>
                         <div id="credits-popover" class="credits-popover" role="dialog" data-i18n-aria-label="credits.balanceTitle" hidden>
                             <div class="credits-popover-head"><strong><svg class="credits-ring" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle class="credits-ring-track" cx="12" cy="12" r="8"/><circle class="credits-ring-arc" cx="12" cy="12" r="8"/></svg><span data-i18n="credits.balanceTitle"></span></strong><span id="credits-popover-balance"></span></div>
-                            <div class="credits-progress" role="meter" data-i18n-aria-label="credits.progressAria" aria-valuemin="0" aria-valuemax="50" aria-valuenow="50"><span id="credits-progress-fill"></span></div>
+                            <div class="credits-progress" role="meter" data-i18n-aria-label="credits.progressAria" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span id="credits-progress-fill"></span></div>
                             <p id="credits-reset-time" class="credits-reset-label"></p>
                             <p class="credits-rates" data-i18n="credits.rates"></p>
                         </div>
                     </div>
-                    <a href="https://discord.gg/63tgKMUUmw" target="_blank" rel="noopener noreferrer" class="theme-toggle-btn" aria-label="Join Discord" data-i18n-title="discord" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">
+                    <a id="discord-community-link" href="https://discord.gg/63tgKMUUmw" target="_blank" rel="noopener noreferrer" class="theme-toggle-btn" aria-label="Join Discord" data-i18n-title="discord" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true">
                             <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
                         </svg>
@@ -254,6 +258,7 @@
                 </div>
             </div>
             <div id="credits-status" class="credits-status hidden" role="status" aria-live="polite"></div>
+            <button type="button" id="new-conversation-btn" class="new-conversation-btn" data-i18n="conversation.new" hidden></button>
             <div id="slide-count-mode-notice" class="slide-count-mode-notice" role="status" hidden></div>
 
             <div class="suggestion-pills-row" id="suggestion-pills-row">
@@ -630,13 +635,13 @@
                              are captured here; pinch/pan are handled in JS,
                              single-finger events are forwarded as Mouse events. -->
                         <div id="touch-capture-overlay"></div>
+                        <div class="preview-stream-orb-overlay" aria-hidden="true">
+                            <span class="preview-stream-orb"></span>
+                        </div>
+                        <div id="preview-stream-status" class="preview-stream-status" role="status" aria-live="polite">
+                            <span id="preview-stream-status-text">Generando presentación…</span>
+                        </div>
                     </div>
-                </div>
-                <div class="preview-stream-orb-overlay" aria-hidden="true">
-                    <span class="preview-stream-orb"></span>
-                </div>
-                <div id="preview-stream-status" class="preview-stream-status" role="status" aria-live="polite">
-                    <span id="preview-stream-status-text">Generando presentación…</span>
                 </div>
             </div>
 

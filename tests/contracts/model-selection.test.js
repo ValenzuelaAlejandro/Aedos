@@ -6,13 +6,28 @@ const { EventEmitter } = require('node:events');
 const { MODEL_CATALOG, DEFAULT_MODEL_ID, resolveModelId, validateAttachments,
     validateModelForGeneration } = require('../../src/backend/config/model-catalog');
 const { FREE_MODELS } = require('../../src/backend/config/provider-spend');
-const { createSelectedModelRouter } = require('../../src/backend/providers/model-selection');
+const { createSelectedModelRouter: createLiveModelRouter } = require('../../src/backend/providers/model-selection');
 const { createGenerateHandler } = require('../../src/backend/http/routes/generate');
 const { createSkeletonHandler } = require('../../src/backend/pipeline/skeleton');
 
 const ErrorCategory = new Proxy({}, { get: (_, key) => key });
 const logger = { info() {}, warn() {}, error() {}, success() {} };
 const emptyStream = async function* () {};
+
+// Routing assertions inspect the final route after its lazy live stream completes.
+function createSelectedModelRouter(options) {
+    const router = createLiveModelRouter(options);
+    return { makeCaller(...args) {
+        const call = router.makeCaller(...args);
+        return async (...params) => {
+            const result = await call(...params);
+            const chunks = [];
+            for await (const chunk of result.stream) chunks.push(chunk);
+            result.stream = (async function* () { yield* chunks; })();
+            return result;
+        };
+    } };
+}
 
 test('model allowlist accepts catalog IDs, defaults missing IDs, and rejects unknown or disabled IDs', () => {
     assert.equal(resolveModelId(undefined).model.id, DEFAULT_MODEL_ID);
@@ -60,7 +75,8 @@ test('model slide compatibility respects the server output cap', () => {
     const nemotron = MODEL_CATALOG['nvidia/nemotron-3.5-lightning'];
     assert.equal(validateModelForGeneration(nemotron, 'flash', 8).valid, true);
     assert.equal(validateModelForGeneration(nemotron, 'flash', 9).maxSlides, 8);
-    assert.equal(validateModelForGeneration(nemotron, 'pro', 8).valid, true);
+    assert.equal(validateModelForGeneration(nemotron, 'pro', 15).valid, true);
+    assert.equal(validateModelForGeneration(nemotron, 'pro', 16).maxSlides, 15);
 });
 
 test('schema generation routes the selected model instead of silently using Gemini', async () => {
@@ -83,18 +99,25 @@ test('schema generation routes the selected model instead of silently using Gemi
         writeSse: (res, event) => res.write(`data: ${JSON.stringify(event)}\n\n`),
         invalidTopic: () => ({ error: 'invalid' }),
         ERROR_TEXT: {},
-        MAX_PRO_SLIDES: 8,
-        MAX_FLASH_SLIDES: 15,
+        MAX_PRO_SLIDES: 15,
+        MAX_FLASH_SLIDES: 8,
         creditsLedger: {
+            reserve: async (_ip, cost) => ({ allowed: true, cost, keys: {} }),
+            commit: async () => true,
+            refund: async () => true,
             reserveSchemaRequest: async () => ({ status: 'allowed' }),
-            reserve: async () => { throw new Error('initial schema must not reserve credits'); },
+            commitSchemaRequest: async () => true,
+            refundSchemaRequest: async () => true,
         },
+        conversationStore: { ensure: async options => ({ valid: true, record: options }) },
+        recordChatUsage: async () => {},
         log: logger,
         ErrorCategory,
     });
     const req = new EventEmitter();
-    req.body = { modelId: selectedModel.id, tema: 'Tema breve', mode: 'flash', slides: 1 };
-    req.headers = {};
+    req.body = { modelId: selectedModel.id, tema: 'Tema breve', mode: 'flash', slides: 1,
+        conversationId: '11111111-1111-4111-8111-111111111111' };
+    req.headers = { 'idempotency-key': 'selected-model-outline-request' };
     req.socket = { remoteAddress: '127.0.0.1' };
     const chunks = [];
     const res = new EventEmitter();
@@ -123,7 +146,7 @@ test('generate rejects unsupported attachments before provider calls and cleans 
             hasGeminiRequestAvailable: async () => false,
             discardUploadedFiles: async files => discarded.push(...files),
             sanitizeTema: tema => ({ valid: true, tema }),
-            MAX_PRO_SLIDES: 8, MAX_FLASH_SLIDES: 15,
+            MAX_PRO_SLIDES: 15, MAX_FLASH_SLIDES: 8,
             trySelectedFlash: async () => { providerCalls += 1; },
             log: logger,
             ErrorCategory
@@ -199,7 +222,7 @@ test('every catalog model routes to HTML through its declared provider', async (
     }
 });
 
-test('a failed paid selection stops when no approved free model is available', async () => {
+test('a paused paid selection stops without switching model', async () => {
         const attemptedModels = [];
         const router = createSelectedModelRouter({
             gemini: async () => { throw new Error('Should skip Gemini when no key is configured.'); },
@@ -218,17 +241,18 @@ test('a failed paid selection stops when no approved free model is available', a
         });
         await assert.rejects(router.makeCaller('Stage3', 'gemini-3.5-flash', ['anthropic/claude-haiku-5.5'])(
             'prompt', null, { selectedModel: MODEL_CATALOG['anthropic/claude-haiku-5.5'] }
-        ), /PROVIDER_UNAVAILABLE/);
+        ), /PAID_PAUSED/);
         assert.deepEqual(attemptedModels, ['anthropic/claude-haiku-5.5']);
 });
 
-test('fallback tries Gemini before OpenRouter free and records the effective model', async () => {
+test('GPT retries on OpenRouter without switching to Gemini', async () => {
         const openrouterCalls = [];
         const router = createSelectedModelRouter({
             gemini: async (prompt, stage, model) => ({ provider: 'gemini', model, stream: emptyStream() }),
             openrouter: async (prompt, stage, models) => {
                 openrouterCalls.push(models[0]);
-                throw new Error('OPENROUTER_ACCEPT_TIMEOUT');
+                if (openrouterCalls.length === 1) throw new Error('OPENROUTER_ACCEPT_TIMEOUT');
+                return { provider: 'openrouter', model: models[0], stream: emptyStream() };
             },
             makeBaseCaller: () => async () => { throw new Error('Unexpected base route.'); },
             getOverride: () => null,
@@ -241,12 +265,12 @@ test('fallback tries Gemini before OpenRouter free and records the effective mod
         const result = await router.makeCaller('Stage3', 'gemini-3.5-flash', [])(
             'prompt', null, { selectedModel: MODEL_CATALOG['openai/gpt-6-luna'] }
         );
-        assert.deepEqual(openrouterCalls, ['openai/gpt-6-luna']);
-        assert.equal(result.modelRoute.effectiveModelId, 'gemini-3.5-flash');
+        assert.deepEqual(openrouterCalls, ['openai/gpt-6-luna', 'openai/gpt-6-luna']);
+        assert.equal(result.modelRoute.effectiveModelId, 'openai/gpt-6-luna');
         assert.equal(result.modelRoute.fallbackReason, 'timeout');
 });
 
-test('a failed Gemini selection does not call a paid model without an approved free alternative', async () => {
+test('a failed Gemini selection uses the exact same model through OpenRouter', async () => {
         const attempts = [];
         const router = createSelectedModelRouter({
             gemini: async () => { attempts.push('gemini'); throw new Error('GEMINI_HTTP_503'); },
@@ -262,10 +286,11 @@ test('a failed Gemini selection does not call a paid model without an approved f
             hasGeminiKey: () => false,
             shouldUseTestStub: () => false
         });
-        await assert.rejects(router.makeCaller('Flash', 'gemini-3-flash-preview', ['anthropic/claude-haiku-5.5'])(
+        const result = await router.makeCaller('Flash', 'gemini-3-flash-preview', ['anthropic/claude-haiku-5.5'])(
             'prompt', null, { selectedModel: MODEL_CATALOG[DEFAULT_MODEL_ID] }
-        ), /PROVIDER_UNAVAILABLE/);
-        assert.deepEqual(attempts, ['gemini']);
+        );
+        assert.deepEqual(attempts, ['gemini', DEFAULT_MODEL_ID]);
+        assert.equal(result.modelRoute.effectiveModelId, DEFAULT_MODEL_ID);
 });
 
 class FakeResponse extends EventEmitter {
@@ -288,7 +313,6 @@ test('Pro final SSE event reports requested and effective model IDs after select
         const router = createSelectedModelRouter({
             gemini: async (prompt, stage, model) => ({ provider: 'gemini', model, stream: emptyStream() }),
             openrouter: async (prompt, stage, models) => {
-                if (models[0] === 'anthropic/claude-haiku-5.5') throw new Error('PAID_PAUSED');
                 return { provider: 'openrouter', model: models[0], stream: emptyStream() };
             },
             makeBaseCaller: () => async () => { throw new Error('Unexpected base route.'); },
@@ -330,7 +354,7 @@ test('Pro final SSE event reports requested and effective model IDs after select
             tryModelsStage3Thinking: noop,
             trySelectedStage3Thinking: router.makeCaller('Stage3', 'gemini-3.5-flash', []),
             buildPrompt: noop,
-            MAX_PRO_SLIDES: 8, MAX_FLASH_SLIDES: 15,
+            MAX_PRO_SLIDES: 15, MAX_FLASH_SLIDES: 8,
             sanitizeGeneratedHtml: html => html,
             injectLayoutSafetyNet: html => html,
             sanitizerLog: logger,
@@ -352,9 +376,9 @@ test('Pro final SSE event reports requested and effective model IDs after select
         const done = events.findLast(event => event.done === true);
         assert.equal(res.statusCode, 200);
         assert.equal(done.requestedModelId, 'anthropic/claude-haiku-5.5');
-        assert.equal(done.effectiveModelId, 'gemini-3.5-flash');
-        assert.equal(done.fallbackReason, 'paid_paused');
+        assert.equal(done.effectiveModelId, 'anthropic/claude-haiku-5.5');
+        assert.equal(done.fallbackReason, null);
         assert.deepEqual(configuredStages.map(stage => stage.stage), ['schema', 'design']);
-        assert.ok(configuredStages.every(stage => stage.selectedModel === undefined));
+        assert.ok(configuredStages.every(stage => stage.selectedModel.id === 'anthropic/claude-haiku-5.5'));
         assert.ok(configuredStages.every(stage => stage.modelRoute.requestedModelId === 'anthropic/claude-haiku-5.5'));
 });

@@ -135,8 +135,15 @@ function createTestProviderResponse(stageName, options = null) {
     const structured = Boolean(options && options.includeReasoning);
     let output;
     if (stageName === 'Stage1') {
+        const slideCount = Number.isSafeInteger(options?.expectedSlides) ? options.expectedSlides : 1;
         output = structured
-            ? JSON.stringify({ slide_count: 1, slides: [{ title: 'Test slide', subtitle: 'Test subtitle', role: 'concept', key_points: ['Test point'] }] })
+            ? JSON.stringify({ slide_count: slideCount, slides: Array.from({ length: slideCount }, (_, index) => ({
+                ...(slideCount > 1 ? { index: index + 1 } : {}),
+                title: slideCount === 1 ? 'Test slide' : `Test slide ${index + 1}`,
+                subtitle: 'Test subtitle',
+                role: index === 0 ? 'cover' : index === slideCount - 1 ? 'conclusion' : 'concept',
+                key_points: ['Test point']
+            })) })
             : JSON.stringify({ title: 'Test slide', role: 'concept', key_points: ['Test point'] });
     } else if (stageName === 'Stage2') {
         output = JSON.stringify({ palette: { background: '#ffffff', text: '#111111', accent: '#3366ff', colors_hex: ['#3366ff', '#111111'] }, typography: { heading: 'Arial', body: 'Arial' }, slides: [] });
