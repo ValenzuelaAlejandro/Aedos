@@ -29,8 +29,14 @@ test('review and lint debt report the current ratchet warning count', () => {
     for (const file of ['FINAL-REVIEW.md', 'LINT-DEBT.md']) {
         assert.match(fs.readFileSync(path.join(root, 'docs', file), 'utf8'), new RegExp(`${totalWarnings} avisos`));
     }
-    const report = require('../../docs/evidence/quality/verification-results.json');
-    assert.equal(report.checks.find(check => check.command === 'npm run verify:quality').legacyWarnings, totalWarnings);
+    const lint = require('node:child_process').spawnSync(process.execPath, [path.join(root, 'scripts', 'lint-ratchet.js')], {
+        cwd: root,
+        encoding: 'utf8',
+    });
+    assert.equal(lint.status, 0, lint.stderr || lint.stdout);
+    const warningCount = lint.stdout.match(/^Lint warnings: (\d+)$/m);
+    assert.ok(warningCount, lint.stdout);
+    assert.equal(Number(warningCount[1]), totalWarnings);
 });
 
 test('untrusted environment prices and request fields cannot restore an old slide scale', async () => {

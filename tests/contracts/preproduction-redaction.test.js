@@ -43,7 +43,8 @@ test('local credential file is ignored and no browser asset or committed evidenc
         });
     }
     const secrets = Object.entries(process.env).filter(([name, value]) => /API_KEY|REST_TOKEN/.test(name) && value?.length >= 12).map(([, value]) => value);
-    for (const file of [...walk('src/frontend'), ...walk('docs/evidence')]) {
+    const evidenceFiles = fs.existsSync('docs/evidence') ? walk('docs/evidence') : [];
+    for (const file of [...walk('src/frontend'), ...evidenceFiles]) {
         const contents = fs.readFileSync(file);
         for (const secret of secrets) assert.ok(!contents.includes(Buffer.from(secret)), `Secret found in ${file}`);
     }
