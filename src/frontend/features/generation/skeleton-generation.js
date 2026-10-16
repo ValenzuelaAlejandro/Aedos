@@ -317,6 +317,7 @@
                     throw new Error("Outline editor not initialized");
                 }
             } catch (error) {
+                if (controller.signal.aborted && window.location.hash === '#home') return;
                 if (generationState.skeletonController && generationState.skeletonController !== controller) return;
                 window.prepareOutlineStreaming?.(generationState.proModeEnabled ? 'pro' : 'flash');
                 if (window.outlineEditorState) window.outlineEditorState.skeleton = window._backupSkeleton || null;

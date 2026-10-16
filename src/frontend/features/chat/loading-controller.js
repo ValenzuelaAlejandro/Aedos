@@ -157,7 +157,7 @@ function createChatLoadingController(deps) {
             if (generateBtn) generateBtn.classList.remove('is-generating');
             if (typeof validateGenerateButton === 'function') validateGenerateButton();
             if (!window._attachedFiles || window._attachedFiles.length === 0) {
-                if (modeBtn) modeBtn.disabled = false;
+                if (modeBtn) modeBtn.disabled = window.AedosConversation?.isActive?.() === true;
             }
             if (langBtn) langBtn.disabled = false;
             if (state.typewriterCursor) state.typewriterCursor.style.display = '';

@@ -105,25 +105,50 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentLangLabel = document.getElementById('current-lang-label');
     const chatInputWrapper = document.querySelector('.chat-input-wrapper');
 
-    // Keep the outline actions and scroll end above the floating composer,
-    // including when its textarea or attachment preview changes height.
-    if (chatScreen && chatInputWrapper) {
-        const updateComposerClearance = () => {
-            const composerTop = chatInputWrapper.getBoundingClientRect().top;
-            const viewportBottom = chatScreen.getBoundingClientRect().bottom;
-            const clearance = Math.max(0, viewportBottom - composerTop + 16);
-            chatScreen.style.setProperty('--chat-composer-clearance', `${clearance}px`);
-        };
-        if (window.ResizeObserver) {
-            new ResizeObserver(updateComposerClearance).observe(chatInputWrapper);
+    installComposerClearance();
+
+    function installComposerClearance() {
+        // Keep the outline actions and scroll end above the floating composer,
+        // including when its textarea or attachment preview changes height.
+        if (chatScreen && chatInputWrapper) {
+            const updateComposerClearance = () => {
+                const viewport = window.visualViewport;
+                const visibleBottom = Math.min(window.innerHeight,
+                    (viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0));
+                chatScreen.style.setProperty('--chat-viewport-height', `${viewport?.height || window.innerHeight}px`);
+                chatScreen.style.setProperty('--chat-keyboard-inset', `${Math.max(0, window.innerHeight - visibleBottom)}px`);
+                const composerTop = chatInputWrapper.getBoundingClientRect().top;
+                const viewportBottom = chatScreen.getBoundingClientRect().bottom;
+                const clearance = Math.max(0, viewportBottom - composerTop + 16);
+                chatScreen.style.setProperty('--chat-composer-clearance', `${clearance}px`);
+                if (chatScreen.classList.contains('chat-mode') && !chatScreen.classList.contains('hidden')) {
+                    const action = (window.outlineEditorState?.activeContainer || document.getElementById('outline-container'))
+                        ?.querySelector('[data-outline-generate], #btn-outline-generate');
+                    const contentBottom = viewportBottom - parseFloat(window.getComputedStyle(chatScreen).scrollPaddingBottom);
+                    if (action && !action.disabled && action.getBoundingClientRect().bottom > contentBottom) {
+                        action.scrollIntoView({ block: 'end', behavior: 'instant' });
+                    }
+                }
+            };
+            const conversationZone = document.getElementById('conversation-zone');
+            if (window.ResizeObserver) {
+                const composerObserver = new ResizeObserver(updateComposerClearance);
+                composerObserver.observe(chatInputWrapper);
+                if (conversationZone) composerObserver.observe(conversationZone);
+            }
+            const composerMutations = new MutationObserver(updateComposerClearance);
+            composerMutations.observe(chatScreen, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+            if (conversationZone) composerMutations.observe(conversationZone, {
+                attributes: true, subtree: true, attributeFilter: ['disabled']
+            });
+            window.addEventListener('resize', updateComposerClearance);
+            window.visualViewport?.addEventListener('resize', updateComposerClearance);
+            window.visualViewport?.addEventListener('scroll', updateComposerClearance);
+            updateComposerClearance();
         }
-        new MutationObserver(updateComposerClearance).observe(chatScreen, {
-            attributes: true,
-            attributeFilter: ['class']
-        });
-        window.addEventListener('resize', updateComposerClearance);
-        window.visualViewport?.addEventListener('resize', updateComposerClearance);
-        updateComposerClearance();
     }
 
     window.AedosAppDropdowns.createAppDropdowns({

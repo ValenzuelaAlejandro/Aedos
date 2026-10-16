@@ -33,14 +33,14 @@
         canvas.style.width = `${displaySize}px`;
         canvas.style.height = `${displaySize}px`;
         canvas.style.display = 'block';
-        const dpr = Math.min(2, global.devicePixelRatio || 1);
         let renderSize = size;
         let renderDisplaySize = displaySize;
-        let bitmapScale = dpr;
+        let bitmapScale = 1;
         function resizeCanvas() {
             const maxBitmapSize = 1536;
-            const renderScale = Math.min(dpr, maxBitmapSize / renderDisplaySize);
-            canvas.width = Math.max(1, Math.round(renderDisplaySize * renderScale));
+            const cssSize = canvas.getBoundingClientRect().width || renderDisplaySize;
+            const renderScale = Math.min(global.devicePixelRatio || 1, maxBitmapSize / cssSize);
+            canvas.width = Math.max(1, Math.round(cssSize * renderScale));
             canvas.height = canvas.width;
             bitmapScale = canvas.width / renderSize;
             canvas.style.width = `${renderDisplaySize}px`;
@@ -48,6 +48,9 @@
         }
         resizeCanvas();
         target.replaceChildren(canvas);
+        const sizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null;
+        sizeObserver?.observe(canvas);
+        global.addEventListener('resize', sync, { passive: true });
 
         let engine = null;
         let modeState = state;
@@ -58,11 +61,19 @@
         const ctx = canvas.getContext('2d');
 
         function paint(time) {
-            if (!engine || !ctx || destroyed) return;
-            const { mode, speed, opts } = engine.resolvePreset(modeState, renderSize);
-            ctx.setTransform(bitmapScale, 0, 0, bitmapScale, 0, 0);
-            ctx.clearRect(0, 0, renderSize, renderSize);
-            engine.MODE_DRAWS[mode](ctx, renderSize, time * speed, isDark(), opts);
+            if (!engine || !ctx || destroyed || !canvas.isConnected || !canvas.clientWidth || !canvas.clientHeight
+                || !engine.STATE_TO_MODE[modeState] || !Number.isFinite(time)) return false;
+            try {
+                const { mode, speed, opts } = engine.resolvePreset(modeState, renderSize);
+                if (typeof engine.MODE_DRAWS[mode] !== 'function') return false;
+                ctx.setTransform(bitmapScale, 0, 0, bitmapScale, 0, 0);
+                ctx.clearRect(0, 0, renderSize, renderSize);
+                engine.MODE_DRAWS[mode](ctx, renderSize, time * speed, isDark(), opts);
+                return true;
+            } catch (_) {
+                stop();
+                return false;
+            }
         }
 
         function stop() {
@@ -73,7 +84,7 @@
         function tick() {
             frameId = null;
             if (destroyed || !canvas.isConnected) { stop(); return; }
-            paint(global.performance.now() / 1000);
+            if (!paint(global.performance.now() / 1000)) return;
             if (!isPaused && visible && !reducedMotion.matches && !document.hidden) {
                 frameId = global.requestAnimationFrame(tick);
             }
@@ -81,6 +92,7 @@
 
         function sync() {
             stop();
+            resizeCanvas();
             paint(isPaused || reducedMotion.matches ? 0.6 : global.performance.now() / 1000);
             if (engine && !destroyed && !isPaused && visible && !reducedMotion.matches && !document.hidden) {
                 frameId = global.requestAnimationFrame(tick);
@@ -92,7 +104,7 @@
             : null;
         observer?.observe(canvas);
         const themeObserver = new MutationObserver(sync);
-        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
         document.addEventListener('visibilitychange', sync);
         reducedMotion.addEventListener('change', sync);
         colorScheme.addEventListener('change', sync);
@@ -115,6 +127,8 @@
                 stop();
                 observer?.disconnect();
                 themeObserver.disconnect();
+                sizeObserver?.disconnect();
+                global.removeEventListener('resize', sync);
                 document.removeEventListener('visibilitychange', sync);
                 reducedMotion.removeEventListener('change', sync);
                 colorScheme.removeEventListener('change', sync);
@@ -133,11 +147,10 @@
     function mountPreview() {
         const host = document.querySelector('.preview-stream-orb');
         const container = document.getElementById('preview-container');
-        const stage = document.getElementById('preview-stage');
+        const stage = host?.parentElement;
         if (!host || !container || !stage) return;
 
-        // Keep the engine's 3D silhouette circular at every aspect ratio. The
-        // canvas fills the slide, while the particle form has its own scale.
+        // Keep the canvas and its buffer square inside the available slide.
         const canvas = document.createElement('canvas');
         canvas.className = 'aedos-thinking-orb';
         canvas.setAttribute('aria-hidden', 'true');
@@ -153,6 +166,8 @@
 
         const isActive = () => container.classList.contains('is-generating')
             && container.classList.contains('is-awaiting-first-slide')
+            && !container.classList.contains('hidden') && canvas.isConnected
+            && canvas.clientWidth > 0 && canvas.clientHeight > 0
             && !document.hidden && !reducedMotion.matches;
         const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
         const toneFor = (white) => {
@@ -175,9 +190,17 @@
             wave: { rings: 14, lonDensity: 32 }
         };
 
+        function canPaintMode(state, time, opacity) {
+            return !(opacity <= 0 || !engine || !ctx || !host.contains(canvas) || !canvas.isConnected
+                || !canvas.width || !canvas.height || !canvas.clientWidth || !canvas.clientHeight
+                || container.classList.contains('hidden') || !container.classList.contains('is-awaiting-first-slide')
+                || !Number.isFinite(time) || !engine.STATE_TO_MODE[state]);
+        }
+
         function paintMode(state, time, opacity) {
-            if (opacity <= 0) return;
+            if (!canPaintMode(state, time, opacity)) return;
             const { mode, speed, opts } = engine.resolvePreset(state, 64);
+            if (typeof engine.MODE_FRAMES[mode] !== 'function') return;
             const frame = engine.MODE_FRAMES[mode](64, time * speed, { ...opts, ...sceneDensity[mode] });
             ctx.globalAlpha = opacity;
             for (const line of frame.lines) {
@@ -199,39 +222,58 @@
             ctx.globalAlpha = 1;
         }
 
+        function canPaint() {
+            return !(!engine || !ctx || !width || !height || !host.contains(canvas) || !canvas.isConnected
+                || !canvas.width || !canvas.height || !canvas.clientWidth || !canvas.clientHeight
+                || container.classList.contains('hidden') || !container.classList.contains('is-generating')
+                || !container.classList.contains('is-awaiting-first-slide') || document.hidden);
+        }
+
         function paint(time = global.performance.now() / 1000) {
-            if (!engine || !ctx || !width || !height) return;
-            ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
-            ctx.clearRect(0, 0, width, height);
-            const centerX = width / 2;
-            const centerY = height * 0.46;
-            const radius = Math.min(width, height) * 0.36;
-            const volume = ctx.createRadialGradient(
-                centerX - radius * 0.28, centerY - radius * 0.32, radius * 0.08,
-                centerX, centerY, radius
-            );
-            volume.addColorStop(0, isDark() ? 'rgba(150,155,175,0.13)' : 'rgba(65,70,90,0.12)');
-            volume.addColorStop(0.55, isDark() ? 'rgba(95,100,120,0.07)' : 'rgba(70,75,95,0.05)');
-            volume.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = volume;
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            ctx.fill();
-            const sequences = {
-                searching: ['searching', 'breathing'],
-                weaving: ['weaving', 'connecting'],
-                composing: ['composing', 'breathing', 'weaving'],
-                working: ['searching', 'breathing']
-            };
-            const sequence = sequences[currentState] || [currentState];
-            const clock = reducedMotion.matches ? stateStartedAt + 0.6 : time;
-            const elapsed = Math.max(0, clock - stateStartedAt);
-            const interval = 5.4;
-            const index = Math.floor(elapsed / interval);
-            const fade = clamp((elapsed % interval - 4.5) / 0.9, 0, 1);
-            const blend = fade * fade * (3 - 2 * fade);
-            paintMode(sequence[index % sequence.length], clock, 1 - blend);
-            if (blend > 0) paintMode(sequence[(index + 1) % sequence.length], clock, blend);
+            if (!canPaint()) return false;
+            // Event/observer payloads are not animation timestamps.
+            if (!Number.isFinite(time)) time = global.performance.now() / 1000;
+            ctx.save();
+            try {
+                ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+                ctx.clearRect(0, 0, width, height);
+                const centerX = width / 2;
+                const centerY = height * 0.46;
+                const radius = Math.min(width, height) * 0.36;
+                const volume = ctx.createRadialGradient(
+                    centerX - radius * 0.28, centerY - radius * 0.32, radius * 0.08,
+                    centerX, centerY, radius
+                );
+                volume.addColorStop(0, isDark() ? 'rgba(150,155,175,0.13)' : 'rgba(65,70,90,0.12)');
+                volume.addColorStop(0.55, isDark() ? 'rgba(95,100,120,0.07)' : 'rgba(70,75,95,0.05)');
+                volume.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = volume;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fill();
+                const sequences = {
+                    searching: ['searching', 'breathing'],
+                    weaving: ['weaving', 'connecting'],
+                    composing: ['composing', 'breathing', 'weaving'],
+                    working: ['searching', 'breathing']
+                };
+                const sequence = sequences[currentState] || [currentState];
+                const clock = reducedMotion.matches ? stateStartedAt + 0.6 : time;
+                const elapsed = Math.max(0, clock - stateStartedAt);
+                const interval = 5.4;
+                const index = Math.floor(elapsed / interval);
+                const fade = clamp((elapsed % interval - 4.5) / 0.9, 0, 1);
+                const blend = fade * fade * (3 - 2 * fade);
+                paintMode(sequence[index % sequence.length], clock, 1 - blend);
+                if (blend > 0) paintMode(sequence[(index + 1) % sequence.length], clock, blend);
+                return true;
+            } catch (_) {
+                if (frameId !== null) global.cancelAnimationFrame(frameId);
+                frameId = null;
+                return false;
+            } finally {
+                ctx.restore();
+            }
         }
 
         function tick(timestamp) {
@@ -239,7 +281,7 @@
             if (!isActive()) return;
             if (timestamp - lastFrameAt >= 33) {
                 lastFrameAt = timestamp;
-                paint(timestamp / 1000);
+                if (!paint(timestamp / 1000)) return;
             }
             frameId = global.requestAnimationFrame(tick);
         }
@@ -247,19 +289,29 @@
         function sync() {
             if (frameId !== null) global.cancelAnimationFrame(frameId);
             frameId = null;
+            // A class change can precede layout/ResizeObserver delivery. Size
+            // the buffer before the first frame and restart after every resize.
+            resize();
             if (isActive()) frameId = global.requestAnimationFrame(tick);
             else paint();
         }
 
         const resize = () => {
-            const bounds = stage.getBoundingClientRect();
-            if (bounds.width <= 0 || bounds.height <= 0) return;
-            width = Math.round(bounds.width);
-            height = Math.round(bounds.height);
-            const pixelRatio = Math.min(1.5, global.devicePixelRatio || 1, 1800 / Math.max(width, height));
+            width = 0; height = 0;
+            if (stage.clientWidth <= 0 || stage.clientHeight <= 0) return;
+            const layout = global.getComputedStyle(stage);
+            const status = document.getElementById('preview-stream-status');
+            const availableWidth = stage.clientWidth - parseFloat(layout.paddingLeft) - parseFloat(layout.paddingRight);
+            const availableHeight = stage.clientHeight - parseFloat(layout.paddingTop) - parseFloat(layout.paddingBottom)
+                - (status?.offsetHeight || 0) - (parseFloat(layout.rowGap) || 0);
+            width = Math.max(0, Math.min(480, availableWidth, availableHeight));
+            height = width;
+            if (!width) return;
+            host.style.width = `${width}px`;
+            host.style.height = `${height}px`;
+            const pixelRatio = Math.min(global.devicePixelRatio || 1, 1800 / width);
             canvas.width = Math.max(1, Math.round(width * pixelRatio));
             canvas.height = Math.max(1, Math.round(height * pixelRatio));
-            paint();
         };
         previewOrb = {
             setState(state) {
@@ -270,14 +322,18 @@
             }
         };
         new MutationObserver(sync).observe(container, { attributes: true, attributeFilter: ['class'] });
-        if (typeof ResizeObserver === 'function') new ResizeObserver(resize).observe(stage);
-        global.addEventListener('resize', resize, { passive: true });
+        if (typeof ResizeObserver === 'function') {
+            const layoutObserver = new ResizeObserver(sync);
+            layoutObserver.observe(stage);
+            const status = document.getElementById('preview-stream-status');
+            if (status) layoutObserver.observe(status);
+        }
+        global.addEventListener('resize', sync, { passive: true });
         document.addEventListener('visibilitychange', sync);
         reducedMotion.addEventListener('change', sync);
-        colorScheme.addEventListener('change', paint);
-        new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
-        engineReady.then((loaded) => { engine = loaded; paint(); sync(); }).catch(() => host.replaceChildren());
-        resize();
+        colorScheme.addEventListener('change', () => paint());
+        new MutationObserver(() => paint()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+        engineReady.then((loaded) => { engine = loaded; sync(); }).catch(() => host.replaceChildren());
         sync();
     }
 

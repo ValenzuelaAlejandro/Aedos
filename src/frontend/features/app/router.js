@@ -11,6 +11,12 @@
         // =========================================================
         // eslint-disable-next-line max-lines-per-function, complexity -- Keep the existing comprehensive reset action intact.
         window.navigateToHome = function() {
+            window.AedosConversation?.startNew(false);
+            generationState.skeletonController?.abort();
+            generationState.skeletonController = null;
+            generationState.activeController?.abort();
+            generationState.activeController = null;
+            window.stopOutlineGeneration?.();
             // Invalidate any queued slide messages/callbacks before tearing down
             // the current preview. This is the equivalent of unmount cleanup for
             // the vanilla iframe-based editor.
@@ -79,6 +85,7 @@
                 // 5. Clean up the first two hardcoded bubbles to their pristine starting state
                 const firstUserText = document.getElementById('chat-user-text');
                 if (firstUserText) firstUserText.textContent = '';
+                document.querySelectorAll('#chat-user-bubble .chat-bubble-files-container').forEach(el => el.remove());
 
                 const firstAiResponse = document.getElementById('chat-ai-response');
                 if (firstAiResponse) {
@@ -165,6 +172,8 @@
             if (window.location.hash !== '#editor') {
                 window.history.pushState(null, '', '#editor');
             }
+            // Release chat-only controls while retaining the ID for the final request.
+            window.AedosConversation?.begin(false);
             // Specific changes handled organically by startFinalGeneration
         };
 
@@ -208,7 +217,7 @@
             // Standard Router Fallback (if no active progress is at risk)
             if (hash === '' || hash === '#home') {
                 window.navigateToHome();
-            } else if (hash === '#chat') {
+            } else if (hash === '#chat' || hash === '#editor') {
                 // As per user requirement: if the user navigates back to the chat from the editor,
                 // they should be returned to the menu to avoid getting stuck in the "creating slides" state.
                 window.navigateToHome();

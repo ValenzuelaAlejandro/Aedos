@@ -884,3 +884,18 @@
 
 :root[data-theme="light"] .mobile-low-balance-warning { color: #5b6472; }
 :root[data-theme="dark"] .mobile-low-balance-warning { color: #c2c9d3; }
+@media (max-width: 480px) {
+    html.model-sheet-open, body.model-sheet-open { overflow: hidden !important; overscroll-behavior: none; }
+    #model-dropdown-menu.mobile-settings-panel {
+        position: fixed; inset: auto 0 0; width: 100%; min-width: 0; max-width: 100%;
+        max-height: 70vh; max-height: 70dvh; margin: 0;
+        overflow-x: hidden; overflow-y: auto;
+    }
+    #model-dropdown-menu .model-sheet-header { display: flex !important; gap: 12px; }
+    #model-sheet-close { flex: 0 0 44px; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--text); font-size: 1.5rem; cursor: pointer; }
+    #model-dropdown-options { overflow: visible; }
+    #model-dropdown-menu .model-dropdown-item { min-height: 44px; }
+    #model-dropdown-menu .model-option-name { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+    #model-dropdown-menu .model-dropdown-item::after { content: ''; flex: 0 0 16px; width: 16px; }
+    #model-dropdown-menu .model-dropdown-item[aria-checked="true"]::after { content: '✓'; }
+}

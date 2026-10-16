@@ -1,5 +1,6 @@
 /* global window, document, getComputedStyle */
 const assert = require('node:assert/strict');
+const { checkLoadingStates, luminance } = require('./visual/streaming-orb-check');
 const fs = require('node:fs');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
@@ -49,13 +50,6 @@ async function dragSettingsHandle(page) {
     await page.mouse.move(bounds.x, bounds.y + 35, { steps: 3 });
     await page.mouse.up();
 }
-function luminance(color) {
-    const channels = color.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => {
-        const normalized = value / 255;
-        return normalized <= .04045 ? normalized / 12.92 : ((normalized + .055) / 1.055) ** 2.4;
-    });
-    return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
-}
 
 function readHeaderGeometry() {
     const mode = document.getElementById('generation-mode-toggle').getBoundingClientRect();
@@ -97,7 +91,9 @@ async function configureRequests(page, origin, creditGate) {
 
 // eslint-disable-next-line max-lines-per-function, complexity -- Validate the full browser retry and responsive lifecycle in one isolated scenario.
 async function check(page, origin, width, theme) {
-    await page.setViewport({ width, height: 900, deviceScaleFactor: 1 });
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    await page.setViewport({ width, height: 900, deviceScaleFactor: width <= 480 ? 2 : 1 });
     const creditGate = deferred();
     await configureRequests(page, origin, creditGate);
     await page.goto(origin, { waitUntil: 'domcontentloaded' });
@@ -330,6 +326,17 @@ async function check(page, origin, width, theme) {
     await page.waitForFunction(() => document.getElementById('preview-stream-status-text').textContent === 'Reintentando...');
     await page.waitForFunction(() => !document.querySelector('iframe').contentDocument?.body?.textContent.includes('FAILED SLIDE'));
     await page.waitForFunction(() => document.getElementById('chat-screen').classList.contains('hidden') && getComputedStyle(document.getElementById('preview-container')).opacity === '1');
+    const orbFrame = await page.$eval('.preview-stream-orb canvas', canvas => canvas.toDataURL());
+    await page.waitForFunction(previous => /** @type {HTMLCanvasElement} */ (document.querySelector('.preview-stream-orb canvas')).toDataURL() !== previous, {}, orbFrame);
+    const orbSize = await page.$eval('.preview-stream-orb canvas', canvas => {
+        const bounds = canvas.getBoundingClientRect();
+        return { width: bounds.width, height: bounds.height, bitmapWidth: canvas.width, bitmapHeight: canvas.height };
+    });
+    assert.ok(orbSize.width > 0 && Math.abs(orbSize.width - orbSize.height) < 1, JSON.stringify(orbSize));
+    assert.equal(orbSize.bitmapWidth, orbSize.bitmapHeight);
+    await page.evaluate(value => { document.documentElement.dataset.theme = value === 'light' ? 'dark' : 'light'; }, theme);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
     const geometry = await page.evaluate(() => {
         const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
         const status = document.getElementById('preview-stream-status-text');
@@ -343,6 +350,11 @@ async function check(page, origin, width, theme) {
     const foreground = luminance(geometry.color), background = luminance(geometry.background);
     const contrast = (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
     assert.ok(contrast >= 4.5, `Retry label contrast ${contrast}`);
+    // A late layout allocation must restart the loop, not leave one static paint.
+    await page.$eval('.preview-stream-orb-overlay', node => { node.style.display = 'none'; });
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await page.$eval('.preview-stream-orb-overlay', node => { node.style.display = ''; });
+    const loadingStates = await checkLoadingStates(page, width, theme, output, capture);
     await capture(page, `presentation-retry-${width}-${theme}`);
     scenario.retry.release();
     await page.waitForFunction(() => document.getElementById('preview-stream-status-text').textContent !== 'Reintentando...');
@@ -350,8 +362,27 @@ async function check(page, origin, width, theme) {
     await page.evaluate(() => window.__uiGeneration);
     await page.waitForFunction(() => document.querySelector('iframe').contentDocument?.body?.textContent.includes('Presentación completa'));
     assert.ok(!await page.evaluate(() => document.querySelector('iframe').contentDocument.body.textContent.includes('FAILED')));
+    await page.evaluate(() => window.navigateToHome());
+    // The preview orb remains mounted after leaving generation. Root class
+    // changes from menu dismissal must not be passed to its animation clock.
+    for (let repeat = 0; repeat < 2; repeat += 1) {
+        await page.click('#btn-model-dropdown');
+        if (width <= 480) await page.click('#model-sheet-close');
+        else await page.keyboard.press('Escape');
+    }
+    assert.deepEqual(pageErrors, [], 'Opening and closing the model selector must produce zero pageerror');
+    if (!await page.$eval('html', node => node.classList.contains('compact-chat-controls'))) {
+        // The existing settings sheet is also used by narrow desktop composers.
+        await page.$eval('.chat-container', node => { node.style.width = '680px'; });
+        await page.waitForFunction(() => document.documentElement.classList.contains('compact-chat-controls'));
+    }
+    for (let repeat = 0; repeat < 2; repeat += 1) {
+        await page.click('#mobile-settings-trigger');
+        await page.click('#mobile-settings-close');
+    }
+    assert.deepEqual(pageErrors, [], 'Opening and closing settings with the orb mounted must produce zero pageerror');
     return { width, theme, header, toolbar, activeCompact: activeToolbar.compact, chatControls, geometry, contrast,
-        liveChat: true, discardedChatDraft: true, discardedSlides: true, retryTextRestored: true };
+        liveChat: true, discardedChatDraft: true, discardedSlides: true, retryTextRestored: true, loadingStates };
 }
 
 (async () => {
