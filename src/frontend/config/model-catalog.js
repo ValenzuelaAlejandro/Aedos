@@ -6,6 +6,7 @@
             id: 'google/gemini-3-flash-preview',
             apiModelId: 'gemini-3-flash-preview',
             name: 'Gemini 3 Flash',
+            descriptionKey: 'models.gemini3Flash.description',
             provider: 'Google',
             brand: 'gemini',
             tier: 'free',
@@ -18,6 +19,7 @@
         {
             id: 'nvidia/nemotron-3.5-lightning',
             name: 'Nemotron 3.5 Lightning',
+            descriptionKey: 'models.nemotron35Lightning.description',
             provider: 'OpenRouter',
             brand: 'nvidia',
             tier: 'light',
@@ -30,6 +32,7 @@
         {
             id: 'openai/gpt-6-luna',
             name: 'GPT-6 Luna',
+            descriptionKey: 'models.gpt6Luna.description',
             provider: 'OpenAI',
             brand: 'openai',
             tier: 'standard',
@@ -42,6 +45,7 @@
         {
             id: 'anthropic/claude-haiku-5.5',
             name: 'Claude Haiku 5.5',
+            descriptionKey: 'models.claudeHaiku55.description',
             provider: 'Anthropic',
             brand: 'anthropic',
             tier: 'standard',

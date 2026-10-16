@@ -93,32 +93,32 @@
             modelOptions.replaceChildren();
             if (creditsUI) creditsUI.setModels(models);
             const visibleModels = models.filter(model => !paused || model.tier === 'free' || model.id === generationState.selectedModelId);
-            ['free', 'light', 'standard'].forEach(tier => {
-                const tierModels = visibleModels.filter(model => model.tier === tier);
-                if (!tierModels.length) return;
-                const heading = document.createElement('div');
-                heading.className = 'model-tier-heading';
-                heading.textContent = window.__t(`tier.${tier}`);
-                modelOptions.appendChild(heading);
-                tierModels.forEach(model => {
-                    const option = document.createElement('button');
-                    option.type = 'button';
-                    option.className = 'dropdown-item model-dropdown-item';
-                    option.dataset.modelId = model.id;
-                    option.dataset.paid = String(model.paid === true);
-                    option.disabled = paused && model.paid === true;
-                    option.setAttribute('role', 'menuitemradio');
-                    option.setAttribute('aria-checked', String(model.id === generationState.selectedModelId));
-                    const icon = document.createElement('span'); renderBrandIcon(icon, model); icon.setAttribute('aria-hidden', 'true');
-                    const name = document.createElement('span'); name.className = 'model-option-name';
-                    name.textContent = model.name;
-                    const quote = creditsUI.getQuote(1, model);
-                    const cost = document.createElement('span'); cost.className = 'model-option-cost';
-                    cost.textContent = window.__t('credits.perSlideMany').replace('{n}', String(quote.ratePercent));
-                    option.append(icon, name, cost);
-                    if (model.id === generationState.selectedModelId) option.classList.add('active');
-                    modelOptions.appendChild(option);
-                });
+            const catalog = window.MODEL_CATALOG || [];
+            const orderedModels = ['free', 'light', 'standard']
+                .flatMap(tier => visibleModels.filter(model => model.tier === tier));
+            orderedModels.forEach(model => {
+                const option = document.createElement('button');
+                option.type = 'button';
+                option.className = 'dropdown-item model-dropdown-item';
+                option.dataset.modelId = model.id;
+                option.dataset.paid = String(model.paid === true);
+                option.disabled = paused && model.paid === true;
+                option.setAttribute('role', 'menuitemradio');
+                option.setAttribute('aria-checked', String(model.id === generationState.selectedModelId));
+                const icon = document.createElement('span'); renderBrandIcon(icon, model); icon.setAttribute('aria-hidden', 'true');
+                const descriptionKey = catalog.find(entry => entry.id === model.id)?.descriptionKey;
+                const description = descriptionKey ? window.__t(descriptionKey) : '';
+                const copy = document.createElement('span'); copy.className = 'model-option-copy';
+                const name = document.createElement('span'); name.className = 'model-option-name';
+                name.textContent = model.name;
+                const detail = document.createElement('span'); detail.className = 'model-option-description';
+                detail.textContent = description;
+                copy.append(name, detail);
+                option.setAttribute('aria-label', window.__t('models.selectorOption')
+                    .replace('{model}', model.name).replace('{description}', description));
+                option.append(icon, copy);
+                if (model.id === generationState.selectedModelId) option.classList.add('active');
+                modelOptions.appendChild(option);
             });
             const pausedMessage = document.getElementById('model-payment-paused-message');
             pausedMessage?.classList.toggle('hidden', !paused);
