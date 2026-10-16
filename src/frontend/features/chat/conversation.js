@@ -37,18 +37,26 @@
         }
         return id;
     }
-    function isActive() { return read(ACTIVE_KEY) === '1' || fallbackActive; }
-    function begin() {
-        fallbackActive = true;
-        write(ACTIVE_KEY, '1');
-        global.document?.body?.classList.add('conversation-active');
-        global.dispatchEvent?.(new global.CustomEvent('aedos:conversation-lock-changed', { detail: { locked: true } }));
+    function isActive() {
+        return global.location?.hash === '#chat'
+            && Boolean(global.document?.getElementById('chat-user-text')?.textContent?.trim()
+                || global.document?.querySelector('#chat-user-bubble .chat-bubble-file-item'))
+            && (read(ACTIVE_KEY) === '1' || fallbackActive);
     }
-    function startNew() {
+    function begin(locked = true) {
+        fallbackActive = locked;
+        if (locked) write(ACTIVE_KEY, '1');
+        else remove(ACTIVE_KEY);
+        global.document?.body?.classList.toggle('conversation-active', locked);
+        global.dispatchEvent?.(new global.CustomEvent('aedos:conversation-lock-changed', { detail: { locked } }));
+    }
+    function startNew(goHome = true) {
         fallbackActive = false; fallbackId = null;
         remove(ID_KEY);
         remove(ACTIVE_KEY);
-        global.location?.reload?.();
+        global.document?.body?.classList.remove('conversation-active');
+        global.dispatchEvent?.(new global.CustomEvent('aedos:conversation-lock-changed', { detail: { locked: false } }));
+        if (goHome) global.navigateToHome?.();
     }
 
     global.AedosConversation = Object.freeze({ getId, isActive, begin, startNew });

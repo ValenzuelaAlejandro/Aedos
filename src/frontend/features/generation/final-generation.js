@@ -231,6 +231,7 @@
                                 continue;
                             }
                             if (parsed.done) {
+                                window.AedosConversation?.startNew(false);
                                 partialSlidesWarning = parsed.warning?.code === 'SLIDES_INCOMPLETE'
                                     ? parsed.warning : null;
                                 previewState.generatedHtml = parsed.html;

@@ -158,6 +158,9 @@
 
 .chat-ai-avatar .aedos-thinking-orb {
     flex: 0 0 auto;
+    aspect-ratio: 1 / 1;
+    max-width: 64px;
+    margin-inline: auto;
 }
 
 .chat-ai-body {
@@ -543,6 +546,7 @@
 .model-dropdown-item[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
 .model-dropdown-item[aria-disabled="true"]:hover { background: transparent; }
 .model-option-name { flex: 1; }
+.model-sheet-header { display: none; }
 .model-option-cost { margin-left: auto; color: var(--muted); font-size: .75rem; white-space: nowrap; }
 .model-paused-message { margin: .55rem .7rem; padding: .55rem .65rem; border-radius: 8px; background: var(--surface2); color: var(--text-secondary); font-size: .77rem; line-height: 1.4; }
 .model-brand-icon { display: inline-flex; flex: 0 0 18px; width: 18px; height: 18px; background: currentColor; }
@@ -616,6 +620,7 @@
 .new-conversation-btn { align-self: flex-start; margin: -.55rem .85rem .25rem; padding: .2rem 0; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: .75rem; cursor: pointer; }
 .new-conversation-btn:hover { color: var(--text); text-decoration: underline; }
 .new-conversation-btn[hidden] { display: none; }
+body:not(.conversation-active) .new-conversation-btn { display: none; }
 .conversation-active .slide-count-control,
 .conversation-active #credits-cost-preview { display: none !important; }
 .action-pill-btn:disabled,

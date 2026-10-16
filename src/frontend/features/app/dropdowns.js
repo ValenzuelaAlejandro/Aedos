@@ -27,9 +27,20 @@
             modelBtn, modelMenu, modelOptions, modeToggle, langBtn, langMenu, exportMenuBtn, exportMenu,
             exportPptxBtn, currentModelLabel, currentModelIcon, currentLangLabel, chatInputWrapper,
         } = elements;
+        const modelAnchor = document.createComment('model menu');
+        modelMenu?.before(modelAnchor);
+        const modelBackdrop = document.getElementById('model-sheet-backdrop');
 
         function closeAllDropdowns() {
             if (modelMenu) modelMenu.classList.add('hidden');
+            if (modelBackdrop) modelBackdrop.hidden = true;
+            modelMenu?.classList.remove('mobile-settings-panel', 'is-open');
+            modelMenu?.setAttribute('role', 'menu');
+            modelMenu?.removeAttribute('aria-modal');
+            if (modelMenu) modelMenu.style.left = '';
+            if (modelAnchor.parentNode && modelMenu) modelAnchor.after(modelMenu);
+            document.documentElement.classList.remove('model-sheet-open');
+            document.body.classList.remove('model-sheet-open');
             if (langMenu) langMenu.classList.add('hidden');
             if (exportMenu) exportMenu.classList.add('hidden');
             if (modelBtn) modelBtn.setAttribute('aria-expanded', 'false');
@@ -122,11 +133,31 @@
                 const isHidden = modelMenu.classList.contains('hidden');
                 closeAllDropdowns();
                 if (isHidden) {
+                    if (window.matchMedia('(max-width: 480px)').matches) {
+                        document.getElementById('mobile-settings-close')?.click();
+                        document.body.append(modelBackdrop, modelMenu);
+                        modelMenu.classList.add('mobile-settings-panel', 'is-open');
+                        modelMenu.setAttribute('role', 'dialog');
+                        modelMenu.setAttribute('aria-modal', 'true');
+                        modelMenu.setAttribute('aria-labelledby', 'model-sheet-title');
+                        document.getElementById('model-sheet-title').textContent = modelBtn.getAttribute('aria-label');
+                        if (modelBackdrop) modelBackdrop.hidden = false;
+                        document.documentElement.classList.add('model-sheet-open');
+                        document.body.classList.add('model-sheet-open');
+                    }
                     modelMenu.classList.remove('hidden');
                     modelBtn.setAttribute('aria-expanded', 'true');
+                    if (window.matchMedia('(max-width: 480px)').matches) {
+                        document.getElementById('model-sheet-close')?.focus({ preventScroll: true });
+                    } else {
+                        modelMenu.style.left = '0px';
+                        const bounds = modelMenu.getBoundingClientRect();
+                        modelMenu.style.left = `${Math.min(0, window.innerWidth - bounds.right - 8)}px`;
+                    }
                 }
             });
             modelMenu.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const item = e.target.closest('.model-dropdown-item[data-model-id]');
                 if (!item || item.disabled || window.AedosConversation?.isActive?.()) return;
                 const model = (creditsUI?.getModels() || window.MODEL_CATALOG || []).find(entry => entry.id === item.dataset.modelId);
@@ -146,6 +177,8 @@
             modeToggle.title = tip;
         }
         function setConversationLock(locked) {
+            locked = locked && window.AedosConversation?.isActive?.() === true;
+            if (locked) closeAllDropdowns();
             if (modelBtn) {
                 modelBtn.disabled = locked;
                 modelBtn.setAttribute('aria-disabled', String(locked));
@@ -159,7 +192,7 @@
                 option.disabled = locked || (paymentsPaused && option.dataset.paid === 'true');
                 option.setAttribute('aria-disabled', String(option.disabled));
             });
-            if (newConversationBtn) newConversationBtn.hidden = !locked;
+            if (newConversationBtn) newConversationBtn.hidden = !locked || window.location.hash !== '#chat';
         }
         newConversationBtn?.addEventListener('click', () => window.AedosConversation?.startNew());
         window.addEventListener('aedos:conversation-lock-changed', event => setConversationLock(Boolean(event.detail?.locked)));
@@ -240,6 +273,18 @@
         }
 
         document.addEventListener('click', closeAllDropdowns);
+        modelBackdrop?.addEventListener('click', closeAllDropdowns);
+        document.getElementById('model-sheet-close')?.addEventListener('click', () => {
+            closeAllDropdowns();
+            modelBtn?.focus({ preventScroll: true });
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && modelMenu && !modelMenu.classList.contains('hidden')) {
+                closeAllDropdowns();
+                modelBtn?.focus({ preventScroll: true });
+            }
+        });
+        window.addEventListener('resize', closeAllDropdowns);
 
         renderModels(window.MODEL_CATALOG || [], false);
     }

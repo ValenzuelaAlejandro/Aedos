@@ -33,14 +33,14 @@
         canvas.style.width = `${displaySize}px`;
         canvas.style.height = `${displaySize}px`;
         canvas.style.display = 'block';
-        const dpr = Math.min(2, global.devicePixelRatio || 1);
         let renderSize = size;
         let renderDisplaySize = displaySize;
-        let bitmapScale = dpr;
+        let bitmapScale = 1;
         function resizeCanvas() {
             const maxBitmapSize = 1536;
-            const renderScale = Math.min(dpr, maxBitmapSize / renderDisplaySize);
-            canvas.width = Math.max(1, Math.round(renderDisplaySize * renderScale));
+            const cssSize = canvas.getBoundingClientRect().width || renderDisplaySize;
+            const renderScale = Math.min(global.devicePixelRatio || 1, maxBitmapSize / cssSize);
+            canvas.width = Math.max(1, Math.round(cssSize * renderScale));
             canvas.height = canvas.width;
             bitmapScale = canvas.width / renderSize;
             canvas.style.width = `${renderDisplaySize}px`;
@@ -48,6 +48,9 @@
         }
         resizeCanvas();
         target.replaceChildren(canvas);
+        const sizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null;
+        sizeObserver?.observe(canvas);
+        global.addEventListener('resize', sync, { passive: true });
 
         let engine = null;
         let modeState = state;
@@ -81,6 +84,7 @@
 
         function sync() {
             stop();
+            resizeCanvas();
             paint(isPaused || reducedMotion.matches ? 0.6 : global.performance.now() / 1000);
             if (engine && !destroyed && !isPaused && visible && !reducedMotion.matches && !document.hidden) {
                 frameId = global.requestAnimationFrame(tick);
@@ -115,6 +119,8 @@
                 stop();
                 observer?.disconnect();
                 themeObserver.disconnect();
+                sizeObserver?.disconnect();
+                global.removeEventListener('resize', sync);
                 document.removeEventListener('visibilitychange', sync);
                 reducedMotion.removeEventListener('change', sync);
                 colorScheme.removeEventListener('change', sync);
@@ -133,11 +139,10 @@
     function mountPreview() {
         const host = document.querySelector('.preview-stream-orb');
         const container = document.getElementById('preview-container');
-        const stage = document.getElementById('preview-stage');
+        const stage = host?.parentElement;
         if (!host || !container || !stage) return;
 
-        // Keep the engine's 3D silhouette circular at every aspect ratio. The
-        // canvas fills the slide, while the particle form has its own scale.
+        // Keep the canvas and its buffer square inside the available slide.
         const canvas = document.createElement('canvas');
         canvas.className = 'aedos-thinking-orb';
         canvas.setAttribute('aria-hidden', 'true');
@@ -252,11 +257,12 @@
         }
 
         const resize = () => {
-            const bounds = stage.getBoundingClientRect();
-            if (bounds.width <= 0 || bounds.height <= 0) return;
-            width = Math.round(bounds.width);
-            height = Math.round(bounds.height);
-            const pixelRatio = Math.min(1.5, global.devicePixelRatio || 1, 1800 / Math.max(width, height));
+            if (stage.clientWidth <= 0 || stage.clientHeight <= 0) return;
+            width = Math.min(480, stage.clientWidth, stage.clientHeight);
+            height = width;
+            host.style.width = `${width}px`;
+            host.style.height = `${height}px`;
+            const pixelRatio = Math.min(global.devicePixelRatio || 1, 1800 / width);
             canvas.width = Math.max(1, Math.round(width * pixelRatio));
             canvas.height = Math.max(1, Math.round(height * pixelRatio));
             paint();
