@@ -31,7 +31,7 @@
         modelMenu?.before(modelAnchor);
         const modelBackdrop = document.getElementById('model-sheet-backdrop');
 
-        function closeAllDropdowns() {
+        function closeModelSheet() {
             if (modelMenu) modelMenu.classList.add('hidden');
             if (modelBackdrop) modelBackdrop.hidden = true;
             modelMenu?.classList.remove('mobile-settings-panel', 'is-open');
@@ -41,6 +41,10 @@
             if (modelAnchor.parentNode && modelMenu) modelAnchor.after(modelMenu);
             document.documentElement.classList.remove('model-sheet-open');
             document.body.classList.remove('model-sheet-open');
+        }
+
+        function closeAllDropdowns() {
+            closeModelSheet();
             if (langMenu) langMenu.classList.add('hidden');
             if (exportMenu) exportMenu.classList.add('hidden');
             if (modelBtn) modelBtn.setAttribute('aria-expanded', 'false');
@@ -272,19 +276,23 @@
             }
         }
 
-        document.addEventListener('click', closeAllDropdowns);
-        modelBackdrop?.addEventListener('click', closeAllDropdowns);
-        document.getElementById('model-sheet-close')?.addEventListener('click', () => {
-            closeAllDropdowns();
-            modelBtn?.focus({ preventScroll: true });
-        });
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && modelMenu && !modelMenu.classList.contains('hidden')) {
+        bindDismissEvents();
+
+        function bindDismissEvents() {
+            document.addEventListener('click', closeAllDropdowns);
+            modelBackdrop?.addEventListener('click', closeAllDropdowns);
+            document.getElementById('model-sheet-close')?.addEventListener('click', () => {
                 closeAllDropdowns();
                 modelBtn?.focus({ preventScroll: true });
-            }
-        });
-        window.addEventListener('resize', closeAllDropdowns);
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && modelMenu && !modelMenu.classList.contains('hidden')) {
+                    closeAllDropdowns();
+                    modelBtn?.focus({ preventScroll: true });
+                }
+            });
+            window.addEventListener('resize', closeAllDropdowns);
+        }
 
         renderModels(window.MODEL_CATALOG || [], false);
     }

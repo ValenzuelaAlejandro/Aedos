@@ -190,11 +190,15 @@
             wave: { rings: 14, lonDensity: 32 }
         };
 
-        function paintMode(state, time, opacity) {
-            if (opacity <= 0 || !engine || !ctx || !host.contains(canvas) || !canvas.isConnected
+        function canPaintMode(state, time, opacity) {
+            return !(opacity <= 0 || !engine || !ctx || !host.contains(canvas) || !canvas.isConnected
                 || !canvas.width || !canvas.height || !canvas.clientWidth || !canvas.clientHeight
                 || container.classList.contains('hidden') || !container.classList.contains('is-awaiting-first-slide')
-                || !Number.isFinite(time) || !engine.STATE_TO_MODE[state]) return;
+                || !Number.isFinite(time) || !engine.STATE_TO_MODE[state]);
+        }
+
+        function paintMode(state, time, opacity) {
+            if (!canPaintMode(state, time, opacity)) return;
             const { mode, speed, opts } = engine.resolvePreset(state, 64);
             if (typeof engine.MODE_FRAMES[mode] !== 'function') return;
             const frame = engine.MODE_FRAMES[mode](64, time * speed, { ...opts, ...sceneDensity[mode] });
@@ -218,11 +222,15 @@
             ctx.globalAlpha = 1;
         }
 
-        function paint(time = global.performance.now() / 1000) {
-            if (!engine || !ctx || !width || !height || !host.contains(canvas) || !canvas.isConnected
+        function canPaint() {
+            return !(!engine || !ctx || !width || !height || !host.contains(canvas) || !canvas.isConnected
                 || !canvas.width || !canvas.height || !canvas.clientWidth || !canvas.clientHeight
                 || container.classList.contains('hidden') || !container.classList.contains('is-generating')
-                || !container.classList.contains('is-awaiting-first-slide') || document.hidden) return false;
+                || !container.classList.contains('is-awaiting-first-slide') || document.hidden);
+        }
+
+        function paint(time = global.performance.now() / 1000) {
+            if (!canPaint()) return false;
             // Event/observer payloads are not animation timestamps.
             if (!Number.isFinite(time)) time = global.performance.now() / 1000;
             ctx.save();
