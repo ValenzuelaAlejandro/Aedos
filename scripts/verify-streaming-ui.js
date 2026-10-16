@@ -327,7 +327,7 @@ async function check(page, origin, width, theme) {
     await page.waitForFunction(() => !document.querySelector('iframe').contentDocument?.body?.textContent.includes('FAILED SLIDE'));
     await page.waitForFunction(() => document.getElementById('chat-screen').classList.contains('hidden') && getComputedStyle(document.getElementById('preview-container')).opacity === '1');
     const orbFrame = await page.$eval('.preview-stream-orb canvas', canvas => canvas.toDataURL());
-    await page.waitForFunction(previous => document.querySelector('.preview-stream-orb canvas').toDataURL() !== previous, {}, orbFrame);
+    await page.waitForFunction(previous => /** @type {HTMLCanvasElement} */ (document.querySelector('.preview-stream-orb canvas')).toDataURL() !== previous, {}, orbFrame);
     const orbSize = await page.$eval('.preview-stream-orb canvas', canvas => {
         const bounds = canvas.getBoundingClientRect();
         return { width: bounds.width, height: bounds.height, bitmapWidth: canvas.width, bitmapHeight: canvas.height };

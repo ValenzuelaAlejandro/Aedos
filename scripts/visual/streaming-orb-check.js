@@ -29,7 +29,7 @@ async function checkLoadingStates(page, width, theme, output, capture) {
         }
         assert.equal(new Set(hashes).size, 5, `Orb must animate across five 500ms frames: ${width}/${theme}/${state}`);
         const layout = await page.evaluate(() => {
-            const canvas = document.querySelector('.preview-stream-orb canvas');
+            const canvas = /** @type {HTMLCanvasElement} */ (document.querySelector('.preview-stream-orb canvas'));
             const orb = canvas.getBoundingClientRect();
             const status = document.getElementById('preview-stream-status');
             const text = status.getBoundingClientRect();
