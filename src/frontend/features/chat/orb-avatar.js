@@ -281,20 +281,29 @@
         function sync() {
             if (frameId !== null) global.cancelAnimationFrame(frameId);
             frameId = null;
+            // A class change can precede layout/ResizeObserver delivery. Size
+            // the buffer before the first frame and restart after every resize.
+            resize();
             if (isActive()) frameId = global.requestAnimationFrame(tick);
             else paint();
         }
 
         const resize = () => {
+            width = 0; height = 0;
             if (stage.clientWidth <= 0 || stage.clientHeight <= 0) return;
-            width = Math.min(480, stage.clientWidth, stage.clientHeight);
+            const layout = global.getComputedStyle(stage);
+            const status = document.getElementById('preview-stream-status');
+            const availableWidth = stage.clientWidth - parseFloat(layout.paddingLeft) - parseFloat(layout.paddingRight);
+            const availableHeight = stage.clientHeight - parseFloat(layout.paddingTop) - parseFloat(layout.paddingBottom)
+                - (status?.offsetHeight || 0) - (parseFloat(layout.rowGap) || 0);
+            width = Math.max(0, Math.min(480, availableWidth, availableHeight));
             height = width;
+            if (!width) return;
             host.style.width = `${width}px`;
             host.style.height = `${height}px`;
             const pixelRatio = Math.min(global.devicePixelRatio || 1, 1800 / width);
             canvas.width = Math.max(1, Math.round(width * pixelRatio));
             canvas.height = Math.max(1, Math.round(height * pixelRatio));
-            paint();
         };
         previewOrb = {
             setState(state) {
@@ -305,14 +314,18 @@
             }
         };
         new MutationObserver(sync).observe(container, { attributes: true, attributeFilter: ['class'] });
-        if (typeof ResizeObserver === 'function') new ResizeObserver(resize).observe(stage);
-        global.addEventListener('resize', resize, { passive: true });
+        if (typeof ResizeObserver === 'function') {
+            const layoutObserver = new ResizeObserver(sync);
+            layoutObserver.observe(stage);
+            const status = document.getElementById('preview-stream-status');
+            if (status) layoutObserver.observe(status);
+        }
+        global.addEventListener('resize', sync, { passive: true });
         document.addEventListener('visibilitychange', sync);
         reducedMotion.addEventListener('change', sync);
         colorScheme.addEventListener('change', () => paint());
         new MutationObserver(() => paint()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-        engineReady.then((loaded) => { engine = loaded; paint(); sync(); }).catch(() => host.replaceChildren());
-        resize();
+        engineReady.then((loaded) => { engine = loaded; sync(); }).catch(() => host.replaceChildren());
         sync();
     }
 

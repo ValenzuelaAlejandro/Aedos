@@ -465,50 +465,60 @@
 /* Live status shown while the final HTML is being generated. It is owned by
    the parent document so it can appear before the first HTML chunk arrives. */
 .preview-stream-status {
-    position: absolute;
-    left: 50%;
-    bottom: clamp(1.25rem, 5vh, 3rem);
-    z-index: 4;
+    position: static;
+    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    max-width: min(90vw, 38rem);
-    padding: 0;
+    max-width: min(100%, 38rem);
+    padding: 0 .5rem;
+    box-sizing: border-box;
+    background: var(--bg);
     color: var(--text);
     font-size: 0.88rem;
+    line-height: 1.5;
     letter-spacing: 0.02em;
     opacity: 0;
     pointer-events: none;
-    transform: translate(-50%, 0.5rem);
     text-align: center;
     text-shadow: 0 1px 16px color-mix(in srgb, var(--bg) 85%, transparent);
-    transition: opacity 0.25s ease, transform 0.25s ease;
+    transition: opacity 0.25s ease;
 }
 
 #preview-container.is-generating .preview-stream-status {
     opacity: 1;
-    transform: translate(-50%, 0);
 }
 
 .preview-stream-orb-overlay {
     position: absolute;
     inset: 0;
     z-index: 2;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 16px;
+    box-sizing: border-box;
     overflow: hidden;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.65s ease;
-    background: radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--text) 3%, transparent), transparent 45%);
+    background: var(--bg);
 }
 
-#preview-container.is-generating.is-awaiting-first-slide .preview-stream-orb-overlay {
+#preview-container.is-generating .preview-stream-orb-overlay {
     opacity: 1;
 }
 
+#preview-container.is-generating.is-awaiting-first-slide .preview-wrapper,
+#preview-container.is-generating.is-awaiting-first-slide .preview-stage { background: var(--bg); }
+#preview-container.is-generating:not(.is-awaiting-first-slide) .preview-stream-orb-overlay { background: transparent; justify-content: flex-end; }
+#preview-container.is-generating:not(.is-awaiting-first-slide) .preview-stream-orb { display: none; }
+
 .preview-stream-orb {
     display: block;
+    flex: 0 0 auto;
     width: min(100%, 480px);
     max-height: 100%;
     aspect-ratio: 1 / 1;
