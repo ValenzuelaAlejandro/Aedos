@@ -61,11 +61,19 @@
         const ctx = canvas.getContext('2d');
 
         function paint(time) {
-            if (!engine || !ctx || destroyed) return;
-            const { mode, speed, opts } = engine.resolvePreset(modeState, renderSize);
-            ctx.setTransform(bitmapScale, 0, 0, bitmapScale, 0, 0);
-            ctx.clearRect(0, 0, renderSize, renderSize);
-            engine.MODE_DRAWS[mode](ctx, renderSize, time * speed, isDark(), opts);
+            if (!engine || !ctx || destroyed || !canvas.isConnected || !canvas.clientWidth || !canvas.clientHeight
+                || !engine.STATE_TO_MODE[modeState] || !Number.isFinite(time)) return false;
+            try {
+                const { mode, speed, opts } = engine.resolvePreset(modeState, renderSize);
+                if (typeof engine.MODE_DRAWS[mode] !== 'function') return false;
+                ctx.setTransform(bitmapScale, 0, 0, bitmapScale, 0, 0);
+                ctx.clearRect(0, 0, renderSize, renderSize);
+                engine.MODE_DRAWS[mode](ctx, renderSize, time * speed, isDark(), opts);
+                return true;
+            } catch (_) {
+                stop();
+                return false;
+            }
         }
 
         function stop() {
@@ -76,7 +84,7 @@
         function tick() {
             frameId = null;
             if (destroyed || !canvas.isConnected) { stop(); return; }
-            paint(global.performance.now() / 1000);
+            if (!paint(global.performance.now() / 1000)) return;
             if (!isPaused && visible && !reducedMotion.matches && !document.hidden) {
                 frameId = global.requestAnimationFrame(tick);
             }
@@ -96,7 +104,7 @@
             : null;
         observer?.observe(canvas);
         const themeObserver = new MutationObserver(sync);
-        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
         document.addEventListener('visibilitychange', sync);
         reducedMotion.addEventListener('change', sync);
         colorScheme.addEventListener('change', sync);
@@ -158,6 +166,8 @@
 
         const isActive = () => container.classList.contains('is-generating')
             && container.classList.contains('is-awaiting-first-slide')
+            && !container.classList.contains('hidden') && canvas.isConnected
+            && canvas.clientWidth > 0 && canvas.clientHeight > 0
             && !document.hidden && !reducedMotion.matches;
         const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
         const toneFor = (white) => {
@@ -181,8 +191,12 @@
         };
 
         function paintMode(state, time, opacity) {
-            if (opacity <= 0) return;
+            if (opacity <= 0 || !engine || !ctx || !host.contains(canvas) || !canvas.isConnected
+                || !canvas.width || !canvas.height || !canvas.clientWidth || !canvas.clientHeight
+                || container.classList.contains('hidden') || !container.classList.contains('is-awaiting-first-slide')
+                || !Number.isFinite(time) || !engine.STATE_TO_MODE[state]) return;
             const { mode, speed, opts } = engine.resolvePreset(state, 64);
+            if (typeof engine.MODE_FRAMES[mode] !== 'function') return;
             const frame = engine.MODE_FRAMES[mode](64, time * speed, { ...opts, ...sceneDensity[mode] });
             ctx.globalAlpha = opacity;
             for (const line of frame.lines) {
@@ -205,38 +219,53 @@
         }
 
         function paint(time = global.performance.now() / 1000) {
-            if (!engine || !ctx || !width || !height) return;
-            ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
-            ctx.clearRect(0, 0, width, height);
-            const centerX = width / 2;
-            const centerY = height * 0.46;
-            const radius = Math.min(width, height) * 0.36;
-            const volume = ctx.createRadialGradient(
-                centerX - radius * 0.28, centerY - radius * 0.32, radius * 0.08,
-                centerX, centerY, radius
-            );
-            volume.addColorStop(0, isDark() ? 'rgba(150,155,175,0.13)' : 'rgba(65,70,90,0.12)');
-            volume.addColorStop(0.55, isDark() ? 'rgba(95,100,120,0.07)' : 'rgba(70,75,95,0.05)');
-            volume.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = volume;
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            ctx.fill();
-            const sequences = {
-                searching: ['searching', 'breathing'],
-                weaving: ['weaving', 'connecting'],
-                composing: ['composing', 'breathing', 'weaving'],
-                working: ['searching', 'breathing']
-            };
-            const sequence = sequences[currentState] || [currentState];
-            const clock = reducedMotion.matches ? stateStartedAt + 0.6 : time;
-            const elapsed = Math.max(0, clock - stateStartedAt);
-            const interval = 5.4;
-            const index = Math.floor(elapsed / interval);
-            const fade = clamp((elapsed % interval - 4.5) / 0.9, 0, 1);
-            const blend = fade * fade * (3 - 2 * fade);
-            paintMode(sequence[index % sequence.length], clock, 1 - blend);
-            if (blend > 0) paintMode(sequence[(index + 1) % sequence.length], clock, blend);
+            if (!engine || !ctx || !width || !height || !host.contains(canvas) || !canvas.isConnected
+                || !canvas.width || !canvas.height || !canvas.clientWidth || !canvas.clientHeight
+                || container.classList.contains('hidden') || !container.classList.contains('is-generating')
+                || !container.classList.contains('is-awaiting-first-slide') || document.hidden) return false;
+            // Event/observer payloads are not animation timestamps.
+            if (!Number.isFinite(time)) time = global.performance.now() / 1000;
+            ctx.save();
+            try {
+                ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+                ctx.clearRect(0, 0, width, height);
+                const centerX = width / 2;
+                const centerY = height * 0.46;
+                const radius = Math.min(width, height) * 0.36;
+                const volume = ctx.createRadialGradient(
+                    centerX - radius * 0.28, centerY - radius * 0.32, radius * 0.08,
+                    centerX, centerY, radius
+                );
+                volume.addColorStop(0, isDark() ? 'rgba(150,155,175,0.13)' : 'rgba(65,70,90,0.12)');
+                volume.addColorStop(0.55, isDark() ? 'rgba(95,100,120,0.07)' : 'rgba(70,75,95,0.05)');
+                volume.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = volume;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fill();
+                const sequences = {
+                    searching: ['searching', 'breathing'],
+                    weaving: ['weaving', 'connecting'],
+                    composing: ['composing', 'breathing', 'weaving'],
+                    working: ['searching', 'breathing']
+                };
+                const sequence = sequences[currentState] || [currentState];
+                const clock = reducedMotion.matches ? stateStartedAt + 0.6 : time;
+                const elapsed = Math.max(0, clock - stateStartedAt);
+                const interval = 5.4;
+                const index = Math.floor(elapsed / interval);
+                const fade = clamp((elapsed % interval - 4.5) / 0.9, 0, 1);
+                const blend = fade * fade * (3 - 2 * fade);
+                paintMode(sequence[index % sequence.length], clock, 1 - blend);
+                if (blend > 0) paintMode(sequence[(index + 1) % sequence.length], clock, blend);
+                return true;
+            } catch (_) {
+                if (frameId !== null) global.cancelAnimationFrame(frameId);
+                frameId = null;
+                return false;
+            } finally {
+                ctx.restore();
+            }
         }
 
         function tick(timestamp) {
@@ -244,7 +273,7 @@
             if (!isActive()) return;
             if (timestamp - lastFrameAt >= 33) {
                 lastFrameAt = timestamp;
-                paint(timestamp / 1000);
+                if (!paint(timestamp / 1000)) return;
             }
             frameId = global.requestAnimationFrame(tick);
         }
@@ -280,8 +309,8 @@
         global.addEventListener('resize', resize, { passive: true });
         document.addEventListener('visibilitychange', sync);
         reducedMotion.addEventListener('change', sync);
-        colorScheme.addEventListener('change', paint);
-        new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+        colorScheme.addEventListener('change', () => paint());
+        new MutationObserver(() => paint()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
         engineReady.then((loaded) => { engine = loaded; paint(); sync(); }).catch(() => host.replaceChildren());
         resize();
         sync();
