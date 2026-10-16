@@ -808,7 +808,7 @@
     .mobile-settings-panel .slide-count-ticks { margin: 0 0 8px; height: 30px; }
     .mobile-settings-panel .slide-count-tick { height: 18px; }
     .mobile-settings-panel .slide-count-tick small { top: 19px; }
-    .mobile-settings-usage-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; padding-top: 8px; border-top: 1px solid var(--border); font-size: .83rem; }
+    .mobile-settings-usage-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 12px 0; border-top: 1px solid var(--border); font-size: .83rem; }
     .mobile-settings-usage-row strong { text-align: right; font-size: .8rem; }
     .credits-cost-chip { display: none !important; }
     .mobile-low-balance-warning:not([hidden]) { display: block; margin-top: 5px; padding: 0 4px; color: var(--text-secondary); font-size: .75rem; line-height: 1.35; }
