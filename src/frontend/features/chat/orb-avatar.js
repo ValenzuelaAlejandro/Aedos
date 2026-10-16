@@ -161,8 +161,18 @@
         let height = 0;
         let frameId = null;
         let lastFrameAt = 0;
+        let lastPaintTime = 0;
         let currentState = previewOrbState;
         let stateStartedAt = global.performance.now() / 1000;
+        let transitionStartedAt = stateStartedAt;
+        let transitionFrom = [];
+        const transitionDuration = 0.5;
+        const sequences = {
+            searching: ['searching', 'breathing'],
+            weaving: ['weaving', 'connecting'],
+            composing: ['composing', 'breathing', 'weaving'],
+            working: ['searching', 'breathing']
+        };
 
         const isActive = () => container.classList.contains('is-generating')
             && container.classList.contains('is-awaiting-first-slide')
@@ -229,10 +239,33 @@
                 || !container.classList.contains('is-awaiting-first-slide') || document.hidden);
         }
 
+        function modeLayers(time) {
+            const elapsed = reducedMotion.matches ? 0 : Math.max(0, time - stateStartedAt);
+            const sequence = sequences[currentState] || [currentState];
+            const interval = 5.4;
+            const index = Math.floor(elapsed / interval);
+            const fade = clamp((elapsed % interval - interval + transitionDuration) / transitionDuration, 0, 1);
+            const blend = fade * fade * (3 - 2 * fade);
+            const weights = new Map([[sequence[index % sequence.length], 1 - blend]]);
+            const next = sequence[(index + 1) % sequence.length];
+            weights.set(next, (weights.get(next) || 0) + blend);
+            const progress = reducedMotion.matches ? 1 : clamp((time - transitionStartedAt) / transitionDuration, 0, 1);
+            const mix = progress * progress * (3 - 2 * progress);
+            if (mix < 1 && transitionFrom.length) {
+                for (const [state, opacity] of weights) weights.set(state, opacity * mix);
+                for (const [state, opacity] of transitionFrom) {
+                    weights.set(state, (weights.get(state) || 0) + opacity * (1 - mix));
+                }
+            } else transitionFrom = [];
+            return [...weights].sort(([left], [right]) => left.localeCompare(right));
+        }
+
         function paint(time = global.performance.now() / 1000) {
             if (!canPaint()) return false;
             // Event/observer payloads are not animation timestamps.
             if (!Number.isFinite(time)) time = global.performance.now() / 1000;
+            time = Math.max(lastPaintTime, time);
+            lastPaintTime = time;
             ctx.save();
             try {
                 ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
@@ -251,21 +284,7 @@
                 ctx.beginPath();
                 ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
                 ctx.fill();
-                const sequences = {
-                    searching: ['searching', 'breathing'],
-                    weaving: ['weaving', 'connecting'],
-                    composing: ['composing', 'breathing', 'weaving'],
-                    working: ['searching', 'breathing']
-                };
-                const sequence = sequences[currentState] || [currentState];
-                const clock = reducedMotion.matches ? stateStartedAt + 0.6 : time;
-                const elapsed = Math.max(0, clock - stateStartedAt);
-                const interval = 5.4;
-                const index = Math.floor(elapsed / interval);
-                const fade = clamp((elapsed % interval - 4.5) / 0.9, 0, 1);
-                const blend = fade * fade * (3 - 2 * fade);
-                paintMode(sequence[index % sequence.length], clock, 1 - blend);
-                if (blend > 0) paintMode(sequence[(index + 1) % sequence.length], clock, blend);
+                for (const [state, opacity] of modeLayers(time)) paintMode(state, time, opacity);
                 return true;
             } catch (_) {
                 if (frameId !== null) global.cancelAnimationFrame(frameId);
@@ -310,15 +329,19 @@
             host.style.width = `${width}px`;
             host.style.height = `${height}px`;
             const pixelRatio = Math.min(global.devicePixelRatio || 1, 1800 / width);
-            canvas.width = Math.max(1, Math.round(width * pixelRatio));
-            canvas.height = Math.max(1, Math.round(height * pixelRatio));
+            const bitmapSize = Math.max(1, Math.round(width * pixelRatio));
+            if (canvas.width !== bitmapSize) canvas.width = bitmapSize;
+            if (canvas.height !== bitmapSize) canvas.height = bitmapSize;
         };
         previewOrb = {
             setState(state) {
                 if (currentState === state) return;
+                const time = Math.max(lastPaintTime, global.performance.now() / 1000);
+                transitionFrom = modeLayers(time);
+                transitionStartedAt = time;
                 currentState = state;
-                stateStartedAt = global.performance.now() / 1000;
-                paint();
+                stateStartedAt = time;
+                paint(time);
             }
         };
         new MutationObserver(sync).observe(container, { attributes: true, attributeFilter: ['class'] });
